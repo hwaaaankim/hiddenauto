@@ -1,0 +1,104 @@
+/* Customer-visible delivery data and change notices, 2026-10-19 v2 */
+.customer-order-changes { margin: 12px 0; padding: 12px 16px; border: 1px solid #f2d39b; border-radius: 10px; background: #fffaf0; color: #64451c; font-size: 13px; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.customer-order-changes summary { cursor: pointer; font-weight: 700; width: fit-content; }
+.customer-order-changes summary:focus-visible, .customer-order-extra summary:focus-visible { outline: 2px solid #a66017; outline-offset: 4px; }
+.customer-order-changes ol { margin: 10px 0 0; padding-left: 20px; }
+.customer-order-changes li { padding: 6px 0; line-height: 1.7; }
+.customer-order-changes small { display: block; }
+.customer-change-help { font-size: 12px; margin: 10px 0 4px; color: #806744; }
+.customer-change-badge { display: inline-flex!important; width: auto!important; min-height: 24px; height: auto!important; padding: 4px 7px!important; margin: 5px 0 0; color: #845009!important; border: 1px solid #eacb95!important; background: #fff7e8!important; border-radius: 5px; font-size: 11px!important; white-space: nowrap; }
+.customer-task-order-cards { display: grid; gap: 18px; }
+.customer-task-order-cards > article { min-width: 0; padding: 20px; }
+.customer-order-identity { display: flex; flex-wrap: wrap; gap: 8px 24px; padding: 12px 0; font-size: 12px; color: #64748b; }
+.customer-order-handler { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 13px; }
+.customer-order-handler > span { color: #64748b; }
+.customer-order-extra { margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 14px; }
+.customer-order-extra > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: #334155; }
+.customer-order-extra[open] > summary { margin-bottom: 14px; }
+.customer-task-order-cards .task-list-order-detail-facts { grid-template-columns: repeat(3, minmax(0,1fr)); }
+.task-list-table .task-list-products-head-grid, .task-list-table .task-list-order-product-line {
+ grid-template-columns: 64px minmax(150px,1.2fr) 105px 72px 40px 74px 105px minmax(190px,1.5fr); gap: 10px; align-items: center;
+}
+.task-list-table .task-list-order-product-line { min-height: 58px; padding: 10px 0; border-bottom: 1px solid #edf0f4; }
+.task-list-table .task-list-order-product-line:last-child { border-bottom: 0; }
+.customer-order-line-id { font-size: 11px; color: #64748b; }
+.customer-order-line-address { white-space: normal; overflow-wrap: anywhere; line-height: 1.55; font-size: 12px; }
+.customer-order-line-method { font-size: 12px; text-align: center; }
+.task-list-products-cell[colspan] { min-width: 990px; }
+.index-main-calendar-event-change { background: #fff2d8!important; color: #815208!important; }
+@media(max-width: 600px) {
+ .customer-task-order-cards > article { padding: 14px; }
+ .customer-task-order-cards .task-list-order-detail-facts { grid-template-columns: repeat(2,minmax(0,1fr)); }
+ .customer-task-order-cards .task-list-order-detail-facts > div:last-child:nth-child(odd) { grid-column: 1 / -1; }
+ .customer-order-changes { padding: 10px 12px; }
+}
+
+/* colspan=3 keeps each product and its delivery information in one grid row. */
+.task-list-col-orders { width: 680px; }
+.task-list-order-detail-facts { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.task-list-order-detail-address strong { overflow-wrap: anywhere; white-space: normal; }
+@media(max-width:600px) {
+ .task-list-order-detail-facts { grid-template-columns: repeat(2,minmax(0,1fr)); }
+ .task-list-order-detail-facts > div:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+
+.task-list-id-cell .customer-change-badge { display: flex!important; margin: 5px auto 0; max-width: 100%; }
+.customer-task-order-cards > article { border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; }
+.customer-task-order-cards > article > header { padding-bottom: 12px; border-bottom: 1px solid #edf0f4; }
+.customer-task-order-cards > article > header .task-list-product-name-text { font-size: 15px; line-height: 1.5; }
+.customer-task-order-cards > article > header > div > span { font-size: 11px; }
+.customer-task-order-cards .task-list-order-detail-facts { background: #f8fafc; padding: 12px; gap: 14px; border-radius: 8px; }
+.customer-task-order-cards .task-list-order-detail-facts span { font-size: 12px; }
+.customer-task-order-cards .task-list-order-detail-facts strong { font-size: 14px; }
+.task-detail-summary-identity { grid-template-columns: repeat(3,minmax(0,1fr)); }
+@media(max-width:600px) {
+ .task-detail-summary-identity { grid-template-columns: 1fr; }
+ .customer-task-order-cards > article > header > div { flex-direction: column; align-items: flex-start; gap: 4px; }
+}
+
+.index-main-modal-order-list > .index-main-modal-order-card:only-child { grid-column: 1 / -1; }
+
+/* v3: current orders take priority; history stays compact until requested. */
+.customer-order-changes { margin: 8px 0; padding: 7px 10px; border-radius: 5px; font-size: 12px; }
+.customer-order-changes li { padding: 4px 0; line-height: 1.5; }
+.customer-order-changes > ol, .customer-change-history > ol { max-height: 260px; overflow-y: auto; }
+.customer-change-groups { list-style: none; margin: 8px 0 0; padding: 0; }
+.customer-change-groups > li + li { border-top: 1px solid #eee4d6; }
+.customer-change-groups a, .customer-change-groups strong { font-size: 12px; overflow-wrap: anywhere; }
+.customer-change-short { display: block; color: #6b5a41; font-size: 12px; line-height: 1.5; }
+.customer-change-more { margin-top: 6px; }
+.customer-change-more[open] { max-height: 320px; overflow-y: auto; }
+.customer-change-history { margin-top: 4px; }
+.customer-change-history summary, .customer-change-more summary { font-size: 12px; cursor: pointer; }
+.customer-change-dialog { width: min(560px, calc(100vw - 24px)); max-height: min(70vh, 520px); padding: 14px; border: 1px solid #e2d5bf; border-radius: 5px; box-shadow: 0 12px 40px #0003; }
+.customer-change-dialog::backdrop { background: #17233a44; }
+.customer-change-dialog header { display:flex; gap:12px; align-items:center; justify-content:space-between; }
+.customer-change-dialog header strong { font-size:14px; }
+.customer-change-dialog header button { border:1px solid #ddd; border-radius:5px; padding:5px 10px; background:white; white-space:nowrap; }
+.customer-change-dialog-body { margin-top:8px; overflow-y:auto; max-height:50vh; }
+/* v4: only matching Orders are emphasized; sibling Orders stay readable. */
+.customer-order-line-id small { display:block; width:fit-content; margin:2px auto 0; font-size:10px; white-space:nowrap; }
+.task-list-order-product-line.customer-search-match,
+.task-list-order-detail-card.customer-search-match { background:#eef7ff; box-shadow:inset 3px 0 #4687bf; }
+.customer-search-match .customer-order-line-id { padding-left:6px; }
+.customer-search-match .customer-search-badge { display:inline-block; padding:0 4px; border:1px solid #a7c9e5; border-radius:3px; background:#d8eafa; color:#174e79; font-weight:700; line-height:1.5; white-space:nowrap; }
+.customer-search-sibling .customer-search-badge { color:#64748b; font-weight:400; }
+.customer-search-match .task-list-product-name-text,
+.customer-search-match .customer-order-line-id > span,
+.customer-search-match .customer-order-line-method,
+.customer-search-match .task-list-product-delivery-date,
+.customer-search-match .customer-order-line-address,
+.customer-search-match .customer-order-shipping-value,
+.task-list-order-detail-card.customer-search-match > header > div > span,
+.customer-search-match .task-list-order-detail-address strong { color:#174e79; font-weight:800; }
+.customer-search-sibling .task-list-product-name-text,
+.customer-search-sibling .task-list-product-delivery-date { font-weight:600; }
+.task-list-order-detail-card.customer-search-match,
+.task-list-order-detail-card.customer-search-sibling { padding-inline:10px; }
+.customer-search-label { margin:0 0 6px; color:#64748b; font-size:11px; line-height:18px; }
+.customer-calendar-history { margin: 10px 0; }
+.customer-calendar-history > summary { cursor:pointer; padding:8px 10px; border:1px solid #eadbc3; border-radius:5px; background:#fffaf0; font-size:12px; }
+.customer-calendar-history-body { max-height:340px; overflow-y:auto; padding:0 4px; }
+.customer-calendar-history-task { padding:8px; border-bottom:1px solid #ede6dc; }
+.customer-calendar-history-task > header { display:flex; justify-content:space-between; gap:8px; font-size:12px; }
+.customer-calendar-history-task .customer-order-changes { margin-bottom:0; }

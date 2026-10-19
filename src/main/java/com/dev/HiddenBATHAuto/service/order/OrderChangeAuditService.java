@@ -32,6 +32,7 @@ import com.dev.HiddenBATHAuto.enums.order.OrderWorkArea;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.audit.OrderChangeEvent;
+import com.dev.HiddenBATHAuto.model.task.audit.CustomerOrderSearchSnapshot;
 import com.dev.HiddenBATHAuto.model.task.audit.OrderChangeField;
 import com.dev.HiddenBATHAuto.model.task.audit.OrderChangeImpact;
 import com.dev.HiddenBATHAuto.model.task.audit.OrderMemberCheckStatus;
@@ -148,6 +149,29 @@ public class OrderChangeAuditService {
             String notificationMessage,
             Collection<Long> additionalRecipientMemberIds
     ) {
+        return recordOrderChange(order, sourceArea, actorMemberId, actorUsername, actorDisplayName,
+                operationCode, operationLabel, requestPath, changes, notificationAudience,
+                notificationTitle, notificationMessage, additionalRecipientMemberIds, null);
+    }
+
+    /** 고객 검색 문맥도 이벤트 최초 저장/알림 생성 전에 같은 트랜잭션으로 보존합니다. */
+    @Transactional
+    public OrderChangeEvent recordOrderChange(
+            Order order,
+            OrderChangeSourceArea sourceArea,
+            Long actorMemberId,
+            String actorUsername,
+            String actorDisplayName,
+            String operationCode,
+            String operationLabel,
+            String requestPath,
+            List<OrderFieldChangeCommand> changes,
+            OrderNotificationAudience notificationAudience,
+            String notificationTitle,
+            String notificationMessage,
+            Collection<Long> additionalRecipientMemberIds,
+            CustomerOrderSearchSnapshot customerSearchBefore
+    ) {
         if (order == null || order.getId() == null) {
             throw new IllegalArgumentException("변경이력을 기록할 오더가 없습니다.");
         }
@@ -180,6 +204,8 @@ public class OrderChangeAuditService {
                 requestPath,
                 summary
         );
+
+        captureCustomerContext(event, lockedOrder, actualChanges, customerSearchBefore);
 
         int sortOrder = 0;
         EnumSet<OrderWorkArea> affectedAreas = EnumSet.noneOf(OrderWorkArea.class);
@@ -215,6 +241,39 @@ public class OrderChangeAuditService {
         );
 
         return savedEvent;
+    }
+
+    private void captureCustomerContext(OrderChangeEvent event, Order order,
+            List<OrderFieldChangeCommand> changes, CustomerOrderSearchSnapshot explicitBefore) {
+        boolean registration = changes.stream().anyMatch(c -> "registration".equals(c.fieldKey()));
+        if (registration) return;
+        boolean deleted = changes.stream().anyMatch(c -> "deleted".equals(c.fieldKey()));
+        CustomerOrderSearchSnapshot before = explicitBefore;
+        if (before == null) {
+            // 상태/담당자 등 내부 변경은 검색 관련 값이 그대로입니다. 상태만 이전 코드로 되돌립니다.
+            // 주소/배송일/제품 수정 경로는 저장 후 값을 과거 값으로 추측하지 않도록 원본을 요구합니다.
+            Set<String> requiringBefore = Set.of("preferredDeliveryDate", "deliveryAddress", "siteAddress",
+                    "deliveryMethod", "productName", "productCategory", "optionJson",
+                    "requesterCompany", "requesterMember", "ordererName", "ordererPhone");
+            if (!deleted && changes.stream().anyMatch(c -> requiringBefore.contains(c.fieldKey()))) {
+                throw new IllegalStateException("고객 발주 변경 전 정보가 누락되었습니다. orderId=" + order.getId());
+            }
+            before = CustomerOrderSearchSnapshot.from(order);
+            for (OrderFieldChangeCommand change : changes) {
+                if ("status".equals(change.fieldKey())) {
+                    String value = change.beforeValue();
+                    before.setStatus(java.util.Arrays.stream(com.dev.HiddenBATHAuto.model.task.OrderStatus.values())
+                            .filter(status -> status.name().equals(value) || status.getLabel().equals(value))
+                            .map(Enum::name).findFirst().orElse(null));
+                }
+            }
+        }
+        if (!Objects.equals(before.getOrderId(), order.getId())
+                || !Objects.equals(before.getTaskId(), order.getTask() == null ? null : order.getTask().getId())) {
+            throw new IllegalStateException("다른 발주의 변경 전 정보를 저장할 수 없습니다. orderId=" + order.getId());
+        }
+        event.captureCustomerSearchBefore(before);
+        if (deleted) event.clearCustomerSearchAfterDeletion();
     }
 
     @Transactional(readOnly = true)

@@ -6,7 +6,8 @@
 
 <body class="theme-light task-list-body" data-highlight="highlight-red" data-gradient="body-default">
 
-	<link rel="stylesheet" href="/front/customer-management-v2.css?v=20260908-2">
+	<link rel="stylesheet" href="/front/customer-management-v2.css?v=20261019-3">
+<link rel="stylesheet" href="/front/customer-order-changes.css?v=20261019-4">
 
 	<th:block th:replace="fragments/front/common :: autoLoader"></th:block>
 
@@ -14,6 +15,11 @@
 		<th:block th:replace="fragments/front/common :: autoHeaderMenu"></th:block>
 
 		<div class="page-content header-clear-medium">
+
+			<div class="task-delivery-date-guide" role="note">
+				<p><span class="task-delivery-date-marker" aria-hidden="true">*</span> 배송일·주소·배송수단이 다른 제품이 포함된 주문입니다.</p>
+				<p>검색 일치 제품은 파란색·굵게 표시합니다. 함께 주문한 제품과 전체 금액도 표시합니다.</p>
+			</div>
 
 			<form method="get" th:action="@{/customer/taskList}" id="task-list-filter-form" class="task-list-filter-form">
 				<input type="hidden" name="page" value="0">
@@ -64,7 +70,7 @@
 					<div class="task-list-filter-summary"
 						th:if="${filter.startDate != null or filter.endDate != null or (filter.status != null and filter.status != 'all') or (filter.category != null and filter.category != 'all') or filter.provinceId != null}">
 						<span class="task-list-filter-chip" th:if="${filter.startDate != null or filter.endDate != null}"
-							th:text="${(filter.dateType == 'delivery' ? '배송예정일' : '발주일') + ' ' + (filter.startDate != null ? filter.startDate : '처음') + ' ~ ' + (filter.endDate != null ? filter.endDate : '이후 전체')}"></span>
+							th:text="${(filter.dateType == 'delivery' ? '배송희망일' : '발주일') + ' ' + (filter.startDate != null ? filter.startDate : '처음') + ' ~ ' + (filter.endDate != null ? filter.endDate : '이후 전체')}"></span>
 						<span class="task-list-filter-chip" th:if="${selectedOrderStatusLabel != null}"
 							th:text="${selectedOrderStatusLabel}"></span>
 						<span class="task-list-filter-chip" th:if="${filter.category != null and filter.category != 'all'}" th:text="${filter.category}"></span>
@@ -75,8 +81,9 @@
 			</form>
 
 			<section class="task-list-table-panel">
-				<div class="task-list-table-meta">
-					<div><strong th:text="${#numbers.formatInteger(taskPage.totalElements, 1, 'COMMA') + '건'}">0건</strong><span>조회되었습니다.</span></div>
+				<details class="customer-order-changes customer-search-history" th:if="${searchChangeGroups != null and !searchChangeGroups.isEmpty()}"><summary th:text="${(searchActive ? '검색조건에서 변경·삭제된 제품 ' : '최근 삭제된 제품 ') + searchChangeGroups.size() + '건'}"></summary><p class="customer-change-help">저장된 변경 당시 정보로 확인한 내역입니다. 현재 발주 건수·금액에는 포함하지 않습니다.</p><ul class="customer-change-groups"><li th:each="group : ${searchChangeGroups.size() > 3 ? searchChangeGroups.subList(0,3) : searchChangeGroups}"><a th:if="${group.taskAvailable and !group.deleted}" th:href="@{/customer/taskDetail/{id}(id=${group.taskId})} + '#task-detail-order-' + ${group.orderId}" th:text="${group.productLabel}"></a><strong th:if="${!group.taskAvailable or group.deleted}" th:text="${group.productLabel}"></strong><span class="customer-change-short" th:text="${group.summary}"></span><a class="customer-change-task-link" th:if="${group.taskAvailable and group.deleted}" th:href="@{/customer/taskDetail/{id}(id=${group.taskId})}" th:text="${'TASK-' + group.taskId}"></a><details class="customer-change-history" th:if="${group.deleted}"><summary>삭제 내역 보기</summary><ol><li th:each="change : ${group.recentChanges}" th:text="${change.description}"></li></ol><details th:if="${!group.olderChanges.isEmpty()}"><summary>이전 변경 더 보기</summary><ol><li th:each="change : ${group.olderChanges}" th:text="${change.description}"></li></ol></details></details></li></ul><details class="customer-change-more" th:if="${searchChangeGroups.size() > 3}"><summary>다른 변경 제품 더 보기</summary><ul class="customer-change-groups"><li th:each="group : ${searchChangeGroups.subList(3,searchChangeGroups.size())}"><a th:if="${group.taskAvailable and !group.deleted}" th:href="@{/customer/taskDetail/{id}(id=${group.taskId})} + '#task-detail-order-' + ${group.orderId}" th:text="${group.productLabel}"></a><strong th:if="${!group.taskAvailable or group.deleted}" th:text="${group.productLabel}"></strong><span class="customer-change-short" th:text="${group.summary}"></span><a class="customer-change-task-link" th:if="${group.taskAvailable and group.deleted}" th:href="@{/customer/taskDetail/{id}(id=${group.taskId})}" th:text="${'TASK-' + group.taskId}"></a><details class="customer-change-history" th:if="${group.deleted}"><summary>삭제 내역 보기</summary><ol><li th:each="change : ${group.recentChanges}" th:text="${change.description}"></li></ol><details th:if="${!group.olderChanges.isEmpty()}"><summary>이전 변경 더 보기</summary><ol><li th:each="change : ${group.olderChanges}" th:text="${change.description}"></li></ol></details></details></li></ul></details></details>
+<div class="task-list-table-meta">
+					<div><strong th:text="${'주문 묶음 ' + #numbers.formatInteger(taskPage.totalElements, 1, 'COMMA') + '건'}">0건</strong><span>조회되었습니다.</span></div>
 					<div class="task-list-sort-guide"><i class="fa fa-sort me-1"></i>위·아래 화살표: 오름·내림차순 · 같은 화살표 재클릭: 해제 · 행 클릭: 통합 상세 이동</div>
 				</div>
 
@@ -100,7 +107,7 @@
 						<colgroup>
 							<col class="task-list-col-id"><col class="task-list-col-orderer"><col class="task-list-col-orderer">
 							<col class="task-list-col-orders"><col class="task-list-col-method"><col class="task-list-col-address">
-							<col class="task-list-col-date"><col class="task-list-col-date"><col class="task-list-col-price">
+							<col class="task-list-col-date"><col class="task-list-col-price">
 							<col class="task-list-col-price"><col class="task-list-col-price"><col class="task-list-col-price">
 							<col class="task-list-col-price"><col class="task-list-col-status"><col class="task-list-col-manager"><col class="task-list-col-note">
 						</colgroup>
@@ -109,19 +116,17 @@
 								<th><div class="task-list-sortable-head"><span>Task ID</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="id" data-sort-dir="asc" aria-label="Task ID 오름차순"><span aria-hidden="true">▲</span></button><button type="button" data-sort-field="id" data-sort-dir="desc" aria-label="Task ID 내림차순"><span aria-hidden="true">▼</span></button></span></div></th>
 								<th>신청자</th>
 								<th><div class="task-list-sortable-head"><span>주문자명</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="ordererName" data-sort-dir="asc" aria-label="주문자명 오름차순"><span aria-hidden="true">▲</span></button><button type="button" data-sort-field="ordererName" data-sort-dir="desc" aria-label="주문자명 내림차순"><span aria-hidden="true">▼</span></button></span></div></th>
-								<th class="task-list-products-head">
+								<th class="task-list-products-head" colspan="3">
 									<div class="task-list-products-head-grid" aria-label="제품 정보">
-										<span class="task-list-products-head-spacer" aria-hidden="true"></span>
+										<span>Order</span>
 										<span class="task-list-products-head-name">제품명</span>
 										<span class="task-list-products-head-size">사이즈</span>
 										<span class="task-list-products-head-color">색상</span>
-										<span class="task-list-products-head-quantity">수량</span>
+										<span class="task-list-products-head-quantity">수량</span><span>배송수단</span>
+										<div class="task-list-sortable-head task-list-products-head-delivery" title="Task 내 가장 빠른 배송희망일 기준으로 정렬"><span>배송희망일</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="deliveryDate" data-sort-dir="asc" aria-label="배송희망일 오름차순"><span aria-hidden="true">▲</span></button><button type="button" data-sort-field="deliveryDate" data-sort-dir="desc" aria-label="배송희망일 내림차순"><span aria-hidden="true">▼</span></button></span></div><span>배송주소</span>
 									</div>
 								</th>
-								<th><div class="task-list-sortable-head"><span>배송수단</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="deliveryMethod" data-sort-dir="asc" aria-label="배송수단 오름차순"><span aria-hidden="true">▲</span></button><button type="button" data-sort-field="deliveryMethod" data-sort-dir="desc" aria-label="배송수단 내림차순"><span aria-hidden="true">▼</span></button></span></div></th>
-								<th><div class="task-list-sortable-head"><span>배송지</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="address" data-sort-dir="asc" aria-label="배송지 오름차순"><span aria-hidden="true">▲</span></button><button type="button" data-sort-field="address" data-sort-dir="desc" aria-label="배송지 내림차순"><span aria-hidden="true">▼</span></button></span></div></th>
 								<th><div class="task-list-sortable-head"><span>발주일</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="createdAt" data-sort-dir="asc" aria-label="발주일 오름차순"><span aria-hidden="true">▲</span></button><button type="button" data-sort-field="createdAt" data-sort-dir="desc" aria-label="발주일 내림차순"><span aria-hidden="true">▼</span></button></span></div></th>
-								<th><div class="task-list-sortable-head"><span>배송예정일</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="deliveryDate" data-sort-dir="asc" aria-label="배송예정일 오름차순"><span aria-hidden="true">▲</span></button><button type="button" data-sort-field="deliveryDate" data-sort-dir="desc" aria-label="배송예정일 내림차순"><span aria-hidden="true">▼</span></button></span></div></th>
 								<th><div class="task-list-sortable-head"><span>제품금액<br>(VAT 제외)</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="totalPrice" data-sort-dir="asc" aria-label="제품금액 오름차순"><span aria-hidden="true">▲</span></button><button type="button" data-sort-field="totalPrice" data-sort-dir="desc" aria-label="제품금액 내림차순"><span aria-hidden="true">▼</span></button></span></div></th>
 								<th>제품합계<br>(VAT 포함)</th>
 								<th title="Task 전체에 한 번만 적용"><div class="task-list-sortable-head"><span>포장비</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="packingCost" data-sort-dir="asc" aria-label="포장비 오름차순"><span aria-hidden="true">▲</span></button><button type="button" data-sort-field="packingCost" data-sort-dir="desc" aria-label="포장비 내림차순"><span aria-hidden="true">▼</span></button></span></div></th>
@@ -136,25 +141,23 @@
 							<th:block th:each="row : ${taskPage.content}">
 							<tr class="task-list-main-row" role="link" tabindex="0"
 								th:attr="data-detail-url=@{/customer/taskDetail/{taskId}(taskId=${row.task.id})},aria-label=|Task #${row.task.id} 통합 상세 보기|">
-								<td class="task-list-id-cell" th:text="${'#' + row.task.id}">#1</td>
+								<td class="task-list-id-cell"><span th:text="${'#' + row.task.id}">#1</span><span class="task-delivery-date-marker" th:if="${row.mixedDeliveryDetails}" title="현재 주문에는 배송일·배송주소·배송수단이 다른 제품이 포함되어 있습니다." aria-label="배송 정보가 다른 제품 포함">*</span><button type="button" class="customer-change-badge" th:if="${!row.changes.isEmpty()}" th:title="${row.changeTooltip}" th:attr="data-customer-change-target=|task-change-panel-${row.task.id}|" th:text="${'변경 ' + row.changedOrderCount + '건'}" aria-haspopup="dialog"></button><div hidden th:id="|task-change-panel-${row.task.id}|" th:attr="data-title=|TASK-${row.task.id} · 변경된 제품 ${row.changedOrderCount}건|"><ul class="customer-change-groups"><li th:each="group : ${row.recentChangeGroups}"><a th:if="${!group.deleted}" th:href="${'#task-list-order-' + group.orderId}" data-customer-order-jump th:text="${group.productLabel}"></a><strong th:if="${group.deleted}" th:text="${group.productLabel}"></strong><span class="customer-change-short" th:text="${group.summary}"></span><details class="customer-change-history" th:if="${group.deleted}"><summary>삭제 내역 보기</summary><ol><li th:each="change : ${group.recentChanges}" th:text="${change.description}"></li></ol><details th:if="${!group.olderChanges.isEmpty()}"><summary>이전 변경 더 보기</summary><ol><li th:each="change : ${group.olderChanges}" th:text="${change.description}"></li></ol></details></details></li></ul><details class="customer-change-more" th:if="${!row.olderChangeGroups.isEmpty()}"><summary th:text="${'다른 변경 제품 ' + row.olderChangeGroups.size() + '건 더 보기'}"></summary><ul class="customer-change-groups"><li th:each="group : ${row.olderChangeGroups}"><a th:if="${!group.deleted}" th:href="${'#task-list-order-' + group.orderId}" data-customer-order-jump th:text="${group.productLabel}"></a><strong th:if="${group.deleted}" th:text="${group.productLabel}"></strong><span class="customer-change-short" th:text="${group.summary}"></span><details class="customer-change-history" th:if="${group.deleted}"><summary>삭제 내역 보기</summary><ol><li th:each="change : ${group.recentChanges}" th:text="${change.description}"></li></ol><details th:if="${!group.olderChanges.isEmpty()}"><summary>이전 변경 더 보기</summary><ol><li th:each="change : ${group.olderChanges}" th:text="${change.description}"></li></ol></details></details></li></ul></details></div></td>
 								<td class="task-list-orderer-cell" th:text="${row.requesterName}">신청자</td>
 								<td class="task-list-orderer-cell" th:text="${row.ordererName}">주문자</td>
-									<td class="task-list-products-cell">
+									<td class="task-list-products-cell" colspan="3">
 										<div class="task-list-order-products" th:if="${row.orderSummaries != null and !row.orderSummaries.isEmpty()}">
-											<div class="task-list-order-product-line" th:each="orderSummary : ${row.orderSummaries}" th:title="${'Order #' + orderSummary.orderId}">
-												<span class="task-list-order-product-icon" aria-hidden="true">•</span>
+											<div class="task-list-order-product-line" th:each="orderSummary : ${row.orderSummaries}" th:classappend="${row.searchFiltered ? (orderSummary.searchMatch ? 'customer-search-match' : 'customer-search-sibling') : ''}" th:title="${'Order #' + orderSummary.orderId}">
+												<span class="customer-order-line-id"><span th:text="${'#' + orderSummary.orderId}"></span><small class="customer-search-badge" th:if="${row.searchFiltered}" th:text="${orderSummary.searchMatch ? '검색 일치' : '함께 주문'}"></small></span>
 												<strong class="task-list-product-name-text" th:text="${orderSummary.productName}">제품명</strong>
 												<span class="task-list-product-size" th:text="${orderSummary.size}">-</span>
 												<span class="task-list-product-color" th:text="${orderSummary.color}">-</span>
 												<span class="task-list-product-quantity" th:text="${orderSummary.quantity + '개'}">1개</span>
+												<span class="customer-order-line-method" th:text="${orderSummary.deliveryMethodName}"></span><span class="task-list-product-delivery-date" th:text="${orderSummary.deliveryDate != null ? #temporals.format(orderSummary.deliveryDate, 'yyyy/MM/dd') : '미정'}">미정</span><span class="customer-order-line-address" th:text="${orderSummary.deliveryAddress}"></span>
 											</div>
 										</div>
 										<span th:if="${row.orderSummaries == null or row.orderSummaries.isEmpty()}">-</span>
 									</td>
-									<td th:text="${row.deliveryMethodName}">현장배송</td>
-									<td class="task-list-address-cell" th:text="${row.deliveryRegion}">서울 송파구</td>
 									<td th:text="${row.task.createdAt != null ? #temporals.format(row.task.createdAt, 'yyyy/MM/dd') : '-'}">-</td>
-									<td th:text="${row.deliveryDate != null ? #temporals.format(row.deliveryDate, 'yyyy/MM/dd') : '-'}">-</td>
 								<td class="task-list-price-cell" th:text="${#numbers.formatInteger(row.supplyPrice, 1, 'COMMA') + '원'}">0원</td>
 								<td class="task-list-price-cell" th:text="${#numbers.formatInteger(row.vatIncludedTotalPrice, 1, 'COMMA') + '원'}">0원</td>
 								<td class="task-list-price-cell" th:text="${#numbers.formatInteger(row.packingCost, 1, 'COMMA') + '원'}">0원</td>
@@ -187,15 +190,17 @@
 									</td>
 								</tr>
 								<tr class="task-list-order-detail-row">
-								<td colspan="16" class="task-list-order-detail-cell">
+								<td colspan="15" class="task-list-order-detail-cell">
 										<div class="task-list-order-slide" th:id="|task-list-order-detail-${row.task.id}|" aria-hidden="true">
 											<div class="task-list-order-slide-inner">
 												<div class="task-list-order-slide-head">
-													<div><span>ORDER DETAILS</span><strong th:text="${'Task #' + row.task.id + ' 오더 상세'}">오더 상세</strong></div>
-													<span th:text="${row.orderCount + '건'}">0건</span>
+													<div><span>ORDER DETAILS</span><strong><span th:text="${'Task #' + row.task.id}">Task #1</span><span class="task-delivery-date-marker" th:if="${row.mixedDeliveryDetails}" title="현재 주문에는 배송일·배송주소·배송수단이 다른 제품이 포함되어 있습니다." aria-label="배송 정보가 다른 제품 포함">*</span> 오더 상세</strong></div>
+													<span th:text="${row.searchFiltered ? '검색 일치 ' + row.matchedOrderCount + '건 / 전체 ' + row.orderCount + '건' : row.orderCount + '건'}">0건</span>
 												</div>
-												<div class="task-list-order-detail-grid">
-													<article class="task-list-order-detail-card" th:each="orderSummary : ${row.orderSummaries}">
+												<p class="task-delivery-date-notice" th:if="${row.mixedDeliveryDetails}">현재 주문에는 배송일·배송주소·배송수단이 다른 제품이 포함되어 있습니다.</p>
+												<details class="customer-order-changes" th:if="${!row.changes.isEmpty()}"><summary th:title="${row.changeTooltip}" th:text="${'변경된 제품 ' + row.changedOrderCount + '건'}"></summary><ul class="customer-change-groups"><li th:each="group : ${row.recentChangeGroups}"><a th:if="${!group.deleted}" th:href="${'#task-list-order-' + group.orderId}" data-customer-order-jump th:text="${group.productLabel}"></a><strong th:if="${group.deleted}" th:text="${group.productLabel}"></strong><span class="customer-change-short" th:text="${group.summary}"></span><details class="customer-change-history" th:if="${group.deleted}"><summary>삭제 내역 보기</summary><ol><li th:each="change : ${group.recentChanges}" th:text="${change.description}"></li></ol><details th:if="${!group.olderChanges.isEmpty()}"><summary>이전 변경 더 보기</summary><ol><li th:each="change : ${group.olderChanges}" th:text="${change.description}"></li></ol></details></details></li></ul><details class="customer-change-more" th:if="${!row.olderChangeGroups.isEmpty()}"><summary th:text="${'다른 변경 제품 ' + row.olderChangeGroups.size() + '건 더 보기'}"></summary><ul class="customer-change-groups"><li th:each="group : ${row.olderChangeGroups}"><a th:if="${!group.deleted}" th:href="${'#task-list-order-' + group.orderId}" data-customer-order-jump th:text="${group.productLabel}"></a><strong th:if="${group.deleted}" th:text="${group.productLabel}"></strong><span class="customer-change-short" th:text="${group.summary}"></span><details class="customer-change-history" th:if="${group.deleted}"><summary>삭제 내역 보기</summary><ol><li th:each="change : ${group.recentChanges}" th:text="${change.description}"></li></ol><details th:if="${!group.olderChanges.isEmpty()}"><summary>이전 변경 더 보기</summary><ol><li th:each="change : ${group.olderChanges}" th:text="${change.description}"></li></ol></details></details></li></ul></details></details>
+<div class="task-list-order-detail-grid">
+													<article class="task-list-order-detail-card" th:each="orderSummary : ${row.orderSummaries}" th:classappend="${row.searchFiltered ? (orderSummary.searchMatch ? 'customer-search-match' : 'customer-search-sibling') : ''}" th:id="|task-list-order-${orderSummary.orderId}|"><p class="customer-search-label" th:if="${row.searchFiltered}"><span class="customer-search-badge" th:text="${orderSummary.searchMatch ? '검색 일치' : '함께 주문'}"></span></p>
 														<header>
 															<div><span th:text="${'ORDER #' + orderSummary.orderId}">ORDER #1</span><strong class="task-list-product-name-text" th:text="${orderSummary.productName}">제품명</strong></div>
 															<span class="task-list-status-badge" th:classappend="${' task-list-status-' + #strings.toLowerCase(orderSummary.statusKey)}" th:text="${orderSummary.statusLabel}">상태</span>
@@ -208,11 +213,11 @@
 											<div><span>단가(VAT 제외)</span><strong th:text="${#numbers.formatInteger(orderSummary.unitPrice, 1, 'COMMA') + '원'}">0원</strong></div>
 											<div><span>수량 적용금액(VAT 제외)</span><strong th:text="${#numbers.formatInteger(orderSummary.supplyPrice, 1, 'COMMA') + '원'}">0원</strong></div>
 											<div><span>최종금액(VAT 포함)</span><strong th:text="${#numbers.formatInteger(orderSummary.vatIncludedTotalPrice, 1, 'COMMA') + '원'}">0원</strong></div>
-															<div><span>배송수단</span><strong th:text="${orderSummary.deliveryMethodName}">-</strong></div>
-															<div><span>배송예정일</span><strong th:text="${orderSummary.deliveryDate != null ? #temporals.format(orderSummary.deliveryDate, 'yyyy/MM/dd') : '-'}">-</strong></div>
+															<div><span>배송수단</span><strong class="customer-order-shipping-value" th:text="${orderSummary.deliveryMethodName}">-</strong></div>
+															<div><span>배송희망일</span><strong class="customer-order-shipping-value" th:text="${orderSummary.deliveryDate != null ? #temporals.format(orderSummary.deliveryDate, 'yyyy/MM/dd') : '미정'}">-</strong></div>
 														</div>
 														<div class="task-list-order-detail-address"><span>배송지</span><strong th:text="${orderSummary.deliveryAddress}">-</strong></div>
-														<div class="task-list-order-detail-comment"><span>비고</span><p th:text="${orderSummary.adminMemo}">-</p></div>
+														<details class="customer-order-changes customer-product-history" th:if="${!orderSummary.changes.isEmpty()}"><summary th:title="${orderSummary.changeTooltip}">변경 전·후 보기</summary><ol><li th:each="change : ${orderSummary.recentChanges}" th:text="${change.description}"></li></ol><details class="customer-change-more" th:if="${!orderSummary.olderChanges.isEmpty()}"><summary>이전 변경 더 보기</summary><ol><li th:each="change : ${orderSummary.olderChanges}" th:text="${change.description}"></li></ol></details></details><div class="task-list-order-detail-comment"><span>비고</span><p th:text="${orderSummary.adminMemo}">-</p></div>
 													</article>
 												</div>
 											</div>
@@ -220,7 +225,7 @@
 									</td>
 								</tr>
 							</th:block>
-						<tr th:if="${taskPage.empty}"><td colspan="16" class="task-list-empty-cell">조건에 맞는 발주 내역이 없습니다.</td></tr>
+						<tr th:if="${taskPage.empty}"><td colspan="15" class="task-list-empty-cell">조건에 맞는 발주 내역이 없습니다.</td></tr>
 						</tbody>
 					</table>
 					</div>
@@ -268,7 +273,7 @@
 
 	<th:block th:replace="fragments/front/common :: autoSideBar"></th:block>
 	<th:block th:replace="fragments/front/common :: autoScript"></th:block>
-		<script src="/front/taskListV2.js?v=20260908-2"></script>
+		<script src="/front/taskListV2.js?v=20261019-3"></script>
 		<script src="/front/customerTaskPhoneModal.js?v=20260908-1"></script>
 
 	<div class="modal fade task-list-advanced-modal" id="task-list-advanced-modal" tabindex="-1"
@@ -286,7 +291,7 @@
 							<select id="task-list-date-type" name="dateType" form="task-list-filter-form"
 								class="form-select task-list-control">
 								<option value="created" th:selected="${filter.dateType == 'created'}">발주일</option>
-								<option value="delivery" th:selected="${filter.dateType == null or filter.dateType == 'delivery'}">배송예정일</option>
+								<option value="delivery" th:selected="${filter.dateType == null or filter.dateType == 'delivery'}">배송희망일</option>
 							</select>
 						</div>
 						<div class="col-lg-4 col-md-6">
@@ -361,5 +366,6 @@
 		</div>
 	</div>
 
+<script src="/front/customer-order-changes.js?v=20261019-3"></script>
 </body>
 </html>

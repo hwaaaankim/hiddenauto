@@ -119,7 +119,26 @@ public final class CustomerPageDtos {
         /** 목록 전용 축약 주소: 서울 송파구 / 부산 북구 / 경기 화성시 형태 */
         private String deliveryRegion;
 
+        /** Task 정렬용 가장 빠른 배송예정일. 화면/엑셀 날짜는 orderSummaries에서 Order별로 표시합니다. */
         private LocalDateTime deliveryDate;
+        /** 날짜가 지정된 Order 중 서로 다른 출고일(날짜 기준)이 2개 이상인지 여부 */
+        private boolean mixedDeliveryDates;
+        private boolean mixedDeliveryDetails;
+        @Builder.Default
+        private List<CustomerOrderChange> changes = new ArrayList<>();
+        public void setChanges(List<CustomerOrderChange> value) {
+            changes = value == null ? List.of() : value;
+            for (TaskOrderSummary summary : orderSummaries) summary.setChanges(changes.stream()
+                .filter(c -> java.util.Objects.equals(c.getOrderId(), summary.getOrderId())).toList());
+        }
+
+        @lombok.Setter private boolean searchFiltered;
+        @lombok.Setter private int matchedOrderCount;
+        public List<CustomerOrderChangeGroup> getChangeGroups() { return CustomerOrderChangeGroup.group(changes); }
+        public int getChangedOrderCount() { return getChangeGroups().size(); }
+        public List<CustomerOrderChangeGroup> getRecentChangeGroups() { var g=getChangeGroups();return g.subList(0,Math.min(3,g.size())); }
+        public List<CustomerOrderChangeGroup> getOlderChangeGroups() { var g=getChangeGroups();return g.subList(Math.min(3,g.size()),g.size()); }
+        public String getChangeTooltip() { return CustomerOrderChangeGroup.tooltip(changes); }
         private String statusKey;
         private String statusLabel;
         private String managerName;
@@ -156,7 +175,20 @@ public final class CustomerPageDtos {
     @Getter
     @Builder
     public static class TaskOrderSummary {
+        @lombok.Setter @Builder.Default
+        private List<CustomerOrderChange> changes = new ArrayList<>();
+        @lombok.Setter private boolean searchMatch;
+        public String getChangeTooltip() { return CustomerOrderChangeGroup.tooltip(changes); }
+        public List<CustomerOrderChange> getRecentChanges() { return changes.subList(0,Math.min(3,changes.size())); }
+        public List<CustomerOrderChange> getOlderChanges() { return changes.subList(Math.min(3,changes.size()),changes.size()); }
+
         private Long orderId;
+        private LocalDateTime createdAt;
+        private String ordererName;
+        private String ordererPhone;
+        private String deliveryRegion;
+        private String deliveryHandlerName;
+        private String deliveryHandlerContact;
         private String categoryName;
         /** 고객 엑셀용 기타 옵션. 조회 트랜잭션 안에서 JSON을 해석합니다. */
         private String optionText;

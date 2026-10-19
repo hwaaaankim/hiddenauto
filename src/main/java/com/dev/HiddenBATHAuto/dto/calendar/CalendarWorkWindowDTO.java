@@ -70,5 +70,13 @@ public class CalendarWorkWindowDTO {
          */
         private String contactName;
         private String contactPhone;
+        private List<com.dev.HiddenBATHAuto.dto.customer.CustomerOrderChange> changes = new ArrayList<>();
+        public WorkItemDTO(String type, Long id, Long taskId, String date, String dateTime,
+                String title, String description, String region, String statusKey, String statusLabel,
+                long amount, String contactName, String contactPhone) {
+            this(type, id, taskId, date, dateTime, title, description, region, statusKey, statusLabel,
+                amount, contactName, contactPhone, new ArrayList<>());
+        }
+
     }
 }

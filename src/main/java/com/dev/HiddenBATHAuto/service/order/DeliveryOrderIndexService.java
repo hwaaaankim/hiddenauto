@@ -65,6 +65,7 @@ public class DeliveryOrderIndexService {
     private final DeliveryOrderIndexRepository deliveryOrderIndexRepository;
     private final MemberRepository memberRepository;
     private final OrderRepository orderRepository;
+    private final OrderOperationalChangeRecorder changeRecorder;
 
     /**
      * 관리자 오더 수정 저장 시 배송순서 인덱스를 동기화합니다.
@@ -677,7 +678,9 @@ public class DeliveryOrderIndexService {
             order.setAssignedDeliveryHandler(newHandler);
             order.setAssignedDeliveryTeam(newHandler.getTeamCategory());
 
-            if (order.getPreferredDeliveryDate() == null) {
+            var customerSearchBefore = com.dev.HiddenBATHAuto.model.task.audit.CustomerOrderSearchSnapshot.from(order);
+            boolean deliveryDateFilled = order.getPreferredDeliveryDate() == null;
+            if (deliveryDateFilled) {
                 order.setPreferredDeliveryDate(deliveryDate.atStartOfDay());
             }
 
@@ -691,6 +694,16 @@ public class DeliveryOrderIndexService {
                     resolveDeliveryListSection(order)
             );
 
+            if (deliveryDateFilled) {
+                changeRecorder.recordChanges(order,
+                        com.dev.HiddenBATHAuto.enums.order.OrderChangeSourceArea.DELIVERY,
+                        loginMember, "DELIVERY_DATE_FILLED", "배송희망일 보완",
+                        "/team/deliveryHandler", customerSearchBefore,
+                        com.dev.HiddenBATHAuto.dto.orderchange.OrderFieldChangeCommand.of(
+                                "preferredDeliveryDate", "배송희망일", null, order.getPreferredDeliveryDate(),
+                                com.dev.HiddenBATHAuto.enums.order.OrderWorkArea.DISPATCH,
+                                com.dev.HiddenBATHAuto.enums.order.OrderWorkArea.DELIVERY));
+            }
             changedOrderIds.add(order.getId());
         }
 

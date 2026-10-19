@@ -54,22 +54,48 @@ public class CustomerExcelExportService {
 
 		List<List<String>> data = new ArrayList<>();
 		for (TaskListRow row : rows) {
-			data.add(List.of(text(row.getTask().getId()), text(row.getRequesterName()), text(row.getOrdererName()),
-					row.getOrderCount() + "건", categorySummary(row.getOrderSummaries()),
-					text(row.getDeliveryMethodName()), text(row.getDeliveryAddress()),
-					formatDateTimeDate(row.getTask().getCreatedAt()), formatDateTimeDate(row.getDeliveryDate()),
+			data.add(List.of(text(row.getTask().getId()) + (row.isMixedDeliveryDetails() ? " *" : ""), text(row.getRequesterName()), text(row.getOrdererName()),
+					row.getOrderCount() + "건", categorySummary(row.getOrderSummaries(), row.isSearchFiltered()),
+					orderShipping(row.getOrderSummaries(), false), orderShipping(row.getOrderSummaries(), true),
+					formatDateTimeDate(row.getTask().getCreatedAt()), orderDeliveryDates(row.getOrderSummaries()),
 					formatMoney(row.getSupplyPrice()), formatMoney(row.getVatIncludedTotalPrice()),
 					formatMoney(row.getPackingCost()), formatMoney(row.getDeliveryCost()),
 					formatMoney(row.getGrandTotalPrice()), text(row.getStatusLabel()),
 					text(row.getDeliveryHandlerName())));
 		}
 
-		double[] widths = { 11, 14, 14, 11, 80, 15, 46, 13, 13, 18, 18, 17, 17, 18, 15, 16 };
+		double[] widths = { 11, 14, 14, 11, 80, 15, 46, 13, 30, 18, 18, 17, 17, 18, 15, 16 };
 
-		return SimpleXlsxWriter.write("발주 목록", "고객 발주 목록", filterDescriptions, headers, data, widths, true);
+		List<String> notes = new ArrayList<>(filterDescriptions == null ? List.of() : filterDescriptions);
+		if (rows.stream().anyMatch(TaskListRow::isSearchFiltered)) notes.add("검색된 주문 묶음의 전체 제품과 전체 합계입니다. 제품별 [검색 일치]/[함께 주문] 표시를 확인해 주세요.");
+		notes.add("배송예정일은 제품 정보와 같은 순서로 Order별 표시됩니다. 미정은 날짜가 지정되지 않은 제품입니다.");
+		if (rows.stream().anyMatch(TaskListRow::isMixedDeliveryDetails)) {
+			notes.add("* 표시된 주문에는 배송일·배송주소·배송수단이 다른 제품이 포함되어 있습니다.");
+		}
+		return SimpleXlsxWriter.write("발주 목록", "고객 발주 목록", notes, headers, data, widths, true);
 	}
 
-	private String categorySummary(List<TaskOrderSummary> summaries) {
+    private String orderShipping(List<TaskOrderSummary> items, boolean address) {
+        return items.stream().map(item -> "Order #" + item.getOrderId() + " : "
+            + (address ? item.getDeliveryAddress() : item.getDeliveryMethodName()))
+            .collect(java.util.stream.Collectors.joining("\n"));
+    }
+
+	private String orderDeliveryDates(List<TaskOrderSummary> summaries) {
+		if (summaries == null || summaries.isEmpty()) {
+			return "-";
+		}
+		List<String> lines = new ArrayList<>();
+		for (TaskOrderSummary item : summaries) {
+			if (item != null) {
+				lines.add("Order #" + text(item.getOrderId()) + " : "
+						+ (item.getDeliveryDate() == null ? "미정" : formatDateTimeDate(item.getDeliveryDate())));
+			}
+		}
+		return lines.isEmpty() ? "-" : String.join("\n", lines);
+	}
+
+	private String categorySummary(List<TaskOrderSummary> summaries, boolean filtered) {
 		if (summaries == null || summaries.isEmpty()) {
 			return "-";
 		}
@@ -82,7 +108,7 @@ public class CustomerExcelExportService {
 			}
 
 			List<String> parts = new ArrayList<>();
-			parts.add("제품명 : " + text(item.getProductName()));
+			parts.add((filtered ? (item.isSearchMatch() ? "[검색 일치] " : "[함께 주문] ") : "") + "제품명 : " + text(item.getProductName()));
 			parts.add("사이즈 : " + text(item.getSize()));
 			parts.add("색상 : " + text(item.getColor()));
 			parts.add("수량 : " + item.getQuantity() + "개");
