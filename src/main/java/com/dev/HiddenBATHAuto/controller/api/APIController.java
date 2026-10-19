@@ -105,6 +105,9 @@ public class APIController {
 	private final DistrictRepository districtRepository;
 	private final AsTaskRepository asTaskRepository;
 	private final TaskRepository taskRepository;
+    private final com.dev.HiddenBATHAuto.service.customer.CustomerCalendarService customerCalendarService;
+    private final com.dev.HiddenBATHAuto.service.customer.CustomerOrderChangeService customerOrderChangeService;
+    private final com.dev.HiddenBATHAuto.service.customer.CustomerListViewService customerListViewService;
 	private final AsTaskScheduleRepository asTaskScheduleRepository;
 
 	private final MemberManagementService memberManagementService;
@@ -315,6 +318,7 @@ public class APIController {
 		return response;
 	}
 
+	@org.springframework.transaction.annotation.Transactional(readOnly = true)
 	@GetMapping("/calendar/events")
 	@ResponseBody
 	public List<CalendarEventDTO> getCalendarEvents(
@@ -338,9 +342,8 @@ public class APIController {
 				? loadAsTasksForCalendarRange(companyId, basis, start, endExclusive)
 				: loadAllAsTasksForCalendar(companyId, basis);
 
-		List<Task> tasks = hasRange
-				? loadTasksForCalendarRange(companyId, basis, start, endExclusive)
-				: loadAllTasksForCalendar(companyId, basis);
+		List<Order> orders = customerCalendarService.orders(companyId, basis, hasRange ? start : null, hasRange ? endExclusive : null);
+        var historyDates = customerCalendarService.historyDates(companyId, basis, hasRange ? start : null, hasRange ? endExclusive : null);
 
 		Map<LocalDate, List<AsTask>> asMap = asTasks.stream()
 				.map(t -> new AbstractMap.SimpleEntry<>(extractAsDate(t, basis), t))
@@ -349,8 +352,8 @@ public class APIController {
 				.collect(Collectors.groupingBy(Map.Entry::getKey,
 						Collectors.mapping(Map.Entry::getValue, Collectors.toList())));
 
-		Map<LocalDate, List<Task>> taskMap = tasks.stream()
-				.map(t -> new AbstractMap.SimpleEntry<>(extractTaskDate(t, basis), t))
+		Map<LocalDate, List<Order>> taskMap = orders.stream()
+				.map(t -> new AbstractMap.SimpleEntry<>(customerCalendarService.date(t, basis), t))
 				.filter(e -> e.getKey() != null)
 				.filter(e -> !hasRange || isDateInRange(e.getKey(), start, endExclusive))
 				.collect(Collectors.groupingBy(Map.Entry::getKey,
@@ -359,12 +362,14 @@ public class APIController {
 		Set<LocalDate> allDates = new HashSet<>();
 		allDates.addAll(asMap.keySet());
 		allDates.addAll(taskMap.keySet());
+        allDates.addAll(historyDates.keySet());
 
 		List<CalendarEventDTO> result = new ArrayList<>();
 		for (LocalDate date : allDates) {
 			int asCount = asMap.getOrDefault(date, List.of()).size();
-			int taskCount = taskMap.getOrDefault(date, List.of()).size();
-			result.add(new CalendarEventDTO(date.toString(), asCount, taskCount));
+			var onDate = taskMap.getOrDefault(date, List.of());
+            int taskCount = (int) onDate.stream().map(o -> o.getTask().getId()).distinct().count();
+            result.add(new CalendarEventDTO(date.toString(), asCount, taskCount, onDate.size(), historyDates.getOrDefault(date, Set.of()).size()));
 		}
 
 		result.sort(Comparator.comparing(CalendarEventDTO::getDate));
@@ -377,6 +382,7 @@ public class APIController {
 	 * <p>start는 inclusive, end는 exclusive입니다.
 	 * FullCalendar의 현재 표시 기간을 그대로 받아 달력과 동일한 범위만 집계합니다.</p>
 	 */
+	@org.springframework.transaction.annotation.Transactional(readOnly = true)
 	@GetMapping("/calendar/overview")
 	@ResponseBody
 	public CalendarOverviewDTO getCalendarOverview(
@@ -399,15 +405,13 @@ public class APIController {
 				basis, start, endExclusive, (member != null ? member.getUsername() : "비로그인"));
 
 		List<AsTask> asTasks = loadAsTasksForCalendarRange(companyId, basis, start, endExclusive);
-		List<Task> tasks = loadTasksForCalendarRange(companyId, basis, start, endExclusive).stream()
-				.filter(t -> isDateInRange(extractTaskDate(t, basis), start, endExclusive))
-				.toList();
+		List<Order> orders = customerCalendarService.orders(companyId, basis, start, endExclusive);
 
 		CalendarOverviewDTO dto = new CalendarOverviewDTO();
 		dto.setBasis(basis.name());
 		dto.setStartDate(start.toString());
 		dto.setEndDate(endExclusive.minusDays(1).toString());
-		dto.setOrder(buildOrderOverview(tasks));
+		dto.setOrder(buildOrderOverview(orders));
 		dto.setAs(buildAsOverview(asTasks));
 		return dto;
 	}
@@ -424,6 +428,7 @@ public class APIController {
 	 * - 발주: preferredDeliveryDate 기준, DELIVERY_DONE/CANCELED 제외
 	 * - AS: AsTaskSchedule.scheduledDate 기준, COMPLETED/CANCELED 제외</p>
 	 */
+	@org.springframework.transaction.annotation.Transactional(readOnly = true)
 	@GetMapping("/calendar/work-window")
 	@ResponseBody
 	public CalendarWorkWindowDTO getCalendarWorkWindow(
@@ -450,27 +455,8 @@ public class APIController {
 		LocalDateTime recentStartAt = recentStart.atStartOfDay();
 		LocalDateTime recentEndAt = recentEndExclusive.atStartOfDay();
 
-		List<Task> recentDeliveredTasks = taskRepository.findIndexRecentDeliveryCompletedRangeByCompanyId(
-				companyId,
-				OrderStatus.DELIVERY_DONE,
-				recentStartAt,
-				recentEndAt);
-
-		for (Task task : recentDeliveredTasks) {
-			if (task == null || task.getOrders() == null) {
-				continue;
-			}
-			for (Order order : task.getOrders()) {
-				if (order == null
-						|| order.getStatus() != OrderStatus.DELIVERY_DONE
-						|| order.getUpdatedAt() == null
-						|| order.getUpdatedAt().isBefore(recentStartAt)
-						|| !order.getUpdatedAt().isBefore(recentEndAt)) {
-					continue;
-				}
-				recentItems.add(toRecentOrderWorkItem(task, order));
-			}
-		}
+        customerCalendarService.completedOrders(companyId, recentStart, recentEndExclusive)
+            .forEach(order -> recentItems.add(toRecentOrderWorkItem(order.getTask(), order)));
 
 		LocalDateTime recentAsEndInclusive = recentEndAt.minusNanos(1);
 		asTaskRepository.findCalendarByCompanyIdAndAsProcessDateBetween(companyId, recentStartAt, recentAsEndInclusive)
@@ -482,29 +468,9 @@ public class APIController {
 		LocalDateTime upcomingStartAt = upcomingStart.atStartOfDay();
 		LocalDateTime upcomingEndAt = upcomingEndExclusive.atStartOfDay();
 
-		List<Task> upcomingOrderTasks = taskRepository.findIndexUpcomingDeliveryRangeByCompanyId(
-				companyId,
-				upcomingStartAt,
-				upcomingEndAt,
-				List.of(OrderStatus.DELIVERY_DONE, OrderStatus.CANCELED));
-
-		for (Task task : upcomingOrderTasks) {
-			if (task == null || task.getOrders() == null) {
-				continue;
-			}
-			for (Order order : task.getOrders()) {
-				LocalDateTime preferred = order != null ? order.getPreferredDeliveryDate() : null;
-				if (order == null
-						|| preferred == null
-						|| preferred.isBefore(upcomingStartAt)
-						|| !preferred.isBefore(upcomingEndAt)
-						|| order.getStatus() == OrderStatus.DELIVERY_DONE
-						|| order.getStatus() == OrderStatus.CANCELED) {
-					continue;
-				}
-				upcomingItems.add(toUpcomingOrderWorkItem(task, order));
-			}
-		}
+        customerCalendarService.orders(companyId, CalendarDateBasis.PROCESS, upcomingStart, upcomingEndExclusive).stream()
+            .filter(order -> order.getStatus() != OrderStatus.DELIVERY_DONE && order.getStatus() != OrderStatus.CANCELED)
+            .forEach(order -> upcomingItems.add(toUpcomingOrderWorkItem(order.getTask(), order)));
 
 		List<AsTaskSchedule> upcomingAsSchedules = asTaskScheduleRepository.findIndexUpcomingSchedulesByCompanyId(
 				companyId,
@@ -518,6 +484,12 @@ public class APIController {
 			}
 			upcomingItems.add(toUpcomingAsWorkItem(schedule));
 		}
+
+        var allOrderItems = java.util.stream.Stream.concat(recentItems.stream(), upcomingItems.stream())
+            .filter(item -> "ORDER".equals(item.getType())).toList();
+        var taskIds = allOrderItems.stream().map(CalendarWorkWindowDTO.WorkItemDTO::getTaskId).filter(java.util.Objects::nonNull).distinct().toList();
+        var notices = customerOrderChangeService.forTasks(companyId, taskIds);
+        allOrderItems.forEach(item -> item.setChanges(notices.stream().filter(c -> item.getId().equals(c.getOrderId())).toList()));
 
 		recentItems.sort(Comparator
 				.comparing(CalendarWorkWindowDTO.WorkItemDTO::getDateTime,
@@ -563,6 +535,7 @@ public class APIController {
 	 *
 	 * ✅ 기존 DTO 구조와 필드명을 유지하여 기존 기능을 깨지 않습니다.
 	 */
+	@org.springframework.transaction.annotation.Transactional(readOnly = true)
 	@GetMapping("/calendar/tasks")
 	@ResponseBody
 	public List<CalendarTaskDetailDTO> getCalendarTasks(
@@ -594,9 +567,7 @@ public class APIController {
 
 		asOnDate.forEach(t -> out.add(toAsDetailDTO(t, basis, scheduleMap.get(t.getId()))));
 
-		loadTasksForCalendarRange(companyId, basis, target, endExclusive).stream()
-				.filter(t -> target.equals(extractTaskDate(t, basis)))
-				.forEach(t -> out.add(toTaskDetailDTO(t, basis)));
+		out.addAll(customerCalendarService.details(companyId, basis, target));
 
 		// 기존 순서 유지: AS -> TASK
 		out.sort(Comparator.comparing(CalendarTaskDetailDTO::getType));
@@ -628,36 +599,6 @@ public class APIController {
 		return asTaskRepository.findCalendarByCompanyId(companyId);
 	}
 
-	private List<Task> loadTasksForCalendarRange(
-			Long companyId,
-			CalendarDateBasis basis,
-			LocalDate start,
-			LocalDate endExclusive) {
-
-		LocalDateTime startAt = start.atStartOfDay();
-		LocalDateTime endAt = endExclusive.atStartOfDay();
-
-		List<Task> tasks;
-		if (basis == CalendarDateBasis.PROCESS) {
-			tasks = taskRepository.findCalendarProcessedRangeCandidatesByCompanyId(companyId, startAt, endAt);
-		} else {
-			tasks = taskRepository.findCalendarRequestedRangeByCompanyId(companyId, startAt, endAt);
-		}
-
-		// PROCESS 후보 조회는 같은 Task 안 다른 Order 날짜로 포함될 수 있으므로
-		// 기존 extractTaskDate 규칙으로 최종 범위를 다시 맞춥니다.
-		return tasks.stream()
-				.filter(t -> isDateInRange(extractTaskDate(t, basis), start, endExclusive))
-				.toList();
-	}
-
-	private List<Task> loadAllTasksForCalendar(Long companyId, CalendarDateBasis basis) {
-		if (basis == CalendarDateBasis.PROCESS) {
-			return taskRepository.findByCompanyIdAndPreferredDeliveryNotNullFetchOrders(companyId);
-		}
-		return taskRepository.findByCompanyIdFetchOrders(companyId);
-	}
-
 	private Long requireCompanyId(Member member) {
 		if (member == null || member.getCompany() == null || member.getCompany().getId() == null) {
 			throw new IllegalStateException("회사 정보가 없는 계정은 고객사 업무 정보를 조회할 수 없습니다.");
@@ -687,11 +628,11 @@ public class APIController {
 	// =========================================================
 	// 오버뷰 집계
 	// =========================================================
-	private CalendarOverviewDTO.OrderOverviewDTO buildOrderOverview(List<Task> tasks) {
+	private CalendarOverviewDTO.OrderOverviewDTO buildOrderOverview(List<Order> orders) {
 		CalendarOverviewDTO.OrderOverviewDTO out = new CalendarOverviewDTO.OrderOverviewDTO();
-		List<Task> safeTasks = tasks != null ? tasks : List.of();
+		List<Order> safeOrders = orders != null ? orders : List.of();
 
-		out.setTaskCount(safeTasks.size());
+		out.setTaskCount(safeOrders.stream().map(o -> o.getTask().getId()).distinct().count());
 
 		Map<String, Long> categoryCounts = new HashMap<>();
 		Map<String, Long> regionCounts = new HashMap<>();
@@ -701,12 +642,7 @@ public class APIController {
 		long orderCount = 0L;
 		long totalAmount = 0L;
 
-		for (Task task : safeTasks) {
-			if (task == null || task.getOrders() == null) {
-				continue;
-			}
-
-			for (Order order : task.getOrders()) {
+		for (Order order : safeOrders) {
 				if (order == null) {
 					continue;
 				}
@@ -727,7 +663,6 @@ public class APIController {
 						? safeText(order.getDeliveryMethod().getMethodName())
 						: null;
 				incrementCount(deliveryMethodCounts, deliveryMethodName != null ? deliveryMethodName : "미지정");
-			}
 		}
 
 		out.setOrderCount(orderCount);
@@ -1021,20 +956,9 @@ public class APIController {
 		return a + " · " + b;
 	}
 
-	private String resolveOrderDeliveryRegion(Order order) {
-		if (order == null) {
-			return "지역 미지정";
-		}
-
-		boolean hasSiteAddress = safeText(order.getSiteDoName()) != null
-				|| safeText(order.getSiteSiName()) != null
-				|| safeText(order.getSiteRoadAddress()) != null;
-
-		if (hasSiteAddress) {
-			return buildRegionLabel(order.getSiteDoName(), order.getSiteSiName());
-		}
-		return buildRegionLabel(order.getDoName(), order.getSiName());
-	}
+    private String resolveOrderDeliveryRegion(Order order) {
+        return customerListViewService.buildEffectiveDeliveryRegion(order);
+    }
 
 	// =========================================================
 	// ✅ Date 추출 규칙 - 기존 로직 유지
@@ -1049,32 +973,6 @@ public class APIController {
 		}
 		LocalDateTime r = t.getRequestedAt();
 		return (r != null) ? r.toLocalDate() : null;
-	}
-
-	private LocalDate extractTaskDate(Task t, CalendarDateBasis basis) {
-		if (t == null) {
-			return null;
-		}
-
-		if (basis == CalendarDateBasis.PROCESS) {
-			LocalDateTime pref = getTaskPreferredDeliveryDate(t);
-			return (pref != null) ? pref.toLocalDate() : null;
-		}
-
-		LocalDateTime c = t.getCreatedAt();
-		return (c != null) ? c.toLocalDate() : null;
-	}
-
-	private LocalDateTime getTaskPreferredDeliveryDate(Task t) {
-		if (t.getOrders() == null || t.getOrders().isEmpty()) {
-			return null;
-		}
-		for (Order o : t.getOrders()) {
-			if (o != null && o.getPreferredDeliveryDate() != null) {
-				return o.getPreferredDeliveryDate();
-			}
-		}
-		return null;
 	}
 
 	// =========================================================
@@ -1113,58 +1011,6 @@ public class APIController {
 		return dto;
 	}
 
-	private CalendarTaskDetailDTO toTaskDetailDTO(Task t, CalendarDateBasis basis) {
-		CalendarTaskDetailDTO dto = new CalendarTaskDetailDTO();
-		dto.setType("TASK");
-		dto.setId(t.getId());
-
-		LocalDate date = extractTaskDate(t, basis);
-		dto.setDate(date != null ? date.toString() : null);
-
-		List<Order> orders = (t.getOrders() != null) ? t.getOrders() : List.of();
-		for (Order o : orders) {
-			if (o == null) {
-				continue;
-			}
-
-			CalendarTaskDetailDTO.OrderBriefDTO ob = new CalendarTaskDetailDTO.OrderBriefDTO();
-			ob.setOrderId(o.getId());
-			ob.setAdminMemo(o.getAdminMemo());
-			ob.setCreatedAt(o.getCreatedAt() != null ? o.getCreatedAt().format(DT) : null);
-			ob.setPreferredDeliveryDate(
-					o.getPreferredDeliveryDate() != null ? o.getPreferredDeliveryDate().format(DT) : null);
-			ob.setAddress(
-					buildAddress(o.getDoName(), o.getSiName(), o.getGuName(), o.getRoadAddress(), o.getDetailAddress()));
-			ob.setQuantity(o.getQuantity());
-			ob.setPrice(o.getProductCost());
-			ob.setCategoryName(o.getProductCategory() != null ? o.getProductCategory().getName() : null);
-
-			// 달력 팝업에서도 고객 발주 목록과 동일한 제품명 표시 규칙을 사용합니다.
-			ob.setProductName(resolveCalendarOrderProductName(o));
-			ob.setProductSize(resolveCalendarOrderProductSize(o));
-			ob.setProductColor(resolveCalendarOrderOptionValue(o,
-					"색상", "컬러", "제품색상", "productColor", "ProductColor", "color", "Color"));
-
-			String deliveryMethodName = o.getDeliveryMethod() != null
-					? safeText(o.getDeliveryMethod().getMethodName())
-					: null;
-			ob.setDeliveryMethodName(deliveryMethodName);
-
-			boolean showDeliveryHandler = DeliveryMethodAssignmentPolicy.isDirectOrSite(o.getDeliveryMethod());
-			ob.setDeliveryHandlerVisible(showDeliveryHandler);
-			if (showDeliveryHandler) {
-				Member deliveryHandler = o.getAssignedDeliveryHandler();
-				ob.setDeliveryHandlerName(deliveryHandler != null ? safeText(deliveryHandler.getName()) : null);
-				ob.setDeliveryHandlerContact(resolveContact(deliveryHandler));
-			}
-
-			dto.getOrders().add(ob);
-		}
-
-		dto.setTitle("TASK_" + t.getId());
-		dto.setAddress(dto.getOrders().isEmpty() ? "-" : dto.getOrders().get(0).getAddress());
-		return dto;
-	}
 
 	private String resolveCalendarOrderProductName(Order order) {
 		if (order == null || order.getOrderItem() == null) {

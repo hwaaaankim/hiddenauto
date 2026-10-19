@@ -37,6 +37,10 @@ public class CalendarTaskDetailDTO {
 
     private String symptom;        // AS 증상 = subject
 
+    private boolean historyOnly;
+    private boolean taskAvailable = true;
+    private boolean mixedDeliveryDetails;
+    private List<com.dev.HiddenBATHAuto.dto.customer.CustomerOrderChange> changes = new ArrayList<>();
     private List<OrderBriefDTO> orders = new ArrayList<>();
 
     @Data

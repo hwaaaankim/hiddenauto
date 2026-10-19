@@ -104,6 +104,7 @@ public class CustomerController {
 	private final CityRepository cityRepository;
 	private final DistrictRepository districtRepository;
 	private final CustomerListViewService customerListViewService;
+    private final com.dev.HiddenBATHAuto.service.customer.CustomerOrderChangeService customerOrderChangeService;
 	private final CustomerExcelExportService customerExcelExportService;
 	
 	@GetMapping("/productMarkList")
@@ -144,6 +145,8 @@ public class CustomerController {
 		Page<TaskListRow> taskPage = customerListViewService.searchTaskList(companyId, filter);
 
 		model.addAttribute("taskPage", taskPage);
+        model.addAttribute("searchChangeGroups", customerListViewService.searchChangeNotices(companyId, filter));
+        model.addAttribute("searchActive", com.dev.HiddenBATHAuto.service.customer.CustomerOrderSearch.active(filter));
 		model.addAttribute("filter", filter);
 		model.addAttribute("orderStatuses", OrderStatus.values());
 		model.addAttribute("selectedOrderStatusLabel", resolveOrderStatusLabel(filter.getStatus()));
@@ -215,7 +218,12 @@ public class CustomerController {
 		prepareOrderOptionMap(order);
 
 		model.addAttribute("order", order);
-		model.addAttribute("taskSummary", customerListViewService.buildTaskListRow(order.getTask()));
+		var summary = customerListViewService.buildTaskListRow(order.getTask());
+        model.addAttribute("taskSummary", summary);
+        var orderSummary = customerListViewService.buildTaskOrderSummary(order);
+        orderSummary.setChanges(summary.getChanges().stream().filter(c -> order.getId().equals(c.getOrderId())).toList());
+        model.addAttribute("orderSummary", orderSummary);
+        model.addAttribute("orderChanges", summary.getChanges().stream().filter(c -> order.getId().equals(c.getOrderId())).toList());
 		return "front/customer/task/orderDetail";
 	}
 

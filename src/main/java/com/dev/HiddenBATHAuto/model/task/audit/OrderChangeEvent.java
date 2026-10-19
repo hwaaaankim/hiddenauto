@@ -56,6 +56,28 @@ public class OrderChangeEvent {
     @Column(name = "task_id_snapshot")
     private Long taskIdSnapshot;
 
+    @Column(name = "customer_company_id_snapshot")
+    private Long customerCompanyIdSnapshot;
+    @Column(name = "customer_order_created_at_snapshot")
+    private LocalDateTime customerOrderCreatedAtSnapshot;
+    @Column(name = "customer_delivery_date_snapshot")
+    private LocalDateTime customerDeliveryDateSnapshot;
+    @Column(name = "customer_product_name_snapshot", length = 500)
+    private String customerProductNameSnapshot;
+
+    @Column(name = "customer_search_before_snapshot", columnDefinition = "TEXT")
+    private String customerSearchBeforeSnapshot;
+    @Column(name = "customer_search_after_snapshot", columnDefinition = "TEXT")
+    private String customerSearchAfterSnapshot;
+    public void captureCustomerSearchBefore(CustomerOrderSearchSnapshot before) {
+        if (before != null) customerSearchBeforeSnapshot = before.json();
+    }
+
+    /** 삭제 이후에는 현재 검색 대상이 없습니다. 삭제 직전 정보는 before에 보존합니다. */
+    public void clearCustomerSearchAfterDeletion() {
+        customerSearchAfterSnapshot = null;
+    }
+
     @Enumerated(EnumType.STRING)
     @Column(name = "order_status_snapshot", length = 30)
     private OrderStatus orderStatusSnapshot;
@@ -117,6 +139,16 @@ public class OrderChangeEvent {
         event.orderIdSnapshot = order.getId();
         event.taskIdSnapshot = order.getTask() != null ? order.getTask().getId() : null;
         event.orderStatusSnapshot = order.getStatus();
+        if (order.getTask() != null && order.getTask().getRequestedBy() != null
+                && order.getTask().getRequestedBy().getCompany() != null) {
+            event.customerCompanyIdSnapshot = order.getTask().getRequestedBy().getCompany().getId();
+        }
+        event.customerOrderCreatedAtSnapshot = order.getCreatedAt() != null ? order.getCreatedAt()
+                : order.getTask() != null ? order.getTask().getCreatedAt() : null;
+        event.customerDeliveryDateSnapshot = order.getPreferredDeliveryDate();
+        event.customerProductNameSnapshot = normalize(order.getOrderItem() != null
+                ? order.getOrderItem().getProductName() : null, 500);
+        event.customerSearchAfterSnapshot = CustomerOrderSearchSnapshot.from(order).json();
         event.sourceArea = sourceArea == null ? OrderChangeSourceArea.SYSTEM : sourceArea;
         event.actorMemberId = actorMemberId;
         event.actorUsername = normalize(actorUsername, 100);

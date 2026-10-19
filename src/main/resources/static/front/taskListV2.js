@@ -269,8 +269,16 @@
 
                 const willOpen = !slide.classList.contains('task-list-is-open');
                 slide.classList.toggle('task-list-is-open', willOpen);
-                button.classList.toggle('task-list-is-open', willOpen);
-                button.setAttribute('aria-expanded', String(willOpen));
+                document.querySelectorAll('.task-list-order-detail-toggle[data-target]').forEach(function (control) {
+                    if (control.dataset.target !== targetSelector) return;
+                    control.classList.toggle('task-list-is-open', willOpen);
+                    control.setAttribute('aria-expanded', String(willOpen));
+                    const controlIcon = control.querySelector('i');
+                    if (controlIcon) {
+                        controlIcon.classList.toggle('fa-expand-alt', !willOpen);
+                        controlIcon.classList.toggle('fa-compress-alt', willOpen);
+                    }
+                });
                 slide.setAttribute('aria-hidden', String(!willOpen));
 
                 const icon = button.querySelector('i');
@@ -404,7 +412,7 @@
 
 			scroller.addEventListener('pointerdown', function (event) {
 				if (event.button !== 0 || event.pointerType === 'touch') return;
-				if (event.target.closest('a, button, input, select, textarea, label')) return;
+				if (event.target.closest('a, button, input, select, textarea, label, details, summary')) return;
 				pointerId = event.pointerId;
 				startX = event.clientX;
 				startScrollLeft = scroller.scrollLeft;
@@ -464,13 +472,13 @@
         document.querySelectorAll('.task-list-main-row[data-detail-url]').forEach(function (row) {
             row.addEventListener('click', function (event) {
 					if (Date.now() < suppressRowNavigationUntil) return;
-				if (event.target.closest('.task-list-scroll-edge, a, button, input, select, textarea, label')) return;
+				if (event.target.closest('.task-list-scroll-edge, a, button, input, select, textarea, label, details, summary')) return;
 				navigateToRowDetail(row);
             });
 
 			row.addEventListener('keydown', function (event) {
 				if (event.key !== 'Enter' || Date.now() < suppressRowNavigationUntil) return;
-				if (event.target !== row && event.target.closest('.task-list-scroll-edge, a, button, input, select, textarea, label')) return;
+				if (event.target !== row && event.target.closest('.task-list-scroll-edge, a, button, input, select, textarea, label, details, summary')) return;
 				event.preventDefault();
 				navigateToRowDetail(row);
 			});

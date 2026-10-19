@@ -446,6 +446,46 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
     }
 
+    function customerChangeGroups(changes) {
+        const map=new Map();
+        for(const c of Array.isArray(changes)?changes:[]) {
+            const key=String(c.orderId);if(!map.has(key))map.set(key,[]);map.get(key).push(c);
+        }
+        return Array.from(map.values());
+    }
+    function customerProductLabel(group) {
+        const name=group.find(c=>c.productName)?.productName || '';
+        return `Order #${group[0].orderId}${name ? ' · '+(name.length>40?name.slice(0,39)+'…':name):''}`;
+    }
+    function customerChangeSummary(group) {
+        if(group.some(c=>c.deleted)) return '삭제된 제품';
+        const types=new Set(), labels=[];
+        for(const c of group) {
+            const field=['deliveryAddress','siteAddress'].includes(c.field)?'address':c.field;
+            if(types.has(field))continue;types.add(field);
+            labels.push(c.compactChange || (field==='address'?'주소 변경':field==='deliveryMethod'?'배송수단 변경':'배송일 변경'));
+        }
+        return labels.slice(0,3).join(' · ');
+    }
+    function renderChangeGroup(group) {
+        const rows=list=>`<ol>${list.map(c=>`<li>${escapeHtml(c.description||'')}</li>`).join('')}</ol>`;
+        return `<li><strong>${escapeHtml(customerProductLabel(group))}</strong><span class="customer-change-short">${escapeHtml(customerChangeSummary(group))}</span>
+          <details class="customer-change-history"><summary>변경 전·후 보기</summary>${rows(group.slice(0,3))}
+          ${group.length>3?`<details class="customer-change-more"><summary>이전 변경 더 보기</summary>${rows(group.slice(3))}</details>`:''}</details></li>`;
+    }
+    function renderCustomerChanges(changes) {
+        const groups=customerChangeGroups(changes);if(!groups.length)return '';
+        const tooltip=groups.slice(0,3).map(g=>customerProductLabel(g)+': '+customerChangeSummary(g)).join('\n').slice(0,240);
+        return `<details class="customer-order-changes"><summary title="${escapeHtml(tooltip)}">변경된 제품 ${groups.length}건</summary>
+          <ul class="customer-change-groups">${groups.slice(0,3).map(renderChangeGroup).join('')}</ul>
+          ${groups.length>3?`<details class="customer-change-more"><summary>다른 변경 제품 ${groups.length-3}건 더 보기</summary><ul class="customer-change-groups">${groups.slice(3).map(renderChangeGroup).join('')}</ul></details>`:''}</details>`;
+    }
+    function renderHistoryTask(task) {
+        return `<div class="customer-calendar-history-task"><header><strong>TASK #${escapeHtml(task.id)}</strong>
+            ${task.taskAvailable!==false?`<a href="/customer/taskDetail/${encodeURIComponent(task.id)}">주문 보기</a>`:'<span>삭제된 주문</span>'}</header>
+            ${renderCustomerChanges(task.changes)}</div>`;
+    }
+
     function renderTaskModalCard(task, index) {
         const orders = Array.isArray(task.orders) ? task.orders : [];
         const orderHtml = orders.map((order, orderIndex) => {
@@ -492,14 +532,15 @@ document.addEventListener('DOMContentLoaded', function () {
                     <div class="index-main-modal-card-title-wrap">
                         <span class="index-main-type-badge index-main-type-badge-task">발주</span>
                         <div>
-                            <h4 class="index-main-modal-card-title">TASK #${escapeHtml(task.id ?? '-')}</h4>
-                            <p class="index-main-modal-card-caption">포함 오더 ${formatNumber(orders.length)}건</p>
+                            <h4 class="index-main-modal-card-title">TASK #${escapeHtml(task.id ?? '-')}${task.mixedDeliveryDetails ? ' <span title="배송 정보가 다른 제품 포함">*</span>' : ''}</h4>
+                            <p class="index-main-modal-card-caption">선택한 날짜의 발주 ${formatNumber(orders.length)}건${task.historyOnly ? ' · 이동/삭제 안내' : ''}</p>
                         </div>
                     </div>
-                    <span class="index-main-modal-card-chip">발주 상세</span>
+                    ${task.taskAvailable !== false ? `<a class="index-main-modal-card-chip" href="/customer/taskDetail/${encodeURIComponent(task.id)}">전체 발주 보기</a>` : '<span class="index-main-modal-card-chip">삭제된 주문</span>'}
                 </div>
+                ${renderCustomerChanges(task.changes)}
                 <div class="index-main-modal-order-list">
-                    ${orderHtml || '<div class="index-main-empty-state">등록된 오더 정보가 없습니다.</div>'}
+                    ${orderHtml || '<p class="customer-change-help">해당 날짜의 현재 발주는 없습니다.</p>'}
                 </div>
             </article>
         `;
@@ -508,11 +549,12 @@ document.addEventListener('DOMContentLoaded', function () {
     function renderModalData(dateStr, data) {
         const list = Array.isArray(data) ? data : [];
         const asCount = list.filter(item => item && item.type === 'AS').length;
-        const taskCount = list.filter(item => item && item.type === 'TASK').length;
+        const taskCount = list.filter(item => item && item.type === 'TASK' && !item.historyOnly).length;
+        const orderCount = list.reduce((sum,item) => sum + (item && item.type === 'TASK' && Array.isArray(item.orders) ? item.orders.length : 0),0);
 
         if (modalTitle) modalTitle.textContent = formatDateKo(dateStr, true);
         if (modalSubtitle) {
-            modalSubtitle.textContent = `${getBasisText(getBasis())} · AS ${asCount}건 · 발주 ${taskCount}건`;
+            modalSubtitle.textContent = `${getBasisText(getBasis())} · AS ${asCount}건 · 발주 ${orderCount}건 (${taskCount}개 주문 묶음)`;
         }
 
         if (!modalBody) return;
@@ -527,11 +569,14 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        modalBody.innerHTML = list.map((task, index) => {
+        const current = list.filter(task=>!task.historyOnly);
+        const history = list.filter(task=>task.type==='TASK'&&task.historyOnly);
+        const historyCount = new Set(history.flatMap(task=>(task.changes||[]).map(c=>c.orderId))).size;
+        modalBody.innerHTML = current.map((task, index) => {
             if (task.type === 'AS') return renderAsModalCard(task, index);
             if (task.type === 'TASK') return renderTaskModalCard(task, index);
             return '';
-        }).join('');
+        }).join('') + (history.length ? `<details class="customer-calendar-history"><summary>이 날짜에서 이동·삭제된 제품 ${historyCount}건 · 현재 발주에 포함되지 않음</summary><div class="customer-calendar-history-body">${history.map(renderHistoryTask).join('')}</div></details>` : '');
         modalBody.scrollTop = 0;
     }
 
@@ -657,6 +702,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             <span class="index-main-work-status ${statusClassName(statusKey)}">${escapeHtml(item && item.statusLabel ? item.statusLabel : '상태 미지정')}</span>
                         </div>
                     </div>
+                    ${renderCustomerChanges(item.changes)}
                 </div>
             </article>
         `;
@@ -811,6 +857,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
+            if (event.target.closest('details, summary, a, button')) return;
             const workItem = event.target.closest('[data-index-main-work-url]');
             if (!workItem) return;
 
@@ -821,6 +868,7 @@ document.addEventListener('DOMContentLoaded', function () {
         workWindowContent.addEventListener('keydown', function (event) {
             if (event.key !== 'Enter' && event.key !== ' ') return;
 
+            if (event.target.closest('details, summary, a, button')) return;
             const workItem = event.target.closest('[data-index-main-work-url]');
             if (!workItem) return;
 
@@ -967,9 +1015,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 <article class="index-main-kpi-card index-main-kpi-card-order">
                     <div class="index-main-kpi-icon index-main-kpi-icon-order" aria-hidden="true"><i class="fa-solid fa-file-invoice"></i></div>
                     <div>
-                        <span>발주서</span>
-                        <strong>${formatNumber(orderTaskCount)}<small>건</small></strong>
-                        <p>포함 오더 ${formatNumber(orderCount)}건</p>
+                        <span>발주</span>
+                        <strong>${formatNumber(orderCount)}<small>건</small></strong>
+                        <p>조회기간에 해당하는 ${formatNumber(orderTaskCount)}개 주문 묶음</p>
                     </div>
                 </article>
 
@@ -987,7 +1035,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <div>
                         <span>발주 총 금액</span>
                         <strong class="index-main-kpi-money-value">${formatCurrency(order.totalAmount || 0)}</strong>
-                        <p>Order.totalAmount 합계</p>
+                        <p>조회기간에 해당하는 발주 금액 합계</p>
                     </div>
                 </article>
 
@@ -1006,11 +1054,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     <div>
                         <span class="index-main-domain-kicker">ORDER INSIGHT</span>
                         <h3>발주 오버뷰</h3>
-                        <p>현재 조회기간에 포함된 발주서와 오더를 상태, 옵션 카테고리, 배송 정보로 정리했습니다.</p>
+                        <p>조회기간에 해당하는 제품의 상태·분류·배송정보를 집계합니다.</p>
                     </div>
                     <div class="index-main-domain-summary">
-                        <span>발주서 <strong>${formatNumber(orderTaskCount)}</strong></span>
-                        <span>오더 <strong>${formatNumber(orderCount)}</strong></span>
+                        <span>주문 묶음 <strong>${formatNumber(orderTaskCount)}</strong></span>
+                        <span>발주 <strong>${formatNumber(orderCount)}</strong></span>
                         <span>금액 <strong>${formatCurrency(order.totalAmount || 0)}</strong></span>
                     </div>
                 </div>
@@ -1025,7 +1073,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         key: 'order-category',
                         kicker: 'OPTION JSON',
                         title: '카테고리별 발주',
-                        subtitle: 'OrderItem.optionJson의 “카테고리” 값을 기준으로 집계합니다.',
+                        subtitle: '조회기간에 해당하는 제품의 카테고리별 건수입니다.',
                         items: order.categoryCounts,
                         iconClass: 'index-main-rank-icon-category'
                     })}
@@ -1195,7 +1243,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function buildCalendarEvent(kind, count, date) {
         const isAs = kind === 'AS';
         return {
-            title: isAs ? 'AS' : '발주',
+            title: isAs ? 'AS' : kind === 'CHANGE' ? '변경 안내' : '발주',
             start: date,
             allDay: true,
             classNames: [
@@ -1213,11 +1261,11 @@ document.addEventListener('DOMContentLoaded', function () {
         const type = info.event.extendedProps.type;
         const count = Number(info.event.extendedProps.count || 0);
         const isAs = type === 'AS';
-        const label = isAs ? 'AS' : '발주';
+        const label = isAs ? 'AS' : type === 'CHANGE' ? '변경 안내' : '발주';
 
         return {
             html: `
-                <div class="index-main-calendar-event ${isAs ? 'index-main-calendar-event-as' : 'index-main-calendar-event-task'}"
+                <div class="index-main-calendar-event ${isAs ? 'index-main-calendar-event-as' : type === 'CHANGE' ? 'index-main-calendar-event-change' : 'index-main-calendar-event-task'}"
                      aria-label="${label} ${count}건">
                     <i class="fa-solid ${isAs ? 'fa-screwdriver-wrench' : 'fa-clipboard-list'} index-main-calendar-event-icon" aria-hidden="true"></i>
                     <span class="index-main-calendar-event-label">${label}</span>
@@ -1283,9 +1331,10 @@ document.addEventListener('DOMContentLoaded', function () {
                         if (Number(item.asCount || 0) > 0) {
                             calendarEvents.push(buildCalendarEvent('AS', item.asCount, item.date));
                         }
-                        if (Number(item.taskCount || 0) > 0) {
-                            calendarEvents.push(buildCalendarEvent('TASK', item.taskCount, item.date));
+                        if (Number(item.orderCount || 0) > 0) {
+                            calendarEvents.push(buildCalendarEvent('TASK', item.orderCount, item.date));
                         }
+                        if (Number(item.changeCount || 0) > 0) calendarEvents.push(buildCalendarEvent('CHANGE', item.changeCount, item.date));
                     });
                     successCallback(calendarEvents);
                 })

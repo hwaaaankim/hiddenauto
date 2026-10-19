@@ -651,7 +651,7 @@
 .task-list-col-id { width: 82px; }
 .task-list-col-orderer { width: 112px; }
 .task-list-col-phone { width: 56px; }
-.task-list-col-orders { width: 430px; }
+.task-list-col-orders { width: 550px; }
 .task-list-col-method { width: 105px; }
 .task-list-col-address { width: 170px; }
 .task-list-col-date { width: 105px; }
@@ -707,7 +707,7 @@
 
 .task-list-products-head-grid,
 .task-list-order-product-line {
-    grid-template-columns: 10px minmax(0, 1fr) 92px 48px 44px;
+    grid-template-columns: 10px minmax(0, 1fr) 92px 48px 44px 108px;
 }
 
 .task-list-products-head-grid {
@@ -1235,7 +1235,7 @@
 }
 
 .task-detail-orders-table {
-    min-width: 1210px;
+    min-width: 1240px;
     table-layout: fixed;
     font-size: 11px;
 }
@@ -2057,4 +2057,143 @@ body.task-list-is-dragging * {
         width: 24px;
         height: 40px;
     }
+}
+
+/* 2026-10-19: 고객 주문의 Order별 배송예정일과 Task 공통 정보 배치 */
+.task-delivery-date-marker {
+    display: inline !important;
+    margin: 0 0 0 3px !important;
+    color: #b45309 !important;
+    font-size: 15px !important;
+    font-weight: 800 !important;
+    line-height: 1;
+    vertical-align: baseline;
+}
+
+.task-delivery-date-guide {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border: 1px solid #eadfc9;
+    border-radius: 5px;
+    background: #fffbf3;
+    color: #695332;
+    font-size: 11px;
+    line-height: 1.65;
+}
+
+.task-delivery-date-guide p {
+    margin: 0;
+    line-height: inherit;
+}
+
+.task-delivery-date-guide p + p {
+    margin-top: 3px;
+    color: #69717a;
+}
+
+.task-delivery-date-notice {
+    margin: 6px 0 0;
+    color: #975612;
+    font-size: 11px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.task-list-order-slide-inner > .task-delivery-date-notice {
+    margin: 0 0 10px;
+}
+
+.task-list-order-slide-head strong > span:not(.task-delivery-date-marker) {
+    display: inline;
+    font: inherit;
+    color: inherit;
+    letter-spacing: inherit;
+}
+
+.task-list-product-delivery-date {
+    padding-left: 8px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    color: #365c7c;
+    font-weight: 700;
+}
+
+.task-list-products-head-delivery {
+    padding-left: 8px;
+}
+
+.task-detail-summary-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.task-detail-summary-delivery {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+}
+
+.task-detail-summary-row > .task-detail-summary-item {
+    min-width: 0;
+}
+
+.task-detail-summary-item .task-detail-id-value {
+    display: inline;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+}
+
+.task-detail-date-help {
+    margin: 5px 0 0;
+    color: #737d87;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.task-detail-delivery-date {
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: #365c7c;
+}
+
+@media (max-width: 767.98px) {
+    .task-detail-summary-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .task-detail-summary-address {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+
+    .task-detail-summary-handler {
+        grid-column: 2;
+        grid-row: 1;
+    }
+
+    .task-detail-section-head {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+}
+
+/* 긴 담당자명과 연락처도 좁은 공통 정보 칸 안에서 줄바꿈합니다. */
+.task-detail-summary-handler .task-detail-handler-line,
+.task-detail-orders-table .task-detail-handler-line {
+    flex-wrap: wrap;
+    white-space: normal;
+}
+
+.task-detail-summary-handler .task-detail-handler-name,
+.task-detail-summary-handler .task-detail-handler-contact,
+.task-detail-orders-table .task-detail-handler-name,
+.task-detail-orders-table .task-detail-handler-contact {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.task-detail-orders-head > span {
+    flex: 0 0 auto;
+    white-space: nowrap;
 }

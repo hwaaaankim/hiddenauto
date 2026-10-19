@@ -14,6 +14,7 @@ import com.dev.HiddenBATHAuto.enums.order.OrderWorkArea;
 import com.dev.HiddenBATHAuto.model.auth.Member;
 import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
+import com.dev.HiddenBATHAuto.model.task.audit.CustomerOrderSearchSnapshot;
 
 import lombok.RequiredArgsConstructor;
 
@@ -122,7 +123,7 @@ public class OrderOperationalChangeRecorder {
     }
 
     @Transactional
-    public void recordChanges(
+    public com.dev.HiddenBATHAuto.model.task.audit.OrderChangeEvent recordChanges(
             Order order,
             OrderChangeSourceArea sourceArea,
             Member actor,
@@ -131,7 +132,7 @@ public class OrderOperationalChangeRecorder {
             String requestPath,
             OrderFieldChangeCommand... changes
     ) {
-        orderChangeAuditService.recordOrderChange(
+        return orderChangeAuditService.recordOrderChange(
                 order,
                 sourceArea,
                 actor != null ? actor.getId() : null,
@@ -145,7 +146,32 @@ public class OrderOperationalChangeRecorder {
     }
 
     @Transactional
-    public void recordChangesWithAdditionalRecipients(
+    public com.dev.HiddenBATHAuto.model.task.audit.OrderChangeEvent recordChanges(
+            Order order,
+            OrderChangeSourceArea sourceArea,
+            Member actor,
+            String operationCode,
+            String operationLabel,
+            String requestPath,
+            CustomerOrderSearchSnapshot customerSearchBefore,
+            OrderFieldChangeCommand... changes
+    ) {
+        return orderChangeAuditService.recordOrderChange(
+                order,
+                sourceArea,
+                actor != null ? actor.getId() : null,
+                actor != null ? actor.getUsername() : null,
+                resolveActorDisplay(actor),
+                operationCode,
+                operationLabel,
+                requestPath,
+                changes == null ? List.of() : Arrays.asList(changes),
+                OrderNotificationAudience.RELATED_USERS, null, null, List.of(), customerSearchBefore
+        );
+    }
+
+    @Transactional
+    public com.dev.HiddenBATHAuto.model.task.audit.OrderChangeEvent recordChangesWithAdditionalRecipients(
             Order order,
             OrderChangeSourceArea sourceArea,
             Member actor,
@@ -155,7 +181,7 @@ public class OrderOperationalChangeRecorder {
             Collection<Long> additionalRecipientMemberIds,
             OrderFieldChangeCommand... changes
     ) {
-        orderChangeAuditService.recordOrderChange(
+        return orderChangeAuditService.recordOrderChange(
                 order,
                 sourceArea,
                 actor != null ? actor.getId() : null,
@@ -169,6 +195,36 @@ public class OrderOperationalChangeRecorder {
                 null,
                 null,
                 additionalRecipientMemberIds
+        );
+    }
+
+    @Transactional
+    public com.dev.HiddenBATHAuto.model.task.audit.OrderChangeEvent recordChangesWithAdditionalRecipients(
+            Order order,
+            OrderChangeSourceArea sourceArea,
+            Member actor,
+            String operationCode,
+            String operationLabel,
+            String requestPath,
+            Collection<Long> additionalRecipientMemberIds,
+            CustomerOrderSearchSnapshot customerSearchBefore,
+            OrderFieldChangeCommand... changes
+    ) {
+        return orderChangeAuditService.recordOrderChange(
+                order,
+                sourceArea,
+                actor != null ? actor.getId() : null,
+                actor != null ? actor.getUsername() : null,
+                resolveActorDisplay(actor),
+                operationCode,
+                operationLabel,
+                requestPath,
+                changes == null ? List.of() : Arrays.asList(changes),
+                OrderNotificationAudience.RELATED_USERS,
+                null,
+                null,
+                additionalRecipientMemberIds,
+                customerSearchBefore
         );
     }
 

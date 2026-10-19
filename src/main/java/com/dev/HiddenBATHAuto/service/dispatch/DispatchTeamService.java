@@ -506,6 +506,9 @@ public class DispatchTeamService {
 
         lockDeliveryHandlerIds(handlerIdsToLock);
 
+        var customerSearchBefore = new java.util.HashMap<Long, com.dev.HiddenBATHAuto.model.task.audit.CustomerOrderSearchSnapshot>();
+        for (OrderManagementPlan plan : plans) customerSearchBefore.put(plan.order().getId(),
+            com.dev.HiddenBATHAuto.model.task.audit.CustomerOrderSearchSnapshot.from(plan.order()));
         LocalDateTime now = LocalDateTime.now();
         for (OrderManagementPlan plan : plans) {
             Order order = plan.order();
@@ -566,6 +569,7 @@ public class DispatchTeamService {
                         methodChanged ? "출고팀 배송수단/담당자 변경" : "출고팀 배송담당자 변경",
                         managementPath,
                         plan.beforeHandlerId() != null ? List.of(plan.beforeHandlerId()) : List.of(),
+                        customerSearchBefore.get(order.getId()),
                         methodChange,
                         handlerChange
                 );
@@ -594,6 +598,7 @@ public class DispatchTeamService {
                     "DISPATCH_DELIVERY_ADDRESS_CHANGE",
                     "출고팀 배송지 정보 변경",
                     managementPath,
+                    customerSearchBefore.get(order.getId()),
                     addressChanges.toArray(OrderFieldChangeCommand[]::new)
             );
 
@@ -700,6 +705,7 @@ public class DispatchTeamService {
 
         lockDeliveryHandlerIds(affectedHandlerIds);
 
+        var customerSearchBefore = com.dev.HiddenBATHAuto.model.task.audit.CustomerOrderSearchSnapshot.from(order);
         order.setDeliveryMethod(nextDeliveryMethod);
         order.setAssignedDeliveryHandler(nextHandler);
         order.setAssignedDeliveryTeam(nextHandler != null ? nextHandler.getTeamCategory() : null);
@@ -725,6 +731,7 @@ public class DispatchTeamService {
                 currentHandler != null && currentHandler.getId() != null
                         ? List.of(currentHandler.getId())
                         : List.of(),
+                customerSearchBefore,
                 OrderFieldChangeCommand.of(
                         "deliveryMethod",
                         "배송수단",
@@ -1188,8 +1195,10 @@ public class DispatchTeamService {
         LocalDateTime now = LocalDateTime.now();
         List<Order> saveTargets = new ArrayList<>();
 
+        var customerSearchBefore = new java.util.HashMap<Long, com.dev.HiddenBATHAuto.model.task.audit.CustomerOrderSearchSnapshot>();
         for (BulkDeliveryMethodPlan plan : plans) {
             Order order = plan.order();
+            customerSearchBefore.put(order.getId(), com.dev.HiddenBATHAuto.model.task.audit.CustomerOrderSearchSnapshot.from(order));
             order.setDeliveryMethod(targetMethod);
             order.setAssignedDeliveryHandler(plan.removeAssignment() ? null : plan.handler());
             order.setAssignedDeliveryTeam(plan.removeAssignment() ? null : plan.handler().getTeamCategory());
@@ -1223,6 +1232,7 @@ public class DispatchTeamService {
                     beforeHandlerIdsForMethodChange.get(order.getId()) != null
                             ? List.of(beforeHandlerIdsForMethodChange.get(order.getId()))
                             : List.of(),
+                    customerSearchBefore.get(order.getId()),
                     OrderFieldChangeCommand.of(
                             "deliveryMethod",
                             "배송수단",

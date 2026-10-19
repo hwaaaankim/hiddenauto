@@ -250,6 +250,7 @@ public class OrderUpdateService {
 		Order order = getOrderOrThrow(orderId);
 
 		ProductionVisibleOrderSnapshot beforeSnapshot = ProductionVisibleOrderSnapshot.from(order);
+        var customerSearchBefore = com.dev.HiddenBATHAuto.model.task.audit.CustomerOrderSearchSnapshot.from(order);
 		boolean adminImageChanged = hasDeleteIds(deleteAdminImageIds) || hasUploadFiles(adminImages);
 
 		OrderStatus status = parseOrderStatus(statusStr);
@@ -363,7 +364,8 @@ public class OrderUpdateService {
                     null,
                     extractEntityId(beforeSnapshot.assignedDeliveryHandlerId()) != null
                             ? List.of(extractEntityId(beforeSnapshot.assignedDeliveryHandlerId()))
-                            : List.of()
+                            : List.of(),
+                    customerSearchBefore
             );
         }
 		}

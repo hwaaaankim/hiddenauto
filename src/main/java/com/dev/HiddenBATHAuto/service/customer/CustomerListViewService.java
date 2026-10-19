@@ -3,6 +3,7 @@ package com.dev.HiddenBATHAuto.service.customer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -77,6 +78,7 @@ public class CustomerListViewService {
     private final TaskRepository taskRepository;
     private final RegionLookupService regionLookupService;
     private final ObjectMapper objectMapper;
+    private final CustomerOrderChangeService customerOrderChangeService;
 
     public int normalizePageSize(int requestedSize) {
         return ALLOWED_PAGE_SIZES.contains(requestedSize) ? requestedSize : 30;
@@ -121,12 +123,23 @@ public class CustomerListViewService {
     }
 
     public TaskListRow buildTaskListRow(Task task) {
-        return buildTaskRow(task);
+        TaskListRow row = buildTaskRow(task);
+        Long companyId = task.getRequestedBy() != null && task.getRequestedBy().getCompany() != null
+            ? task.getRequestedBy().getCompany().getId() : null;
+        row.setChanges(customerOrderChangeService.forTasks(companyId, List.of(task.getId())));
+        return row;
     }
 
     public Page<TaskListRow> searchTaskList(Long companyId, TaskListFilter filter) {
         List<TaskListRow> rows = loadFilteredTaskRows(companyId, filter);
-        return paginate(rows, filter.getPage(), filter.getSize());
+        Page<TaskListRow> page = paginate(rows, filter.getPage(), filter.getSize());
+        attachChanges(companyId, page.getContent());
+        return page;
+    }
+
+    private void attachChanges(Long companyId, List<TaskListRow> rows) {
+        var changes = customerOrderChangeService.forTasks(companyId, rows.stream().map(r -> r.getTask().getId()).toList());
+        for (TaskListRow row : rows) row.setChanges(changes.stream().filter(c -> row.getTask().getId().equals(c.getTaskId())).toList());
     }
 
     public List<TaskListRow> searchTaskListAll(Long companyId, TaskListFilter filter) {
@@ -145,11 +158,7 @@ public class CustomerListViewService {
         List<TaskListRow> rows = rawPage.getContent().stream()
                 .filter(Objects::nonNull)
                 .map(this::buildTaskRow)
-                .filter(row -> matchesTaskText(row, filter))
-                .filter(row -> matchesTaskDate(row, filter))
-                .filter(row -> matchesTaskStatus(row, filter.getStatus()))
-                .filter(row -> matchesTaskCategory(row, filter.getCategory()))
-                .filter(row -> matchesTaskRegion(row, region))
+                .filter(row -> markSearchMatches(row, filter, region))
                 .collect(Collectors.toCollection(ArrayList::new));
 
         rows.sort(buildTaskComparator(parseSort(filter.getSort(), TASK_SORT_FIELDS)));
@@ -186,6 +195,15 @@ public class CustomerListViewService {
                 .map(this::buildTaskOrderSummary)
                 .toList();
 
+        // 출고일은 Order별 값입니다. 시간 차이는 제외하고 실제 달력 날짜로 비교합니다.
+        List<LocalDate> deliveryDates = orderSummaries.stream()
+                .map(TaskOrderSummary::getDeliveryDate)
+                .filter(Objects::nonNull)
+                .map(LocalDateTime::toLocalDate)
+                .distinct()
+                .sorted()
+                .toList();
+
         Map<String, Long> categoryCountMap = new LinkedHashMap<>();
         for (TaskOrderSummary summary : orderSummaries) {
             categoryCountMap.merge(safeText(summary.getCategoryName(), "미분류"), 1L, Long::sum);
@@ -219,7 +237,7 @@ public class CustomerListViewService {
                 .task(task)
                 .representativeOrder(representative)
 				.requesterName(resolveMemberDisplayName(task.getRequestedBy(), "-"))
-                .ordererName(safeText(representative != null ? representative.getOrdererName() : null, "-"))
+                .ordererName(orders.stream().map(o -> safeText(o.getOrdererName(), "-")).distinct().collect(Collectors.joining(", ")))
                 .ordererPhone(safeText(representative != null ? representative.getOrdererPhone() : null, "-"))
                 .orderCount(orders.size())
                 .categoryCounts(categoryCounts)
@@ -227,7 +245,11 @@ public class CustomerListViewService {
 				.deliveryMethodName(resolveTaskDeliveryMethodName(orders))
                 .deliveryAddress(buildEffectiveDeliveryAddress(representative))
                 .deliveryRegion(buildEffectiveDeliveryRegion(representative))
-                .deliveryDate(representative != null ? representative.getPreferredDeliveryDate() : null)
+                .deliveryDate(deliveryDates.isEmpty() ? null : deliveryDates.get(0).atStartOfDay())
+                .mixedDeliveryDates(deliveryDates.size() > 1)
+                .mixedDeliveryDetails(orderSummaries.stream().map(o -> Arrays.asList(
+                    o.getDeliveryDate() == null ? null : o.getDeliveryDate().toLocalDate(),
+                    o.getDeliveryMethodName(), o.getDeliveryAddress())).distinct().count() > 1)
                 .statusKey(statusSummary.key())
                 .statusLabel(statusSummary.label())
 				.managerName(deliveryHandlerDisplay)
@@ -303,7 +325,7 @@ public class CustomerListViewService {
         return Math.addExact(supplyPrice, vatAmount);
     }
 
-    private TaskOrderSummary buildTaskOrderSummary(Order order) {
+    public TaskOrderSummary buildTaskOrderSummary(Order order) {
         if (order == null) {
             return TaskOrderSummary.builder()
                     .productName("-")
@@ -322,6 +344,15 @@ public class CustomerListViewService {
 
         return TaskOrderSummary.builder()
                 .orderId(order.getId())
+                .createdAt(order.getCreatedAt() != null ? order.getCreatedAt() : order.getTask() != null ? order.getTask().getCreatedAt() : null)
+                .ordererName(safeText(order.getOrdererName(), "-"))
+                .ordererPhone(safeText(order.getOrdererPhone(), "-"))
+                .deliveryRegion(buildEffectiveDeliveryRegion(order))
+                .deliveryHandlerName(com.dev.HiddenBATHAuto.service.order.DeliveryMethodAssignmentPolicy.isDirectOrSite(order.getDeliveryMethod())
+                    ? resolveMemberDisplayName(order.getAssignedDeliveryHandler(), "미배정") : "-")
+                .deliveryHandlerContact(com.dev.HiddenBATHAuto.service.order.DeliveryMethodAssignmentPolicy.isDirectOrSite(order.getDeliveryMethod())
+                    && order.getAssignedDeliveryHandler() != null ? (StringUtils.hasText(order.getAssignedDeliveryHandler().getPhone())
+                        ? order.getAssignedDeliveryHandler().getPhone() : order.getAssignedDeliveryHandler().getTelephone()) : null)
                 .categoryName(extractCategory(order, optionMap))
                 .optionText(resolveCustomerExtraOptions(optionMap))
                 .productName(resolveCustomerProductName(item, optionMap))
@@ -602,47 +633,28 @@ public class CustomerListViewService {
         return region.matches(task.getDoName(), task.getSiName(), task.getGuName());
     }
 
-    private boolean matchesTaskText(TaskListRow row, TaskListFilter filter) {
-        String keyword = normalizeKeyword(filter.getKeyword());
-        if (keyword == null) {
-            return true;
-        }
+    private boolean markSearchMatches(TaskListRow row, TaskListFilter filter, RegionFilter region) {
+        row.setSearchFiltered(CustomerOrderSearch.active(filter));
+        var matching = safeOrders(row.getTask()).stream().filter(Objects::nonNull)
+            .filter(o -> CustomerOrderSearch.matches(com.dev.HiddenBATHAuto.model.task.audit.CustomerOrderSearchSnapshot.from(o),
+                filter, region.province, region.city, region.district))
+            .map(Order::getId).collect(Collectors.toSet());
+        for (var summary : row.getOrderSummaries()) summary.setSearchMatch(matching.contains(summary.getOrderId()));
+        row.setMatchedOrderCount(matching.size());
+        return !row.isSearchFiltered() || !matching.isEmpty();
+    }
 
-        String type = normalizeKeyword(filter.getTextType());
-        if ("productName".equals(type)) {
-            return safeOrders(row.getTask()).stream()
-                    .map(Order::getOrderItem)
-                    .filter(Objects::nonNull)
-                    .anyMatch(item -> containsIgnoreCase(item.getProductName(), keyword));
-        }
-		if ("requesterName".equals(type)) {
-			return containsIgnoreCase(row.getRequesterName(), keyword);
-		}
-        if ("ordererPhone".equals(type)) {
-            return containsDigits(row.getOrdererPhone(), keyword);
-        }
-        if ("taskId".equals(type)) {
-            try {
-                String digits = keyword.replaceAll("[^0-9]", "");
-                if (digits.isBlank()) {
-                    return false;
-                }
-                return Objects.equals(row.getTask().getId(), Long.valueOf(digits));
-            } catch (NumberFormatException e) {
-                return false;
-            }
-        }
-        if ("orderId".equals(type)) {
-            try {
-                Long orderId = Long.valueOf(keyword.replaceAll("[^0-9]", ""));
-                return safeOrders(row.getTask()).stream()
-                        .anyMatch(order -> Objects.equals(order.getId(), orderId));
-            } catch (NumberFormatException e) {
-                return false;
-            }
-        }
-
-        return containsIgnoreCase(row.getOrdererName(), keyword);
+    /** 이전 주소를 현재 값으로 채우지 않고, 저장된 동일 Order의 검색 상태로 판정합니다. */
+    public List<com.dev.HiddenBATHAuto.dto.customer.CustomerOrderChangeGroup> searchChangeNotices(Long companyId, TaskListFilter filter) {
+        RegionFilter r = resolveRegionFilter(filter.getProvinceId(), filter.getCityId(), filter.getDistrictId());
+        boolean active = CustomerOrderSearch.active(filter);
+        var changes = active ? customerOrderChangeService.forCalendar(companyId) : customerOrderChangeService.recentDeletedTasks(companyId);
+        var matchingIds = changes.stream().filter(c -> !active || (
+            CustomerOrderSearch.matches(c.getBeforeSearch(),filter,r.province,r.city,r.district)
+            && (c.isDeleted() || !CustomerOrderSearch.matches(c.getCurrentSearch(),filter,r.province,r.city,r.district))))
+            .map(com.dev.HiddenBATHAuto.dto.customer.CustomerOrderChange::getOrderId).collect(Collectors.toSet());
+        return com.dev.HiddenBATHAuto.dto.customer.CustomerOrderChangeGroup.group(changes.stream()
+            .filter(c -> matchingIds.contains(c.getOrderId())).toList());
     }
 
     private boolean matchesTaskDate(TaskListRow row, TaskListFilter filter) {
@@ -654,7 +666,9 @@ public class CustomerListViewService {
 
         String dateType = normalizeKeyword(filter.getDateType());
         if ("delivery".equals(dateType)) {
-            return isDateInRange(toDate(row.getDeliveryDate()), start, end);
+            // 하나라도 검색 기간에 해당하면 Task 전체를 보여 주어 주문 묶음을 유지합니다.
+            return row.getOrderSummaries().stream()
+                    .anyMatch(order -> isDateInRange(toDate(order.getDeliveryDate()), start, end));
         }
 
         return isDateInRange(toDate(row.getTask().getCreatedAt()), start, end);
@@ -1056,18 +1070,11 @@ public class CustomerListViewService {
         return order.getDeliveryMethod().getMethodName().trim();
     }
 
-    private String buildEffectiveDeliveryAddress(Order order) {
-        if (order == null) {
-            return "-";
-        }
-
-        if (hasSiteAddress(order)) {
-            return joinAddress(order.getSiteRoadAddress(), order.getSiteDetailAddress());
-        }
-        return joinAddress(order.getRoadAddress(), order.getDetailAddress());
+    public String buildEffectiveDeliveryAddress(Order order) {
+        return order == null ? "-" : safeText(order.getActualDeliveryAddressDisplay(), "-");
     }
 
-    private String buildEffectiveDeliveryRegion(Order order) {
+    public String buildEffectiveDeliveryRegion(Order order) {
         if (order == null) {
             return "-";
         }
@@ -1298,7 +1305,7 @@ public class CustomerListViewService {
     }
 
     private boolean hasSiteAddress(Order order) {
-        return order != null && StringUtils.hasText(order.getSiteRoadAddress());
+        return order != null && order.hasMeaningfulSiteDeliveryAddress();
     }
 
     private String joinAddress(String road, String detail) {
