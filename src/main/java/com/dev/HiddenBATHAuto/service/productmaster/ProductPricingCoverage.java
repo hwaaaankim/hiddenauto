@@ -37,7 +37,10 @@ public final class ProductPricingCoverage {
     }
     if (probe.exhaustive && probe.scenarios == 0) add(issues, "PRICE_EMPTY_DOMAIN", "가격 검증",
         "가격계산을 검증할 수 있는 완성된 프로세스 경로가 없습니다.");
-    return new Validation(issues.isEmpty() && probe.exhaustive, probe.exhaustive,
+    issues.addAll(probe.advisories.values());
+    if (probe.advisories.size() >= 50) issues.add(new Issue("WARNING", "PRICE_ADVISORY_LIMIT", "확인 안내",
+        "조건 누락·동시 가산 안내가 많아 대표 50개를 표시했습니다. 안내한 조건을 정리한 뒤 다시 검사하면 나머지 사례를 확인할 수 있습니다."));
+    return new Validation(issues.stream().noneMatch(i -> "ERROR".equals(i.severity())) && probe.exhaustive, probe.exhaustive,
         probe.scenarios, List.copyOf(issues));
   }
 
@@ -54,6 +57,9 @@ public final class ProductPricingCoverage {
     final List<Condition> pricePredicates = new ArrayList<>();
     final Set<String> multipliedFields = new HashSet<>();
     final Set<String> hitTerms = new HashSet<>();
+    final Map<String, Issue> advisories = new LinkedHashMap<>();
+    final Map<String, Scope> scopes = new LinkedHashMap<>();
+    private record Scope(Question question, String key, String label, List<Term> terms) {}
     long visits, scenarios;
     boolean exhaustive = true;
 
@@ -64,8 +70,24 @@ public final class ProductPricingCoverage {
       this.issues = issues;
       for (Term term : definition.terms()) {
         pricePredicates.addAll(list(term.conditions()));
+        if (term.optionPricing() != null) {
+          OptionRangePricing pricing = term.optionPricing();
+          axis(pricing.groupKey(), pricing.axis());
+          pricePredicates.add(numeric(pricing.groupKey(), pricing.axis().fieldKey(), Operator.PRESENT, null));
+          pricePredicates.add(numeric(pricing.groupKey(), pricing.axis().fieldKey(), Operator.GE, BigDecimal.ZERO));
+        }
         Question source = process.questions().stream().filter(q -> q.key().equals(term.groupKey()))
             .findFirst().orElseThrow();
+        List<String> scopeKeys = choice(source.control())
+            ? (list(term.choiceKeys()).isEmpty() ? source.choices().stream().map(Choice::key).toList() : term.choiceKeys())
+            : list(term.fieldKeys());
+        for (String scopeKey : scopeKeys) {
+          String name = choice(source.control())
+              ? source.choices().stream().filter(c -> c.key().equals(scopeKey)).map(c -> c.labels().customer()).findFirst().orElse(scopeKey)
+              : source.fields().stream().filter(f -> f.key().equals(scopeKey)).map(f -> f.labels().customer()).findFirst().orElse(scopeKey);
+          scopes.computeIfAbsent(source.key() + ":" + scopeKey,
+              k -> new Scope(source, scopeKey, label(source) + " · " + name, new ArrayList<>())).terms().add(term);
+        }
         // Optional choices still have two meaningful states: absent and selected. With an empty
         // choice filter every non-empty selection has the same price, but none is equivalent to
         // the unanswered state because a fixed choice term applies only after a selection.
@@ -88,7 +110,7 @@ public final class ProductPricingCoverage {
     private void axis(String question, Axis axis) {
       if (axis == null) return;
       for (int i = 0; i < list(axis.headers()).size(); i++) {
-        Operator operator = axis.operatorAt(i) == Threshold.LE ? Operator.LE : Operator.LT;
+        Operator operator = Operator.valueOf(axis.operatorAt(i).name());
         pricePredicates.add(numeric(question, axis.fieldKey(), operator, axis.headers().get(i)));
       }
     }
@@ -163,6 +185,32 @@ public final class ProductPricingCoverage {
       calculation.terms().stream().filter(TermResult::applied).map(TermResult::key).forEach(hitTerms::add);
       if (!calculation.complete()) for (String error : calculation.errors()) add(issues,
           "PRICE_PATH", "가격계산", error + " 예시: " + example(answers));
+      else checkScopes(calculation);
+    }
+
+    // Independent terms are additive by design. Report suspicious gaps/overlaps for review;
+    // do not turn a previously valid intentional surcharge or free branch into a save error.
+    private void checkScopes(Calculation calculation) {
+      Evaluation evaluation = calculation.evaluation();
+      Map<String, QuestionState> states = evaluation.questions().stream().collect(Collectors.toMap(s -> s.question().key(), s -> s));
+      Set<String> applied = calculation.terms().stream().filter(TermResult::applied).map(TermResult::key).collect(Collectors.toSet());
+      for (Map.Entry<String, Scope> entry : scopes.entrySet()) {
+        Scope scope = entry.getValue(); Question q = scope.question();
+        QuestionState state = states.get(q.key()); Answer answer = evaluation.answers().get(q.key());
+        if (state == null || !state.visible() && !q.fixed() || answer == null || !state.allowed().contains(scope.key())) continue;
+        if (choice(q.control()) ? !list(answer.choices()).contains(scope.key()) : !map(answer.fields()).containsKey(scope.key())) continue;
+        List<Term> active = scope.terms().stream().filter(t -> applied.contains(t.key())).toList();
+        String code = active.isEmpty() ? "PRICE_CONDITION_GAP" : active.size() > 1 ? "PRICE_ADDITIVE_OVERLAP" : null;
+        if (code == null) continue;
+        String signature = code + ":" + entry.getKey() + ":" + active.stream().map(Term::key).collect(Collectors.joining(","));
+        if (advisories.containsKey(signature) || advisories.size() >= 50) continue;
+        String names = (active.isEmpty() ? scope.terms() : active).stream().map(Term::name).collect(Collectors.joining(" / "));
+        String message = active.isEmpty()
+            ? "이 입력에서는 연결한 가격 항이 모두 제외됩니다: " + names + ". 빠진 조건·구간이 아닌지 확인하세요. 예: 600 이하 다음을 602 이상으로 만들면 601이 빠집니다. 의도한 무료 분기는 0원 항으로 명시할 수 있습니다."
+            : "같은 입력에 " + active.size() + "개 항이 동시에 적용되어 모두 더해집니다: " + names
+                + ". 구간별 대체 가격이면 경계·선택 조건을 겹치지 않게 수정하세요. 예: 600 이하 / 600 이상은 600에서 중복됩니다. 기본금+추가금이면 정상입니다.";
+        advisories.put(signature, new Issue("WARNING", code, scope.label(), message + " 실제 재현 입력: " + example(evaluation.answers())));
+      }
     }
 
     private String example(Map<String, Answer> answers) {

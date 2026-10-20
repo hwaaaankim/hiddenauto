@@ -111,6 +111,22 @@ public class ProductPricingService {
     return calculate(p, process, definition, request.answers());
   }
 
+  /** Draft diagnostics use the same process and price interpreters as saving and actual pricing. */
+  public Validation diagnose(Long id, com.dev.HiddenBATHAuto.dto.productmaster.ProductPricingDtos.EvaluateRequest request) {
+    if (request == null || request.definition() == null) throw new IllegalArgumentException("검증할 가격계산식이 필요합니다.");
+    ProductMaster p = require(id);
+    Process process = process(p);
+    requireReadyFast(p, process);
+    requireFingerprint(p, process, request.definition());
+    Validation processValidation = studio.validateProcess(id, process);
+    if (!processValidation.valid() || !processValidation.exhaustive()) return processValidation;
+    Validation priceValidation = ProductPricingCoverage.validate(process, pricingGroups(p, process),
+        request.definition(), studio.fixedAnswers(p));
+    List<Issue> issues = new ArrayList<>(processValidation.issues());
+    issues.addAll(priceValidation.issues());
+    return new Validation(priceValidation.valid(), priceValidation.exhaustive(), priceValidation.scenarios(), List.copyOf(issues));
+  }
+
   public List<CopySource> copySources(Long id) {
     ProductMaster target = require(id);
     Process targetProcess = process(target);

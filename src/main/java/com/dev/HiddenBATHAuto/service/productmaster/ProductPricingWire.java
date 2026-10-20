@@ -2,6 +2,7 @@ package com.dev.HiddenBATHAuto.service.productmaster;
 
 import com.dev.HiddenBATHAuto.dto.productmaster.ProductPricingDtos.Axis;
 import com.dev.HiddenBATHAuto.dto.productmaster.ProductPricingDtos.Term;
+import com.dev.HiddenBATHAuto.dto.productmaster.ProductPricingDtos.OptionRangePricing;
 import java.util.*;
 
 /** Preserve high precision coefficients and thresholds across JSON's JavaScript number boundary. */
@@ -17,6 +18,15 @@ public final class ProductPricingWire {
       result.put("operators", axis.operators());
       result.put("headers", axis.headers() == null ? null
           : axis.headers().stream().map(n -> n == null ? null : n.toPlainString()).toList());
+      return result;
+    }
+    if (value instanceof OptionRangePricing pricing) {
+      Map<String, Object> result = new LinkedHashMap<>();
+      result.put("groupKey", pricing.groupKey());
+      result.put("axis", response(pricing.axis()));
+      result.put("amounts", pricing.amounts() == null ? null
+          : pricing.amounts().stream().map(n -> n == null ? null : n.toPlainString()).toList());
+      result.put("aboveAmount", pricing.aboveAmount() == null ? null : pricing.aboveAmount().toPlainString());
       return result;
     }
     if (value instanceof Map<?, ?> source) {

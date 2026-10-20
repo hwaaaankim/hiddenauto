@@ -52,8 +52,10 @@ public class ProductPricingExcelController {
       @RequestParam int dimensions,
       @RequestParam(defaultValue = "3") int rows,
       @RequestParam(defaultValue = "3") int columns,
-      @RequestParam(defaultValue = "false") boolean includeHeaders) {
-    return download(includeHeaders ? excel.tableTemplate(dimensions, rows, columns) : excel.template(dimensions, rows, columns), "price-matrix-template.xlsx");
+      @RequestParam(defaultValue = "false") boolean includeHeaders,
+      @RequestParam(defaultValue = "X 입력") String xLabel,
+      @RequestParam(defaultValue = "Y 입력") String yLabel) {
+    return download(includeHeaders ? excel.tableTemplate(dimensions, rows, columns, xLabel, yLabel) : excel.template(dimensions, rows, columns, xLabel, yLabel), "price-matrix-template.xlsx");
   }
 
   @PostMapping("/export")
