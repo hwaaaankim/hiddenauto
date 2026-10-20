@@ -10,7 +10,7 @@ import java.util.Map;
 public final class ProductPricingDtos {
   private ProductPricingDtos() {}
   public enum TermType { FIXED, MULTIPLY, MATRIX_1D, MATRIX_2D }
-  public enum Threshold { LE, LT }
+  public enum Threshold { LE, LT, GE, GT }
   public record Axis(String fieldKey, Threshold operator, List<BigDecimal> headers,
       List<Threshold> operators) {
     // Existing definitions and callers retain their axis-wide boundary behavior.
@@ -28,7 +28,18 @@ public final class ProductPricingDtos {
   public record Term(String key, String name, String groupKey, String bundleKey,
       List<String> fieldKeys, TermType type, BigDecimal amount, Map<String, BigDecimal> rates,
       Axis xAxis, Axis yAxis, List<List<BigDecimal>> values, String match,
-      List<Condition> conditions, List<String> choiceKeys) {}
+      List<Condition> conditions, List<String> choiceKeys, OptionRangePricing optionPricing) {
+    public Term(String key, String name, String groupKey, String bundleKey,
+        List<String> fieldKeys, TermType type, BigDecimal amount, Map<String, BigDecimal> rates,
+        Axis xAxis, Axis yAxis, List<List<BigDecimal>> values, String match,
+        List<Condition> conditions, List<String> choiceKeys) {
+      this(key, name, groupKey, bundleKey, fieldKeys, type, amount, rates, xAxis, yAxis,
+          values, match, conditions, choiceKeys, null);
+    }
+  }
+  /** One option term chooses exactly one price; the base amount is never added again. */
+  public record OptionRangePricing(String groupKey, Axis axis, List<BigDecimal> amounts,
+      BigDecimal aboveAmount) {}
   public record Definition(int schemaVersion, String schemaFingerprint, List<Term> terms,
       Map<String, Answer> testAnswers) {}
   public record Context(Long productId, long version, boolean ready, List<String> issues,

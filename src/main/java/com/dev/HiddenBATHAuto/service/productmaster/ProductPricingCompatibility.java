@@ -165,9 +165,13 @@ public final class ProductPricingCompatibility {
       Axis x = term.xAxis() == null ? null : new Axis(field.apply(term.groupKey(), term.xAxis().fieldKey()), term.xAxis().operator(), term.xAxis().headers(), term.xAxis().operators());
       Axis y = term.yAxis() == null ? null : new Axis(field.apply(term.groupKey(), term.yAxis().fieldKey()), term.yAxis().operator(), term.yAxis().headers(), term.yAxis().operators());
       String bundle = text(term.bundleKey()).isBlank() ? null : unqualified(requiredKey(targetBundle.get(from.b(term.groupKey(), term.bundleKey()))));
+      OptionRangePricing pricing = term.optionPricing();
+      OptionRangePricing mappedPricing = pricing == null ? null : new OptionRangePricing(
+          question.apply(pricing.groupKey()), new Axis(field.apply(pricing.groupKey(), pricing.axis().fieldKey()),
+              pricing.axis().operator(), pricing.axis().headers(), pricing.axis().operators()), pricing.amounts(), pricing.aboveAmount());
       terms.add(new Term(UUID.randomUUID().toString(), term.name(), question.apply(term.groupKey()), bundle,
           list(term.fieldKeys()).stream().map(k -> field.apply(term.groupKey(), k)).toList(), term.type(), term.amount(), rates, x, y,
-          term.values(), term.match(), list(term.conditions()).stream().map(condition).toList(), list(term.choiceKeys()).stream().map(k -> choice.apply(term.groupKey(), k)).toList()));
+          term.values(), term.match(), list(term.conditions()).stream().map(condition).toList(), list(term.choiceKeys()).stream().map(k -> choice.apply(term.groupKey(), k)).toList(), mappedPricing));
     }
     Map<String, Answer> answers = new LinkedHashMap<>();
     map(definition.testAnswers()).forEach((q, answer) -> {

@@ -174,10 +174,10 @@ final class ProductStudioConstraints {
         rows.forEach(c -> hit.add(c.key()));
         if (rows.size() != 1) error(issues, "LIMIT_COVERAGE", l.name(),
             (rows.isEmpty() ? "입력제한의 빈 구간" : "입력제한 조건 중복") + ": " + label(source)
-                + " 값 " + (choice(source.control()) ? a.choices() : a.fields())
-                + (rows.isEmpty() ? "에 적용할 최소/최대값이 없습니다. 모든 구간/선택지를 빠짐없이 연결해 주세요."
+                + " 값 " + answerExample(source, a)
+                + (rows.isEmpty() ? "에 적용할 최소/최대값이 없습니다. 모든 구간/선택지를 빠짐없이 연결해 주세요. 예: 600 이하 다음을 602 이상으로 정하면 601이 빠집니다."
                 : "에서 " + rows.stream().map(LimitCase::name).collect(Collectors.joining(" / "))
-                + " 조건이 동시에 적용됩니다. 경계 포함 또는 선택지 묶음을 분리해 주세요."));
+                + " 조건이 동시에 적용됩니다. 경계 포함 또는 선택지 묶음을 분리해 주세요. 예: 600 이하 다음은 600 초과이며, 정수 간격 1일 때는 601 이상입니다."));
       }
       for (LimitCase c : l.cases()) if (!hit.contains(c.key()))
         error(issues, "LIMIT_COVERAGE", l.name(), "[" + c.name() + "] 조건은 앞 질문의 입력 범위에서 성립하지 않습니다.");

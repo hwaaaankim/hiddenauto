@@ -74,6 +74,7 @@ public final class ProductPricingEngine {
               && new HashSet<>(list(term.choiceKeys())).size() == list(term.choiceKeys()).size(),
               "항에 연결한 선택 보기가 없거나 중복되었습니다.");
         }
+        validateOptionPricing(term, process, questions);
         switch (term.type()) {
           case FIXED -> money(term.amount(), "고정금액", 2);
           case MULTIPLY -> {
@@ -110,6 +111,9 @@ public final class ProductPricingEngine {
     require(!list(axis.headers()).isEmpty() && list(axis.headers()).size() <= MAX_AXIS, name + " 기준값을 1~200개 입력해 주세요.");
     require(axis.operators() == null || axis.operators().isEmpty()
         || axis.operators().size() == axis.headers().size(), name + " 기준값과 개별 이하/미만 설정 수가 다릅니다.");
+    for (int i = 0; i < axis.headers().size(); i++)
+      require(lowerAxis(axis) == (axis.operatorAt(i) == Threshold.GE || axis.operatorAt(i) == Threshold.GT),
+          name + "의 작은 기준/큰 기준 방식을 한 축에서 섞을 수 없습니다.");
     BigDecimal previous = null;
     for (BigDecimal header : axis.headers()) {
       require(header != null && header.signum() >= 0 && header.precision() <= 24 && (long) header.precision() - header.scale() <= 24 && Math.max(0, header.scale()) <= 6,
@@ -117,6 +121,22 @@ public final class ProductPricingEngine {
       require(previous == null || header.compareTo(previous) > 0, name + " 기준값은 중복 없이 작은 값부터 입력해 주세요.");
       previous = header;
     }
+  }
+
+  private static void validateOptionPricing(Term term, Process process, Map<String, Question> questions) {
+    OptionRangePricing pricing = term.optionPricing();
+    if (pricing == null) return;
+    Question owner = questions.get(term.groupKey()), source = questions.get(pricing.groupKey());
+    require(term.type() == TermType.FIXED && owner != null && choice(owner.control())
+        && !list(term.choiceKeys()).isEmpty(), "범위별 옵션 가격은 적용할 선택 옵션을 하나 이상 지정해 주세요.");
+    require(source != null && source.control() == Control.NUMBER
+        && process.questions().indexOf(source) < process.questions().indexOf(owner),
+        "옵션보다 앞에 있는 숫자 입력 그룹을 선택해 주세요.");
+    validateAxis(pricing.axis(), list(source.fields()).stream().map(Field::key).toList(), "옵션 가격 범위");
+    require(!lowerAxis(pricing.axis()), "옵션 가격 범위는 각 구간의 끝값(이하/미만)을 사용합니다.");
+    require(list(pricing.amounts()).size() == pricing.axis().headers().size(), "범위 수와 옵션 금액 수가 다릅니다.");
+    for (BigDecimal amount : pricing.amounts()) money(amount, "범위별 옵션 금액", 2);
+    money(pricing.aboveAmount(), "마지막 기준을 넘는 옵션 금액", 2);
   }
 
   private static void money(BigDecimal amount, String name, int scale) {
@@ -178,7 +198,24 @@ public final class ProductPricingEngine {
         BigDecimal amount;
         String explanation;
         switch (term.type()) {
-          case FIXED -> { amount = term.amount(); explanation = "고정 " + amount.toPlainString() + "원"; }
+          case FIXED -> {
+            OptionRangePricing pricing = term.optionPricing();
+            if (pricing == null) { amount = term.amount(); explanation = "고정 " + amount.toPlainString() + "원"; }
+            else {
+              QuestionState numericState = states.get(pricing.groupKey());
+              require(numericState != null && (numericState.visible() || numericState.question().fixed())
+                  && numericState.errors().isEmpty() && numericState.allowed().contains(pricing.axis().fieldKey()),
+                  "옵션 가격에 연결한 숫자 입력이 현재 분기에서 표시·허용되지 않거나 입력 오류가 있습니다. 적용 조건을 확인해 주세요.");
+              BigDecimal value = input(evaluated.answers(), pricing.groupKey(), pricing.axis().fieldKey());
+              int selected = matchingIndex(pricing.axis(), value);
+              amount = selected < 0 ? pricing.aboveAmount() : pricing.amounts().get(selected);
+              explanation = fieldLabel(numericState.question(), pricing.axis().fieldKey()) + " " + value.toPlainString()
+                  + " → " + (selected < 0 ? "마지막 기준 " + pricing.axis().headers().get(pricing.axis().headers().size() - 1).toPlainString()
+                      + (pricing.axis().operatorAt(pricing.axis().headers().size() - 1) == Threshold.LE ? " 초과" : " 이상")
+                      : thresholdLabel(pricing.axis(), selected)) + " · 옵션 금액 " + amount.toPlainString()
+                  + "원 (기본금액과 중복 가산하지 않음)";
+            }
+          }
           case MULTIPLY -> {
             amount = BigDecimal.ZERO;
             List<String> pieces = new ArrayList<>();
@@ -262,18 +299,37 @@ public final class ProductPricingEngine {
     return numeric;
   }
 
-  private static String thresholdLabel(Axis axis, int index) {
-    return axis.headers().get(index).toPlainString() + (axis.operatorAt(index) == Threshold.LE ? " 이하" : " 미만");
+  public static boolean lowerAxis(Axis axis) {
+    return axis.operator() == Threshold.GE || axis.operator() == Threshold.GT;
   }
 
-  public static int index(Axis axis, BigDecimal value) {
-    for (int i = 0; i < axis.headers().size(); i++) {
+  private static String thresholdLabel(Axis axis, int index) {
+    String suffix = switch (axis.operatorAt(index)) {
+      case LE -> " 이하"; case LT -> " 미만"; case GE -> " 이상"; case GT -> " 초과";
+    };
+    return axis.headers().get(index).toPlainString() + suffix;
+  }
+
+  private static int matchingIndex(Axis axis, BigDecimal value) {
+    if (lowerAxis(axis)) {
+      for (int i = axis.headers().size() - 1; i >= 0; i--) {
+        int compare = value.compareTo(axis.headers().get(i));
+        if (compare > 0 || compare == 0 && axis.operatorAt(i) == Threshold.GE) return i;
+      }
+    } else for (int i = 0; i < axis.headers().size(); i++) {
       int compare = value.compareTo(axis.headers().get(i));
       if (compare < 0 || compare == 0 && axis.operatorAt(i) == Threshold.LE) return i;
     }
-    throw new IllegalArgumentException(value.toPlainString() + "은 매트릭스 최대 기준 "
-        + axis.headers().get(axis.headers().size() - 1).toPlainString()
-        + (axis.operatorAt(axis.headers().size() - 1) == Threshold.LE ? " 이하" : " 미만") + "를 벗어났습니다. 기준 행·열을 추가해 주세요.");
+    return -1;
+  }
+
+  public static int index(Axis axis, BigDecimal value) {
+    int selected = matchingIndex(axis, value);
+    if (selected >= 0) return selected;
+    int edge = lowerAxis(axis) ? 0 : axis.headers().size() - 1;
+    throw new IllegalArgumentException(value.toPlainString() + "은 가격표의 "
+        + (lowerAxis(axis) ? "최소" : "최대") + " 기준 " + thresholdLabel(axis, edge)
+        + " 범위 밖입니다. 기준 행·열 또는 입력 제한을 확인해 주세요.");
   }
 
   private static void require(boolean valid, String message) {

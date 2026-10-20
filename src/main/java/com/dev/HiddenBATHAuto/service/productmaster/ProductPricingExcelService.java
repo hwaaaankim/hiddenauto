@@ -105,7 +105,8 @@ public class ProductPricingExcelService {
         throw new IllegalArgumentException("가격데이터 시트의 병합된 셀을 해제해 주세요.");
       int[] bounds = bounds(sheet);
       if (bounds == null)
-        throw new IllegalArgumentException("가격데이터 시트에 금액이 없습니다.");
+        throw new IllegalArgumentException("가격데이터 시트에 금액이 없습니다. 회색 예시를 지운 뒤 실제 금액을 입력하고 저장해 주세요.");
+      diagnose(sheet, bounds, dimensions, false);
       int sourceRows = bounds[2] - bounds[0] + 1;
       int sourceColumns = bounds[3] - bounds[1] + 1;
       shape(dimensions, sourceRows, sourceColumns, true);
@@ -135,28 +136,39 @@ public class ProductPricingExcelService {
   }
 
   public byte[] template(int dimensions, int rows, int columns) {
+    return template(dimensions, rows, columns, "X 입력", "Y 입력");
+  }
+  public byte[] template(int dimensions, int rows, int columns, String xLabel, String yLabel) {
+    label(xLabel, "X 항목", 120, false); label(yLabel, "Y 항목", 120, false);
     dimensions(dimensions);
     if (dimensions == 1) rows = 1;
     shape(dimensions, rows, columns, false);
     List<List<BigDecimal>> amounts = new ArrayList<>();
     for (int row = 0; row < rows; row++) {
       List<BigDecimal> values = new ArrayList<>();
-      for (int column = 0; column < columns; column++) values.add(BigDecimal.ZERO);
+      for (int column = 0; column < columns; column++) values.add(BigDecimal.valueOf(50000L + row * 10000L + column * 5000L));
       amounts.add(values);
     }
     try (XSSFWorkbook workbook = new XSSFWorkbook()) {
       writeData(workbook, amounts);
+      greyExamples(workbook, workbook.getSheet(DATA_SHEET));
       Sheet instructions = workbook.createSheet("안내");
-      text(instructions, 0, 0, "가격계산 금액 전용 엑셀 양식");
-      text(instructions, 2, 0, "가격데이터 시트의 0을 실제 금액으로 바꿔 주세요. 0원도 유효한 금액입니다.");
+      text(instructions, 0, 0, "금액 전용 양식 · 회색 예시를 지우고 실제 금액으로 입력하세요");
+      text(instructions, 1, 0, "선택한 입력: X(열)=" + xLabel + (dimensions == 2 ? " / Y(행)=" + yLabel : " / 1차원"));
+      text(instructions, 2, 0, "가격데이터 시트의 회색 숫자는 작성 예시입니다. 예시 전체를 지우고 실제 금액을 입력하세요. 실제 무료 가격만 0원입니다.");
       text(instructions, 3, 0, "그룹명·항목명·X/Y 기준값은 넣지 않습니다. 업로드 후 화면에서 입력합니다.");
       text(instructions, 4, 0, dimensions == 1
           ? "1차원은 한 행 또는 한 열로 작성합니다. 업로드 후 한 행으로 정리됩니다."
           : "2차원은 X축 기준마다 열, Y축 기준마다 행을 작성합니다.");
-      text(instructions, 5, 0, "행·열 수를 바꿀 수 있습니다. 중간 빈칸은 금액 0을 입력해 주세요.");
+      text(instructions, 5, 0, "행·열 수를 바꿀 수 있습니다. 중간 빈칸은 미설정 오류입니다. 무료일 때만 0을 입력하세요.");
       text(instructions, 6, 0, "숫자 금액만 지원합니다. 수식은 값으로 붙여넣고, 문자·날짜·음수는 제거해 주세요.");
       text(instructions, 7, 0, "금액: 0~9,999,999,999,999.99원. 소수점 둘째 자리까지. 축마다 최대 200개, 총 20,000개 금액.");
-      instructions.setColumnWidth(0, 100 * 256);
+      text(instructions, 9, 0, "300·400 등 사이즈 기준을 이 시트의 금액에 섞지 마세요. 기준은 업로드 후 화면에서 입력·자동 생성합니다.");
+      text(instructions, 10, 0, "엑셀 수식이 있다면 금액 영역을 복사 → 새 시트 A1 선택 → 선택하여 붙여넣기 → 값으로 붙여넣습니다.");
+      text(instructions, 11, 0, "기준을 엑셀에 함께 넣으려면 기준 포함 양식을 다운로드하고 업로드 방식도 기준 포함을 선택하세요.");
+      instructions.setColumnWidth(0, 110 * 256);
+      formatHelp(workbook, instructions);
+      workbook.setActiveSheet(workbook.getSheetIndex("안내"));
       return bytes(workbook);
     } catch (IOException e) {
       throw new IllegalStateException("엑셀 양식을 만들 수 없습니다.", e);
@@ -224,24 +236,25 @@ public class ProductPricingExcelService {
     validateArchive(bytes);
     try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
       Sheet sheet = workbook.getSheet("가격표");
-      if (sheet == null) throw new IllegalArgumentException("'가격표' 시트가 없습니다. 기준 포함 양식을 사용하거나 '금액만' 업로드를 선택해 주세요.");
+      if (sheet == null) sheet = dataSheet(workbook);
       if (sheet.getNumMergedRegions() > 0) throw new IllegalArgumentException("가격표 시트의 병합된 셀을 해제해 주세요.");
       int[] bounds = bounds(sheet);
-      if (bounds == null || bounds[2] < 1 || bounds[3] < 1)
-        throw new IllegalArgumentException("가격표의 첫 행에 X 기준값, 그 아래에 금액을 입력해 주세요.");
-      int rows = bounds[2], columns = bounds[3];
+      if (bounds == null) throw new IllegalArgumentException("읽을 가격 데이터가 없습니다. 회색 예시를 지우고 실제 가격을 입력해 주세요.");
+      diagnose(sheet, bounds, dimensions, true);
+      int firstRow = bounds[0], firstColumn = bounds[1];
+      int rows = bounds[2] - firstRow, columns = bounds[3] - firstColumn;
       shape(dimensions, rows, columns, false);
       List<BigDecimal> x = new ArrayList<>(), y = new ArrayList<>();
-      for (int c = 1; c <= columns; c++) x.add(boundCell(cell(sheet, 0, c), "X축 " + c + "번째 기준"));
+      for (int c = 1; c <= columns; c++) x.add(boundCell(cell(sheet, firstRow, firstColumn + c), "X축 " + c + "번째 기준"));
       if (dimensions == 2) for (int r = 1; r <= rows; r++)
-        y.add(boundCell(cell(sheet, r, 0), "Y축 " + r + "번째 기준"));
+        y.add(boundCell(cell(sheet, firstRow + r, firstColumn), "Y축 " + r + "번째 기준"));
       headers(x, columns, "X축");
       if (dimensions == 2) headers(y, rows, "Y축");
       List<List<BigDecimal>> amounts = new ArrayList<>();
       for (int r = 1; r <= rows; r++) {
         List<BigDecimal> values = new ArrayList<>();
         for (int c = 1; c <= columns; c++)
-          values.add(amount(cell(sheet, r, c), "가격표!" + new CellReference(r, c).formatAsString()));
+          values.add(amount(cell(sheet, firstRow + r, firstColumn + c), sheet.getSheetName() + "!" + new CellReference(firstRow + r, firstColumn + c).formatAsString()));
         amounts.add(List.copyOf(values));
       }
       Sheet settings = workbook.getSheet("가격표설정");
@@ -256,8 +269,10 @@ public class ProductPricingExcelService {
         xops = readOperators(setting(settings, 3), columns, "X축");
         if (dimensions == 2) yops = readOperators(setting(settings, 4), rows, "Y축");
       }
-      return new MatrixImport(dimensions, rows, columns, List.copyOf(amounts), "가격표",
-          "B2:" + new CellReference(rows, columns).formatAsString(),
+      direction(xo == null ? "LE" : xo, xops, "X축");
+      if (dimensions == 2) direction(yo == null ? "LE" : yo, yops, "Y축");
+      return new MatrixImport(dimensions, rows, columns, List.copyOf(amounts), sheet.getSheetName(),
+          new CellReference(firstRow + 1, firstColumn + 1).formatAsString() + ":" + new CellReference(bounds[2], bounds[3]).formatAsString(),
           x.stream().map(BigDecimal::toPlainString).toList(), y.stream().map(BigDecimal::toPlainString).toList(),
           xo, yo, xops, yops);
     } catch (IllegalArgumentException e) { throw e; }
@@ -265,32 +280,140 @@ public class ProductPricingExcelService {
   }
 
   public byte[] tableTemplate(int dimensions, int rows, int columns) {
+    return tableTemplate(dimensions, rows, columns, "X 입력", "Y 입력");
+  }
+  public byte[] tableTemplate(int dimensions, int rows, int columns, String xLabel, String yLabel) {
+    label(xLabel, "X 항목", 120, false); label(yLabel, "Y 항목", 120, false);
     dimensions(dimensions);
     if (dimensions == 1) rows = 1;
     shape(dimensions, rows, columns, false);
     try (XSSFWorkbook workbook = new XSSFWorkbook()) {
       Sheet sheet = workbook.createSheet("가격표");
-      text(sheet, 0, 0, dimensions == 2 ? "Y 기준 / X 기준" : "X 기준");
+      text(sheet, 0, 0, dimensions == 2 ? yLabel + " / " + xLabel : xLabel + " 기준");
       CellStyle heading = headingStyle(workbook), money = moneyStyle(workbook);
-      for (int c = 1; c <= columns; c++) { text(sheet, 0, c, ""); cell(sheet, 0, c).setCellStyle(heading); sheet.setColumnWidth(c, 18 * 256); }
+      for (int c = 1; c <= columns; c++) { numeric(sheet, 0, c, BigDecimal.valueOf(200L + c * 100L), heading); sheet.setColumnWidth(c, 18 * 256); }
       for (int r = 1; r <= rows; r++) {
-        text(sheet, r, 0, dimensions == 1 ? "금액(원)" : ""); cell(sheet, r, 0).setCellStyle(heading);
-        for (int c = 1; c <= columns; c++) { text(sheet, r, c, ""); cell(sheet, r, c).setCellStyle(money); }
+        if (dimensions == 1) text(sheet, r, 0, "금액(원)");
+        else numeric(sheet, r, 0, BigDecimal.valueOf(200L + r * 100L), heading);
+        cell(sheet, r, 0).setCellStyle(heading);
+        for (int c = 1; c <= columns; c++) { numeric(sheet, r, c, BigDecimal.valueOf(50000L + (r - 1) * 10000L + (c - 1) * 5000L), money); }
       }
       sheet.setColumnWidth(0, 22 * 256); sheet.createFreezePane(1, 1);
+      greyExamples(workbook, sheet);
       writeSettings(workbook, dimensions, "LE", "LE", null, null);
       Sheet help = workbook.createSheet("안내");
-      String[] lines = {"기준값 포함 가격표 양식", "가격표 첫 행 B1부터 X 기준값을 작은 순서로 입력하세요.",
+      String[] lines = {"기준 포함 양식 · 회색 예시 숫자를 지우고 실제 기준과 금액을 입력하세요", "선택한 입력: X(열)=" + xLabel + (dimensions == 2 ? " / Y(행)=" + yLabel : " / 1차원"), "가격표 첫 행 B1부터 X 기준값을 작은 순서로 입력하세요.",
           dimensions == 2 ? "첫 열 A2부터 Y 기준값을 작은 순서로 입력하세요. B2부터 교차 금액입니다." : "금액은 B2부터 한 행에 입력하세요. Y축은 사용하지 않습니다.",
           "금액은 비워 두지 말고 무료인 칸도 0을 입력하세요. 수식은 값 붙여넣기로 바꿔 주세요.",
-          "가격표설정의 LE=이하(기준 포함), LT=미만(기준 제외)입니다. 기본값은 LE입니다.",
+          "LE=이하, LT=미만: 401→500. GE=이상, GT=초과: 401→400. 기본값은 LE이며 같은 축에는 같은 방향만 사용합니다.",
           "개별 기준은 LE|LT|LE처럼 X는 왼쪽부터, Y는 위쪽부터 입력합니다. 비우면 축 기본값을 따릅니다.",
           "업로드 후 화면에서 입력 항목 연결·포함 여부·교차 금액을 확인하고 최종 저장하세요.",
           "기준값은 소수 6자리, 금액은 소수 2자리까지. 축당 200개, 교차 금액 20,000개까지입니다."};
       for (int i = 0; i < lines.length; i++) text(help, i, 0, lines[i]);
       help.setColumnWidth(0, 110 * 256);
+      formatHelp(workbook, help);
+      workbook.setActiveSheet(workbook.getSheetIndex("안내"));
       return bytes(workbook);
     } catch (IOException e) { throw new IllegalStateException("가격표 양식을 만들 수 없습니다.", e); }
+  }
+
+  /** Report all actionable format errors together, without executing formulas or changing the editor. */
+  private static void diagnose(Sheet sheet, int[] b, int dimensions, boolean includeHeaders) {
+    List<String> issues = new ArrayList<>();
+    int height = b[2] - b[0] + 1, width = b[3] - b[1] + 1;
+    if ((long) height * width > 41000) throw new IllegalArgumentException("읽을 범위가 " + height + "행 × " + width + "열입니다. 금액 영역만 남겨 주세요. 축당 200개, 금액 20,000개까지 가능합니다.");
+    boolean table = headerShape(sheet, b, dimensions) || dimensions == 1 && headerShape(sheet, b, 2);
+    String region = range(b[0], b[1], b[2], b[3]);
+    String prices = table ? range(b[0] + 1, b[1] + 1, b[2], b[3]) : region;
+    if (!includeHeaders && table) {
+      issues.add("[기준값이 함께 들어 있습니다] " + sheet.getSheetName() + "!" + region
+          + "의 첫 행·첫 열에 있는 300·400 등의 사이즈 기준값을 지워 주세요. 금액만 업로드에는 사이즈 기준을 넣지 않습니다.");
+      issues.add("실제 금액 영역: " + prices + ". 이 영역만 복사 → 새 파일의 A1에 ‘값’ 붙여넣기 → ‘금액만’ 방식으로 올려 주세요.");
+      issues.add("기준값도 함께 읽으려면 ‘기준 포함’ 방식으로 다시 업로드할 수 있습니다. 시트명은 가격표가 아니어도 한 개의 명확한 표이면 읽습니다.");
+    }
+    if (includeHeaders && table) {
+      checkHeaderCells(sheet, b[0], b[1] + 1, b[3] - b[1], true, issues);
+      if (dimensions == 2) checkHeaderCells(sheet, b[0] + 1, b[1], b[2] - b[0], false, issues);
+      else if (height != 2) issues.add("[차원 불일치] 숫자 입력을 1개 선택했지만 기준 포함 표의 금액이 " + (height - 1) + "행입니다. 1차원은 기준 한 행과 금액 한 행만 넣으세요. W·H 교차표라면 숫자를 2개 선택해 주세요.");
+    }
+    if (includeHeaders && !table) {
+      issues.add("[기준 포함 구조를 확인하세요] 첫 행에는 X 기준, 첫 열에는 Y 기준(1차원은 금액 제목), 그 안에는 금액이 필요합니다. 기준은 중복 없이 작은 순서로 입력하세요.");
+      issues.add("금액만 있는 파일이라면 ‘금액만’ 방식으로 업로드한 뒤 화면에서 300·400 등의 기준값을 입력하세요. 현재 읽은 영역: " + sheet.getSheetName() + "!" + region);
+    }
+    int formulas = 0, blanks = 0, invalid = 0;
+    List<String> formulaCells = new ArrayList<>(), blankCells = new ArrayList<>(), invalidCells = new ArrayList<>();
+    int firstRow = table ? b[0] + 1 : b[0], firstColumn = table ? b[1] + 1 : b[1];
+    for (int r = firstRow; r <= b[2]; r++) for (int c = firstColumn; c <= b[3]; c++) {
+      Cell value = readCell(sheet, r, c); String at = new CellReference(r, c).formatAsString();
+      if (value != null && value.getCellType() == CellType.FORMULA) { formulas++; if (formulaCells.size() < 8) formulaCells.add(at); }
+      else if (empty(value)) { blanks++; if (blankCells.size() < 8) blankCells.add(at); }
+      else try { amount(value, at); } catch (IllegalArgumentException ex) { invalid++; if (invalidCells.size() < 5) invalidCells.add(ex.getMessage()); }
+    }
+    if (formulas > 0) issues.add("[수식 " + formulas + "개] " + String.join(", ", formulaCells)
+        + (formulas > formulaCells.size() ? " 외" : "") + ". 금액 영역 " + prices
+        + "을 복사하여 ‘선택하여 붙여넣기 → 값’으로 바꾼 뒤 저장하세요. 수식이 아닌 계산 완료된 실제 숫자값이 필요합니다.");
+    if (blanks > 0) issues.add("[빈 금액 " + blanks + "개] " + String.join(", ", blankCells)
+        + (blanks > blankCells.size() ? " 외" : "") + ". 실제 가격을 채우세요. 무료일 때만 0을 입력하고, 사용하지 않는 끝 행·열은 기준값과 함께 삭제하세요.");
+    if (invalid > 0) issues.add("[숫자 형식·금액 오류 " + invalid + "개] " + String.join(" / ", invalidCells));
+    if (!issues.isEmpty()) throw new IllegalArgumentException("선택한 방식: " + (includeHeaders ? "기준 포함" : "금액만") + " / " + dimensions + "차원\n"
+        + String.join("\n", issues) + "\n화면의 ‘회색 예시가 있는 양식 다운로드’를 참고해 수정한 뒤 다시 올려 주세요. 현재 작성한 가격표는 유지됩니다.");
+  }
+
+  private static boolean headerShape(Sheet sheet, int[] b, int dimensions) {
+    if (b[2] <= b[0] || b[3] <= b[1] || dimensions == 1 && b[2] - b[0] != 1) return false;
+    Cell corner = readCell(sheet, b[0], b[1]);
+    if (!empty(corner) && corner.getCellType() != CellType.STRING) return false;
+    try {
+      BigDecimal prev = null;
+      for (int c = b[1] + 1; c <= b[3]; c++) {
+        BigDecimal n = boundCell(readCell(sheet, b[0], c), "X");
+        prev = n;
+      }
+      if (dimensions == 2) {
+        prev = null;
+        for (int r = b[0] + 1; r <= b[2]; r++) {
+          BigDecimal n = boundCell(readCell(sheet, r, b[1]), "Y");
+          prev = n;
+        }
+      }
+      return true;
+    } catch (IllegalArgumentException ex) { return false; }
+  }
+  private static void checkHeaderCells(Sheet sheet, int row, int column, int count, boolean x, List<String> issues) {
+    BigDecimal previous = null; String previousAt = null;
+    for (int i = 0; i < count; i++) {
+      int r = row + (x ? 0 : i), c = column + (x ? i : 0);
+      String at = new CellReference(r, c).formatAsString();
+      try {
+        BigDecimal value = boundCell(readCell(sheet, r, c), (x ? "X" : "Y") + "축 " + at);
+        if (previous != null && value.compareTo(previous) <= 0)
+          issues.add("[기준 " + (value.compareTo(previous) == 0 ? "중복" : "순서 오류") + "] " + previousAt + "=" + previous.toPlainString() + ", " + at + "=" + value.toPlainString() + ". 기준값은 중복 없이 작은 순서로 입력하세요. 연결된 금액 행·열도 함께 확인하세요.");
+        previous = value; previousAt = at;
+      } catch (IllegalArgumentException ex) { issues.add(ex.getMessage()); }
+      if (issues.size() >= 20) return;
+    }
+  }
+  private static Cell readCell(Sheet sheet, int row, int column) {
+    Row r = sheet.getRow(row); return r == null ? null : r.getCell(column);
+  }
+  private static String range(int r1, int c1, int r2, int c2) {
+    return new CellReference(r1, c1).formatAsString() + ":" + new CellReference(r2, c2).formatAsString();
+  }
+  private static void greyExamples(XSSFWorkbook workbook, Sheet sheet) {
+    Font font = workbook.createFont(); font.setColor(IndexedColors.GREY_40_PERCENT.getIndex());
+    java.util.Map<Short, CellStyle> styles = new java.util.HashMap<>();
+    for (Row row : sheet) for (Cell cell : row) {
+      if (cell.getCellType() != CellType.NUMERIC && cell.getCellType() != CellType.STRING) continue;
+      CellStyle style = styles.computeIfAbsent(cell.getCellStyle().getIndex(), key -> {
+        CellStyle copy = workbook.createCellStyle(); copy.cloneStyleFrom(cell.getCellStyle()); copy.setFont(font); return copy;
+      });
+      cell.setCellStyle(style);
+    }
+  }
+  private static void formatHelp(XSSFWorkbook workbook, Sheet sheet) {
+    CellStyle style = workbook.createCellStyle(); style.setWrapText(true);
+    for (Row row : sheet) { row.setHeightInPoints(34); for (Cell cell : row) cell.setCellStyle(style); }
+    cell(sheet, 0, 0).setCellStyle(headingStyle(workbook)); sheet.getRow(0).setHeightInPoints(30);
   }
 
   private static BigDecimal boundCell(Cell cell, String name) {
@@ -308,7 +431,7 @@ public class ProductPricingExcelService {
     if (empty(cell)) return "";
     if (cell.getCellType() == CellType.STRING) return cell.getStringCellValue().trim();
     if (row == 0 && cell.getCellType() == CellType.NUMERIC) return new BigDecimal(((XSSFCell) cell).getRawValue()).stripTrailingZeros().toPlainString();
-    throw new IllegalArgumentException("가격표설정 B" + (row + 1) + " 값은 LE 또는 LT 문자로 입력해 주세요.");
+    throw new IllegalArgumentException("가격표설정 B" + (row + 1) + " 값은 LE, LT, GE 또는 GT 문자로 입력해 주세요.");
   }
   private static List<String> readOperators(String value, int count, String name) {
     if (blank(value)) return null;
@@ -321,6 +444,12 @@ public class ProductPricingExcelService {
     if (values.size() != count) throw new IllegalArgumentException(axis + " 개별 포함 여부의 개수가 기준값 수와 다릅니다.");
     for (String value : values) if (value != null) operatorLabel(value);
   }
+  private static void direction(String operator, List<String> overrides, String axis) {
+    boolean lower = "GE".equals(operator) || "GT".equals(operator);
+    if (overrides != null) for (String value : overrides) if (value != null
+        && lower != ("GE".equals(value) || "GT".equals(value)))
+      throw new IllegalArgumentException(axis + "의 큰 기준(LE/LT)과 작은 기준(GE/GT)을 섞을 수 없습니다.");
+  }
   private static void writeSettings(XSSFWorkbook workbook, int dimensions, String x, String y,
       List<String> xops, List<String> yops) {
     Sheet settings = workbook.createSheet("가격표설정");
@@ -328,7 +457,7 @@ public class ProductPricingExcelService {
     String[] values = {Integer.toString(dimensions), x, dimensions == 2 ? y : "",
         joinOperators(xops), dimensions == 2 ? joinOperators(yops) : ""};
     for (int i = 0; i < labels.length; i++) { text(settings, i, 0, labels[i]); text(settings, i, 1, values[i]); }
-    text(settings, 6, 0, "LE=이하(포함), LT=미만(제외). 개별 기준은 LE|LT|LE 순서. 빈 항목은 기본 비교 사용.");
+    text(settings, 6, 0, "LE/LT=큰 기준 적용(401→500), GE/GT=작은 기준 적용(401→400). 같은 방향끼리만 개별 지정. 빈 항목은 기본 비교 사용.");
     settings.setColumnWidth(0, 26 * 256); settings.setColumnWidth(1, 80 * 256);
   }
   private static String joinOperators(List<String> values) {
@@ -370,12 +499,14 @@ public class ProductPricingExcelService {
     headers(request.xHeaders(), columns, "X축");
     operatorLabel(request.xOperator());
     boundaryOperators(request.xOperators(), columns, "X축");
+    direction(request.xOperator(), request.xOperators(), "X축");
     label(request.title(), "항 이름", 200, false);
     label(request.xLabel(), "X축 항목 이름", 120, true);
     if (request.dimensions() == 2) {
       headers(request.yHeaders(), rows, "Y축");
       operatorLabel(request.yOperator());
       boundaryOperators(request.yOperators(), rows, "Y축");
+      direction(request.yOperator(), request.yOperators(), "Y축");
       label(request.yLabel(), "Y축 항목 이름", 120, true);
     }
     return List.copyOf(result);
@@ -406,7 +537,9 @@ public class ProductPricingExcelService {
   private static String operatorLabel(String operator) {
     if ("LE".equals(operator)) return "기준값 이하 (≤)";
     if ("LT".equals(operator)) return "기준값 미만 (<)";
-    throw new IllegalArgumentException("축의 기준은 이하 또는 미만으로 선택해 주세요.");
+    if ("GE".equals(operator)) return "작은 기준 적용 · 기준값 이상 (≥)";
+    if ("GT".equals(operator)) return "작은 기준 적용 · 기준값 초과 (>)";
+    throw new IllegalArgumentException("축의 기준은 LE·LT(큰 기준) 또는 GE·GT(작은 기준)로 선택해 주세요.");
   }
 
   private static BigDecimal amount(Cell cell, String location) {

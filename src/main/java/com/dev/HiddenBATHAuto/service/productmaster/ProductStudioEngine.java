@@ -658,23 +658,21 @@ public final class ProductStudioEngine {
     for (Question q : process.questions())
       if (answers.containsKey(q.key())) {
         Answer a = answers.get(q.key());
-        String value;
-        if (choice(q.control()))
-          value =
-              list(q.choices()).stream()
-                  .filter(c -> list(a.choices()).contains(c.key()))
-                  .map(c -> c.labels().management())
-                  .collect(Collectors.joining("+"));
-        else
-          value =
-              list(q.fields()).stream()
-                  .filter(f -> map(a.fields()).containsKey(f.key()))
-                  .map(f -> f.labels().management() + "=" + map(a.fields()).get(f.key()))
-                  .collect(Collectors.joining(","));
+        String value = answerExample(q, a);
         parts.add(label(q) + ": " + value);
       }
     String s = String.join(" / ", parts);
     return s.length() > 400 ? s.substring(0, 400) + "…" : s;
+  }
+
+  static String answerExample(Question question, Answer answer) {
+    if (answer == null || blank(answer)) return "미입력";
+    if (choice(question.control())) return list(question.choices()).stream()
+        .filter(c -> list(answer.choices()).contains(c.key())).map(c -> c.labels().management())
+        .collect(Collectors.joining(" + "));
+    return list(question.fields()).stream().filter(f -> map(answer.fields()).containsKey(f.key()))
+        .map(f -> f.labels().management() + "=" + map(answer.fields()).get(f.key()))
+        .collect(Collectors.joining(" / "));
   }
 
   static List<Condition> predicates(Process p) {
@@ -751,7 +749,7 @@ public final class ProductStudioEngine {
               "범위 중복: ["
                   + overlap.stream().map(NumberCase::name).collect(Collectors.joining(" / "))
                   + "] 값 "
-                  + answer.fields()
+                  + answerExample(q, answer)
                   + " 에서 같은 입력필드의 범위가 동시에 성립합니다. 경계값의 이상/초과, 이하/미만을 분리해주세요.");
         }
         for (NumberCase row : q.numberCases())
