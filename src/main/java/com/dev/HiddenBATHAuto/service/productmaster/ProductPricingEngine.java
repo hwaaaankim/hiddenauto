@@ -35,6 +35,41 @@ public final class ProductPricingEngine {
     return List.copyOf(result);
   }
 
+  /** Numeric inputs may price their own term, an option range, or a conditional term. */
+  public static Set<String> numericFieldReferences(Term term, String groupKey) {
+    Set<String> fields = new LinkedHashSet<>();
+    if (term == null) return fields;
+    if (Objects.equals(groupKey, term.groupKey())) fields.addAll(list(term.fieldKeys()));
+    OptionRangePricing range = term.optionPricing();
+    if (range != null && Objects.equals(groupKey, range.groupKey()) && range.axis() != null)
+      fields.add(range.axis().fieldKey());
+    for (Condition condition : list(term.conditions()))
+      if (condition != null && Objects.equals(groupKey, condition.groupKey())) fields.add(condition.fieldKey());
+    fields.removeIf(key -> text(key).isBlank());
+    return fields;
+  }
+
+  /** Publication requirement, separate from evaluation so existing registered prices stay readable. */
+  public static List<Issue> participationIssues(List<PricingGroup> groups, Definition definition, boolean draft) {
+    List<Issue> issues = new ArrayList<>();
+    for (PricingGroup group : groups) {
+      if (group.control() != Control.NUMBER) continue;
+      List<Field> fields = group.bundles().stream().flatMap(bundle -> bundle.fields().stream()).toList();
+      Set<String> referenced = new HashSet<>();
+      for (Term term : list(definition == null ? null : definition.terms()))
+        referenced.addAll(numericFieldReferences(term, group.groupKey()));
+      if (fields.stream().anyMatch(field -> referenced.contains(field.key()))) continue;
+      String names = fields.stream().map(field -> field.labels().customer()).collect(Collectors.joining(" / "));
+      issues.add(new Issue(draft ? "WARNING" : "ERROR", "PRICE_NUMERIC_GROUP_UNUSED", group.label(),
+          group.label() + ": 가격영향이 켜진 숫자 그룹의 입력 " + fields.size() + "개"
+              + (names.isBlank() ? "" : " (" + names + ")") + " 중 최소 1개를 가격계산식에 연결해야 저장할 수 있습니다. "
+              + "가격 항의 입력, 숫자 범위별 옵션 금액의 기준, 또는 항의 숫자 적용 조건으로 연결해 주세요. "
+              + "모든 입력이나 모든 묶음을 사용할 필요는 없습니다. 예: W·H 묶음 + D에서 W·H 2차원 항 하나 또는 D 1차원 항 하나도 가능합니다."
+              + (draft ? " 현재 항은 반영할 수 있으며, 남은 그룹은 최종 저장 전에 연결하세요." : "")));
+    }
+    return List.copyOf(issues);
+  }
+
   public static List<String> validate(Process process, List<PricingGroup> groups, Definition definition) {
     List<String> errors = new ArrayList<>();
     if (definition == null || definition.schemaVersion() != 1) return List.of("버전 1 가격계산식이 필요합니다.");
@@ -56,6 +91,17 @@ public final class ProductPricingEngine {
         require("ALL".equals(term.match()) || "ANY".equals(term.match()), "조건 결합은 ALL 또는 ANY입니다.");
         require(list(term.conditions()).size() <= 20, "항 조건은 최대 20개입니다.");
         for (Condition condition : list(term.conditions())) validateCondition(condition, questions);
+        if (term.optionTarget() != null) {
+          OptionTarget target = term.optionTarget();
+          PricingGroup option = byGroup.get(target.groupKey());
+          require(group.control() == Control.NUMBER && option != null && choice(option.control())
+              && option.choices().stream().anyMatch(c -> c.key().equals(target.choiceKey())),
+              "숫자 계산에 연결한 가격 대상 옵션이 없습니다. 옵션별 일괄 설정에서 다시 연결해 주세요.");
+          require("ALL".equals(term.match()) && list(term.conditions()).stream().anyMatch(c ->
+              Objects.equals(c.groupKey(), target.groupKey()) && c.operator() == Operator.EQ
+                  && list(c.choiceKeys()).equals(List.of(target.choiceKey()))),
+              "연결한 옵션이 선택됨 조건은 필수입니다. 해당 조건을 유지하고 조건 결합을 ‘모두 일치’로 설정하세요.");
+        }
         List<String> fields = list(term.fieldKeys());
         require(new HashSet<>(fields).size() == fields.size(), "입력 필드가 중복되었습니다.");
         if (group.control() == Control.NUMBER) {
@@ -252,10 +298,46 @@ public final class ProductPricingEngine {
         results.add(new TermResult(term.key(), term.name(), true, null, ex.getMessage()));
       }
     }
+    Set<String> applied = results.stream().filter(TermResult::applied).map(TermResult::key).collect(Collectors.toSet());
+    List<Term> tables = definition.terms().stream().filter(t -> matrix(t) && applied.contains(t.key())).toList();
+    for (int i = 0; i < tables.size(); i++) for (int j = i + 1; j < tables.size(); j++) {
+      Term a = tables.get(i), b = tables.get(j);
+      if (!a.groupKey().equals(b.groupKey()) || !Objects.equals(a.optionTarget(), b.optionTarget())) continue;
+      List<String> shared = a.fieldKeys().stream().filter(b.fieldKeys()::contains).toList();
+      if (shared.isEmpty()) continue;
+      Question q = states.get(a.groupKey()).question();
+      String values = shared.stream().map(k -> fieldLabel(q, k) + "=" + map(evaluated.answers().get(a.groupKey()).fields()).get(k))
+          .collect(Collectors.joining(", "));
+      errors.add("가격표 중복: ‘" + a.name() + "’와 ‘" + b.name() + "’가 같은 입력(" + values
+          + ")에 동시에 적용됩니다. 같은 가격 대상의 같은 숫자에는 가격표 한 개만 적용되어야 합니다. 중복 표를 삭제하거나 적용 조건을 겹치지 않게 나누세요. 예: W 600 이하 / W 600 초과.");
+    }
+    record TableScope(String groupKey, String fieldKey, OptionTarget target) {}
+    Map<TableScope, List<Term>> scopes = new LinkedHashMap<>();
+    for (Term term : definition.terms()) if (matrix(term)) for (String field : term.fieldKeys())
+      scopes.computeIfAbsent(new TableScope(term.groupKey(), field, term.optionTarget()), k -> new ArrayList<>()).add(term);
+    for (Map.Entry<TableScope, List<Term>> entry : scopes.entrySet()) {
+      TableScope scope = entry.getKey(); QuestionState state = states.get(scope.groupKey());
+      Answer answer = evaluated.answers().get(scope.groupKey());
+      if (state == null || !state.visible() && !state.question().fixed() || !state.errors().isEmpty()
+          || !state.allowed().contains(scope.fieldKey()) || answer == null || !map(answer.fields()).containsKey(scope.fieldKey())) continue;
+      if (scope.target() != null) {
+        QuestionState target = states.get(scope.target().groupKey());
+        if (target == null || !target.visible() && !target.question().fixed()
+            || !list(target.answer().choices()).contains(scope.target().choiceKey())) continue;
+      }
+      if (entry.getValue().stream().noneMatch(t -> applied.contains(t.key()))) errors.add(
+          "가격표 범위 누락: " + fieldLabel(state.question(), scope.fieldKey()) + "=" + answer.fields().get(scope.fieldKey())
+              + "에서 적용되는 가격표가 없습니다: " + entry.getValue().stream().map(Term::name).collect(Collectors.joining(" / "))
+              + ". 허용 입력 범위를 빠짐없이 나누세요. 예: 600 이하 / 600 초과. 무료 구간은 0원 가격표로 명시하세요.");
+    }
     if (total.compareTo(MAX_MONEY) > 0) errors.add("최종가격이 허용 범위를 벗어났습니다.");
     boolean complete = errors.isEmpty();
     return new Calculation(complete ? total.setScale(2, RoundingMode.HALF_UP) : null, complete,
         List.copyOf(errors), List.copyOf(results), evaluated);
+  }
+
+  static boolean matrix(Term term) {
+    return term.type() == TermType.MATRIX_1D || term.type() == TermType.MATRIX_2D;
   }
 
   private static String inactiveReason(Term term, QuestionState source, Evaluation evaluation,

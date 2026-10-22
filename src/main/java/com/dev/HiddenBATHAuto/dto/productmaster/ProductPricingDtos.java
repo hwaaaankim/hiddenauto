@@ -28,7 +28,15 @@ public final class ProductPricingDtos {
   public record Term(String key, String name, String groupKey, String bundleKey,
       List<String> fieldKeys, TermType type, BigDecimal amount, Map<String, BigDecimal> rates,
       Axis xAxis, Axis yAxis, List<List<BigDecimal>> values, String match,
-      List<Condition> conditions, List<String> choiceKeys, OptionRangePricing optionPricing) {
+      List<Condition> conditions, List<String> choiceKeys, OptionRangePricing optionPricing,
+      OptionTarget optionTarget) {
+    public Term(String key, String name, String groupKey, String bundleKey,
+        List<String> fieldKeys, TermType type, BigDecimal amount, Map<String, BigDecimal> rates,
+        Axis xAxis, Axis yAxis, List<List<BigDecimal>> values, String match,
+        List<Condition> conditions, List<String> choiceKeys, OptionRangePricing optionPricing) {
+      this(key, name, groupKey, bundleKey, fieldKeys, type, amount, rates, xAxis, yAxis,
+          values, match, conditions, choiceKeys, optionPricing, null);
+    }
     public Term(String key, String name, String groupKey, String bundleKey,
         List<String> fieldKeys, TermType type, BigDecimal amount, Map<String, BigDecimal> rates,
         Axis xAxis, Axis yAxis, List<List<BigDecimal>> values, String match,
@@ -37,6 +45,8 @@ public final class ProductPricingDtos {
           values, match, conditions, choiceKeys, null);
     }
   }
+  /** The chosen option being priced by a numeric term; independent options remain additive. */
+  public record OptionTarget(String groupKey, String choiceKey) {}
   /** One option term chooses exactly one price; the base amount is never added again. */
   public record OptionRangePricing(String groupKey, Axis axis, List<BigDecimal> amounts,
       BigDecimal aboveAmount) {}

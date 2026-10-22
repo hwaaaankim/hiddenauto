@@ -2710,3 +2710,48 @@
 .pms .pms-panel-title > div > h2 > .pms-icon { position: absolute; left: 0; top: 50%; transform: translateY(-50%); flex: none; width: 18px; height: 18px; }
 .pms .pms-panel-title > div:has(> h2 > .pms-icon) > small { padding-left: 25px; }
 .pms .pms-form-grid > label:has(+ .pms-textarea-field) { grid-column: 1 / -1; }
+
+/* Shared form rhythm for both pages and dialogs. Check/radio captions stay inline. */
+.pms label:not(.pms-check):not(.pms-switch) > span:first-child,
+.pms .pms-field-label,
+.pms .pms-inline-fieldset > legend {
+  display: block; color: var(--ink); font-size: 12px; line-height: 20px;
+  font-weight: 600; margin: 0 0 6px; min-height: 20px;
+}
+.pms label, .pms .pms-control-field { min-width: 0; }
+.pms .pms-control-field > .pms-check { min-height: var(--control-height, 36px); width: fit-content; max-width: 100%; }
+.pms .pms-control-value { display: flex; align-items: center; min-height: var(--control-height, 36px); overflow-wrap: anywhere; }
+.pms .pms-form-grid > .pms-check { align-self: end; }
+.pms label.pms-check, .pms label.pms-switch {
+  display: inline-flex; flex-direction: row; align-items: center; gap: 8px;
+  width: fit-content; max-width: 100%; white-space: normal; word-break: keep-all;
+}
+.pms label.pms-check > input, .pms label.pms-switch > input { flex: 0 0 auto; margin: 0; }
+.pms label.pms-check > span, .pms label.pms-switch > span { min-width: 0; min-height: 0; font-weight: 500; line-height: 1.5; }
+.pms .pms-form-grid + label:not(.pms-check):not(.pms-switch),
+.pms label:not(.pms-check):not(.pms-switch) + .pms-form-grid,
+.pms label:not(.pms-check):not(.pms-switch) + label:not(.pms-check):not(.pms-switch) { margin-top: 14px; }
+.pms .pms-inline-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.pms .pms-inline-fieldset > legend { float: none; width: auto; padding: 0; }
+.pms .pms-inline-fieldset > .pms-check-grid { margin: 0; }
+.pms .pm-limit-source-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 24px; margin: 14px 0; }
+.pms .pms-dialog-body > .pms-actions, .pms [data-limit-content] > .pms-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.pms .pms-palette-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 8px; }
+.pms .pms-palette-meta > small { margin: 0; }
+.pms .pms-palette-meta > .pms-badge { flex: none; margin: 0; white-space: nowrap; }
+.pms .pm-product-actions { grid-auto-columns: minmax(96px, max-content); gap: 8px; }
+.pms .pm-product-actions > * { width: auto; padding-inline: 12px; white-space: nowrap; }
+.pms .pm-group-pricing-guide { padding: 16px 18px; margin: 12px 0 0; border: 1px solid #b8cdef; border-left: 4px solid var(--blue); background: #f3f7ff; line-height: 1.8; }
+.pms .pm-group-pricing-guide > strong { display: block; font-size: 14px; color: #244d91; }
+.pms .pm-group-pricing-guide p { margin: 10px 0 0; }
+.pms .pm-group-pricing-guide ol { padding-left: 22px; margin: 12px 0; }
+.pms .pm-pricing-examples { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 10px; }
+.pms .pm-pricing-examples > p { padding: 10px 12px; margin: 0; border: 1px solid #d5e1f3; background: white; }
+.pms .pm-icon-remove { flex: none; width: 34px; min-width: 34px; min-height: 34px; padding: 4px; font-size: 20px; line-height: 1; color: var(--red); }
+.pms .pm-number-bundle .pm-bundle-heading { flex-wrap: wrap; }
+/* A footer is one aligned action row, even when its explanation wraps. */
+.pms-dialog.pms > .pms-dialog-foot { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px 14px; }
+.pms-dialog.pms > .pms-dialog-foot > .pms-help,
+.pms-dialog.pms > .pms-dialog-foot > [data-term-footer-status] { flex: 1 1 250px; margin: 0; padding: 0; border: 0; background: none; line-height: 1.7; }
+.pms-dialog.pms > .pms-dialog-foot > button { flex: 0 0 auto; align-self: center; margin: 0; }
+.pms .pms-check.pm-number-bundle > span { display: grid !important; }

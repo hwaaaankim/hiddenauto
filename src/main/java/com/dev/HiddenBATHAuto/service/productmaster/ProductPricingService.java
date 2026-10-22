@@ -113,6 +113,10 @@ public class ProductPricingService {
 
   /** Draft diagnostics use the same process and price interpreters as saving and actual pricing. */
   public Validation diagnose(Long id, com.dev.HiddenBATHAuto.dto.productmaster.ProductPricingDtos.EvaluateRequest request) {
+    return diagnose(id, request, false);
+  }
+
+  public Validation diagnose(Long id, com.dev.HiddenBATHAuto.dto.productmaster.ProductPricingDtos.EvaluateRequest request, boolean draft) {
     if (request == null || request.definition() == null) throw new IllegalArgumentException("검증할 가격계산식이 필요합니다.");
     ProductMaster p = require(id);
     Process process = process(p);
@@ -120,8 +124,8 @@ public class ProductPricingService {
     requireFingerprint(p, process, request.definition());
     Validation processValidation = studio.validateProcess(id, process);
     if (!processValidation.valid() || !processValidation.exhaustive()) return processValidation;
-    Validation priceValidation = ProductPricingCoverage.validate(process, pricingGroups(p, process),
-        request.definition(), studio.fixedAnswers(p));
+    Validation priceValidation = ProductPricingCoverage.validateRegistration(process, pricingGroups(p, process),
+        request.definition(), studio.fixedAnswers(p), draft);
     List<Issue> issues = new ArrayList<>(processValidation.issues());
     issues.addAll(priceValidation.issues());
     return new Validation(priceValidation.valid(), priceValidation.exhaustive(), priceValidation.scenarios(), List.copyOf(issues));
@@ -147,8 +151,8 @@ public class ProductPricingService {
           || !targetSignature.equals(copySignature(candidate, process))
           || !Objects.equals(definition.schemaFingerprint(), fingerprint(process, studio.fixedAnswers(candidate)))
           || !ProductPricingEngine.validate(process, pricingGroups(candidate, process), definition).isEmpty()) return false;
-      Validation coverage = ProductPricingCoverage.validate(process, pricingGroups(candidate, process),
-          definition, studio.fixedAnswers(candidate));
+      Validation coverage = ProductPricingCoverage.validateRegistration(process, pricingGroups(candidate, process),
+          definition, studio.fixedAnswers(candidate), false);
       return coverage.valid() && coverage.exhaustive();
     } catch (RuntimeException ex) {
       log.warn("가격계산 불러오기 후보 제외: productId={}", candidate.getId());
@@ -264,7 +268,9 @@ public class ProductPricingService {
     }).stream().anyMatch(p -> {
       Set<String> groupKeys = process(p).questions().stream().filter(q -> Objects.equals(q.groupId(), groupId))
           .map(Question::key).collect(Collectors.toSet());
-      return list(read(p).terms()).stream().anyMatch(t -> t != null && groupKeys.contains(t.groupKey()));
+      return list(read(p).terms()).stream().anyMatch(t -> t != null && (groupKeys.contains(t.groupKey())
+          || t.optionTarget() != null && groupKeys.contains(t.optionTarget().groupKey())
+          || groupKeys.stream().anyMatch(key -> !ProductPricingEngine.numericFieldReferences(t, key).isEmpty())));
     });
   }
 
@@ -312,8 +318,8 @@ public class ProductPricingService {
     return issues;
   }
   private void requireCoverage(ProductMaster product, Process process, Definition definition) {
-    Validation validation = ProductPricingCoverage.validate(process, pricingGroups(product, process),
-        definition, studio.fixedAnswers(product));
+    Validation validation = ProductPricingCoverage.validateRegistration(process, pricingGroups(product, process),
+        definition, studio.fixedAnswers(product), false);
     if (!validation.valid() || !validation.exhaustive()) {
       String details = validation.issues().stream().filter(issue -> "ERROR".equals(issue.severity()))
           .map(Issue::message).distinct().limit(12).collect(Collectors.joining(" / "));
