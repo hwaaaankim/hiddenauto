@@ -68,6 +68,7 @@ public final class ProductPricingCoverage {
     final Set<String> multipliedFields = new HashSet<>();
     final Set<String> hitTerms = new HashSet<>();
     final Map<String, Issue> advisories = new LinkedHashMap<>();
+    final Set<String> rangeIssues = new HashSet<>();
     final Map<String, Scope> scopes = new LinkedHashMap<>();
     private record Scope(Question question, String key, String label, List<Term> terms) {}
     long visits, scenarios;
@@ -194,10 +195,43 @@ public final class ProductPricingCoverage {
       scenarios++;
       Calculation calculation = ProductPricingEngine.calculateValidated(process, definition, answers);
       calculation.terms().stream().filter(TermResult::applied).map(TermResult::key).forEach(hitTerms::add);
-      if (!calculation.complete()) for (String error : calculation.errors()) add(issues,
+      Set<String> explained = new HashSet<>();
+      for (TermResult result : calculation.terms()) {
+        if (!result.applied() || result.amount() != null || !result.explanation().startsWith("가격표 범위 밖:")) continue;
+        Term term = definition.terms().stream().filter(t -> t.key().equals(result.key())).findFirst().orElseThrow();
+        explained.add(term.name() + ": " + result.explanation());
+        rangeIssue(term, term.xAxis(), "x", calculation.evaluation());
+        if (term.yAxis() != null) rangeIssue(term, term.yAxis(), "y", calculation.evaluation());
+      }
+      if (!calculation.complete()) { for (String error : calculation.errors()) if (!explained.contains(error)) add(issues,
           error.startsWith("가격표 중복:") ? "PRICE_TABLE_OVERLAP" : error.startsWith("가격표 범위 누락:") ? "PRICE_TABLE_GAP" : "PRICE_PATH",
           "가격계산", error + " 예시: " + example(answers));
-      else checkScopes(calculation);
+      } else checkScopes(calculation);
+    }
+
+    private void rangeIssue(Term term, Axis axis, String key, Evaluation evaluation) {
+      if (axis == null || axis.usesEdgeOutside()) return;
+      Answer answer = evaluation.answers().get(term.groupKey());
+      Object raw = answer == null ? null : map(answer.fields()).get(axis.fieldKey());
+      BigDecimal value = raw == null ? null : ProductStudioEngine.number(raw);
+      if (value == null) return;
+      try { ProductPricingEngine.index(axis, value); return; } catch (IllegalArgumentException outside) { /* Explain domain mismatch once per axis. */ }
+      String signature = term.key() + ":" + key;
+      if (!rangeIssues.add(signature)) return;
+      QuestionState state = evaluation.questions().stream().filter(s -> s.question().key().equals(term.groupKey())).findFirst().orElseThrow();
+      Field field = state.question().fields().stream().filter(f -> f.key().equals(axis.fieldKey())).findFirst().orElseThrow();
+      boolean lower = ProductPricingEngine.lowerAxis(axis);
+      int at = lower ? 0 : axis.headers().size() - 1;
+      String boundary = axis.headers().get(at).toPlainString();
+      String comparison = switch (axis.operatorAt(at)) { case LE -> "이하"; case LT -> "미만"; case GE -> "이상"; case GT -> "초과"; };
+      BigDecimal limit = lower ? field.min() : field.max();
+      String limitName = lower ? "최소" : "최대";
+      String message = "현재 가격표는 " + boundary + " " + comparison + "까지 계산하지만, 프로세스에서 표 밖 입력을 허용하는 경로가 있습니다. "
+          + "해당 경로의 " + limitName + " 입력값: " + (limit == null ? "미설정" : limit.toPlainString())
+          + ". 엑셀에 큰 값이 추가된 것이 아닙니다. ‘표 밖 입력 처리’에서 끝 기준 가격을 적용할지 선택하거나, 가격표 기준을 추가하세요. "
+          + "실제 주문 크기를 제한하려면 프로세스의 해당 숫자 입력 범위를 수정하세요. 조건별 제한도 최종 검사에 반영됩니다.";
+      issues.add(new Issue("ERROR", "PRICE_AXIS_RANGE", term.name() + " · " + key.toUpperCase(Locale.ROOT) + "축 · " + field.labels().customer(),
+          message, "terms." + term.key() + "." + key + "Axis.outsidePolicy"));
     }
 
     // Independent terms are additive by design. Report suspicious gaps/overlaps for review;

@@ -18,6 +18,7 @@
   M.lower = axis => ["GE", "GT"].includes(axis.operator);
   M.validateAxis = axis => {
     M.validateHeaders(axis.headers);
+    if (axis.outsidePolicy && !["ERROR", "EDGE"].includes(axis.outsidePolicy)) throw Error("표 밖 입력 처리 방식을 선택해 주세요.");
     if (!["LE", "LT", "GE", "GT"].includes(axis.operator)) throw Error("가격을 적용할 기준 방향을 선택해 주세요.");
     if (axis.operators?.length && axis.operators.length !== axis.headers.length) throw Error("기준값과 개별 경계 설정 개수가 다릅니다.");
     axis.headers.forEach((_, i) => {
@@ -30,17 +31,24 @@
     M.validateAxis(axis); const n = M.scaled(value);
     if (M.lower(axis)) {
       for (let i = axis.headers.length - 1; i >= 0; i--) if (n > M.scaled(axis.headers[i]) || n === M.scaled(axis.headers[i]) && M.operator(axis, i) === "GE") return i;
-      return -1;
+      return axis.outsidePolicy === 'EDGE' ? 0 : -1;
     }
-    return axis.headers.findIndex((v, i) => n < M.scaled(v) || n === M.scaled(v) && M.operator(axis, i) === "LE");
+    const found = axis.headers.findIndex((v, i) => n < M.scaled(v) || n === M.scaled(v) && M.operator(axis, i) === "LE");
+    return found < 0 && axis.outsidePolicy === "EDGE" ? axis.headers.length - 1 : found;
   };
   M.range = (axis, i) => {
     const bound = axis.headers[i];
+    if (axis.outsidePolicy === "EDGE" && (M.lower(axis) ? i === 0 : i === axis.headers.length - 1)) return `${bound ?? "미입력"} 기준 · 표 밖 입력에도 이 끝 가격 적용`; 
     if (bound == null || bound === "") return "기준값을 입력하세요";
     if (M.lower(axis)) return `${bound} ${M.operator(axis, i) === "GE" ? "이상" : "초과"} ~ ${axis.headers[i + 1] != null ? axis.headers[i + 1] + (M.operator(axis, i + 1) === "GE" ? " 미만" : " 이하") : "상한 없음 (프로세스 허용 범위 안)"}`;
     const upper = `${bound} ${M.operator(axis, i) === "LE" ? "이하" : "미만"}`;
     return i && axis.headers[i - 1] != null
       ? `${axis.headers[i - 1]} ${M.operator(axis, i - 1) === "LE" ? "초과" : "이상"} ~ ${upper}` : `0 이상 ~ ${upper}`;
+  };
+  M.spacing = (first, second) => {
+    const delta = M.scaled(second) - M.scaled(first);
+    if (delta <= 0n) return '';
+    return `${delta / 1000000n}.${String(delta % 1000000n).padStart(6, '0')}`.replace(/0+$/, '').replace(/\.$/, '');
   };
   M.sequence = (start, step, count) => {
     if (!/^\d+$/.test(String(count)) || Number(count) < 1 || Number(count) > 200) throw Error("생성 개수는 1~200개로 입력해 주세요.");
@@ -157,7 +165,7 @@
   };
   M.previewHtml = (term, fields) => {
     const name = (axis) => fields.find((f) => f.key === axis.fieldKey)?.labels?.management || fields.find((f) => f.key === axis.fieldKey)?.labels?.customer || axis.fieldKey;
-    return `<section class="pm-price-matrix-preview"><strong>4. 입력값으로 교차 금액 확인</strong><p class="pms-help">현재 항의 가격표만 확인합니다. 분기·추가 조건을 포함한 최종금액은 메인 화면의 실제 프로세스 테스트에서 확인하세요.</p><div class="pms-form-grid two">${[["x", term.xAxis], ...(term.yAxis ? [["y", term.yAxis]] : [])].map(([key, axis]) => `<label><span>${e(name(axis))} (${key.toUpperCase()}축)</span><input type="number" min="0" step="any" data-probe-axis="${key}" data-probe-field="${e(axis.fieldKey)}" placeholder="예: 500"></label>`).join("")}</div><div data-probe-result role="status">고객 입력값을 넣으면 적용 구간과 금액을 표시합니다.</div></section>`;
+    return `<section class="pm-price-matrix-preview"><strong>입력값으로 교차 금액 확인</strong><p class="pms-help">현재 항의 가격표만 확인합니다. 분기·추가 조건을 포함한 최종금액은 메인 화면의 실제 프로세스 테스트에서 확인하세요.</p><div class="pms-form-grid two">${[["x", term.xAxis], ...(term.yAxis ? [["y", term.yAxis]] : [])].map(([key, axis]) => `<label><span>${e(name(axis))} (${key.toUpperCase()}축)</span><input type="number" min="0" step="any" data-probe-axis="${key}" data-probe-field="${e(axis.fieldKey)}" placeholder="예: 500"></label>`).join("")}</div><div data-probe-result role="status">고객 입력값을 넣으면 적용 구간과 금액을 표시합니다.</div></section>`;
   };
   M.axisExample = axis => {
     const missing = !axis.headers?.length || axis.headers.every(v => v == null || v === '');
@@ -173,7 +181,7 @@
       }).join('')}</ul><small>입력값 자체를 변경하지 않고, 표시된 기준의 금액을 적용합니다. 아래 ‘입력값으로 교차 금액 확인’에서 원하는 값도 테스트하세요.</small>`;
     } catch (error) { return `<small>기준값을 완성하면 실제 적용 예시를 표시합니다: ${e(error.message)}</small>`; }
   };
-  M.bind = ({ body, term, draw, error, ui = {} }) => {
+  M.bind = ({ body, term, draw, error, ui = {}, fields = [] }) => {
     const report = async (fn) => { try { await fn(); } catch (ex) { error(ex.message); } };
     const requireApplied = () => { if (M.pending(ui)) throw Error("작성한 일괄 기준값을 먼저 미리보기로 반영하거나 ‘현재 표의 기준으로 되돌리기’를 눌러 주세요."); };
     const status = () => { S.$('[data-build-status]', body).textContent = M.pending(ui) ? "위 기준값은 아직 표에 반영되지 않았습니다. 미리보기에서 변경을 확인해 주세요. 표를 직접 수정한 경우 두 입력을 비교해 주세요." : "위 기준값과 아래 표가 일치합니다. 표에서 기준을 수정하면 위에도 즉시 반영됩니다."; };
@@ -186,6 +194,14 @@
       result.classList.remove("is-error");
       if (!x || term.yAxis && !y) { result.textContent = "입력값을 채우면 적용 구간과 교차 금액을 표시합니다."; return; }
       try {
+        for (const [axis, value] of [[term.xAxis, x], ...(term.yAxis ? [[term.yAxis, y]] : [])]) {
+          const f = fields.find(f => f.key === axis.fieldKey); if (!f) continue;
+          const signed = v => String(v).startsWith('-') ? -M.scaled(String(v).slice(1)) : M.scaled(v);
+          const n = M.scaled(value), name = f.labels?.management || f.labels?.customer || f.key;
+          if (f.min != null && n < signed(f.min)) throw Error(`${name} ${value}: 프로세스의 기본 최소 ${f.min}보다 작습니다. 표 밖 가격 처리와 주문 가능 크기는 별도입니다.`);
+          if (f.max != null && n > signed(f.max)) throw Error(`${name} ${value}: 프로세스의 기본 최대 ${f.max}보다 큽니다. 끝 가격 적용을 선택해도 주문 가능 크기는 늘어나지 않습니다.`);
+          if (f.step != null && signed(f.step) > 0n && (n - signed(f.min ?? 0)) % signed(f.step) !== 0n) throw Error(`${name} ${value}: 프로세스의 입력 간격 ${f.step}에 맞지 않습니다. 시작 기준은 ${f.min ?? 0}입니다.`);
+        }
         const c = M.index(term.xAxis, x), r = term.yAxis ? M.index(term.yAxis, y) : 0;
         if (c < 0 || r < 0) throw Error(`${c < 0 ? "X" : "Y"}축의 적용 범위를 벗어났습니다. 큰 기준 방식은 최대값, 작은 기준 방식은 최소값을 확인해 주세요.`);
         const value = term.values[r]?.[c]; M.amount(value);
@@ -203,12 +219,20 @@
     for (const key of ['x', 'y']) for (const part of ['start', 'step', 'count']) S.$(`[data-seq-${part}="${key}"]`, body)?.addEventListener('input', event => { ui['seq' + part[0].toUpperCase() + part.slice(1) + key] = event.target.value; });
     S.$$('[data-generate-axis]', body).forEach(button => button.onclick = () => report(() => {
       const key = button.dataset.generateAxis;
+      for (const part of ['start', 'step', 'count']) {
+        const input = S.$(`[data-seq-${part}="${key}"]`, body);
+        if (!input.value || !Number.isFinite(Number(input.value)) || (part !== 'start' && Number(input.value) <= 0)) { error(`${key.toUpperCase()}축 ${ {start:'시작값',step:'증가 간격',count:'생성 개수'}[part]}을 확인해 주세요.`, `[data-seq-${part}="${key}"]`); return; }
+      }
       const values = M.sequence(S.$(`[data-seq-start="${key}"]`, body).value, S.$(`[data-seq-step="${key}"]`, body).value, S.$(`[data-seq-count="${key}"]`, body).value);
       ui[key === 'x' ? 'buildX' : 'buildY'] = values.join(', '); ui[key === 'x' ? 'dirtyX' : 'dirtyY'] = true;
       S.$(`[data-build-${key}]`, body).value = values.join(', '); status();
     }));
     S.$('[data-build-reset]', body)?.addEventListener('click', () => { M.resetDraft(ui); draw(); });
     S.$('[data-build-table]', body)?.addEventListener("click", () => report(async () => {
+      for (const key of ['x', ...(term.yAxis ? ['y'] : [])]) {
+        try { M.parseHeaders(S.$(`[data-build-${key}]`, body).value); }
+        catch (ex) { error(`${key.toUpperCase()}축: ${ex.message}`, `[data-build-${key}]`); return; }
+      }
       const x = M.parseHeaders(S.$('[data-build-x]', body).value), y = term.yAxis ? M.parseHeaders(S.$('[data-build-y]', body).value) : [];
       const position = S.$('[data-build-mode]', body).value === 'position';
       let plan;
@@ -221,6 +245,7 @@
         if (!accepted) return;
       }
       Object.assign(term, plan.next); M.resetDraft(ui); draw();
+      S.toast("기준값을 반영했습니다. 금액을 확인하고 다음 단계에서 적용 범위를 정하세요.");
     }));
     S.$('[data-fill-zero]', body)?.addEventListener("click", () => report(async () => {
       requireApplied(); const count = term.values.flat().filter(v => v == null || v === "").length;
@@ -239,7 +264,8 @@
         if (term.yAxis && term.yAxis.headers.length !== data.amounts.length) { term.yAxis.headers = data.amounts.map(() => null); term.yAxis.operators = []; }
         ui.buildMode = 'position';
       }
-      term.values = data.amounts; M.resetDraft(ui); draw();
+      term.values = data.amounts; ui.matrixStep = 1; M.resetDraft(ui); draw();
+      S.focusField?.(S.$('[data-seq-start="x"]', body));
     }));
     S.$$('[data-bound-operator]', body).forEach((input) => input.addEventListener("change", () => {
       const [key, i] = input.dataset.boundOperator.split(":"); const axis = term[key === "x" ? "xAxis" : "yAxis"];

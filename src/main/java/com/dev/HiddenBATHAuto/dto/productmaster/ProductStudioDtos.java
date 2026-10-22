@@ -481,7 +481,11 @@ public final class ProductStudioDtos {
       List<String> errors,
       boolean complete) {}
 
-  public record Issue(String severity, String code, String location, String message) {}
+  public record Issue(String severity, String code, String location, String message, String target) {
+    public Issue(String severity, String code, String location, String message) {
+      this(severity, code, location, message, null);
+    }
+  }
 
   public record Validation(boolean valid, boolean exhaustive, long scenarios, List<Issue> issues) {}
 

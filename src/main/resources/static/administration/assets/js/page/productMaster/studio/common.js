@@ -128,6 +128,21 @@
       if (button?.isConnected) button.disabled = false;
     }
   };
+  // Shared by pricing, product configuration and process dialogs.
+  S.focusField = (input, message = "") => {
+    if (!input) return false;
+    for (let parent = input.parentElement; parent; parent = parent.parentElement) if (parent.tagName === "DETAILS") parent.open = true;
+    const scope = input.closest("dialog") || input.closest(".pms") || document;
+    S.$$(".pms-field-guidance", scope).forEach(el => el.remove());
+    S.$$(".pms-field-invalid", scope).forEach(el => { el.classList.remove("pms-field-invalid"); el.removeAttribute("aria-invalid"); });
+    if (message) {
+      input.classList.add("pms-field-invalid"); input.setAttribute("aria-invalid", "true");
+      const hint = document.createElement("small"); hint.className = "pms-field-guidance"; hint.textContent = message;
+      input.insertAdjacentElement("afterend", hint);
+      input.addEventListener("input", () => { hint.remove(); input.classList.remove("pms-field-invalid"); input.removeAttribute("aria-invalid"); }, { once: true });
+    }
+    input.scrollIntoView({ block: "center", inline: "center" }); input.focus({ preventScroll: true }); return true;
+  };
   S.catalog = async () => {
     S.groups = await S.request("/groups");
     S.overview?.();

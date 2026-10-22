@@ -97,7 +97,7 @@
       if (context.ready) await evaluateProcess(true);
     }
     function paint() {
-      root.innerHTML = `<div class="pm-price-page"><section class="pms-panel"><header class="pms-panel-title"><div><strong>${e(product.productName)}</strong><small class="pm-price-product-code">${e(product.catalogCode || product.productCode)}</small></div><div class="pms-actions">${S.badge(context.registered ? "가격계산 등록됨" : "가격계산 미등록", context.registered ? "green" : "")}${context.stale ? S.badge("프로세스 변경 · 삭제 후 재등록 필요", "red") : ""}<a class="pms-button" href="/admin/product-master/non-standard">비규격 목록</a><a class="pms-button" href="/admin/product-master/products/${product.id}/process${product.actualCount || context.registered ? "?mode=view" : ""}">프로세스 ${context.registered ? "조회 (가격식 연결)" : product.actualCount ? "조회" : "확인·수정"}</a></div></header><div class="pms-panel-body"><div class="pms-help" data-price-workflow><strong>전체 등록 흐름 · 현재 화면은 가격계산식 단계입니다</strong><ol><li>사용할 그룹으로 비규격 제품을 생성합니다.</li><li>생성한 제품의 프로세스에서 선택 옵션·숫자 입력 항목·묶음·입력 제한·분기를 등록합니다.</li><li>프로세스에서 ‘검증 후 등록완료’를 실행합니다.</li><li>이 제품의 가격계산식 화면에서 가격계산 영향 그룹의 등록 옵션을 가져와 금액·가격표·조건을 설정하고 테스트 후 저장합니다.</li></ol><p>아래에는 이 제품에 연결되어 있고 ‘가격계산 영향’이 설정된 그룹만 표시합니다. 선택 옵션과 숫자 항목은 이 제품에 저장된 프로세스에서 가져옵니다. 옵션·입력 항목의 추가·변경은 상단의 프로세스 화면에서 진행합니다.</p></div><div class="pm-price-intro"><strong>가로·세로에 따른 금액은 어디서 정하나요?</strong><p>‘옵션별 일괄 설정’에서 항목별 고정금액·곱셈·가격표를 지정하세요. 같은 묶음의 가로·세로를 선택하고 ‘선택한 두 숫자로 2차원’을 누르면 두 입력의 가격표를 만듭니다. 규격 제품의 단가를 먼저 등록할 필요는 없습니다.</p><div class="pm-price-examples"><span><b>기본금</b>고정 금액 100,000원</span><span><b>수량 추가</b>수량 × 개당 5,000원</span><span><b>사이즈 추가</b>가로·세로 가격표의 교차 금액</span></div><small>예시 금액입니다. 가격표에 기본금이 포함되어 있으면 기본금 항을 또 더하지 않도록 확인하세요.</small></div><p class="pms-help"><strong>이 가격계산식 화면 안의 순서:</strong> ① 등록 옵션 확인 → ② 옵션에 가격 항 연결 → ③ 합계식 확인 → ④ 실제 분기 테스트 → 저장. 사용하지 않는 그룹·입력묶음은 항으로 등록하지 않아도 됩니다.</p>${context.registered && !context.stale ? '<p class="pms-help">가격계산식과 연결된 프로세스는 조회로 열립니다. 가격 금액·기준표는 이 화면에서 계속 수정할 수 있습니다.</p>' : ""}${!context.ready ? `<div class="pms-alert"><strong>가격계산 등록 조건을 확인해 주세요.</strong>${(context.issues || []).map((x) => `<p>${e(x)}</p>`).join("")}</div>` : ""}${context.stale ? '<div class="pms-alert">저장 이후 구성이나 프로세스가 변경되어 기존 가격계산식을 적용할 수 없습니다. 기존 계산식을 삭제한 뒤 프로세스 등록을 확인하고 새 계산식을 등록해 주세요.</div>' : ""}</div></section>
+      root.innerHTML = `<div class="pm-price-page"><section class="pms-panel"><header class="pms-panel-title"><div><strong>${e(product.productName)}</strong><small class="pm-price-product-code">${e(product.catalogCode || product.productCode)}</small></div><div class="pms-actions">${S.badge(context.registered ? "가격계산 등록됨" : "가격계산 미등록", context.registered ? "green" : "")}${context.stale ? S.badge("프로세스 변경 · 삭제 후 재등록 필요", "red") : ""}<a class="pms-button" href="/admin/product-master/non-standard">비규격 목록</a><a class="pms-button" href="/admin/product-master/products/${product.id}/process${product.actualCount || context.registered ? "?mode=view" : ""}">프로세스 ${context.registered ? "조회 (가격식 연결)" : product.actualCount ? "조회" : "확인·수정"}</a></div></header><div class="pms-panel-body"><details class="pms-help" data-price-workflow><summary><strong>제품·프로세스·가격계산 등록 순서 보기</strong></summary><ol><li>사용할 그룹으로 비규격 제품을 생성합니다.</li><li>생성한 제품의 프로세스에서 선택 옵션·숫자 입력 항목·묶음·입력 제한·분기를 등록합니다.</li><li>프로세스에서 ‘검증 후 등록완료’를 실행합니다.</li><li>이 제품의 가격계산식 화면에서 가격계산 영향 그룹의 등록 옵션을 가져와 금액·가격표·조건을 설정하고 테스트 후 저장합니다.</li></ol><p>아래에는 이 제품에 연결되어 있고 ‘가격계산 영향’이 설정된 그룹만 표시합니다. 선택 옵션과 숫자 항목은 이 제품에 저장된 프로세스에서 가져옵니다. 옵션·입력 항목의 추가·변경은 상단의 프로세스 화면에서 진행합니다.</p></details><details class="pm-price-intro"><summary><strong>처음 사용하는 경우 · 가격 항 구성 예시</strong></summary><p>‘옵션별 일괄 설정’에서 항목별 고정금액·곱셈·가격표를 지정하세요. 같은 묶음의 가로·세로를 선택하고 ‘선택한 두 숫자로 2차원’을 누르면 두 입력의 가격표를 만듭니다. 규격 제품의 단가를 먼저 등록할 필요는 없습니다.</p><div class="pm-price-examples"><span><b>기본금</b>고정 금액 100,000원</span><span><b>수량 추가</b>수량 × 개당 5,000원</span><span><b>사이즈 추가</b>가로·세로 가격표의 교차 금액</span></div><small>예시 금액입니다. 가격표에 기본금이 포함되어 있으면 기본금 항을 또 더하지 않도록 확인하세요.</small></details><p class="pms-help"><strong>지금 할 일:</strong> ① 등록 옵션 확인 → ② 옵션에 가격 항 연결 → ③ 합계식 확인 → ④ 실제 분기 테스트 → 저장. 숫자 가격영향 그룹마다 최소 한 입력을 연결하세요. 같은 그룹의 모든 숫자에 항을 만들 필요는 없습니다.</p>${context.registered && !context.stale ? '<p class="pms-help">가격계산식과 연결된 프로세스는 조회로 열립니다. 가격 금액·기준표는 이 화면에서 계속 수정할 수 있습니다.</p>' : ""}${!context.ready ? `<div class="pms-alert"><strong>가격계산 등록 조건을 확인해 주세요.</strong>${(context.issues || []).map((x) => `<p>${e(x)}</p>`).join("")}</div>` : ""}${context.stale ? '<div class="pms-alert">저장 이후 구성이나 프로세스가 변경되어 기존 가격계산식을 적용할 수 없습니다. 기존 계산식을 삭제한 뒤 프로세스 등록을 확인하고 새 계산식을 등록해 주세요.</div>' : ""}</div></section>
         <section class="pms-panel"><header class="pms-panel-title"><div><span class="pm-price-step">1</span><strong>이 제품의 가격계산 영향 그룹 · 등록된 옵션</strong></div></header><div class="pms-panel-body"><p class="pms-help">공통 그룹은 여러 비규격 제품에 재사용할 수 있습니다. 입력 개수·입력묶음·계산식은 이 제품에 저장한 구성입니다. 다른 제품의 구성과 금액은 함께 변경되지 않습니다. 숫자는 등록한 <strong>입력묶음 단위</strong>로 표시합니다. 같은 그룹의 다른 묶음은 별도의 항으로 추가할 수 있습니다. 선택형 옵션을 조건으로 사용하려면 항의 ‘추가 적용 조건’을 지정하세요.</p><div data-price-participation role="status" aria-live="polite"></div><div class="pm-price-groups" data-price-groups></div></div></section>
         <section class="pms-panel"><header class="pms-panel-title"><div><span class="pm-price-step">2</span><strong>가격을 구성하는 항</strong></div><div class="pms-actions"><button type="button" class="primary" data-price-batch ${context.ready && pricingGroups().length ? "" : "disabled"}>옵션별 일괄 설정</button><button type="button" data-price-add ${context.ready && pricingGroups().length ? "" : "disabled"}>＋ 항 개별 생성</button></div></header><div class="pms-panel-body"><div data-price-terms></div></div></section>
         <section class="pms-panel pm-price-formula-panel"><header class="pms-panel-title"><div><span class="pm-price-step">3</span><strong>최종가격 결과식</strong></div></header><div class="pms-panel-body"><div class="pm-price-formula" data-price-formula></div><p class="pms-help">현재 분기에서 표시·허용된 입력만 계산합니다. 숨겨진 질문이나 다른 입력묶음의 항은 0원으로 제외합니다. 독립 항은 합산합니다. 같은 가격 대상·입력의 가격표가 동시에 적용되면 중복 오류로 차단합니다.</p></div></section>
@@ -130,7 +130,7 @@
       });
     }
     function diagnosticHtml(validation) {
-      return `<p><strong>${validation.valid && validation.exhaustive ? "계산 오류 검사 완료" : "수정이 필요한 오류가 있습니다"}</strong> · 가격 경로 ${e(validation.scenarios)}개 확인${validation.exhaustive ? "" : " · 검사 미완료"}</p>${validation.issues.length ? `<ul class="pm-price-diagnostic-list">${validation.issues.map(issue => `<li><strong>${issue.severity === "ERROR" ? "오류" : "확인 안내"} · ${e(issue.location)}</strong><p>${e(issue.message)}</p></li>`).join("")}</ul>` : '<p>검사한 허용 입력 경로에서 조건 누락·중복 가산·계산 범위 오류가 발견되지 않았습니다.</p>'}`;
+      return `<p><strong>${validation.valid && validation.exhaustive ? "계산 오류 검사 완료" : "수정이 필요한 오류가 있습니다"}</strong> · 가격 경로 ${e(validation.scenarios)}개 확인${validation.exhaustive ? "" : " · 검사 미완료"}</p>${validation.issues.length ? `<ul class="pm-price-diagnostic-list">${validation.issues.map(issue => `<li><strong>${issue.severity === "ERROR" ? "오류" : "확인 안내"} · ${e(issue.location)}</strong><p>${e(issue.message)}</p>${issue.target ? `<button type="button" data-diagnostic-target="${e(issue.target)}">해당 설정 수정</button>` : ""}</li>`).join("")}</ul>` : '<p>검사한 허용 입력 경로에서 조건 누락·중복 가산·계산 범위 오류가 발견되지 않았습니다.</p>'}`;
     }
     async function diagnose() {
       const signature = JSON.stringify(definition), draft = S.copy(definition);
@@ -139,7 +139,12 @@
       try {
         const validation = await api(product.id, "/diagnose", "POST", { definition: draft, answers: {} });
         if (signature !== JSON.stringify(definition)) { target.textContent = "검사 중 계산식이 변경되었습니다. 다시 검사해 주세요."; return null; }
-        target.innerHTML = diagnosticHtml(validation); return validation;
+        target.innerHTML = diagnosticHtml(validation);
+        S.$$('[data-diagnostic-target]', target).forEach(button => button.onclick = () => {
+          const match = button.dataset.diagnosticTarget.match(/^terms\.(.+)\.([xy])Axis\.outsidePolicy$/);
+          const index = match ? definition.terms.findIndex(t => t.key === match[1]) : -1;
+          if (index >= 0) editTerm(index, '', '', null, null, { focusAxis: match[2] });
+        }); return validation;
       } catch (error) { target.textContent = error.message; throw error; }
     }
     function openBatch(selectedGroup) {
@@ -316,7 +321,7 @@
         term.fieldKeys = available.slice(0, 2).map(f => f.key);
       }
       if (index == null && !draft) { selectBundle(); term.name = (g()?.label || "가격") + " 항"; }
-      const tableUi = {}, initialTerm = S.priceTable.snapshot(term);
+      const tableUi = { method: "excel" }, initialTerm = S.priceTable.snapshot(term);
       const history = S.priceTable.history(() => term, value => { term = value; conditionDraft = null; S.priceTable.resetDraft(tableUi); });
       let focusSequence = 0;
       body.addEventListener("focusin", () => { focusSequence++; });
@@ -331,14 +336,14 @@
       }
       function pendingTable() {
         if (!S.priceTable.pending(tableUi)) return false;
-        editorError("작성한 일괄 기준값을 먼저 미리보기로 반영하거나 ‘현재 표의 기준으로 되돌리기’를 눌러 주세요."); return true;
+        editorError("작성한 일괄 기준값을 먼저 미리보기로 반영하거나 ‘현재 표의 기준으로 되돌리기’를 눌러 주세요.", "[data-build-table]"); return true;
       }
       const requiredCondition = c => scope.requiredCondition && c.groupKey === scope.requiredCondition.groupKey && c.operator === "EQ" && c.choiceKeys?.length === 1 && c.choiceKeys[0] === scope.requiredCondition.choiceKeys[0];
       function resetPrice(type) {
         term.optionPricing = null; term.type = type; term.amount = 0; term.rates = Object.fromEntries(fields().map((f) => [f.key, 0]));
         term.xAxis = type.startsWith("MATRIX") ? { fieldKey: term.fieldKeys[0] || "", operator: "LE", headers: [null], operators: [null] } : null;
         term.yAxis = type === "MATRIX_2D" ? { fieldKey: term.fieldKeys[1] || "", operator: "LE", headers: [null], operators: [null] } : null;
-        term.values = type.startsWith("MATRIX") ? [[null]] : []; S.priceTable.resetDraft(tableUi);
+        term.values = type.startsWith("MATRIX") ? [[null]] : []; tableUi.matrixStep = 0; S.priceTable.resetDraft(tableUi);
       }
       function hasPriceData() {
         if (term.optionPricing) return true;
@@ -355,7 +360,22 @@
         S.$("[data-term-next]", d).hidden = stage === 2; S.$("[data-term-next]", d).textContent = stage === 0 ? "다음 · 계산 방식 설정" : "다음 · 적용 조건 확인";
         S.$("[data-term-commit]", d).hidden = stage !== 2;
         S.$("[data-term-footer-status]", d).textContent = "항 반영 후 화면 아래의 저장 버튼으로 최종 등록합니다.";
-        bindEditor(); updateHistory();
+        if (stage === 1 && term.type.startsWith('MATRIX')) {
+          const step = tableUi.matrixStep || 0;
+          S.$('[data-term-next]', d).textContent = ['다음 · 기준·금액 입력', '다음 · 적용 범위', '다음 · 가격 확인', '다음 · 적용 조건 확인'][step];
+          S.$('[data-term-prev]', d).hidden = scope.locked && step === 0;
+          S.$('[data-term-footer-status]', d).textContent = `가격표 ${step + 1}/4 · ${['자료를 가져오면 기준 입력으로 이동합니다.', '빈 기준·금액은 입력해야 합니다.', '주문 범위와 가격표 범위를 구분해 확인하세요.', '원하는 값으로 확인 후 조건 설정으로 진행하세요.'][step]}`;
+        }
+        if (stage === 1 && term.type.startsWith('MATRIX') && tableUi.matrixStep > 0) {
+          const first = S.$('.pm-price-source-summary', body), last = S.$('.pm-price-type-grid', body);
+          if (first && last) {
+            const compact = document.createElement('details'); compact.className = 'pm-price-completed-source';
+            compact.innerHTML = `<summary>${e(term.name)} · ${e(types[term.type])} · 연결·방식 수정</summary>`;
+            first.before(compact); let node = first;
+            while (node) { const next = node.nextSibling; compact.append(node); if (node === last) break; node = next; }
+          }
+        }
+        bindEditor(); bindMatrixFlow(); updateHistory();
       }
       function sourceHtml() {
         return `<div class="pms-form-grid two">${field("항 이름 (예: 사이즈 추가금)", 'data-term-name type="text" maxlength="120"', term.name)}<label><span>이 제품의 가격계산 영향 그룹</span><select data-term-group>${!supported(g()) ? '<option value="" disabled selected>그룹을 선택해 주세요.</option>' : ""}${pricingGroups().map((x) => opt(x.groupKey, x.label, term.groupKey)).join("")}</select></label></div>${g()?.control === "NUMBER" ? `<h3 class="pm-price-editor-subtitle">1. 입력묶음 가져오기</h3><p class="pms-help">함께 가격을 계산할 숫자는 같은 입력묶음에 있어야 합니다. 묶음을 고른 뒤 이 항에 사용할 숫자를 1개 또는 2개 선택하세요. 3차원 엑셀 가격표는 지원하지 않습니다. 한 항에는 가격표 하나만 작성합니다. W·H 표를 만든 뒤 D도 더하려면 ‘항 생성’에서 남은 D를 선택하세요. 새 항은 미사용 숫자를 우선 선택하며 이미 사용한 숫자의 가격표는 기존 항에서 수정하세요.</p><div class="pm-price-source-bundles">${g().bundles.map((b) => `<label class="pm-price-bundle-choice"><input type="radio" name="term-bundle" value="${e(b.key)}" ${b.key === term.bundleKey ? "checked" : ""}><span><strong>${b.fields.length > 1 ? `묶음 · ${b.fields.length}개 입력` : "독립 · 1개 입력"} — ${e(b.label || b.fields.map(label).join(" · "))}</strong><small>${b.fields.map((f) => e(label(f)) + (f.unit ? " (" + e(f.unit) + ")" : "")).join(" · ")}</small></span></label>`).join("")}</div>${g().bundles.every(b => b.fields.length < 2) ? `<p class="pms-help"><b>현재는 독립 입력만 있어 2차원을 선택할 수 없습니다.</b> 프로세스에서 두 필드 체크 → ‘선택 필드 그룹화’ → ‘이 질문 완성’ → ‘검증 후 등록완료’ 후 이 화면을 다시 여세요. <a href="/admin/product-master/products/${product.id}/process" target="_blank" rel="noopener">프로세스 확인</a></p>` : ""}<h3 class="pm-price-editor-subtitle">2. 이 항에서 사용할 숫자 항목 · 1개는 1차원 / 2개는 2차원</h3><div class="pms-check-grid">${allFields().map((f) => `<label class="pms-check"><input type="checkbox" data-term-field value="${e(f.key)}" ${term.fieldKeys.includes(f.key) ? "checked" : ""}>${e(label(f))}${f.unit ? " (" + e(f.unit) + ")" : ""}${!term.optionTarget && !unusedFields(bundle()).some(x => x.key === f.key) ? " · 다른 가격표에서 사용 중" : ""}</label>`).join("")}</div><p class="pms-help">예: 가로·세로만 선택하면 2차원 가격표로 금액을 찾습니다. 높이는 별도 항을 만들어 곱셈이나 1차원 가격표로 계산할 수 있습니다. 항목마다 방식이 다르면 메인 화면의 ‘옵션별 일괄 설정’에서 한 번에 지정할 수 있습니다.</p>` : `<fieldset class="pm-price-choice-scope"><legend>금액을 적용할 옵션</legend><p class="pms-help">이 항은 선택 옵션의 고정금액 또는 앞 숫자 범위에 따른 옵션 금액을 설정합니다. 옵션별 곱셈·가격표는 메인 화면의 ‘옵션별 일괄 설정’에서 숫자 입력과 연결하세요. 여러 옵션의 고정금액도 일괄 설정할 수 있습니다. 고정금액만 사용할 때는 미지정 시 어떤 옵션이든 한 번 적용됩니다. 숫자 범위별 가격은 적용할 옵션을 반드시 지정하세요.</p><div class="pms-check-grid">${(g()?.choices || []).map((c) => `<label class="pms-check"><input type="checkbox" data-term-choice value="${e(c.key)}" ${(term.choiceKeys || []).includes(c.key) ? "checked" : ""}>${e(label(c))}</label>`).join("")}</div></fieldset>`}`;
@@ -376,8 +396,66 @@
         return `<div class="pms-actions"><a class="pms-button" href="${e(templateLink(false))}">금액만 · 회색 예시가 있는 양식 다운로드</a><a class="pms-button" href="${e(templateLink(true))}">기준 포함 · 회색 예시가 있는 양식 다운로드</a></div>`;
       }
       function matrixHtml() {
-        const two = term.type === "MATRIX_2D", x = term.xAxis, y = term.yAxis;
-        return `<h3 class="pm-price-editor-subtitle">1. 입력 연결과 기본 경계</h3><div class="pms-form-grid ${two ? "four" : "two"}"><label><span>X축 · 표의 가로 방향</span><select data-axis-field="x">${fields().map((f) => opt(f.key, label(f), x?.fieldKey)).join("")}</select></label><label><span>X축 가격 적용 방식</span><select data-axis-operator="x">${axisOptions(x)}</select></label>${two ? `<label><span>Y축 · 표의 세로 방향</span><select data-axis-field="y">${fields().map((f) => opt(f.key, label(f), y?.fieldKey)).join("")}</select></label><label><span>Y축 가격 적용 방식</span><select data-axis-operator="y">${axisOptions(y)}</select></label>` : ""}</div><p class="pms-help"><strong>X·Y는 표의 방향입니다.</strong> 실제 가로·세로·높이 중 어떤 입력을 연결할지는 위에서 선택하세요. 각 기준 아래에서는 400처럼 기준값과 정확히 같은 입력의 처리만 추가로 바꿀 수 있습니다. ‘401이 400/500 중 어디에 속하는지’는 위의 가격 적용 방식으로 결정합니다. 같은 방향에서 경계만 바꾸면 ‘기본값 사용’인 기준만 변경됩니다. 큰 기준↔작은 기준 전환 시 개별 경계를 초기화하며 변경 전 확인합니다. 축 교환은 기준·포함 여부·금액표를 함께 바꾸어 같은 고객 입력의 금액을 유지합니다.</p><div class="pm-price-boundary-help"><span><b>큰 기준으로 올림 · 450 → 500</b>300·400·500 기준에서 450은 500 가격입니다. 기본 설정은 400 자체를 400 가격으로 계산합니다.</span><span><b>작은 기준으로 내림 · 450 → 400</b>450은 400 가격입니다. 기본 설정은 400 자체도 400 가격으로 계산합니다.</span><span><b>표 양 끝의 처리</b>큰 기준은 첫 값 이하를 첫 가격으로, 마지막 값 밖은 오류로 처리합니다. 작은 기준은 첫 값 아래를 오류로, 마지막 값 이상을 마지막 가격으로 처리합니다. 실제 허용 입력 범위는 프로세스 설정을 따릅니다.</span></div><div class="pm-price-axis-examples">${[['x', x], ...(two ? [['y', y]] : [])].map(([key, axis]) => `<section><strong>${key.toUpperCase()}축 · ${e(label(fields().find(f => f.key === axis.fieldKey)))}</strong><div data-axis-example="${key}" role="status">${S.priceTable.axisExample(axis)}</div></section>`).join('')}</div>${two ? '<div class="pms-actions"><button type="button" data-axis-swap>X·Y 축 교환 · 금액 관계 유지</button></div>' : ""}<h3 class="pm-price-editor-subtitle">2. 가격표 작성 방법 선택</h3><div class="pms-actions pm-price-methods" role="group" aria-label="가격표 작성 방법"><button type="button" data-price-method="direct">직접 입력</button><button type="button" data-price-method="excel">엑셀 파일</button><button type="button" data-price-method="paste">셀 붙여넣기</button></div><p class="pms-help">편한 방법 하나로 작성하세요. 방법을 바꿔도 작성한 표는 유지됩니다. 작성한 일괄 기준값은 표에 반영하거나 되돌린 후 가져오기를 진행하세요.</p><div class="pm-price-excel-section" data-price-method-panel="excel"><strong>엑셀로 가격표 작성</strong><div class="pms-actions pm-price-matrix-actions">${templateLinks()}<label><span>업로드 방식</span><select data-matrix-import-mode><option value="amounts">금액만 · 업로드 후 기준 입력</option><option value="table">기준값·경계·금액 함께 (첫 행·첫 열 포함)</option></select></label><button type="button" data-matrix-import>엑셀 업로드</button><input type="file" data-matrix-file hidden accept=".xlsx"><button type="button" data-matrix-export>현재 가격표 다운로드</button></div><p class="pms-help">금액만 업로드: 첫 행·첫 열의 300·400 등 사이즈 기준값을 지우고 <strong>실제 금액 영역만 복사 → 선택하여 붙여넣기 → 값</strong>으로 새 파일의 A1에 넣어 주세요. 수식 자체는 읽지 않습니다. ‘가격데이터’ 시트 또는 내용이 있는 유일한 표시 시트를 읽습니다. 업로드 미리보기를 반영하면 표가 열리고, 화면에서 시작값 300·간격 100으로 X·Y 기준을 생성할 수 있습니다. 기준도 함께 올리려면 ‘기준 포함’을 선택하세요. 첫 행 X·첫 열 Y와 선택적인 ‘가격표설정’을 읽으며, 시트명이 달라도 내용이 있는 유일한 표시 시트는 읽습니다. 회색 예시는 지우고 실제 금액으로 바꾸세요. 무료만 0원이며 빈칸은 오류입니다.</p></div>${S.priceTable.toolsHtml(term, tableUi)}<h3 class="pm-price-editor-subtitle">3. 기준값·포함 여부·금액 확인</h3><p class="pms-help">아래 표에서 직접 수정할 수 있습니다. 표가 넓으면 좌우로 스크롤하세요. 무료 구간은 0원을 입력하세요. 빈칸은 미설정입니다. 각 기준 아래의 실제 적용 구간을 확인해 주세요.</p><div class="pms-actions"><button type="button" data-matrix-column>＋ X 기준 추가</button>${two ? '<button type="button" data-matrix-row>＋ Y 기준 추가</button>' : ""}</div><div class="pm-price-matrix-wrap" tabindex="0" aria-label="가로로 스크롤할 수 있는 가격표">${two ? table2d() : table1d()}</div><div data-matrix-import-status role="status">${e(tableUi.importMessage || "")}</div>${S.priceTable.previewHtml(term, fields())}`;
+        const two = term.type === "MATRIX_2D", axes = [['x', term.xAxis], ...(two ? [['y', term.yAxis]] : [])];
+        const current = tableUi.matrixStep ?? (hasPriceData() ? 1 : 0);
+        tableUi.matrixStep = current;
+        const panel = (i, html) => `<section data-matrix-step="${i}" ${current === i ? '' : 'hidden'}>${html}</section>`;
+        return `<nav class="pm-price-flow" aria-label="가격표 작성 순서">${['자료 가져오기', '기준·금액 입력', '적용 범위', '가격 확인'].map((text, i) => `<button type="button" data-matrix-go="${i}" aria-current="${current === i ? 'step' : 'false'}"><b>${i + 1}</b><span>${text}</span></button>`).join('')}</nav>
+          ${panel(0, `<h3 class="pm-price-editor-subtitle">어떤 자료로 가격표를 만드시나요?</h3><p class="pms-help">먼저 표의 방향을 연결하고 자료를 가져오세요. 기준값과 계산 범위는 다음 단계에서 정합니다.</p><div class="pms-form-grid two">${axes.map(([key, axis]) => `<label><span>${key.toUpperCase()}축 · ${key === 'x' ? '가로 열' : '세로 행'}에 연결할 숫자</span><select data-axis-field="${key}">${fields().map(f => opt(f.key, label(f), axis.fieldKey)).join('')}</select></label>`).join('')}</div>
+          <div class="pms-actions pm-price-methods" role="group" aria-label="가격표 작성 방법"><button type="button" data-price-method="excel">엑셀 파일</button><button type="button" data-price-method="paste">셀 붙여넣기</button><button type="button" data-price-method="direct">직접 입력</button></div>
+          <div class="pm-price-excel-section" data-price-method-panel="excel"><div class="pms-form-grid two"><label><span>엑셀에 들어 있는 내용</span><select data-matrix-import-mode><option value="amounts">금액만 · 업로드 후 사이즈 기준 입력</option><option value="table">기준 포함 · 첫 행·첫 열의 300, 400도 가져오기</option></select></label></div><p data-import-help class="pms-help"></p><div class="pms-actions">${templateLinks()}<button type="button" class="primary" data-matrix-import>엑셀 업로드</button><input type="file" data-matrix-file hidden accept=".xlsx"></div><details><summary>수식·빈칸·회색 샘플은 어떻게 준비하나요?</summary><p>엑셀 수식은 <strong>복사 → 선택하여 붙여넣기 → 값</strong>으로 바꾸세요. 회색 예시는 지우고 실제 값을 넣으세요. 무료 구간만 0원이며 빈칸은 미설정입니다. 금액 전용 ‘가격데이터’ 또는 기준 포함 ‘가격표’ 시트를 읽습니다. 다른 시트명은 내용이 있는 표시 시트가 하나일 때 읽습니다.</p></details></div><div data-paste-slot></div><div data-direct-help hidden><p class="pms-help">다음 단계에서 기준값을 생성하면 입력할 금액 칸이 만들어집니다. 처음부터 큰 표를 비워 둘 필요가 없습니다.</p><button type="button" data-direct-start>기준값부터 작성하기</button></div>`)}
+          ${panel(1, `<h3 class="pm-price-editor-subtitle">각 금액이 어떤 크기의 가격인지 연결하세요</h3><div data-matrix-import-status role="status">${e(tableUi.importMessage || `${term.values.length}행 × ${term.xAxis.headers.length}열 · 기준값과 실제 금액을 입력하세요.`)}</div>${S.priceTable.toolsHtml(term, tableUi)}<div class="pms-actions"><button type="button" data-matrix-column>＋ X 기준 추가</button>${two ? '<button type="button" data-matrix-row>＋ Y 기준 추가</button>' : ''}${two ? '<button type="button" data-axis-swap>X·Y 축 교환</button>' : ''}</div><p class="pms-help">기준값과 금액은 필수입니다. 무료 구간은 0원을 넣으세요. 포함 경계는 다음 단계의 기본 방식을 따르며 필요할 때 각 기준 아래에서 바꿀 수 있습니다.</p><div class="pm-price-matrix-wrap" tabindex="0" aria-label="가로로 스크롤할 수 있는 가격표">${two ? table2d() : table1d()}</div>`)}
+          ${panel(2, `<h3 class="pm-price-editor-subtitle">입력값 사이와 표 밖의 가격을 정하세요</h3><p class="pms-help">최소·최대 주문 크기는 프로세스 설정입니다. 가격표의 첫·마지막 기준은 금액을 찾는 경계이며, 업로드한다고 주문 제한값이 바뀌지 않습니다.</p><div class="pms-form-grid two">${axes.map(([key, axis]) => {
+            const f = fields().find(f => f.key === axis.fieldKey), lower = S.priceTable.lower(axis), edge = axis.headers[lower ? 0 : axis.headers.length - 1];
+            return `<section class="pm-price-axis-policy"><h4>${key.toUpperCase()}축 · ${e(label(f))}</h4><p class="pms-help">프로세스: 최소 ${e(f?.min ?? (f?.allowNegative ? '미설정' : '0 (음수 불가)'))} / 최대 ${e(f?.max ?? '미설정')} ${e(f?.unit || '')}<br>현재 표: 첫 기준 ${e(axis.headers[0] ?? '미입력')} / 마지막 기준 ${e(axis.headers.at(-1) ?? '미입력')}</p><label><span>기준 사이의 입력값 처리</span><select data-axis-operator="${key}">${axisOptions(axis)}</select></label><div data-axis-example="${key}">${S.priceTable.axisExample(axis)}</div><label><span>표 밖 입력 처리</span><select data-axis-outside="${key}">${opt('ERROR', '계산 중단 · 기준 추가 또는 주문 범위 수정', axis.outsidePolicy || 'ERROR')}${opt('EDGE', '표의 끝 기준 가격 적용', axis.outsidePolicy || 'ERROR')}</select></label><p class="pms-help">${axis.outsidePolicy === 'EDGE' ? `${e(edge)} 기준 ${key === 'x' ? '열' : '행'}의 금액을 표 밖에도 적용합니다. 고객 입력 크기와 주문 허용 범위는 그대로입니다.` : `표 밖까지 주문이 허용되면 최종 적용이 막힙니다. ${lower ? '최소' : '최대'} 입력값이 미설정인 경우도 여기서 처리 방식을 확인하세요.`}</p><button type="button" data-range-help="${key}">값의 출처·계산 예시 확인</button></section>`;
+          }).join('')}</div><details><summary>실제 주문 범위를 바꾸려면?</summary><p>제품의 프로세스 → 해당 숫자 질문 → 입력 항목 설정에서 최소·최대값을 수정합니다. 이 창에서는 가격표 처리만 바꿉니다. 최종 검사에서는 분기별 입력 제한과 항의 적용 조건도 함께 확인합니다.</p><a href="/admin/product-master/products/${product.id}/process" target="_blank" rel="noopener">프로세스 설정 새 창으로 열기</a><p>아직 반영하지 않은 항은 이 창을 닫지 않고 보관하세요. 프로세스 변경 후에는 가격계산 화면을 다시 열어 최신 연결을 확인하세요. 이미 가격식·실 제품이 연결되어 프로세스가 잠긴 경우, 이 가격표의 기준을 추가하거나 표 밖 처리 방식을 지정할 수 있습니다.</p></details>`)}
+          ${panel(3, `${S.priceTable.previewHtml(term, fields())}<p class="pms-help">입력 테스트는 선택 사항입니다. 다음 단계에서 필요한 적용 조건을 정한 뒤 항 반영 시 전체 허용 경로를 검사합니다.</p><div class="pms-actions"><button type="button" data-matrix-go="1">기준·금액 수정</button><button type="button" data-matrix-export>현재 가격표 다운로드</button></div>`)} `;
+      }
+      function focusMatrix(selector, message = '') {
+        let input = S.$(selector, body);
+        if (!input) return false;
+        const panel = input.closest('[data-matrix-step]');
+        if (panel && panel.hidden) { tableUi.matrixStep = Number(panel.dataset.matrixStep); draw(); input = S.$(selector, body); }
+        return S.focusField(input, message);
+      }
+      function matrixMove(next) {
+        if (pendingTable()) return;
+        if (next > 1) { const errors = priceErrors(); if (errors.length) return editorError(errors[0]); }
+        tableUi.matrixStep = Math.max(0, Math.min(3, next)); draw();
+        S.$('.pm-price-flow', body)?.scrollIntoView({ block: 'start' });
+      }
+      function bindMatrixFlow() {
+        if (!term.type.startsWith('MATRIX') || stage !== 1) return;
+        const paste = S.$('.pm-price-paste', body); if (paste) { S.$('[data-paste-slot]', body).append(paste); paste.open = true; }
+        const method = tableUi.method || 'excel';
+        const methodChange = value => {
+          tableUi.method = value;
+          S.$$('[data-price-method-panel]', body).forEach(el => el.hidden = el.dataset.priceMethodPanel !== value);
+          S.$$('[data-price-method]', body).forEach(el => { el.classList.toggle('primary', el.dataset.priceMethod === value); el.setAttribute('aria-pressed', String(el.dataset.priceMethod === value)); });
+          S.$('[data-direct-help]', body).hidden = value !== 'direct';
+        };
+        methodChange(method);
+        S.$$('[data-price-method]', body).forEach(el => el.onclick = () => methodChange(el.dataset.priceMethod));
+        S.$('[data-direct-start]', body).onclick = () => { tableUi.buildMode = 'identity'; matrixMove(1); };
+        S.$$('[data-matrix-go]', body).forEach(el => el.onclick = () => matrixMove(Number(el.dataset.matrixGo)));
+        const importMode = S.$('[data-matrix-import-mode]', body), help = S.$('[data-import-help]', body);
+        importMode.value = tableUi.importMode || 'amounts';
+        const importHelp = () => { tableUi.importMode = importMode.value; help.innerHTML = importMode.value === 'table' ? '첫 행의 X 기준과 첫 열의 Y 기준(300, 400 등)을 <strong>포함해</strong> 올리세요. 좌측 상단 칸은 제목 또는 빈칸입니다.' : '첫 행·첫 열의 <strong>300, 400 등 사이즈 기준은 지우고</strong> 실제 가격만 새 파일 A1에 붙여넣으세요. 업로드 후 기준값을 입력합니다.'; };
+        importMode.onchange = importHelp; importHelp();
+        for (const key of ['x', ...(term.yAxis ? ['y'] : [])]) {
+          const axis = term[key === 'x' ? 'xAxis' : 'yAxis'], field = fields().find(f => f.key === axis.fieldKey);
+          const describe = () => {
+            const lower = S.priceTable.lower(axis), edge = axis.headers[lower ? 0 : axis.headers.length - 1];
+            return `<p><strong>${key.toUpperCase()}축 · ${e(label(field))}</strong></p><p>가격 기준 출처: 업로드한 기준 또는 직접 입력한 기준 ${e(axis.headers[0])} ~ ${e(axis.headers.at(-1))}.</p><p>주문 제한 출처: 프로세스의 최소 ${e(field?.min ?? '미설정')} / 최대 ${e(field?.max ?? '미설정')}. 이 선택으로 주문 제한을 자동 변경하지 않습니다.</p><p>${lower ? '첫 기준보다 작은' : '마지막 기준보다 큰'} 허용 입력은 <strong>${e(edge)} 기준의 ${key === 'x' ? '열' : '행'} 금액</strong>을 사용합니다. 경계에서 미만·초과로 제외한 값에도 같은 끝 가격이 적용됩니다. 2차원은 다른 축의 해당 기준과 만나는 금액을 사용합니다.</p>`;
+          };
+          S.$(`[data-range-help="${key}"]`, body).onclick = () => { const popup = S.dialog('가격 기준과 입력 제한의 차이', describe(), { wide: false, foot: '<button type="button" data-range-close>확인</button>' }); S.$('[data-range-close]', popup).onclick = () => popup.close(); };
+          S.$(`[data-axis-outside="${key}"]`, body).onchange = async event => {
+            const next = event.target.value, old = axis.outsidePolicy || 'ERROR'; event.target.value = old;
+            if (next === old) return;
+            if (next === 'EDGE' && !await S.priceTable.review('표 밖에도 끝 가격을 적용할까요?', describe(), '내용 확인 후 끝 가격 적용')) return;
+            axis.outsidePolicy = next; draw();
+          };
+        }
       }
       function axisOptions(axis) {
         return [opt("LE", "큰 기준 적용 · 450 → 500 (이하)", axis?.operator),
@@ -387,8 +465,8 @@
       }
       function headerInput(axis, i, value) {
         const a = term[axis === "x" ? "xAxis" : "yAxis"], lower = S.priceTable.lower(a);
-        const text = { LE: "이 값까지 현재 가격", LT: "이 값부터 다음 가격", GE: "이 값부터 현재 가격", GT: "이 값까지 이전 가격" };
-        return `<input type="number" min="0" step="any" data-matrix-header="${axis}" data-index="${i}" value="${e(value)}" placeholder="기준값" aria-label="${axis.toUpperCase()}축 ${i + 1}번째 기준값"><select data-bound-operator="${axis}:${i}" aria-label="${axis.toUpperCase()}축 ${i + 1}번째 경계 처리">${opt("", "축 설정 사용 (" + text[a.operator] + ")", a.operators?.[i] || "")}${(lower ? ["GE", "GT"] : ["LE", "LT"]).map(op => opt(op, text[op], a.operators?.[i])).join("")}</select><small data-bound-range="${axis}:${i}">${e(S.priceTable.range(a, i))}</small>`;
+        const text = { LE: "현재 가격에 포함", LT: "다음 가격부터", GE: "현재 가격부터", GT: "이전 가격까지" };
+        return `<input type="number" min="0" step="any" data-matrix-header="${axis}" data-index="${i}" value="${e(value)}" placeholder="기준값" aria-label="${axis.toUpperCase()}축 ${i + 1}번째 기준값"><select data-bound-operator="${axis}:${i}" aria-label="${axis.toUpperCase()}축 ${i + 1}번째 경계 처리">${opt("", "기본 (" + ({LE:"이하",LT:"미만",GE:"이상",GT:"초과"}[a.operator]) + ")", a.operators?.[i] || "")}${(lower ? ["GE", "GT"] : ["LE", "LT"]).map(op => opt(op, text[op], a.operators?.[i])).join("")}</select><small data-bound-range="${axis}:${i}">${e(S.priceTable.range(a, i))}</small>`;
       }
       function priceInput(row, col, value) { return `<input type="number" min="0" step="0.01" data-matrix-price="${row}:${col}" value="${e(value)}" placeholder="금액" aria-label="${row + 1}행 ${col + 1}열 금액">`; }
       function table1d() {
@@ -466,9 +544,11 @@
             const data = await S.request("/pricing/excel/import", "POST", form), prices = data.amounts;
             if (!d.open) return;
             const cols = prices[0].length, rows = prices.length;
-            const preview = `<p><strong>${e(file.name)} · ${rows}행 × ${cols}열 · 금액 ${rows * cols}개</strong></p><p>X(열): ${e(label(fields().find(f => f.key === term.xAxis.fieldKey)))}${term.yAxis ? ` / Y(행): ${e(label(fields().find(f => f.key === term.yAxis.fieldKey)))}` : ""}</p><p class="pms-help">${withHeaders ? "기준값과 금액을 함께 가져옵니다. 반영 후 각 기준과 적용 방향을 확인하세요." : "가격 데이터만 가져옵니다. 반영 후 기준값을 직접 입력하거나 300부터 100 간격 등으로 생성하세요. 현재 표와 행·열 수가 같으면 기존 기준을 유지합니다."}</p><div class="pm-price-matrix-wrap"><table class="pm-price-upload-preview"><caption>금액 미리보기 · 최대 5행 × 6열</caption><tbody>${prices.slice(0, 5).map(row => `<tr>${row.slice(0, 6).map(value => `<td>${e(value)}원</td>`).join("")}${cols > 6 ? "<td>…</td>" : ""}</tr>`).join("")}</tbody></table></div>${rows > 5 ? `<p>나머지 ${rows - 5}개 행은 반영 후 전체 표에서 확인할 수 있습니다.</p>` : ""}`;
+            const preview = `<p><strong>${e(file.name)} · ${rows}행 × ${cols}열 · 금액 ${rows * cols}개</strong></p><p>X(열): ${e(label(fields().find(f => f.key === term.xAxis.fieldKey)))}${term.yAxis ? ` / Y(행): ${e(label(fields().find(f => f.key === term.yAxis.fieldKey)))}` : ""}</p>${withHeaders ? `<ul>${[['X', data.xHeaders, data.xOperator || term.xAxis.operator, data.xOutsidePolicy], ...(term.yAxis ? [['Y', data.yHeaders, data.yOperator || term.yAxis.operator, data.yOutsidePolicy]] : [])].map(([name, headers, operator, policy]) => `<li>${name}축: 파일 기준 ${e(headers?.[0])} ~ ${e(headers?.at(-1))} · ${e({LE:'큰 기준·이하',LT:'큰 기준·미만',GE:'작은 기준·이상',GT:'작은 기준·초과'}[operator])} · 표 밖 ${policy === 'EDGE' ? '끝 기준 가격 적용' : '계산 중단'}</li>`).join('')}</ul>` : ''}<p class="pms-help">${withHeaders ? "파일의 기준값과 금액을 함께 가져옵니다. 주문 최소·최대값은 변경하지 않습니다. 다음 화면에서 기준을 확인한 뒤 표 밖 입력 처리 방식을 정하세요." : "가격 데이터만 가져옵니다. 행·열 개수는 이 파일에서 자동 설정합니다. 기존 기준의 개수가 같으면 유지하고, 다르면 기준값은 비워 둡니다. 시작값은 기존 기준 또는 프로세스에 명시한 최소값만 제안합니다. 간격 100은 수정 가능한 예시이며 기준 생성·반영을 누르기 전에는 표에 적용되지 않습니다. 다음 화면에서 기준값을 완성하세요."}</p><div class="pm-price-matrix-wrap"><table class="pm-price-upload-preview"><caption>금액 미리보기 · 최대 5행 × 6열</caption><tbody>${prices.slice(0, 5).map(row => `<tr>${row.slice(0, 6).map(value => `<td>${e(value)}원</td>`).join("")}${cols > 6 ? "<td>…</td>" : ""}</tr>`).join("")}</tbody></table></div>${rows > 5 ? `<p>나머지 ${rows - 5}개 행은 반영 후 전체 표에서 확인할 수 있습니다.</p>` : ""}`;
             if (!await S.priceTable.review("엑셀 업로드 미리보기", preview, "반영하고 기준·금액 수정하기") || !d.open) return;
             if (withHeaders) {
+              term.xAxis.outsidePolicy = data.xOutsidePolicy || 'ERROR';
+              if (term.yAxis) term.yAxis.outsidePolicy = data.yOutsidePolicy || 'ERROR';
               term.xAxis.headers = data.xHeaders; term.xAxis.operator = data.xOperator || term.xAxis.operator;
               term.xAxis.operators = data.xOperators || data.xHeaders.map(() => null);
               if (term.yAxis) { term.yAxis.headers = data.yHeaders; term.yAxis.operator = data.yOperator || term.yAxis.operator; term.yAxis.operators = data.yOperators || data.yHeaders.map(() => null); }
@@ -476,25 +556,86 @@
               if (term.xAxis.headers.length !== prices[0].length) { term.xAxis.headers = prices[0].map(() => null); term.xAxis.operators = []; }
               if (term.yAxis && term.yAxis.headers.length !== prices.length) { term.yAxis.headers = prices.map(() => null); term.yAxis.operators = []; }
             }
-            term.values = S.copy(prices); tableUi.buildMode = withHeaders ? 'identity' : 'position'; tableUi.seqCountx = prices[0].length; tableUi.seqCounty = prices.length; tableUi.importMessage = `업로드 완료: ${prices.length}행 × ${prices[0].length}열 · 아래 기준값 입력·자동 생성에서 각 축을 연결해 주세요.`; S.priceTable.resetDraft(tableUi); draw(); S.$("[data-matrix-import-status]", body).textContent = `업로드 완료: ${prices.length}행 × ${prices[0].length}열 · 축 기준값을 확인해 주세요.`;
+            term.values = S.copy(prices); tableUi.buildMode = withHeaders ? 'identity' : 'position'; tableUi.seqCountx = prices[0].length; tableUi.seqCounty = prices.length;
+            for (const [key, axis] of [['x', term.xAxis], ...(term.yAxis ? [['y', term.yAxis]] : [])]) {
+              const f = fields().find(f => f.key === axis.fieldKey);
+              tableUi['seqStart' + key] = axis.headers[0] ?? f?.min ?? '';
+              if (axis.headers.length > 1 && axis.headers[0] != null && axis.headers[1] != null) tableUi['seqStep' + key] = S.priceTable.spacing(axis.headers[0], axis.headers[1]);
+            } tableUi.importMessage = `업로드 완료: ${prices.length}행 × ${prices[0].length}열 · 아래 기준값 입력·자동 생성에서 각 축을 연결해 주세요.`; S.priceTable.resetDraft(tableUi); tableUi.matrixStep = 1; draw(); S.$("[data-matrix-import-status]", body).textContent = `업로드 완료: ${prices.length}행 × ${prices[0].length}열 · 축 기준값을 확인해 주세요.`;
           } catch (error) {
-            if (d.open) { editorError(error.message || "엑셀 파일을 읽을 수 없습니다."); S.$("[data-term-errors]", body).insertAdjacentHTML("beforeend", templateLinks()); }
-          } finally { importing = false; lockImport(false); updateHistory(); }
+            if (d.open) { editorError(error.message || "엑셀 파일을 읽을 수 없습니다.", "[data-matrix-import]"); S.$("[data-term-errors]", body).insertAdjacentHTML("beforeend", templateLinks()); }
+          } finally {
+            importing = false; lockImport(false); updateHistory();
+            if (tableUi.matrixStep === 1 && !S.$('[data-term-errors]', body)?.textContent) {
+              const missing = firstInvalid();
+              if (missing) S.focusField(S.$(missing[1], body));
+            }
+          }
         }));
         S.$("[data-matrix-export]", body)?.addEventListener("click", (event) => S.run(event.currentTarget, async () => {
           if (pendingTable()) return;
           const error = priceErrors(); if (error.length) throw Error(error.join("\n"));
-          await downloadExcel({ dimensions: term.type === "MATRIX_2D" ? 2 : 1, title: term.name, xLabel: label(fields().find((f) => f.key === term.xAxis.fieldKey)), yLabel: label(fields().find((f) => f.key === term.yAxis?.fieldKey)), xOperator: term.xAxis.operator, yOperator: term.yAxis?.operator, xHeaders: term.xAxis.headers, yHeaders: term.yAxis?.headers || [], amounts: term.values, xOperators: term.xAxis.operators || [], yOperators: term.yAxis?.operators || [] });
+          await downloadExcel({ dimensions: term.type === "MATRIX_2D" ? 2 : 1, title: term.name, xLabel: label(fields().find((f) => f.key === term.xAxis.fieldKey)), yLabel: label(fields().find((f) => f.key === term.yAxis?.fieldKey)), xOperator: term.xAxis.operator, yOperator: term.yAxis?.operator, xHeaders: term.xAxis.headers, yHeaders: term.yAxis?.headers || [], amounts: term.values, xOperators: term.xAxis.operators || [], yOperators: term.yAxis?.operators || [], xOutsidePolicy: term.xAxis.outsidePolicy || "ERROR", yOutsidePolicy: term.yAxis?.outsidePolicy || "ERROR" });
         }));
         if (g()?.control !== "NUMBER" && term.type === "FIXED" && stage === 1) S.optionRanges.bind({ body, term, questions: process().questions, draw, error: editorError, ui: tableUi });
-        if (term.type.startsWith("MATRIX") && stage === 1) S.priceTable.bind({ body, term, draw, error: editorError, ui: tableUi });
+        if (term.type.startsWith("MATRIX") && stage === 1) S.priceTable.bind({ body, term, draw, error: editorError, ui: tableUi, fields: fields() });
         S.$("[data-term-match]", body)?.addEventListener("change", (event) => { term.match = event.target.value; });
         S.$("[data-condition-add]", body)?.addEventListener("click", () => conditionEditor());
         S.$$("[data-condition-edit]", body).forEach((b) => { b.onclick = () => conditionEditor(Number(b.dataset.conditionEdit)); });
         S.$$("[data-condition-delete]", body).forEach((b) => { b.onclick = () => { term.conditions.splice(Number(b.dataset.conditionDelete), 1); conditionDraft = null; draw(); }; });
       }
       function lockImport(busy) { S.$$("button,input,select,textarea", d).forEach((el) => { if (busy) { el.dataset.priceWasDisabled = String(el.disabled); el.disabled = true; } else if (el.dataset.priceWasDisabled !== undefined) { el.disabled = el.dataset.priceWasDisabled === "true"; delete el.dataset.priceWasDisabled; } }); }
-      function editorError(text) { S.$("[data-term-errors]", body).innerHTML = `<div class="pms-alert pm-price-error-detail">${e(text)}</div>`; S.$("[data-term-errors]", body).scrollIntoView({ block: "nearest" }); }
+      function firstInvalid() {
+        const invalidMoney = (v, scale = 2) => { try { S.priceTable.money(v, scale); return false; } catch { return true; } };
+        if (!term.name.trim()) return [stage === 0 ? 0 : 1, '[data-term-name]'];
+        if (!supported(g())) return [0, '[data-term-group]'];
+        if (g()?.control === 'NUMBER' && (!bundle() || !fields().length)) return [0, '[data-term-field]'];
+        if (term.optionPricing) {
+          const p = term.optionPricing;
+          if (!term.choiceKeys?.length) return [1, '[data-term-choice]'];
+          if (!S.optionRanges.sources(process().questions, term.groupKey).some(q => q.key === p.groupKey)) return [1, '[data-range-group]'];
+          if (!process().questions.find(q => q.key === p.groupKey)?.fields.some(f => f.key === p.axis.fieldKey)) return [1, '[data-range-field]'];
+          for (let i = 0; i < p.axis.headers.length; i++) {
+            try { S.priceTable.validateHeaders(p.axis.headers.slice(0, i + 1)); } catch { return [1, `[data-range-bound="${i}"]`]; }
+            if (invalidMoney(p.amounts[i])) return [1, `[data-range-amount="${i}"]`];
+          }
+          if (invalidMoney(p.aboveAmount)) return [1, '[data-range-above]'];
+        }
+        if (term.type === 'FIXED' && invalidMoney(term.amount)) return [1, '[data-term-amount]'];
+        if (term.type === 'MULTIPLY') for (const f of fields()) if (invalidMoney(term.rates?.[f.key], 6)) return [1, `[data-term-rate="${CSS.escape(f.key)}"]`];
+        if (term.type.startsWith('MATRIX')) {
+          for (const [key, axis] of [['x', term.xAxis], ...(term.yAxis ? [['y', term.yAxis]] : [])]) {
+            for (let i = 0; i < (axis?.headers.length || 0); i++) {
+              try { S.priceTable.validateHeaders(axis.headers.slice(0, i + 1)); }
+              catch { return [1, `[data-matrix-header="${key}"][data-index="${i}"]`]; }
+            }
+          }
+          for (let r = 0; r < term.values.length; r++) for (let c = 0; c < term.values[r].length; c++) if (invalidMoney(term.values[r][c])) return [1, `[data-matrix-price="${r}:${c}"]`];
+        }
+        return null;
+      }
+      function editorError(text, selector = '') {
+        const invalid = selector ? [1, selector] : firstInvalid();
+        if (invalid) {
+          if (stage !== invalid[0]) { stage = invalid[0]; conditionDraft = null; draw(); }
+          const element = S.$(invalid[1], body), panel = element?.closest('[data-matrix-step]');
+          if (panel?.hidden) { tableUi.matrixStep = Number(panel.dataset.matrixStep); draw(); }
+        }
+        const lines = String(text).split('\n').filter(Boolean);
+        const target = S.$('[data-term-errors]', body);
+        target.innerHTML = `<div class="pms-alert pm-price-error-detail"><strong>${e(lines[0])}</strong>${lines.length > 1 ? `<details><summary>다른 확인 사항 ${lines.length - 1}개</summary>${lines.slice(1).map(line => `<p>${e(line)}</p>`).join('')}</details>` : ''}${invalid ? '<p>표시된 입력을 수정한 뒤 다시 진행하면 다음 확인 위치로 이동합니다.</p>' : ''}</div>`;
+        if (invalid) S.focusField(S.$(invalid[1], body), lines[0]);
+        else { target.tabIndex = -1; target.scrollIntoView({ block: 'center' }); target.focus({ preventScroll: true }); }
+      }
+      function serverErrors(issues) {
+        const errors = issues.filter(i => i.severity === 'ERROR');
+        const relevant = errors.find(i => i.target?.startsWith(`terms.${term.key}.`));
+        if (relevant) {
+          const axis = relevant.target.endsWith('.xAxis.outsidePolicy') ? 'x' : 'y';
+          return editorError(`${relevant.location}: ${relevant.message}`, `[data-axis-outside="${axis}"]`);
+        }
+        editorError(errors.map(i => `${i.location}: ${i.message}`).join('\n'));
+      }
       function sourceErrors() { const errors = []; if (!term.name.trim()) errors.push("항 이름을 입력해 주세요."); if (!supported(g())) errors.push("숫자 입력형·선택형 가격 영향 그룹을 선택해 주세요."); if (g()?.control === "NUMBER" && (!bundle() || !fields().length)) errors.push("입력묶음과 이 항에서 사용할 숫자 항목을 하나 이상 선택해 주세요."); return errors; }
       function priceErrors() {
         const errors = [];
@@ -546,7 +687,10 @@
             if (!presence && number && (conditionDraft.lower == null || !Number.isFinite(Number(conditionDraft.lower)))) message = "조건의 비교값을 입력해 주세요.";
             else if (!presence && range && (conditionDraft.upper == null || !Number.isFinite(Number(conditionDraft.upper)) || compareDecimal(conditionDraft.lower, conditionDraft.upper) > 0 || (compareDecimal(conditionDraft.lower, conditionDraft.upper) === 0 && (!conditionDraft.lowerInclusive || !conditionDraft.upperInclusive)))) message = "상한·하한으로 이루어진 유효한 구간을 입력해 주세요.";
             else if (!presence && !number && !conditionDraft.choiceKeys.length) message = "조건에 사용할 보기를 하나 이상 선택해 주세요.";
-            if (message) { S.$("[data-c-errors]", area).innerHTML = `<div class="pms-alert">${e(message)}</div>`; return; }
+            if (message) {
+              S.$("[data-c-errors]", area).innerHTML = `<div class="pms-alert">${e(message)}</div>`;
+              S.focusField(S.$(number ? (conditionDraft.lower == null ? '[data-c-lower]' : range ? '[data-c-upper]' : '[data-c-lower]') : '[data-c-choice]', area), message); return;
+            }
             if (!number) conditionDraft.fieldKey = null;
             if (conditionIndex == null) term.conditions.push(S.copy(conditionDraft)); else term.conditions[conditionIndex] = S.copy(conditionDraft);
             conditionDraft = null; draw();
@@ -554,9 +698,10 @@
         }
         drawCondition(); S.$("[data-condition-editor]", body).scrollIntoView({ block: "nearest", behavior: "smooth" });
       }
-      S.$("[data-term-prev]", d).onclick = async () => { if (importing || stage === 1 && pendingTable()) return; if (conditionDraft && !await S.confirm("아직 반영하지 않은 조건 초안을 버리고 이전 단계로 이동하시겠습니까?")) return; stage = Math.max(0, stage - 1); conditionDraft = null; draw(); };
+      S.$("[data-term-prev]", d).onclick = async () => { if (importing || stage === 1 && pendingTable()) return; if (conditionDraft && !await S.confirm("아직 반영하지 않은 조건 초안을 버리고 이전 단계로 이동하시겠습니까?")) return; if (stage === 1 && term.type.startsWith('MATRIX') && tableUi.matrixStep > 0) return matrixMove(tableUi.matrixStep - 1); stage = Math.max(0, stage - 1); conditionDraft = null; draw(); };
       S.$("[data-term-next]", d).onclick = () => {
         if (importing || stage === 1 && pendingTable()) return;
+        if (stage === 1 && term.type.startsWith('MATRIX') && tableUi.matrixStep < 3) return matrixMove(tableUi.matrixStep + 1);
         const errors = [...sourceErrors(), ...(stage === 1 ? priceErrors() : [])]; if (errors.length) return editorError(errors.join("\n"));
         stage++; draw();
       };
@@ -572,7 +717,7 @@
           const nextTerms = S.copy(definition.terms); if (index == null) nextTerms.push(S.copy(term)); else nextTerms[index] = S.copy(term);
           const validation = await api(product.id, '/diagnose?draft=true', 'POST', { definition: { ...S.copy(definition), terms: nextTerms, schemaFingerprint: context.schemaFingerprint }, answers: {} });
           if (before !== JSON.stringify(term)) return editorError('검사 중 항이 변경되었습니다. 항 반영을 다시 눌러 주세요.');
-          if (!validation.valid) return editorError(validation.issues.filter(i => i.severity === 'ERROR').map(i => `${i.location}: ${i.message}`).join('\n'));
+          if (!validation.valid) return serverErrors(validation.issues);
         } catch (error) { return editorError(error.message); }
         if (index == null && !term.type.startsWith('MATRIX') && definition.terms.some(t => S.pricingBatch.overlap(t, term)) && !await S.confirm('같은 입력·옵션에 다른 금액 항이 있습니다. 기본금·추가금처럼 더할 항이 맞는지 확인하고 추가하세요.')) return;
         if (index == null && definition.terms.length >= 100) return editorError("가격 항은 최대 100개까지 등록할 수 있습니다.");
@@ -580,6 +725,7 @@
         d.close(); changed(); renderTerms(); renderGroups(); S.toast("항을 계산식에 반영했습니다. 테스트한 뒤 저장해 주세요.");
       });
       draw();
+      if (scope.focusAxis && term.type.startsWith('MATRIX')) { stage = 1; tableUi.matrixStep = 2; draw(); focusMatrix(`[data-axis-outside="${scope.focusAxis}"]`); }
     }
     await load();
   };

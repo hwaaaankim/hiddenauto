@@ -162,8 +162,8 @@ public final class ProductPricingCompatibility {
     for (Term term : definition.terms()) {
       Map<String, BigDecimal> rates = new LinkedHashMap<>();
       map(term.rates()).forEach((k, v) -> rates.put(field.apply(term.groupKey(), k), v));
-      Axis x = term.xAxis() == null ? null : new Axis(field.apply(term.groupKey(), term.xAxis().fieldKey()), term.xAxis().operator(), term.xAxis().headers(), term.xAxis().operators());
-      Axis y = term.yAxis() == null ? null : new Axis(field.apply(term.groupKey(), term.yAxis().fieldKey()), term.yAxis().operator(), term.yAxis().headers(), term.yAxis().operators());
+      Axis x = term.xAxis() == null ? null : new Axis(field.apply(term.groupKey(), term.xAxis().fieldKey()), term.xAxis().operator(), term.xAxis().headers(), term.xAxis().operators(), term.xAxis().outsidePolicy());
+      Axis y = term.yAxis() == null ? null : new Axis(field.apply(term.groupKey(), term.yAxis().fieldKey()), term.yAxis().operator(), term.yAxis().headers(), term.yAxis().operators(), term.yAxis().outsidePolicy());
       String bundle = text(term.bundleKey()).isBlank() ? null : unqualified(requiredKey(targetBundle.get(from.b(term.groupKey(), term.bundleKey()))));
       OptionRangePricing pricing = term.optionPricing();
       OptionRangePricing mappedPricing = pricing == null ? null : new OptionRangePricing(

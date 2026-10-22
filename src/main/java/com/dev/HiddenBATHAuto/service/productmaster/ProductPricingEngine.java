@@ -180,6 +180,7 @@ public final class ProductPricingEngine {
         "옵션보다 앞에 있는 숫자 입력 그룹을 선택해 주세요.");
     validateAxis(pricing.axis(), list(source.fields()).stream().map(Field::key).toList(), "옵션 가격 범위");
     require(!lowerAxis(pricing.axis()), "옵션 가격 범위는 각 구간의 끝값(이하/미만)을 사용합니다.");
+    require(!pricing.axis().usesEdgeOutside(), "숫자 범위별 옵션 금액은 마지막 구간 금액을 사용합니다. 가격표의 끝 가격 적용 방식은 사용할 수 없습니다.");
     require(list(pricing.amounts()).size() == pricing.axis().headers().size(), "범위 수와 옵션 금액 수가 다릅니다.");
     for (BigDecimal amount : pricing.amounts()) money(amount, "범위별 옵션 금액", 2);
     money(pricing.aboveAmount(), "마지막 기준을 넘는 옵션 금액", 2);
@@ -278,12 +279,12 @@ public final class ProductPricingEngine {
             int column = index(term.xAxis(), x);
             int row = 0;
             explanation = fieldLabel(state.question(), term.xAxis().fieldKey()) + " " + x.toPlainString()
-                + " → " + thresholdLabel(term.xAxis(), column);
+                + " → " + appliedLabel(term.xAxis(), x, column);
             if (term.type() == TermType.MATRIX_2D) {
               BigDecimal y = input(evaluated.answers(), term.groupKey(), term.yAxis().fieldKey());
               row = index(term.yAxis(), y);
               explanation += ", " + fieldLabel(state.question(), term.yAxis().fieldKey()) + " " + y.toPlainString()
-                  + " → " + thresholdLabel(term.yAxis(), row);
+                  + " → " + appliedLabel(term.yAxis(), y, row);
             }
             amount = term.values().get(row).get(column);
           }
@@ -385,6 +386,12 @@ public final class ProductPricingEngine {
     return axis.operator() == Threshold.GE || axis.operator() == Threshold.GT;
   }
 
+  private static String appliedLabel(Axis axis, BigDecimal value, int index) {
+    return matchingIndex(axis, value) < 0 && axis.usesEdgeOutside()
+        ? axis.headers().get(index).toPlainString() + " 기준 (표 밖 입력 · 끝 가격 적용)"
+        : thresholdLabel(axis, index);
+  }
+
   private static String thresholdLabel(Axis axis, int index) {
     String suffix = switch (axis.operatorAt(index)) {
       case LE -> " 이하"; case LT -> " 미만"; case GE -> " 이상"; case GT -> " 초과";
@@ -409,7 +416,8 @@ public final class ProductPricingEngine {
     int selected = matchingIndex(axis, value);
     if (selected >= 0) return selected;
     int edge = lowerAxis(axis) ? 0 : axis.headers().size() - 1;
-    throw new IllegalArgumentException(value.toPlainString() + "은 가격표의 "
+    if (axis.usesEdgeOutside()) return edge;
+    throw new IllegalArgumentException("가격표 범위 밖: " + value.toPlainString() + "은 가격표의 "
         + (lowerAxis(axis) ? "최소" : "최대") + " 기준 " + thresholdLabel(axis, edge)
         + " 범위 밖입니다. 기준 행·열 또는 입력 제한을 확인해 주세요.");
   }

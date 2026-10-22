@@ -174,7 +174,7 @@
         const before = signature();
         const additions = rows.filter(row => row.mode !== 'SKIP').map(row => {
           try { const term = B.term(row, group(), sources[row.source]); B.validate(term); return term; }
-          catch (ex) { throw Error(row.title + ': ' + ex.message); }
+          catch (ex) { const error = Error(row.title + ': ' + ex.message); error.selector = row.mode.startsWith('MATRIX') || row.term?.optionPricing ? `[data-batch-detail="${row.id}"]` : `[data-batch-value="${row.id}"]`; throw error; }
         });
         if (!additions.length && !changes.size && !removed.size) throw Error('추가할 계산 방식을 선택하거나 기존 항을 수정해 주세요.');
         if (definition.terms.length - removed.size + additions.length > 100) throw Error('가격 항은 최대 100개까지 가능합니다. 기존 항을 수정하거나 추가 수를 줄여 주세요.');
@@ -184,13 +184,28 @@
         if (diagnose && all.length) {
           const validation = await diagnose(all);
           if (signature() !== before) throw Error("검사 중 작성 내용이 변경되었습니다. 변경 내용 검토를 다시 눌러 주세요.");
-          if (!validation.valid) throw Error('가격표·조건 검증을 통과하지 못했습니다.\n' + validation.issues.filter(i => i.severity === 'ERROR').map(i => `${i.location}: ${i.message}`).join('\n'));
+          if (!validation.valid) {
+            const problems = validation.issues.filter(i => i.severity === 'ERROR'), box = S.$('[data-batch-error]', body);
+            box.hidden = false;
+            box.innerHTML = problems.map((issue, i) => `<section><strong>${e(issue.location)}</strong><p>${e(issue.message)}</p>${issue.target ? `<button type="button" data-batch-fix="${i}">해당 설정 수정</button>` : ''}</section>`).join('');
+            S.$$('[data-batch-fix]', box).forEach(button => button.onclick = () => {
+              const issue = problems[Number(button.dataset.batchFix)], match = issue.target.match(/^terms\.(.+)\.([xy])Axis\.outsidePolicy$/);
+              const term = match && all.find(t => t.key === match[1]); if (!term) return;
+              const row = rows.find(row => row.term?.key === term.key);
+              edit(term, next => {
+                if (row) { row.term = next; row.title = next.name; }
+                else changes.set(next.key, next);
+                render();
+              }, { locked: !!row, focusAxis: match[2], choiceKey: row?.kind === 'choice' && row.mode === 'FIXED' ? row.choiceKey : null, choiceGroup: groupKey });
+            });
+            box.tabIndex = -1; box.scrollIntoView({ block: 'center' }); box.focus(); return;
+          }
         }
         const overlapping = affected.filter(t => all.some(other => other.key !== t.key && B.overlap(t, other)));
         if (!await S.priceTable.review('일괄 설정 반영 전 확인', `<p><strong>기존 항 수정 ${[...changes.keys()].filter(k => !removed.has(k)).length}개 · 삭제 ${removed.size}개 · 새 항 추가 ${additions.length}개</strong></p>${removed.size ? `<p>삭제할 항: ${definition.terms.filter(t => removed.has(t.key)).map(t => e(t.name)).join(', ')}</p>` : ''}<ul>${affected.map(t => `<li><strong>${e(t.name)}</strong><br>${e(summary(t))}<br><small>추가 조건 ${t.conditions.length}개</small></li>`).join('')}</ul>${overlapping.length ? `<div class="pms-alert">같은 입력·옵션을 사용하는 다른 항이 있는 변경 항 ${overlapping.length}개: ${overlapping.map(t => e(t.name)).join(', ')}. 조건이 함께 성립하면 모두 더해집니다. 기존 항 수정으로 처리해야 하는지 확인하세요.</div>` : ''}<p class="pms-help">여기서 반영해도 아직 서버에 저장되지 않습니다. 메인 화면에서 실제 입력 테스트 후 저장하세요.</p>`, '확인한 항 반영')) return;
         if (signature() !== before) throw Error("검토 중 작성 내용이 변경되었습니다. 변경 내용 검토를 다시 눌러 주세요.");
         apply(current.concat(additions)); d.close();
-      } catch (ex) { showError(ex.message); }
+      } catch (ex) { showError(ex.message); if (ex.selector) S.focusField(S.$(ex.selector, body), ex.message); }
     });
     reset(); render();
   };

@@ -2728,9 +2728,10 @@
 }
 .pms label.pms-check > input, .pms label.pms-switch > input { flex: 0 0 auto; margin: 0; }
 .pms label.pms-check > span, .pms label.pms-switch > span { min-width: 0; min-height: 0; font-weight: 500; line-height: 1.5; }
-.pms .pms-form-grid + label:not(.pms-check):not(.pms-switch),
-.pms label:not(.pms-check):not(.pms-switch) + .pms-form-grid,
-.pms label:not(.pms-check):not(.pms-switch) + label:not(.pms-check):not(.pms-switch) { margin-top: 14px; }
+/* Vertical gaps belong to block containers, never to sibling labels in a grid/flex row. */
+.pms .pms-dialog-body > label + label,
+.pms [data-content] > label + label,
+.pms .pm-price-paste > label + label { margin-top: 14px; }
 .pms .pms-inline-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .pms .pms-inline-fieldset > legend { float: none; width: auto; padding: 0; }
 .pms .pms-inline-fieldset > .pms-check-grid { margin: 0; }
@@ -2755,3 +2756,36 @@
 .pms-dialog.pms > .pms-dialog-foot > [data-term-footer-status] { flex: 1 1 250px; margin: 0; padding: 0; border: 0; background: none; line-height: 1.7; }
 .pms-dialog.pms > .pms-dialog-foot > button { flex: 0 0 auto; align-self: center; margin: 0; }
 .pms .pms-check.pm-number-bundle > span { display: grid !important; }
+
+/* Form controls share one rhythm across product pages, question editors and modal dialogs. */
+.pms .pms-form-grid > label,
+.pms .pm-price-sequence > label,
+.pms .pm-price-type-grid > label,
+.pms .pm-price-source-bundles > label,
+.pms .pm-option-range-row > label,
+.pms .pms-check-grid > label { margin: 0; }
+.pms .pms-check > span, .pms .pms-switch > span { margin-bottom: 0; }
+.pms .pms-form-grid > label:has(> input:not([type="checkbox"]):not([type="radio"])),
+.pms .pms-form-grid > label:has(> select),
+.pms .pm-price-sequence > label { display: flex; flex-direction: column; align-self: stretch; }
+.pms .pms-form-grid > label > input:not([type="checkbox"]):not([type="radio"]),
+.pms .pms-form-grid > label > select { margin-top: auto; }
+.pms-dialog.pms { padding: 0; border: 1px solid var(--line); }
+.pms-dialog.pms > .pms-dialog-foot { padding: 14px 22px; }
+.pms-dialog.pms > .pms-dialog-foot > span { min-width: 0; overflow-wrap: anywhere; }
+.pms .pms-field-invalid { border-color: var(--red) !important; box-shadow: 0 0 0 2px #ad344220; }
+.pms .pms-field-guidance { display: block; margin: 6px 0 0; color: var(--red); font-size: 12px; line-height: 1.6; }
+@media (max-width: 640px) {
+  .pms-dialog.pms > .pms-dialog-foot { padding: 12px 16px; gap: 8px; }
+  .pms-dialog.pms > .pms-dialog-foot > [data-term-footer-status] { flex-basis: 100%; }
+}
+
+/* Keep vertical section spacing scoped to block containers, and preserve action contrast on hover. */
+.pms .pms-dialog-body > .pms-form-grid + label,
+.pms .pms-dialog-body > label + .pms-form-grid,
+.pms .pms-editor-body > .pms-form-grid + label,
+.pms .pms-editor-body > label + .pms-form-grid,
+.pms [data-limit-content] > .pms-form-grid + label { margin-top: 14px; }
+.pms .pms-dialog-body > label + .pms-actions { margin-top: 12px; }
+.pms button.primary:hover:not(:disabled) { background: #2456b8; border-color: #2456b8; color: #fff; }
+.pms button.primary:focus-visible { outline: 3px solid #9ebcfa; outline-offset: 2px; }

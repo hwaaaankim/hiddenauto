@@ -247,3 +247,32 @@
 .pms .pm-price-axis-examples > section { padding: 12px 14px; border: 1px solid #c6d8f1; background: #f4f8ff; line-height: 1.7; }
 .pms .pm-price-axis-examples small { display: block; margin-top: 6px; }
 .pms .pm-price-axis-examples ul { padding-left: 20px; margin: 8px 0; }
+
+/* Only the current task is expanded; controls remain aligned in pages and modal dialogs. */
+.pms [data-matrix-step][hidden], .pms [data-price-method-panel][hidden], .pms [data-direct-help][hidden] { display: none; }
+.pms .pm-price-flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 18px 0; }
+.pms .pm-price-flow button { display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 10px 12px; height: auto; min-height: 44px; white-space: normal; text-align: left; }
+.pms .pm-price-flow b { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #eef2f7; }
+.pms .pm-price-flow [aria-current="step"] { color: #244d91; background: #f0f6ff; border-color: #769bd1; font-weight: 600; }
+.pms .pm-price-flow [aria-current="step"] b { background: #2c5f9f; color: #fff; }
+.pms .pm-price-axis-policy { padding: 16px; border: 1px solid var(--line); border-radius: 6px; min-width: 0; }
+.pms .pm-price-axis-policy h4 { font-size: 14px; margin: 0 0 12px; }
+.pms .pm-price-axis-policy > label { display: block; margin: 14px 0 8px; }
+.pms .pm-price-axis-policy ul { padding-left: 20px; line-height: 1.7; }
+.pms .pm-price-axis-policy small { display: block; line-height: 1.7; }
+.pms .pm-price-matrix { min-width: 0; }
+.pms .pm-price-editor [data-term-errors]:empty { display: none; }
+.pms .pm-price-table-builder > summary { line-height: 1.7; }
+.pms .pm-price-error-detail > strong { font-weight: 600; }
+.pms .pm-price-error-detail details { margin-top: 8px; }
+.pms .pm-price-error-detail p { margin: 8px 0 0; }
+@media (max-width: 700px) {
+  .pms .pm-price-flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pms .pm-price-axis-policy { padding: 12px; }
+}
+
+.pms .pm-price-completed-source { margin: 12px 0; padding: 10px 12px; background: #f8faff; border: 1px solid var(--line); border-radius: 5px; }
+.pms .pm-price-completed-source > summary { font-weight: 600; line-height: 1.7; }
+.pms .pm-price-completed-source[open] > summary { margin-bottom: 12px; }
+.pms .pm-price-intro > summary { font-size: 14px; font-weight: 600; cursor: pointer; }
+.pms .pm-price-intro[open] > summary { margin-bottom: 10px; }
