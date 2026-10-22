@@ -16,6 +16,7 @@ public final class ProductPricingWire {
       result.put("fieldKey", axis.fieldKey());
       result.put("operator", axis.operator());
       result.put("operators", axis.operators());
+      result.put("outsidePolicy", axis.outsidePolicy());
       result.put("headers", axis.headers() == null ? null
           : axis.headers().stream().map(n -> n == null ? null : n.toPlainString()).toList());
       return result;

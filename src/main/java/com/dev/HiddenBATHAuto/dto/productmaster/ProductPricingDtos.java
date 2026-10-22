@@ -11,8 +11,12 @@ public final class ProductPricingDtos {
   private ProductPricingDtos() {}
   public enum TermType { FIXED, MULTIPLY, MATRIX_1D, MATRIX_2D }
   public enum Threshold { LE, LT, GE, GT }
+  public enum OutsidePolicy { ERROR, EDGE }
   public record Axis(String fieldKey, Threshold operator, List<BigDecimal> headers,
-      List<Threshold> operators) {
+      List<Threshold> operators, OutsidePolicy outsidePolicy) {
+    public Axis(String fieldKey, Threshold operator, List<BigDecimal> headers, List<Threshold> operators) {
+      this(fieldKey, operator, headers, operators, null);
+    }
     // Existing definitions and callers retain their axis-wide boundary behavior.
     public Axis(String fieldKey, Threshold operator, List<BigDecimal> headers) {
       this(fieldKey, operator, headers, null);
@@ -21,6 +25,7 @@ public final class ProductPricingDtos {
       return operators == null || operators.isEmpty() || operators.get(index) == null
           ? operator : operators.get(index);
     }
+    public boolean usesEdgeOutside() { return outsidePolicy == OutsidePolicy.EDGE; }
   }
   public record Bundle(String key, String label, List<Field> fields) {}
   public record PricingGroup(Long groupId, String groupKey, String label, Control control,
