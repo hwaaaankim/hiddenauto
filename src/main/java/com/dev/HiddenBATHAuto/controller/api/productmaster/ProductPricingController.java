@@ -38,8 +38,9 @@ public class ProductPricingController {
     return wire(service.evaluate(id, request));
   }
   @PostMapping("/products/{id}/pricing/diagnose")
-  public ApiResponse<Object> diagnose(@PathVariable Long id, @RequestBody EvaluateRequest request) {
-    return wire(service.diagnose(id, request));
+  public ApiResponse<Object> diagnose(@PathVariable Long id, @RequestBody EvaluateRequest request,
+      @RequestParam(name = "draft", defaultValue = "false") boolean draft) {
+    return wire(service.diagnose(id, request, draft));
   }
   @GetMapping("/products/{id}/pricing/copy-sources")
   public ApiResponse<Object> copySources(@PathVariable Long id) { return wire(service.copySources(id)); }

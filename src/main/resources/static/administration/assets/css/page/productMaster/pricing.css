@@ -190,3 +190,60 @@
 .pms [data-price-method-panel][hidden] { display:none; }
 .pms .pm-price-methods { gap:8px; margin:8px 0; }
 .pms .pm-price-methods > button { flex:1; min-width:100px; }
+
+/* Price table thresholds and option range pricing: 2026-10-20. */
+.pm-price-axis-builder,.pm-option-ranges{border:1px solid #dce3ec;border-radius:5px;padding:16px;background:#f8fafc;min-width:0}
+.pm-price-axis-builder>strong{display:block;margin-bottom:12px}
+.pm-price-sequence{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:10px}
+.pm-price-axis-builder>label,.pm-price-table-builder>label{display:block;margin-top:12px}
+.pm-option-ranges{margin-top:20px}
+.pm-option-ranges h3{margin-top:0}.pm-option-range-rows{display:grid;gap:10px;margin:14px 0}
+.pm-option-range-row{display:grid;grid-template-columns:minmax(100px,1fr) minmax(160px,1.4fr) minmax(140px,1fr) auto;gap:10px;align-items:end;padding:12px;border:1px solid #dce3ec;border-radius:5px;background:#fff}
+.pm-option-range-row>small{grid-column:1/-1;color:#42526a}.pm-option-range-row.is-tail{grid-template-columns:2fr 1fr;align-items:center;background:#edf4ff}
+.pm-price-range-probe{max-width:600px}.pm-price-range-probe p{line-height:1.6}
+.pm-option-ranges label>span,.pm-price-sequence label>span{display:block;margin-bottom:6px}
+.pm-option-ranges input:not([type=checkbox]),.pm-option-ranges select,.pm-price-sequence input{width:100%;min-width:0;min-height:40px;box-sizing:border-box}
+.pm-option-range-row>button{min-height:40px}.pm-price-sequence input{padding:8px}
+.pm-price-boundary-help span{line-height:1.6}.pm-price-boundary-help b{display:block}
+@media(max-width:760px){.pm-option-range-row{grid-template-columns:repeat(2,minmax(0,1fr))}.pm-option-range-row.is-tail{grid-template-columns:1fr}.pm-price-sequence{gap:6px}.pm-price-axis-builder,.pm-option-ranges{padding:12px}}
+@media(max-width:420px){.pm-option-range-row{grid-template-columns:1fr}.pm-price-sequence{grid-template-columns:1fr}}
+
+.pm-price-error-detail, .pm-price-diagnostic-list p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.pm-price-diagnostic-list { padding-left: 22px; }
+.pm-price-diagnostic-list li { margin: 12px 0; }
+.pm-price-upload-preview { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.pm-price-upload-preview td { padding: 8px; border: 1px solid #d9dfe8; text-align: right; white-space: nowrap; }
+.pm-price-upload-preview caption { text-align: left; margin: 8px 0; }
+
+/* The same label/control baseline for mode, status and editor actions. */
+.pms .pm-price-batch-controls { gap: 16px; }
+.pms .pm-price-batch-controls > label { display: block; }
+.pms .pm-price-batch-controls > label > span { font-weight: 600; line-height: 20px; min-height: 20px; margin-bottom: 6px; }
+.pms .pm-batch-control-note { display: flex; align-items: center; min-height: 38px; margin: 0; line-height: 1.7; color: var(--muted); }
+.pms .pm-batch-table-state { min-height: 38px; padding: 8px 10px; background: #f6f8fc; border: 1px solid var(--line); gap: 4px; }
+.pms .pm-batch-detail .pms-actions { margin: 0; min-height: 38px; }
+.pms .pm-batch-detail button { min-height: 38px; }
+.pms .pm-batch-fields { gap: 10px; padding: 12px; }
+.pms .pm-batch-fields > legend { float: none; width: auto; font-weight: 600; margin: 0; line-height: 20px; }
+.pms .pm-price-batch-row > header { justify-content: space-between; align-items: start; }
+.pms .pm-price-batch-row > header > div { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; flex: 1; min-width: 0; }
+.pms .pm-price-batch-row > header small { color: var(--muted); }
+.pms .pm-batch-plan { margin: 20px 0; padding: 16px; border: 1px solid #b9cceb; border-radius: 5px; background: #f5f8fe; }
+.pms.pm-price-batch .pm-batch-plan h3 { margin-top: 0; }
+.pms .pm-batch-plan > .pms-actions, .pms .pm-batch-plan > .pms-form-grid { margin-top: 14px; }
+.pms .pm-batch-plan > .pms-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.pms .pm-batch-plan > .pms-actions > small { flex: 1 1 250px; line-height: 1.7; }
+.pms .pm-batch-plan > .pms-help { margin-bottom: 0; }
+.pms .pm-price-batch .pms-dialog-foot > .pms-help { flex: 1 1 260px; margin: 0; }
+.pms .pm-price-bundle-choice > input { flex: none; }
+.pms .pm-price-bundle-choice > span { min-width: 0; }
+@media (max-width: 700px) {
+  .pms .pm-price-batch-controls, .pms .pm-batch-plan .pms-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .pms .pm-batch-plan { padding: 12px; }
+  .pms .pm-price-batch-row { padding: 12px; }
+  .pms .pm-batch-existing article .pms-actions { width: 100%; }
+}
+.pms .pm-price-axis-examples { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; margin: 14px 0; }
+.pms .pm-price-axis-examples > section { padding: 12px 14px; border: 1px solid #c6d8f1; background: #f4f8ff; line-height: 1.7; }
+.pms .pm-price-axis-examples small { display: block; margin-top: 6px; }
+.pms .pm-price-axis-examples ul { padding-left: 20px; margin: 8px 0; }

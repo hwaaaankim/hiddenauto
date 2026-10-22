@@ -171,7 +171,9 @@ public final class ProductPricingCompatibility {
               pricing.axis().operator(), pricing.axis().headers(), pricing.axis().operators()), pricing.amounts(), pricing.aboveAmount());
       terms.add(new Term(UUID.randomUUID().toString(), term.name(), question.apply(term.groupKey()), bundle,
           list(term.fieldKeys()).stream().map(k -> field.apply(term.groupKey(), k)).toList(), term.type(), term.amount(), rates, x, y,
-          term.values(), term.match(), list(term.conditions()).stream().map(condition).toList(), list(term.choiceKeys()).stream().map(k -> choice.apply(term.groupKey(), k)).toList(), mappedPricing));
+          term.values(), term.match(), list(term.conditions()).stream().map(condition).toList(), list(term.choiceKeys()).stream().map(k -> choice.apply(term.groupKey(), k)).toList(), mappedPricing,
+          term.optionTarget() == null ? null : new OptionTarget(question.apply(term.optionTarget().groupKey()),
+              choice.apply(term.optionTarget().groupKey(), term.optionTarget().choiceKey()))));
     }
     Map<String, Answer> answers = new LinkedHashMap<>();
     map(definition.testAnswers()).forEach((q, answer) -> {

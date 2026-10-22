@@ -6,7 +6,7 @@
   };
   S.pricingLinks = function (p, status) {
     const link = `/admin/product-master/products/${p.id}/pricing`;
-    return `<a class="pms-button" href="${link}">${status?.registered ? "가격계산식 조회·수정" : "가격계산식 등록"}</a><button type="button" data-copy-pricing="${p.id}" ${!status || status.registered || !status.ready ? "disabled" : ""} title="가격식이 없고 프로세스가 완성된 제품에서 동일한 그룹·옵션·입력 제한·분기의 가격식을 복사합니다.">가격계산 불러오기</button>`;
+    return `<a class="pms-button" href="${link}">${status?.registered ? "계산식조회" : "계산식등록"}</a><button type="button" data-copy-pricing="${p.id}" ${!status || status.registered || !status.ready ? "disabled" : ""} title="가격식이 없고 프로세스가 완성된 제품에서 동일한 그룹·옵션·입력 제한·분기의 가격식을 복사합니다.">계산식불러오기</button>`;
   };
   S.showPricingCalculation = function (result, title = "실 제품 가격계산") {
     const money = (v) => v == null ? "계산 불가" : Number(v).toLocaleString("ko-KR", { maximumFractionDigits: 2 }) + "원";

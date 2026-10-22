@@ -17,6 +17,16 @@ import java.util.stream.Collectors;
 public final class ProductPricingCoverage {
   private ProductPricingCoverage() {}
 
+  /** Draft editing permits unconnected groups; saving/copying requires participation per numeric group. */
+  public static Validation validateRegistration(Process process, List<PricingGroup> groups,
+      Definition definition, Map<String, Answer> fixedAnswers, boolean draft) {
+    Validation coverage = validate(process, groups, definition, fixedAnswers);
+    List<Issue> issues = new ArrayList<>(coverage.issues());
+    issues.addAll(ProductPricingEngine.participationIssues(groups, definition, draft));
+    return new Validation(coverage.valid() && issues.stream().noneMatch(i -> "ERROR".equals(i.severity())),
+        coverage.exhaustive(), coverage.scenarios(), List.copyOf(issues));
+  }
+
   public static Validation validate(Process process, List<PricingGroup> groups,
       Definition definition, Map<String, Answer> fixedAnswers) {
     List<Issue> issues = new ArrayList<>();
@@ -76,9 +86,10 @@ public final class ProductPricingCoverage {
           pricePredicates.add(numeric(pricing.groupKey(), pricing.axis().fieldKey(), Operator.PRESENT, null));
           pricePredicates.add(numeric(pricing.groupKey(), pricing.axis().fieldKey(), Operator.GE, BigDecimal.ZERO));
         }
-        Question source = process.questions().stream().filter(q -> q.key().equals(term.groupKey()))
+        String scopeGroup = term.optionTarget() == null ? term.groupKey() : term.optionTarget().groupKey();
+        Question source = process.questions().stream().filter(q -> q.key().equals(scopeGroup))
             .findFirst().orElseThrow();
-        List<String> scopeKeys = choice(source.control())
+        List<String> scopeKeys = term.optionTarget() != null ? List.of(term.optionTarget().choiceKey()) : choice(source.control())
             ? (list(term.choiceKeys()).isEmpty() ? source.choices().stream().map(Choice::key).toList() : term.choiceKeys())
             : list(term.fieldKeys());
         for (String scopeKey : scopeKeys) {
@@ -184,7 +195,8 @@ public final class ProductPricingCoverage {
       Calculation calculation = ProductPricingEngine.calculateValidated(process, definition, answers);
       calculation.terms().stream().filter(TermResult::applied).map(TermResult::key).forEach(hitTerms::add);
       if (!calculation.complete()) for (String error : calculation.errors()) add(issues,
-          "PRICE_PATH", "가격계산", error + " 예시: " + example(answers));
+          error.startsWith("가격표 중복:") ? "PRICE_TABLE_OVERLAP" : error.startsWith("가격표 범위 누락:") ? "PRICE_TABLE_GAP" : "PRICE_PATH",
+          "가격계산", error + " 예시: " + example(answers));
       else checkScopes(calculation);
     }
 
