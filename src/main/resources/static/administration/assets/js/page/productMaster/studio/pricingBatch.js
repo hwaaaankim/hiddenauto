@@ -18,17 +18,17 @@
   };
   B.validate = term => {
     S.optionRanges.validate(term);
-    if (term.type === 'FIXED') S.priceTable.amount(term.amount);
+    if (term.type === 'FIXED') S.priceTable.money(term.amount, term.role === 'FACTOR' ? 6 : 2);
     else if (term.type === 'MULTIPLY') {
       for (const k of term.fieldKeys) S.priceTable.money(term.rates[k], 6);
     } else {
       S.priceTable.validateAxis(term.xAxis); if (term.yAxis) S.priceTable.validateAxis(term.yAxis);
       const rows = term.yAxis?.headers.length || 1, cols = term.xAxis.headers.length;
       if (rows * cols > 20000 || term.values.length !== rows || term.values.some(row => row.length !== cols)) throw Error('가격표 행·열 수를 확인하세요.');
-      term.values.forEach(row => row.forEach(S.priceTable.amount));
+      term.values.forEach(row => row.forEach(value => S.priceTable.money(value, term.role === 'FACTOR' ? 6 : 2)));
     }
   };
-  B.overlap = (a, b) => a.optionTarget?.groupKey === b.optionTarget?.groupKey && a.optionTarget?.choiceKey === b.optionTarget?.choiceKey && a.groupKey === b.groupKey && (a.bundleKey ? a.bundleKey === b.bundleKey && a.fieldKeys.some(k => b.fieldKeys.includes(k)) : !b.bundleKey && (!a.choiceKeys?.length || !b.choiceKeys?.length || a.choiceKeys.some(k => b.choiceKeys.includes(k))));
+  B.overlap = (a, b) => a.role !== 'FACTOR' && b.role !== 'FACTOR' && a.optionTarget?.groupKey === b.optionTarget?.groupKey && a.optionTarget?.choiceKey === b.optionTarget?.choiceKey && a.groupKey === b.groupKey && (a.bundleKey ? a.bundleKey === b.bundleKey && a.fieldKeys.some(k => b.fieldKeys.includes(k)) : !b.bundleKey && (!a.choiceKeys?.length || !b.choiceKeys?.length || a.choiceKeys.some(k => b.choiceKeys.includes(k))));
   // The bundle controls visibility; each price term independently chooses one or two fields.
   B.numericPlan = (group, mode, bundleKey, fieldKeys = []) => {
     if (group?.control !== 'NUMBER') throw Error('숫자 입력 그룹을 선택해 주세요.');
@@ -48,7 +48,7 @@
     const d = S.dialog('옵션별 계산 방식 일괄 설정', '', { foot: '<span class="pms-help">검토 후 항에 반영 → 실제 입력 테스트 → 최종 저장</span><button type="button" class="primary" data-batch-apply>변경 내용 검토</button>' });
     d.classList.add('pm-price-batch'); const body = S.$('.pms-dialog-body', d);
     S.priceTable.guardClose(d, dirty);
-    const relevant = t => t.groupKey === groupKey || t.conditions?.some(c => c.groupKey === groupKey);
+    const relevant = t => t.role !== 'FACTOR' && (t.groupKey === groupKey || t.conditions?.some(c => c.groupKey === groupKey));
     const originalTerms = () => definition.terms.filter(relevant);
     function reset() {
       changes = new Map(); removed = new Set(); rows = [];
@@ -61,7 +61,7 @@
     function showError(message) { S.$('[data-batch-error]', body).hidden = false; S.$('[data-batch-error]', body).textContent = message; S.$('[data-batch-error]', body).scrollIntoView({ block: 'nearest' }); }
     function usedByMatrix(field) {
       return definition.terms.filter(t => !removed.has(t.key)).map(t => changes.get(t.key) || t)
-        .filter(t => t.groupKey === groupKey && !t.optionTarget && t.type.startsWith('MATRIX') && t.fieldKeys.includes(field));
+        .filter(t => t.role !== 'FACTOR' && t.groupKey === groupKey && !t.optionTarget && t.type.startsWith('MATRIX') && t.fieldKeys.includes(field));
     }
     function plannedRows(mode) {
       let plans = B.numericPlan(group(), mode, planBundle, planFields);
@@ -84,6 +84,7 @@
     }
     function used(row) {
       return definition.terms.filter(t => {
+        if (t.role === 'FACTOR') return false;
         if (row.kind === 'choice') return t.groupKey === groupKey && (!t.choiceKeys?.length || t.choiceKeys.includes(row.choiceKey)) || t.conditions?.some(c => c.groupKey === groupKey && c.choiceKeys?.includes(row.choiceKey));
         return t.groupKey === groupKey && t.bundleKey === sources[row.source]?.bundle.key && t.fieldKeys?.some(k => row.fields.includes(k));
       }).length;
@@ -102,7 +103,7 @@
       return `<article class="pm-price-batch-row" data-batch-row="${row.id}"><header><div><strong>${e(row.title)}</strong><small>${e(row.note)}${used(row) ? ` · 기존 관련 항 ${used(row)}개` : ''}</small></div>${row.kind === 'pair' || row.mode.startsWith('MATRIX') ? `<button type="button" class="pm-icon-remove" data-batch-remove="${row.id}" aria-label="${e(row.title)} 새 가격표 삭제" title="새 가격표 삭제">×</button>` : ''}</header><div class="pm-price-batch-controls">${controls}</div></article>`;
     }
     function render() {
-      body.innerHTML = `<ol class="pm-stepper"><li>1. 등록 옵션·기존 항 확인</li><li>2. 옵션별 방식·금액 설정</li><li>3. 변경 검토·항 반영</li></ol><p class="pms-help">이 제품의 프로세스에 등록된 옵션을 가져와 가격 항을 연결합니다. 옵션마다 계산 방식을 한 화면에서 정합니다. 기존 항은 아래에서 수정하고, 추가할 항목만 선택하세요. 다른 입력의 항과 고정 추가금은 합산됩니다. 같은 가격 대상·숫자를 쓰는 가격표는 적용 조건이 겹치면 저장할 수 없습니다.</p><label><span>가격을 설정할 등록 그룹</span><select data-batch-group>${groups.map(g => opt(g.groupKey, g.label, groupKey)).join('')}</select></label><div data-batch-error role="alert" class="pms-alert" hidden></div><h3>기존 관련 항 ${originalTerms().length}개</h3><div class="pm-batch-existing">${originalTerms().map(original => { const t = changes.get(original.key) || original; return `<article><div><strong>${e(t.name)}${removed.has(t.key) ? ' · 삭제 예정' : changes.has(t.key) ? ' · 수정됨' : ''}</strong><p>${e(summary(t))}</p><small>${t.conditions?.length || 0}개 추가 조건 유지</small></div><div class="pms-actions"><button type="button" data-batch-existing="${e(t.key)}" ${removed.has(t.key) ? 'disabled' : ''}>기존 항 수정</button><button type="button" data-batch-existing-remove="${e(t.key)}" class="${removed.has(t.key) ? '' : 'pm-icon-remove'}" aria-label="${e(t.name)} ${removed.has(t.key) ? '삭제 취소' : '삭제'}" title="${removed.has(t.key) ? '삭제 취소' : '기존 항 삭제'}">${removed.has(t.key) ? '삭제 취소' : '×'}</button></div></article>`; }).join('') || '<p class="pms-help">아직 관련 항이 없습니다.</p>'}</div>${planHtml()}<h3>옵션별 새 항 추가</h3><p class="pms-help">고정 금액은 한 번 더합니다. 선택형의 ‘고정·숫자 범위별 옵션 가격’에서 앞의 사이즈 W 범위에 따라 LED 금액을 바꿀 수 있습니다. 범위별 금액은 기본금액과 중복 가산하지 않습니다. 곱셈은 선택한 숫자 × 단가입니다. 선택형 옵션의 곱셈·가격표는 숫자 입력에 연결하고 ‘이 옵션이 선택됨’을 필수 조건으로 붙입니다. 체크박스에서 여러 옵션을 선택하면 해당 옵션들의 항이 각각 더해집니다.</p><div class="pm-price-batch-rows">${rows.map(rowHtml).join('')}</div>`;
+      body.innerHTML = `<ol class="pm-stepper"><li>1. 등록 옵션·기존 항 확인</li><li>2. 옵션별 방식·금액 설정</li><li>3. 변경 검토·항 반영</li></ol><p class="pms-help">이 제품의 프로세스에 등록된 옵션을 가져와 가격 항을 연결합니다. 옵션마다 계산 방식을 한 화면에서 정합니다. 기존 금액 항은 아래에서 수정하고, 추가할 항목만 선택하세요. 배율 항과 배율 연결은 메인 화면에서 수정합니다. 금액 항을 삭제하면 다른 항에서 사용하지 않는 연결 배율도 정리됩니다. 다른 입력의 항과 고정 추가금은 합산됩니다. 같은 가격 대상·숫자를 쓰는 가격표는 적용 조건이 겹치면 저장할 수 없습니다.</p><label><span>가격을 설정할 등록 그룹</span><select data-batch-group>${groups.map(g => opt(g.groupKey, g.label, groupKey)).join('')}</select></label><div data-batch-error role="alert" class="pms-alert" hidden></div><h3>기존 관련 항 ${originalTerms().length}개</h3><div class="pm-batch-existing">${originalTerms().map(original => { const t = changes.get(original.key) || original; return `<article><div><strong>${e(t.name)}${removed.has(t.key) ? ' · 삭제 예정' : changes.has(t.key) ? ' · 수정됨' : ''}</strong><p>${e(summary(t))}</p><small>${t.conditions?.length || 0}개 추가 조건 유지</small></div><div class="pms-actions"><button type="button" data-batch-existing="${e(t.key)}" ${removed.has(t.key) ? 'disabled' : ''}>기존 항 수정</button><button type="button" data-batch-existing-remove="${e(t.key)}" class="${removed.has(t.key) ? '' : 'pm-icon-remove'}" aria-label="${e(t.name)} ${removed.has(t.key) ? '삭제 취소' : '삭제'}" title="${removed.has(t.key) ? '삭제 취소' : '기존 항 삭제'}">${removed.has(t.key) ? '삭제 취소' : '×'}</button></div></article>`; }).join('') || '<p class="pms-help">아직 관련 항이 없습니다.</p>'}</div>${planHtml()}<h3>옵션별 새 항 추가</h3><p class="pms-help">고정 금액은 한 번 더합니다. 선택형의 ‘고정·숫자 범위별 옵션 가격’에서 앞의 사이즈 W 범위에 따라 LED 금액을 바꿀 수 있습니다. 범위별 금액은 기본금액과 중복 가산하지 않습니다. 곱셈은 선택한 숫자 × 단가입니다. 선택형 옵션의 곱셈·가격표는 숫자 입력에 연결하고 ‘이 옵션이 선택됨’을 필수 조건으로 붙입니다. 체크박스에서 여러 옵션을 선택하면 해당 옵션들의 항이 각각 더해집니다.</p><div class="pm-price-batch-rows">${rows.map(rowHtml).join('')}</div>`;
       const run = fn => Promise.resolve().then(fn).catch(ex => showError(ex.message));
       S.$('[data-batch-group]', body).onchange = event => run(async () => {
         const next = event.target.value;
@@ -177,10 +178,13 @@
           catch (ex) { const error = Error(row.title + ': ' + ex.message); error.selector = row.mode.startsWith('MATRIX') || row.term?.optionPricing ? `[data-batch-detail="${row.id}"]` : `[data-batch-value="${row.id}"]`; throw error; }
         });
         if (!additions.length && !changes.size && !removed.size) throw Error('추가할 계산 방식을 선택하거나 기존 항을 수정해 주세요.');
-        if (definition.terms.length - removed.size + additions.length > 100) throw Error('가격 항은 최대 100개까지 가능합니다. 기존 항을 수정하거나 추가 수를 줄여 주세요.');
-        const current = definition.terms.filter(t => !removed.has(t.key)).map(t => changes.get(t.key) || t), affected = [...changes.values()].filter(t => !removed.has(t.key)).concat(additions);
+        let current = definition.terms.map(t => changes.get(t.key) || t);
+        for (const id of removed) current = S.pricingFactors.removeTerm(current, id);
+        const affected = [...changes.values()].filter(t => !removed.has(t.key)).concat(additions);
         affected.forEach(B.validate);
         const all = [...current, ...additions];
+        if (all.length > 100) throw Error('금액·배율 항은 합쳐서 최대 100개까지 가능합니다. 기존 항을 수정하거나 추가 수를 줄여 주세요.');
+        S.pricingFactors.validateLinks(all);
         if (diagnose && all.length) {
           const validation = await diagnose(all);
           if (signature() !== before) throw Error("검사 중 작성 내용이 변경되었습니다. 변경 내용 검토를 다시 눌러 주세요.");

@@ -79,6 +79,18 @@ public final class ProductPricingCoverage {
       this.groups = groups;
       this.definition = definition;
       this.issues = issues;
+      // A checkbox multiplier requires a mapping for every selected option. Predicate
+      // equivalence alone can otherwise merge [mapped] with [mapped, unmapped] and miss
+      // a gap when the consuming PRICE applies only to the mapped option's branch.
+      Map<String, Term> byKey = definition.terms().stream()
+          .collect(Collectors.toMap(Term::key, term -> term));
+      Set<String> checkboxFactors = new LinkedHashSet<>();
+      for (Term consumer : definition.terms()) for (MultiplierLink link : list(consumer.multipliers()))
+        if (ProductPricingEngine.aggregation(link) != MultiplierAggregation.EXACT_ONE)
+          for (String key : list(link.termKeys())) checkboxFactors.add(byKey.get(key).groupKey());
+      for (Question question : process.questions()) if (checkboxFactors.contains(question.key()))
+        for (Choice option : list(question.choices())) pricePredicates.add(new Condition(question.key(),
+            null, Operator.EQ, List.of(option.key()), null, null, null, false, false));
       for (Term term : definition.terms()) {
         pricePredicates.addAll(list(term.conditions()));
         if (term.optionPricing() != null) {
@@ -93,7 +105,10 @@ public final class ProductPricingCoverage {
         List<String> scopeKeys = term.optionTarget() != null ? List.of(term.optionTarget().choiceKey()) : choice(source.control())
             ? (list(term.choiceKeys()).isEmpty() ? source.choices().stream().map(Choice::key).toList() : term.choiceKeys())
             : list(term.fieldKeys());
-        for (String scopeKey : scopeKeys) {
+        // A factor is not an additive price. Its required/mutually exclusive coverage is
+        // checked at each consuming link by calculateValidated, while all factor predicates
+        // below still partition the process domain and its consumed paths enter hitTerms.
+        for (String scopeKey : ProductPricingEngine.role(term) == TermRole.PRICE ? scopeKeys : List.<String>of()) {
           String name = choice(source.control())
               ? source.choices().stream().filter(c -> c.key().equals(scopeKey)).map(c -> c.labels().customer()).findFirst().orElse(scopeKey)
               : source.fields().stream().filter(f -> f.key().equals(scopeKey)).map(f -> f.labels().customer()).findFirst().orElse(scopeKey);
@@ -234,8 +249,9 @@ public final class ProductPricingCoverage {
           message, "terms." + term.key() + "." + key + "Axis.outsidePolicy"));
     }
 
-    // Independent terms are additive by design. Report suspicious gaps/overlaps for review;
-    // do not turn a previously valid intentional surcharge or free branch into a save error.
+    // Independent PRICE terms are additive by design. FACTOR terms are excluded here;
+    // a missing or ambiguous required factor is already a hard error from calculateValidated.
+    // Preserve advisory-only behavior for intentional price surcharges and free branches.
     private void checkScopes(Calculation calculation) {
       Evaluation evaluation = calculation.evaluation();
       Map<String, QuestionState> states = evaluation.questions().stream().collect(Collectors.toMap(s -> s.question().key(), s -> s));

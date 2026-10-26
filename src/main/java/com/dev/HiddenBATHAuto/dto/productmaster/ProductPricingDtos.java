@@ -10,6 +10,14 @@ import java.util.Map;
 public final class ProductPricingDtos {
   private ProductPricingDtos() {}
   public enum TermType { FIXED, MULTIPLY, MATRIX_1D, MATRIX_2D }
+  public enum TermRole { PRICE, FACTOR }
+  public enum MultiplierAggregation { EXACT_ONE, SUM, PRODUCT }
+  public record MultiplierLink(String key, String name, List<String> termKeys,
+      MultiplierAggregation aggregation) {
+    public MultiplierLink(String key, String name, List<String> termKeys) {
+      this(key, name, termKeys, null);
+    }
+  }
   public enum Threshold { LE, LT, GE, GT }
   public enum OutsidePolicy { ERROR, EDGE }
   public record Axis(String fieldKey, Threshold operator, List<BigDecimal> headers,
@@ -34,7 +42,15 @@ public final class ProductPricingDtos {
       List<String> fieldKeys, TermType type, BigDecimal amount, Map<String, BigDecimal> rates,
       Axis xAxis, Axis yAxis, List<List<BigDecimal>> values, String match,
       List<Condition> conditions, List<String> choiceKeys, OptionRangePricing optionPricing,
-      OptionTarget optionTarget) {
+      OptionTarget optionTarget, TermRole role, List<MultiplierLink> multipliers) {
+    public Term(String key, String name, String groupKey, String bundleKey,
+        List<String> fieldKeys, TermType type, BigDecimal amount, Map<String, BigDecimal> rates,
+        Axis xAxis, Axis yAxis, List<List<BigDecimal>> values, String match,
+        List<Condition> conditions, List<String> choiceKeys, OptionRangePricing optionPricing,
+        OptionTarget optionTarget) {
+      this(key, name, groupKey, bundleKey, fieldKeys, type, amount, rates, xAxis, yAxis,
+          values, match, conditions, choiceKeys, optionPricing, optionTarget, null, List.of());
+    }
     public Term(String key, String name, String groupKey, String bundleKey,
         List<String> fieldKeys, TermType type, BigDecimal amount, Map<String, BigDecimal> rates,
         Axis xAxis, Axis yAxis, List<List<BigDecimal>> values, String match,
@@ -67,8 +83,15 @@ public final class ProductPricingDtos {
   public record StatusRequest(List<Long> productIds) {}
   public record Status(Long productId, boolean registered, boolean ready, boolean stale,
       String message) {}
+  public record FactorResult(String key, String name, BigDecimal value) {}
+  public record MultiplierResult(String key, String name, MultiplierAggregation aggregation,
+      List<FactorResult> terms, BigDecimal value) {}
   public record TermResult(String key, String name, boolean applied, BigDecimal amount,
-      String explanation) {}
+      String explanation, TermRole role, BigDecimal baseAmount, List<MultiplierResult> multipliers) {
+    public TermResult(String key, String name, boolean applied, BigDecimal amount, String explanation) {
+      this(key, name, applied, amount, explanation, TermRole.PRICE, amount, List.of());
+    }
+  }
   public record Calculation(BigDecimal total, boolean complete, List<String> errors,
       List<TermResult> terms, Evaluation evaluation) {}
   public record ActualCalculation(Long actualId, BigDecimal total, boolean complete,

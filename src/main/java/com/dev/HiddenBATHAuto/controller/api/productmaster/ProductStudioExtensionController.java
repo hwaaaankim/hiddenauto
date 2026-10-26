@@ -23,7 +23,7 @@ public class ProductStudioExtensionController {
   private final ProductStudioService studio;
   private final ProductStudioDeletionService deletions;
 
-  public record CopyRequest(String productName, List<Variant> fixed) {}
+  public record CopyRequest(String productName, List<Variant> fixed, List<Long> includedGroupIds, Long sourceVersion, boolean copyPricing) {}
 
   @PostMapping("/validate-question")
   public Object validateQuestion(@RequestBody Question q) {
@@ -82,7 +82,8 @@ public class ProductStudioExtensionController {
 
   @PostMapping("/products/{id}/copy")
   public Object copy(@PathVariable Long id, @RequestBody CopyRequest r, Principal p) {
-    return ApiResponse.ok(studio.copyProduct(id, r.productName(), r.fixed(), p.getName()));
+    if (r == null) throw new IllegalArgumentException("복사할 제품 정보를 입력해 주세요.");
+    return ApiResponse.ok(studio.copyProduct(id, r.productName(), r.fixed(), r.includedGroupIds(), r.sourceVersion(), r.copyPricing(), p.getName()));
   }
 
   @DeleteMapping("/products/{id}")

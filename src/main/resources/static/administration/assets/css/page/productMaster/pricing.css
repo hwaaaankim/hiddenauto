@@ -276,3 +276,26 @@
 .pms .pm-price-completed-source[open] > summary { margin-bottom: 12px; }
 .pms .pm-price-intro > summary { font-size: 14px; font-weight: 600; cursor: pointer; }
 .pms .pm-price-intro[open] > summary { margin-bottom: 10px; }
+
+/* Factor setup follows the same compact, responsive form rhythm as price terms. */
+.pms .pm-factor-modes, .pms .pm-factor-values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 16px 0; }
+.pms .pm-factor-modes .pm-price-type-choice { min-width: 0; margin: 0; }
+.pms .pm-factor-range-rows, .pms .pm-factor-review, .pms .pm-factor-existing, .pms .pm-factor-links { display: grid; gap: 12px; margin: 14px 0; }
+.pms .pm-factor-range-rows > article, .pms .pm-factor-review > article, .pms .pm-factor-links > section { padding: 14px; border: 1px solid var(--line); border-radius: 6px; background: #f8faff; min-width: 0; }
+.pms .pm-factor-range-rows > article > label, .pms .pm-factor-range-rows small, .pms .pm-factor-links small { display: block; margin-top: 8px; line-height: 1.6; overflow-wrap: anywhere; }
+.pms .pm-factor-links .pms-actions { margin-top: 10px; }
+.pms .pm-factor-review > article { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 20px; }
+.pms .pm-factor-existing label > span { min-width: 0; }
+.pms .pm-factor-existing small { display: block; font-weight: 400; color: var(--muted); margin-top: 4px; }
+.pms .pm-factor-sequence { margin: 16px 0; padding: 12px; border: 1px solid var(--line); border-radius: 5px; }
+.pms .pm-factor-sequence > summary { cursor: pointer; font-weight: 600; }
+.pms .pm-factor-sequence > button { margin-top: 12px; }
+.pms .pm-price-term.is-factor { border-left: 3px solid #7c94bf; background: #f8faff; }
+.pms .pm-price-breakdown .is-factor { background: #f8faff; }
+.pms .pm-price-formula-term { overflow-wrap: anywhere; }
+@media (max-width: 700px) {
+  .pms .pm-factor-modes, .pms .pm-factor-values { grid-template-columns: minmax(0, 1fr); }
+  .pms .pm-factor-range-rows > article { padding: 12px; }
+  .pms.pm-factor-editor .pms-dialog-foot { flex-wrap: wrap; }
+  .pms.pm-factor-editor [data-factor-status] { flex-basis: 100%; }
+}

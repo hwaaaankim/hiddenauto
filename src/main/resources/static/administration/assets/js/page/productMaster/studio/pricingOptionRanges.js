@@ -13,7 +13,7 @@
     if (p.axis.outsidePolicy === 'EDGE') throw Error('옵션 범위 가격은 마지막 구간 금액을 직접 입력해 주세요.');
     if (M.lower(p.axis)) throw Error('옵션 가격 범위는 구간 끝값(이하/미만)으로 설정해 주세요.');
     if (p.amounts.length !== p.axis.headers.length) throw Error('옵션 가격의 범위 수와 금액 수가 다릅니다.');
-    p.amounts.forEach(M.amount); M.amount(p.aboveAmount);
+    p.amounts.forEach(value => M.money(value, term.role === "FACTOR" ? 6 : 2)); M.money(p.aboveAmount, term.role === "FACTOR" ? 6 : 2);
   };
   R.price = (p, input) => { const at = M.index(p.axis, input); return at < 0 ? p.aboveAmount : p.amounts[at]; };
   R.tail = p => {

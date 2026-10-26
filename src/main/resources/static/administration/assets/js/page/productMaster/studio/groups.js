@@ -5,6 +5,7 @@
     let selected = null,
       model = null,
       groupFiles = [],
+      fieldFiles = new Map(),
       draftValues = [],
       valueFiles = new Map(),
       filter = "",
@@ -101,7 +102,12 @@
             guide: "",
             fields: [],
           };
-      groupFiles = S.copy(g?.assets || []);
+      const assetsById = new Map((g?.assets || []).map((a) => [a.id, a]));
+      const fieldAssetIds = new Set((g?.fields || []).flatMap((f) => f.assetIds || []));
+      groupFiles = S.copy((g?.assets || []).filter((a) => !fieldAssetIds.has(a.id)));
+      fieldFiles = new Map((model.fields || []).map((f) => [f.key,
+        (f.assetIds || []).map((id) => S.copy(assetsById.get(id) || { id, name: "연결 파일 (미리보기 없음)", image: false })),
+      ]));
       draftValues = S.copy(g?.values || []).map((v) => ({
         id: v.id,
         version: v.version,
@@ -153,9 +159,47 @@
       S.showErrors(box, errors, focus);
       return !Object.keys(errors).length;
     }
+    function updateFileScope(root, scopeLabel) {
+      if (!root) return;
+      if (root._pmsFileOptions) root._pmsFileOptions.scopeLabel = scopeLabel;
+      const label = S.$("[data-file-scope]", root);
+      if (label) label.textContent = scopeLabel;
+    }
+    function fieldFileScope(field, index) {
+      return "그룹: " + (model.labels.customer || "새 그룹") + " / 입력 " + (index + 1) + ": " + (field.labels.customer || "새 필드") + " · " + field.key;
+    }
+    function refreshFileScopes() {
+      updateFileScope(S.$("#pms-group-files", editor), groupFileOptions().scopeLabel);
+      S.$$("[data-field-index]", editor).forEach((row) => {
+        const index = Number(row.dataset.fieldIndex), field = model.fields[index];
+        if (field) updateFileScope(S.$("[data-field-files]", row), fieldFileScope(field, index));
+      });
+      S.$$("[data-value-files]", editor).forEach((root) => {
+        const index = Number(root.dataset.valueFiles), value = draftValues[index];
+        if (value) updateFileScope(root, valueFileOptions(value, index).scopeLabel);
+      });
+    }
+    function groupFileOptions() {
+      return {
+        title: "그룹 공통 안내 이미지·파일",
+        scopeLabel: "그룹: " + (model.labels.customer || "새 그룹") + (S.group(model.id)?.key ? " · " + S.group(model.id).key : ""),
+        description: model.nonStandard
+          ? "이 그룹을 사용하는 질문의 공통 안내입니다. 특정 비규격 제품의 질문·옵션 이미지는 해당 제품의 프로세스에서 등록하세요."
+          : "이 그룹의 고객 질문에 공통으로 표시됩니다. 특정 보기의 이미지는 아래 옵션 관리에서 해당 보기에 등록하세요.",
+        saveLabel: "‘그룹 저장’을 눌러야 최종 반영됩니다.",
+      };
+    }
+    function valueFileOptions(v, index) {
+      return {
+        title: "이 옵션의 이미지·파일",
+        scopeLabel: "그룹: " + (model.labels.customer || "새 그룹") + " / 보기 " + (index + 1) + ": " + (v.labels.customer || "새 보기") + (v.key ? " · " + v.key : ""),
+        description: "고객이 이 보기를 선택하는 화면과 선택한 답변에서 표시됩니다. 이 옵션을 사용하는 제품에 공통 적용되며 제품 대표이미지에는 사용하지 않습니다.",
+        saveLabel: "‘옵션 저장’ 또는 ‘그룹 저장’을 눌러야 최종 반영됩니다.",
+      };
+    }
     function paintEditor() {
       const base = S.isBase(model);
-      editor.innerHTML = `<header class="pms-panel-title"><div><h2>${model.id ? "그룹 수정" : "새 그룹"} ${S.badge(base ? "필수그룹" : "옵션그룹", base ? "blue" : "")}</h2><small class="mono">${S.e(S.group(model.id)?.key || "내부 value는 저장할 때 자동 생성됩니다.")}</small></div><div class="pms-actions">${model.id && !base ? '<button class="danger" id="pms-delete-group">삭제</button>' : ""}<button class="primary" id="pms-save-group">그룹 저장</button></div></header><div class="pms-panel-body"><div class="pms-form-grid one">${S.customerLabel(model, "", "그룹 이름 (고객용)")}</div><div class="pms-help">그룹 이름·질문·튜토리얼은 고객용으로 작성합니다. 선택 옵션과 입력 항목의 명칭만 고객·생산팀·관리팀용으로 각각 등록합니다. 내부 value는 이름을 바꾸어도 유지됩니다.</div><div class="pms-form-grid two">${base ? locked("입력 방식", "control", "하나 선택 · 필수그룹", "대분류·중분류·시리즈는 제품마다 하나의 분류가 필요하므로 하나선택형으로 고정되어 변경할 수 없습니다.") : S.select("입력 방식", "control", model.control, S.controls)}${base ? locked("비규격용 그룹", "nonStandard", "규격 전용 · 필수그룹", "대분류·중분류·시리즈는 모든 제품의 고정 분류이므로 비규격용 그룹으로 변경할 수 없습니다.") : `<div class="pms-row">${S.check("비규격용 그룹", "nonStandard", model.nonStandard, "pms-switch")}</div>`}<div class="wide pms-row">${S.check("제품명 자동생성에 포함", "includeInName", model.includeInName, "pms-switch")}${base ? locked("", "active", "필수그룹 · 항상 사용", "모든 제품에 필요한 필수그룹이므로 사용을 중지할 수 없습니다.") : S.check("새 제품 구성에 사용", "active", model.active, "pms-switch")}</div>${["CATEGORY", "SERIES"].includes(model.role) ? locked("고객 질문", "askQuestion", "항상 포함", "대분류와 시리즈는 고객이 제품을 찾는 필수 질문이므로 항상 포함됩니다. 중분류는 질문 포함 여부를 선택할 수 있습니다.") : S.check("고객 질문에 포함", "askQuestion", model.askQuestion)}${model.nonStandard ? `<div class="wide pm-group-price-setting">${S.check("가격계산에 영향을 주는 그룹", "priceImpact", model.priceImpact)}${S.groupPricingHelp(model.control)}</div>` : ""}${S.field("고객에게 물어볼 질문", "question", model.question, "text", 'maxlength="300"')}${S.textarea("고객 튜토리얼·도움말", "guide", model.guide, 1000)}</div>${model.nonStandard ? '<div class="pms-help">비규격 그룹은 입력 방식만 저장합니다. 입력 필드·보기·조건은 생성된 비규격 제품의 프로세스에서 각각 설정합니다.</div>' : !S.isChoice(model.control) ? `<section class="pms-section"><div class="pms-row"><h2>입력 필드</h2><button id="pms-add-field">+ 필드</button></div><div id="pms-fields">${S.fieldRows(model.fields, model.control)}</div></section>` : ""}<details class="pms-section pms-attachment-section"><summary>그룹 이미지·첨부파일 <span class="pms-badge">${groupFiles.length}</span></summary><div id="pms-group-files">${S.files(groupFiles)}</div></details></div>${model.id && !model.nonStandard && S.isChoice(model.control) ? `<div class="pms-panel-title"><div><h2>옵션 관리</h2><small>드래그로 순서 변경 · +로 여러 보기를 추가한 뒤 한 번에 저장</small></div><div class="pms-actions"><button id="pms-add-value">+ 보기</button><button class="primary" id="pms-save-values">옵션 저장</button></div></div><div class="pms-panel-body" id="pms-values"></div>` : !model.id && S.isChoice(model.control) && !model.nonStandard ? '<div class="pms-help">그룹을 저장하면 아래에서 보기를 여러 개 등록할 수 있습니다.</div>' : ""}`;
+      editor.innerHTML = `<header class="pms-panel-title"><div><h2>${model.id ? "그룹 수정" : "새 그룹"} ${S.badge(base ? "필수그룹" : "옵션그룹", base ? "blue" : "")}</h2><small class="mono">${S.e(S.group(model.id)?.key || "내부 value는 저장할 때 자동 생성됩니다.")}</small></div><div class="pms-actions">${model.id && !base ? '<button class="danger" id="pms-delete-group">삭제</button>' : ""}<button class="primary" id="pms-save-group">그룹 저장</button></div></header><div class="pms-panel-body"><div class="pms-form-grid one">${S.customerLabel(model, "", "그룹 이름 (고객용)")}</div><div class="pms-help">그룹 이름·질문·튜토리얼은 고객용으로 작성합니다. 선택 옵션과 입력 항목의 명칭만 고객·생산팀·관리팀용으로 각각 등록합니다. 내부 value는 이름을 바꾸어도 유지됩니다.</div><div class="pms-form-grid two">${base ? locked("입력 방식", "control", "하나 선택 · 필수그룹", "대분류·중분류·시리즈는 제품마다 하나의 분류가 필요하므로 하나선택형으로 고정되어 변경할 수 없습니다.") : S.select("입력 방식", "control", model.control, S.controls)}${base ? locked("비규격용 그룹", "nonStandard", "규격 전용 · 필수그룹", "대분류·중분류·시리즈는 모든 제품의 고정 분류이므로 비규격용 그룹으로 변경할 수 없습니다.") : `<div class="pms-row">${S.check("비규격용 그룹", "nonStandard", model.nonStandard, "pms-switch")}</div>`}<div class="wide pms-row">${S.check("제품명 자동생성에 포함", "includeInName", model.includeInName, "pms-switch")}${base ? locked("", "active", "필수그룹 · 항상 사용", "모든 제품에 필요한 필수그룹이므로 사용을 중지할 수 없습니다.") : S.check("새 제품 구성에 사용", "active", model.active, "pms-switch")}</div>${["CATEGORY", "SERIES"].includes(model.role) ? locked("고객 질문", "askQuestion", "항상 포함", "대분류와 시리즈는 고객이 제품을 찾는 필수 질문이므로 항상 포함됩니다. 중분류는 질문 포함 여부를 선택할 수 있습니다.") : S.check("고객 질문에 포함", "askQuestion", model.askQuestion)}${model.nonStandard ? `<div class="wide pm-group-price-setting">${S.check("가격계산에 영향을 주는 그룹", "priceImpact", model.priceImpact)}${S.groupPricingHelp(model.control)}</div>` : ""}${S.field("고객에게 물어볼 질문", "question", model.question, "text", 'maxlength="300"')}${S.textarea("고객 튜토리얼·도움말", "guide", model.guide, 1000)}</div>${model.nonStandard ? '<div class="pms-help">비규격 그룹은 입력 방식만 저장합니다. 입력 필드·보기·조건은 생성된 비규격 제품의 프로세스에서 각각 설정합니다.</div>' : !S.isChoice(model.control) ? `<section class="pms-section"><div class="pms-row"><h2>입력 필드</h2><button id="pms-add-field">+ 필드</button></div><div id="pms-fields">${S.fieldRows(model.fields, model.control)}</div></section>` : ""}<details class="pms-section pms-attachment-section"><summary>그룹 공통 안내 이미지·파일 <span class="pms-badge" data-group-file-count>${groupFiles.length}</span></summary><div id="pms-group-files">${S.files(groupFiles, true, groupFileOptions())}</div></details></div>${model.id && !model.nonStandard && S.isChoice(model.control) ? `<div class="pms-panel-title"><div><h2>옵션 관리</h2><small>드래그로 순서 변경 · +로 여러 보기를 추가한 뒤 한 번에 저장</small></div><div class="pms-actions"><button id="pms-add-value">+ 보기</button><button class="primary" id="pms-save-values">옵션 저장</button></div></div><div class="pms-panel-body" id="pms-values"></div>` : !model.id && S.isChoice(model.control) && !model.nonStandard ? '<div class="pms-help">그룹을 저장하면 아래에서 보기를 여러 개 등록할 수 있습니다.</div>' : ""}`;
       S.$$("[data-lock]", editor).forEach(
         (button) =>
           (button.onclick = () => {
@@ -168,6 +212,7 @@
       const body = S.$(".pms-panel-body", editor);
       S.bind(body, model, (path, value) => {
         groupDirty = true;
+        if (path.includes("labels.customer")) refreshFileScopes();
         if (["control", "nonStandard"].includes(path)) {
           if (S.isBase(model)) {
             model.control = "RADIO";
@@ -186,6 +231,23 @@
           groupDirty = true;
           paintEditor();
         });
+        S.$$("[data-field-index]", fields).forEach((row) => {
+          const index = Number(row.dataset.fieldIndex), field = model.fields[index];
+          if (!fieldFiles.has(field.key)) fieldFiles.set(field.key, []);
+          const files = fieldFiles.get(field.key);
+          const fileOptions = {
+            title: "이 입력 항목의 안내 이미지·파일",
+            scopeLabel: fieldFileScope(field, index),
+            description: "이 입력칸 옆에서 보여 줄 설명 자료입니다. 고객이 답변으로 올리는 파일과 구분되며, 그룹 공통 안내나 제품 대표이미지로 사용하지 않습니다.",
+            saveLabel: "‘그룹 저장’을 눌러야 최종 반영됩니다.",
+          };
+          S.$(".pms-editor-body", row).insertAdjacentHTML("beforeend", `<details class="pms-section"><summary>이 입력 항목의 안내 파일 <span class="pms-badge" data-field-file-count>${files.length}</span></summary><div data-field-files>${S.files(files, true, fileOptions)}</div></details>`);
+          S.fileEvents(S.$("[data-field-files]", row), files, () => {
+            field.assetIds = files.map((a) => a.id);
+            groupDirty = true;
+            S.$("[data-field-file-count]", row).textContent = files.length;
+          }, undefined, fileOptions);
+        });
         S.$("#pms-add-field", editor).onclick = () => {
           if (model.fields.length >= 20)
             return S.toast("입력 필드는 최대 20개입니다.");
@@ -197,7 +259,8 @@
       }
       S.fileEvents(S.$("#pms-group-files", editor), groupFiles, () => {
         groupDirty = true;
-      });
+        S.$("[data-group-file-count]", editor).textContent = groupFiles.length;
+      }, undefined, groupFileOptions());
       S.$("#pms-save-group", editor).onclick = (e) =>
         S.run(e.currentTarget, async () => {
           const groupValid = validateGroup();
@@ -233,7 +296,8 @@
             fields,
           });
           model.id = saved.id;
-          groupDirty = false;
+          // Keep the draft dirty until the separate attachment requests also succeed.
+          groupDirty = true;
           model.version = saved.version;
           selected = saved.id;
           await S.request(
@@ -339,18 +403,21 @@
         })),
         "values.",
       );
-      for (let i = 0; i < saved.length; i++) {
-        const previous = draftValues[i];
-        const attachments = valueFiles.get(previous.id || previous.temp) || [];
-        draftValues[i].id = saved[i].id;
-        draftValues[i].version = saved[i].version;
-        draftValues[i].key = saved[i].key;
-        valueFiles.set(saved[i].id, attachments);
-        await S.request(
-          `/assets/VALUE/${saved[i].id}`,
-          "PUT",
-          attachments.map((f) => f.id),
-        );
+      // All option rows have already been committed by this response. Adopt every
+      // identity before a later attachment request can fail, so retrying never
+      // creates an already-saved new option again or uses an old row version.
+      const attachmentRows = saved.map((row, i) => {
+        const previous = draftValues[i], previousKey = previous.id || previous.temp;
+        const attachments = valueFiles.get(previousKey) || [];
+        previous.id = row.id;
+        previous.version = row.version;
+        previous.key = row.key;
+        valueFiles.set(row.id, attachments);
+        if (previousKey !== row.id) valueFiles.delete(previousKey);
+        return { id: row.id, attachments };
+      });
+      for (const row of attachmentRows) {
+        await S.request(`/assets/VALUE/${row.id}`, "PUT", row.attachments.map((f) => f.id));
       }
       const reordered = await S.requestAt(
         S.$("#pms-values", editor),
@@ -359,6 +426,9 @@
         draftValues.map((v) => v.id),
       );
       model.version = reordered.version;
+      // Rebuild after all requests succeed; the freshly rendered uploaders use
+      // the saved attachments as their cancel baseline.
+      for (const row of attachmentRows) valueFiles.set(row.id, S.copy(row.attachments));
       for (const v of draftValues)
         v.version =
           reordered.values.find((x) => x.id === v.id)?.version ?? v.version;
@@ -369,20 +439,24 @@
         draftValues
           .map(
             (v, i) =>
-              `<details class="pms-list-row pms-editor" ${S.editorAttrs("value-" + (v.id || v.temp), !v.id || i === 0)} data-value-index="${i}"><summary class="pms-row-head"><span class="pms-handle">⠿</span><strong data-editor-title>보기 ${i + 1} · ${S.e(v.labels.management || "새 보기")}</strong><small class="mono">${S.e(v.key || "저장 시 자동 value")}</small>${S.check("사용", "values." + i + ".active", v.active)}<button data-remove-value="${i}" class="pms-remove">×</button></summary><div class="pms-editor-body">${S.labels(v, "values." + i, true, v.namePart)}${S.textarea("선택 시 안내메시지", "values." + i + ".guide", v.guide || "", 2000)}<details class="pms-section"><summary>이미지·첨부파일</summary><div data-value-files="${i}"></div></details></div></details>`,
+              `<details class="pms-list-row pms-editor" ${S.editorAttrs("value-" + (v.id || v.temp), !v.id || i === 0)} data-value-index="${i}"><summary class="pms-row-head"><span class="pms-handle">⠿</span><strong data-editor-title>보기 ${i + 1} · ${S.e(v.labels.management || "새 보기")}</strong><small class="mono">${S.e(v.key || "저장 시 자동 value")}</small>${S.check("사용", "values." + i + ".active", v.active)}<button data-remove-value="${i}" class="pms-remove">×</button></summary><div class="pms-editor-body">${S.labels(v, "values." + i, true, v.namePart)}${S.textarea("선택 시 안내메시지", "values." + i + ".guide", v.guide || "", 2000)}<details class="pms-section"><summary>이 옵션의 이미지·파일 <span class="pms-badge" data-value-file-count="${i}">${(valueFiles.get(v.id || v.temp) || []).length}</span></summary><div data-value-files="${i}"></div></details></div></details>`,
           )
           .join("") ||
         '<div class="pms-empty">+ 보기로 옵션을 추가해 주세요.</div>';
       S.trackEditors(container);
       const holder = { values: draftValues };
-      S.bind(container, holder);
+      S.bind(container, holder, refreshFileScopes);
       S.$$("[data-value-files]", container).forEach((el) => {
         const v = draftValues[Number(el.dataset.valueFiles)],
           key = v.id || v.temp;
         if (!valueFiles.has(key)) valueFiles.set(key, []);
         const files = valueFiles.get(key);
-        el.innerHTML = S.files(files);
-        S.fileEvents(el, files);
+        const index = Number(el.dataset.valueFiles), fileOptions = valueFileOptions(v, index);
+        el.innerHTML = S.files(files, true, fileOptions);
+        S.fileEvents(el, files, () => {
+          const count = S.$(`[data-value-file-count="${index}"]`, container);
+          if (count) count.textContent = files.length;
+        }, undefined, fileOptions);
       });
       S.$$("[data-remove-value]", container).forEach(
         (button) =>

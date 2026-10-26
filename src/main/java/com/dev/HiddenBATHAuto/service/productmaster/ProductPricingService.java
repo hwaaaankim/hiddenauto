@@ -38,9 +38,11 @@ public class ProductPricingService {
     String fingerprint = fingerprint(process, studio.fixedAnswers(product));
     List<PricingGroup> groups = pricingGroups(product, process);
     boolean stale = definition != null && (!Objects.equals(definition.schemaFingerprint(), fingerprint)
-        || !ProductPricingEngine.validate(process, groups, definition).isEmpty());
-    if (stale) issues.add("등록한 가격계산식과 현재 프로세스가 다릅니다. 가격계산식을 삭제한 뒤 다시 등록해 주세요.");
-    return new Context(id, product.getRowVersion(), issues.isEmpty(), List.copyOf(issues), process,
+        || !ProductPricingEngine.validate(process, groups, definition).isEmpty()
+        || !participationErrors(groups, definition).isEmpty());
+    boolean processReady = issues.isEmpty();
+    if (stale) issues.add("프로세스 또는 가격영향 설정이 변경되었습니다. 기존 가격 항을 편집하고 현재 구성으로 전체 검증·테스트한 뒤 다시 저장해 주세요.");
+    return new Context(id, product.getRowVersion(), processReady, List.copyOf(issues), process,
         studio.fixedAnswers(product), groups, fingerprint, definition != null, stale, definition);
   }
 
@@ -56,10 +58,12 @@ public class ProductPricingService {
         Process process = process(p);
         Definition definition = read(p);
         List<String> issues = readyIssues(p, process, false);
+        List<PricingGroup> groups = pricingGroups(p, process);
         boolean stale = definition != null && (!Objects.equals(definition.schemaFingerprint(), fingerprint(process, studio.fixedAnswers(p)))
-            || !ProductPricingEngine.validate(process, pricingGroups(p, process), definition).isEmpty());
+            || !ProductPricingEngine.validate(process, groups, definition).isEmpty()
+            || !participationErrors(groups, definition).isEmpty());
         return new Status(id, definition != null, issues.isEmpty() && !stale, stale,
-            stale ? "프로세스 변경 확인 필요" : issues.isEmpty() ? definition == null ? "미등록" : "등록됨" : String.join(" / ", issues));
+            stale ? "프로세스·가격영향 변경 확인 필요" : issues.isEmpty() ? definition == null ? "미등록" : "등록됨" : String.join(" / ", issues));
       } catch (RuntimeException ex) {
         log.warn("가격계산 상태 확인 실패: productId={}", id);
         return new Status(id, !text(p.getStudioPriceJson()).isBlank(), false, true,
@@ -108,6 +112,9 @@ public class ProductPricingService {
     Definition definition = request.definition() == null ? read(p) : request.definition();
     if (definition == null) throw new IllegalArgumentException("가격계산식을 먼저 등록해 주세요.");
     requireFingerprint(p, process, definition);
+    // An explicit draft can test one term while editing. Only the stored formula must
+    // still meet participation requirements after a shared group's price flag changes.
+    if (request.definition() == null) requireSavedParticipation(p, process, definition);
     return calculate(p, process, definition, request.answers());
   }
 
@@ -173,14 +180,31 @@ public class ProductPricingService {
     ProductStudioAttributeService.version(request.sourceVersion(), source.getRowVersion());
     if (read(target) != null) throw new IllegalStateException("이미 가격계산식이 있습니다. 기존 식을 삭제한 뒤 불러와 주세요.");
     lockImpactGroups(target);
+    copyPricingToNewProduct(source, target, actor);
+    products.saveAndFlush(target);
+    return context(target, false);
+  }
+
+  /** Caller holds both product locks (or a locked source and a newly created target).
+   * The transaction also owns product/process/file copying; any validation failure rolls it back.
+   */
+  @Transactional
+  public void copyPricingToNewProduct(ProductMaster source, ProductMaster target, String actor) {
+    if (source == null || target == null || Objects.equals(source.getId(), target.getId()))
+      throw new IllegalArgumentException("원제품과 복사할 제품을 확인해 주세요.");
+    if (read(target) != null)
+      throw new IllegalStateException("이미 가격계산식이 있습니다. 기존 식을 삭제한 뒤 불러와 주세요.");
+    lockImpactGroups(target);
     Process targetProcess = process(target), sourceProcess = process(source);
     requireReady(target, targetProcess);
     requireReady(source, sourceProcess);
     Definition sourceDefinition = read(source);
     if (sourceDefinition == null) throw new IllegalArgumentException("원제품에 등록한 가격계산식이 없습니다.");
     requireFingerprint(source, sourceProcess, sourceDefinition);
+    List<String> sourceErrors = ProductPricingEngine.validate(sourceProcess, pricingGroups(source, sourceProcess), sourceDefinition);
+    if (!sourceErrors.isEmpty()) throw new IllegalArgumentException("원제품 가격계산식을 확인해 주세요. " + String.join(" / ", sourceErrors));
     if (!copySignature(target, targetProcess).equals(copySignature(source, sourceProcess)))
-      throw new IllegalArgumentException("그룹·옵션·입력묶음·프로세스 분기·입력제한이 모두 같은 제품의 가격계산식만 불러올 수 있습니다.");
+      throw new IllegalArgumentException("그룹·옵션·고정 선택값·입력묶음·프로세스 분기·입력제한이 모두 같은 경우에만 가격계산식을 복사할 수 있습니다.");
     Definition copied = ProductPricingCompatibility.remap(sourceDefinition, sourceProcess, targetProcess,
         fingerprint(targetProcess, studio.fixedAnswers(target)));
     List<String> errors = ProductPricingEngine.validate(targetProcess, pricingGroups(target, targetProcess), copied);
@@ -190,8 +214,6 @@ public class ProductPricingService {
     if (!test.complete()) throw new IllegalArgumentException("복사한 테스트 입력이 현재 프로세스에서 유효하지 않습니다. " + String.join(" / ", test.errors()));
     target.setStudioPriceJson(json.write(copied));
     target.setUpdatedBy(actor);
-    products.saveAndFlush(target);
-    return context(target, false);
   }
 
   public List<ActualCalculation> actuals(Long id) {
@@ -202,7 +224,11 @@ public class ProductPricingService {
     if (definition == null) ready.add("원제품에 가격계산식이 등록되지 않았습니다.");
     else if (!Objects.equals(definition.schemaFingerprint(), fingerprint(process, studio.fixedAnswers(p))))
       ready.add("등록한 가격계산식과 현재 프로세스가 다릅니다.");
-    if (definition != null && ready.isEmpty()) ready.addAll(ProductPricingEngine.validate(process, pricingGroups(p, process), definition));
+    if (definition != null && ready.isEmpty()) {
+      List<PricingGroup> groups = pricingGroups(p, process);
+      ready.addAll(ProductPricingEngine.validate(process, groups, definition));
+      ready.addAll(participationErrors(groups, definition));
+    }
     Map<String, Answer> fixed = studio.fixedAnswers(p);
     return actuals.findByProductIdOrderByIdDesc(id).stream().map(a -> {
       if (!ready.isEmpty()) return new ActualCalculation(a.getId(), null, false, List.copyOf(ready), List.of(), null);
@@ -228,6 +254,7 @@ public class ProductPricingService {
     Definition definition = read(p);
     if (definition == null) throw new IllegalArgumentException("원제품에 가격계산식을 먼저 등록해 주세요.");
     requireFingerprint(p, process, definition);
+    requireSavedParticipation(p, process, definition);
     return actualResult(actualId, calculate(p, process, definition, answers(actual)));
   }
 
@@ -244,15 +271,41 @@ public class ProductPricingService {
   }
 
   public void assertProcessChangeAllowed(ProductMaster product, Process proposed) {
-    if (read(product) == null) return;
-    if (!fingerprint(process(product), studio.fixedAnswers(product)).equals(fingerprint(proposed, studio.fixedAnswers(product))))
-      throw new IllegalStateException("가격계산식에 연결된 프로세스입니다. 가격계산식을 삭제한 뒤 그룹·옵션·분기·입력제한을 변경하고 다시 등록해 주세요.");
+    if (actuals.existsByProductId(product.getId()))
+      throw new IllegalStateException("소속 실 제품이 있어 프로세스를 변경할 수 없습니다. 제품 복사 후 수정해 주세요.");
+    // Keep existing prices as an editable draft. Fingerprint checks prevent stale prices from use.
+  }
+
+  public boolean isMediaOnlyProcessChange(ProductMaster product, Process proposed) {
+    Definition current = read(product);
+    if (current == null) return false;
+    Process before = process(product);
+    return Objects.equals(current.schemaFingerprint(), fingerprint(before, studio.fixedAnswers(product)))
+        && sameProcessStructure(before, proposed);
+  }
+
+  private boolean sameProcessStructure(Process current, Process proposed) {
+    return Objects.equals(canonical(ProductStudioMedia.withoutProcessAssets(current)),
+        canonical(ProductStudioMedia.withoutProcessAssets(proposed)));
+  }
+
+  /** Media-only edits carry the existing valid formula forward; structural edits retain it as stale. */
+  @Transactional
+  public void reconcileProcessMedia(ProductMaster product, Process proposed) {
+    Definition current = read(product);
+    if (current == null) return;
+    Process before = process(product);
+    Map<String, Answer> fixed = studio.fixedAnswers(product);
+    if (!sameProcessStructure(before, proposed)
+        || !Objects.equals(current.schemaFingerprint(), fingerprint(before, fixed))) return;
+    Definition updated = ProductPricingCompatibility.reconcileProcessMedia(current, before, proposed, fixed);
+    if (updated != current) product.setStudioPriceJson(json.write(updated));
   }
 
   public void assertProductChangeAllowed(ProductMaster product, List<Variant> proposed) {
-    if (read(product) == null) return;
-    if (!canonical(studio.variants(product)).equals(canonical(proposed)))
-      throw new IllegalStateException("가격계산식에 연결된 제품 사양입니다. 가격계산식을 삭제한 뒤 그룹 구성을 변경해 주세요.");
+    if (!Objects.equals(canonical(studio.variants(product)), canonical(proposed))
+        && actuals.existsByProductId(product.getId()))
+      throw new IllegalStateException("소속 실 제품이 있어 제품 구성을 변경할 수 없습니다. 제품 복사 후 수정해 주세요.");
   }
 
   public void assertGroupPriceImpactCanDisable(Long groupId) {
@@ -290,6 +343,15 @@ public class ProductPricingService {
   }
   private List<PricingGroup> pricingGroups(ProductMaster p, Process process) {
     return ProductPricingEngine.groups(process, impactGroups(p));
+  }
+  private List<String> participationErrors(List<PricingGroup> groups, Definition definition) {
+    return ProductPricingEngine.participationIssues(groups, definition, false).stream()
+        .filter(issue -> "ERROR".equals(issue.severity())).map(Issue::message).toList();
+  }
+  private void requireSavedParticipation(ProductMaster p, Process process, Definition definition) {
+    List<String> errors = participationErrors(pricingGroups(p, process), definition);
+    if (!errors.isEmpty()) throw new IllegalStateException(
+        "가격영향 설정이 변경되어 등록한 가격계산식을 다시 확인해야 합니다. " + String.join(" / ", errors));
   }
   private void lockImpactGroups(ProductMaster p) {
     p.getComponents().stream().map(c -> c.getGroup().getId()).distinct().sorted().forEach(id -> {

@@ -2789,3 +2789,19 @@
 .pms .pms-dialog-body > label + .pms-actions { margin-top: 12px; }
 .pms button.primary:hover:not(:disabled) { background: #2456b8; border-color: #2456b8; color: #fff; }
 .pms button.primary:focus-visible { outline: 3px solid #9ebcfa; outline-offset: 2px; }
+
+/* Keep attachment ownership readable inside process editors, including narrow screens. */
+.pms .pm-process-asset-guide p { margin: 6px 0; }
+.pms .pm-process-asset-guide small { display: block; overflow-wrap: anywhere; }
+.pms .pm-answer-editor > summary [data-row-asset-count],
+.pms .pm-answer-editor > summary [data-asset-only-count] {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #eaf0ff;
+  color: #375789;
+  font-size: 12px;
+  font-weight: 500;
+}
+.pms .pm-question-asset-summary { display: block; margin: 4px 0 10px; line-height: 1.6; }

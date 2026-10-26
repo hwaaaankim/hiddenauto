@@ -210,9 +210,19 @@ public class ProductStudioAssetService {
 
   @Transactional
   public String copyOwned(String type, Long from, Long to, String definition, String actor) {
+    return copyOwned(type, from, to, definition, actor, null);
+  }
+
+  /** A process subset must copy only its retained attachments, including preset file answers.
+   * Null retains the legacy "all owned files" behavior used by product-level attachments. */
+  @Transactional
+  public String copyOwned(String type, Long from, Long to, String definition, String actor,
+      Collection<String> includedIds) {
+    Set<String> included = includedIds == null ? null : new HashSet<>(includedIds);
     String result = definition;
     for (ProductStudioAsset original :
         repository.findByOwnerTypeAndOwnerIdOrderByCreatedAtAsc(type, from)) {
+      if (included != null && !included.contains(original.getId())) continue;
       ProductStudioAsset copy = new ProductStudioAsset();
       copy.setId(UUID.randomUUID().toString());
       copy.setOwnerType(type);
@@ -224,11 +234,7 @@ public class ProductStudioAssetService {
       copy.setCreatedBy(actor);
       copy.setCreatedAt(LocalDateTime.now());
       Path target = path(copy);
-      try {
-        Files.copy(path(original), target);
-      } catch (java.io.IOException ex) {
-        throw new IllegalStateException("복사할 첨부파일을 읽지 못했습니다.", ex);
-      }
+      // Register cleanup before copying so even a partially written file is removed on rollback.
       org.springframework.transaction.support.TransactionSynchronizationManager
           .registerSynchronization(
               new org.springframework.transaction.support.TransactionSynchronization() {
@@ -241,8 +247,15 @@ public class ProductStudioAssetService {
                     }
                 }
               });
+      try {
+        Files.copy(path(original), target);
+      } catch (java.io.IOException ex) {
+        throw new IllegalStateException("복사할 첨부파일 '" + original.getOriginalName() + "'을 읽지 못했습니다.", ex);
+      }
       repository.save(copy);
-      if (result != null) result = result.replace(original.getId(), copy.getId());
+      // Replace complete JSON string values only: an ID embedded in guide text, or a
+      // longer identifier with the same prefix, is not an attachment reference.
+      if (result != null) result = result.replace("\"" + original.getId() + "\"", "\"" + copy.getId() + "\"");
     }
     return result;
   }

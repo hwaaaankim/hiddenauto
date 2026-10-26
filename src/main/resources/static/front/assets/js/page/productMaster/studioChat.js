@@ -40,7 +40,7 @@
 
   function historyHtml() {
     return `<div class="pm-base-history">${baseHistory.map((h, i) => `<article class="pms-bubble answer"><div class="pms-chat-head"><strong>${S.e(h.label)}</strong><button type="button" data-base-back="${i}">다시 선택</button></div>
-      <p>${S.e(h.answer)}</p>${h.guide?.trim() ? `<p class="pm-answer-guide">${S.e(h.guide)}</p>` : ""}</article>`).join("")}</div>`;
+      <p>${S.e(h.answer)}</p>${h.guide?.trim() ? `<p class="pm-answer-guide">${S.e(h.guide)}</p>` : ""}${h.assets?.length ? `<details class="pm-answer-media"><summary>선택한 ${S.e(h.answer)} 이미지·첨부파일</summary>${S.media(h.assets, h.label + " · " + h.answer)}</details>` : ""}</article>`).join("")}</div>`;
   }
   function bindBaseHistory() {
     S.$$("[data-base-back]", content).forEach((b) => { b.onclick = () => guarded(async () => {
@@ -81,17 +81,15 @@
       const q = result.next;
       content.innerHTML += `<article class="pms-bubble pm-discovery-question"><span class="pm-detail-eyebrow">STEP ${baseHistory.length + 1}</span><h2>${S.e(q.question || q.label + "를 선택해 주세요.")}</h2>
         ${q.guide?.trim() ? `<p class="pm-preserve-lines">${S.e(q.guide)}</p>` : ""}${S.media(q.assets, q.label + " 가이드")}
-        <div class="pm-category-options">${q.options.map((o) => `<button type="button" data-base-choice="${S.e(o.key)}"><span>${S.e(o.label)}</span><span aria-hidden="true">→</span></button>`).join("")}</div>
-        <div id="pm-option-preview"></div>${!q.options.length ? '<p class="pms-help">선택 가능한 제품이 없습니다. 등록 상태와 기본 분류를 확인해 주세요.</p>' : `<small>현재 선택 가능한 제품 ${result.total.toLocaleString()}개</small>`}</article>`;
+        <div class="pm-category-options">${q.options.map((o) => `<section class="pm-category-option"><button type="button" data-base-choice="${S.e(o.key)}"><span>${S.e(o.label)}</span><span aria-hidden="true">→</span></button>${o.guide?.trim() ? `<p class="pm-answer-guide">${S.e(o.guide)}</p>` : ""}${S.media(o.assets, q.label + " · " + o.label)}</section>`).join("")}</div>
+        ${!q.options.length ? '<p class="pms-help">선택 가능한 제품이 없습니다. 등록 상태와 기본 분류를 확인해 주세요.</p>' : `<small>현재 선택 가능한 제품 ${result.total.toLocaleString()}개</small>`}</article>`;
       S.$$("[data-base-choice]", content).forEach((b) => {
         const option = q.options.find((o) => o.key === b.dataset.baseChoice);
-        const preview = () => { S.$("#pm-option-preview", content).innerHTML = S.media(option.assets, option.label + " 이미지") + (option.guide?.trim() ? `<p class="pm-answer-guide">${S.e(option.guide)}</p>` : ""); };
-        b.onmouseenter = preview; b.onfocus = preview;
         b.onclick = () => guarded(async () => {
           if (b.disabled || content.getAttribute("aria-busy") === "true") return;
           b.disabled = true;
           selections[q.groupId] = option.key;
-          baseHistory.push({ id: q.groupId, label: q.label, answer: option.label, guide: option.guide });
+          baseHistory.push({ id: q.groupId, label: q.label, answer: option.label, guide: option.guide, assets: option.assets || [] });
           filters = {}; page = 0; await browse();
           S.$(".pm-discovery-question,.pm-browse-layout", content)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
         });
@@ -100,14 +98,14 @@
       const selectedCount = Object.values(filters).reduce((n, xs) => n + xs.length, 0);
       content.innerHTML += `<div class="pm-browse-layout ${kind === "custom" ? "is-custom" : ""}">${kind === "standard" ? `<aside class="pm-option-filters"><header><h2>제품 옵션</h2><button type="button" data-filter-reset ${selectedCount ? "" : "disabled"}>초기화</button></header>
         <p>선택한 옵션을 <strong>모두 포함한</strong> 제품을 찾습니다. 같은 그룹 안에서도 복수 선택은 AND 조건입니다.</p>
-        ${result.filters.map((g) => `<fieldset><legend>${S.e(g.label)}</legend>${g.guide?.trim() ? `<p class="pm-filter-guide">${S.e(g.guide)}</p>` : ""}
-          ${g.options.map((o) => `<label class="pms-check"><input type="checkbox" data-filter-group="${g.groupId}" data-filter-key="${g.groupId}:${S.e(o.key)}" value="${S.e(o.key)}" ${(filters[g.groupId] || []).includes(o.key) ? "checked" : ""}><span>${S.e(o.label)}</span></label>`).join("")}${g.options.filter((o) => (filters[g.groupId] || []).includes(o.key)).map((o) => `${o.guide?.trim() ? `<p class="pm-answer-guide">${S.e(o.guide)}</p>` : ""}${S.media(o.assets, g.label + " · " + o.label)}`).join("")}</fieldset>`).join("") || '<p class="pms-help">이 분류에는 추가 옵션이 없습니다.</p>'}</aside>` : ""}
+        ${result.filters.map((g) => `<fieldset><legend>${S.e(g.label)}</legend>${g.guide?.trim() ? `<p class="pm-filter-guide">${S.e(g.guide)}</p>` : ""}${S.media(g.assets, g.label + " 공통 안내")}
+          ${g.options.map((o) => `<div class="pm-filter-option"><label class="pms-check"><input type="checkbox" data-filter-group="${g.groupId}" data-filter-key="${g.groupId}:${S.e(o.key)}" value="${S.e(o.key)}" ${(filters[g.groupId] || []).includes(o.key) ? "checked" : ""}><span>${S.e(o.label)}</span></label>${o.guide?.trim() ? `<p class="pm-answer-guide">${S.e(o.guide)}</p>` : ""}${S.media(o.assets, g.label + " · " + o.label)}</div>`).join("")}</fieldset>`).join("") || '<p class="pms-help">이 분류에는 추가 옵션이 없습니다.</p>'}</aside>` : ""}
         <section class="pm-catalog-results"><header><div><h2>${kind === "custom" ? "구성할 비규격 제품을 선택해 주세요." : "조건에 맞는 제품"}</h2><p><strong>${result.total.toLocaleString()}</strong>개 제품${selectedCount ? " · " + selectedCount + "개 옵션 선택" : ""}</p></div></header>
           ${seedProduct ? `<p class="pm-seed-note">테스트를 연 제품: <strong>${S.e(seedProduct.productName)}</strong> · 해당 분류와 시리즈를 선택하면 아래 목록에서 찾을 수 있습니다.</p>` : ""}
           <div class="pm-catalog-grid">${result.products.map((p, i) => {
             const image = p.assets.find((a) => a.image), seed = seedId ? p.id === seedId : p.token === seedToken;
             return `<button type="button" class="pm-catalog-card ${seed ? "is-seed" : ""}" data-product="${i}">
-              <div class="pm-card-image">${image ? `<img src="${S.e(image.url)}" alt="${S.e(p.productName)}" loading="lazy">` : '<span>HIDDENBATH</span>'}${seed ? '<span class="pm-card-seed">테스트를 연 제품</span>' : ""}</div>
+              <div class="pm-card-image">${image ? `<img src="${S.e(image.url)}" alt="${S.e(p.productName)}" loading="lazy">` : '<span class="pm-card-no-image">HIDDENBATH<small>제품 대표 이미지 미등록</small></span>'}${seed ? '<span class="pm-card-seed">테스트를 연 제품</span>' : ""}</div>
               <div class="pm-card-copy"><span class="pm-card-code mono">${S.e(p.catalogCode)}</span><h3>${S.e(p.productName)}</h3><div class="pm-card-tags">${(p.tags || []).map((t) => S.badge(t)).join("")}</div>
                 <div class="pm-card-meta"><span>생산 ${p.productionHours == null ? "미등록" : S.e(p.productionHours) + "시간"}</span>${!p.nonStandard && p.unitPrice != null ? `<strong>${Number(p.unitPrice).toLocaleString()}원</strong>` : ""}</div>
                 <span class="pm-card-cta">${p.nonStandard ? "옵션 구성 시작" : "제품 상세 보기"} <span aria-hidden="true">→</span></span></div></button>`;
@@ -166,7 +164,31 @@
   async function requestEvaluation(values = answers, signal) {
     return S.api(admin ? `${S.base}/products/${activeId}/customer-evaluate` : `/product-spec/studio/${encodeURIComponent(token)}/evaluate`, "POST", values, signal);
   }
-  async function evaluate() { const version = flowSequence, result = await requestEvaluation(); if (version !== flowSequence) return; evaluation = result; merge(); paintProcess(); }
+  async function evaluate() {
+    const version = flowSequence, selectedProduct = productSequence, id = activeId;
+    const result = await requestEvaluation();
+    if (version !== flowSequence || selectedProduct !== productSequence) return;
+    await attachPricingTest(result, id);
+    if (version !== flowSequence || selectedProduct !== productSequence) return;
+    evaluation = result; merge(); paintProcess();
+  }
+  async function attachPricingTest(result, id) {
+    // The administrator's customer test uses the saved server formula and the exact accepted answers.
+    // Public pages keep their existing response contract and do not receive internal price terms.
+    if (admin && product.nonStandard && result.complete) {
+      try {
+        const state = (await S.request("/pricing/status", "POST", { productIds: [id] }))[0];
+        result.pricingTest = !state?.registered
+          ? { complete: false, errors: ["등록된 가격계산식이 없습니다. 가격계산식을 등록한 뒤 다시 테스트해 주세요."] }
+          : !state.ready || state.stale
+            ? { complete: false, errors: [state.message || "프로세스와 가격계산식을 검증·저장한 뒤 다시 테스트해 주세요."] }
+            : await S.request(`/products/${id}/pricing/evaluate`, "POST", { answers: result.answers });
+      } catch (err) {
+        result.pricingTest = { complete: false, errors: ["가격계산을 완료하지 못했습니다. " + err.message] };
+      }
+      result.pricingProductId = id;
+    }
+  }
   function merge() {
     for (const state of evaluation.questions) {
       const key = state.question.key;
@@ -224,8 +246,9 @@
       <div class="pm-question-progress"><span>${completed.length} / ${visible.length} 질문 완료</span><progress max="${Math.max(1, visible.length)}" value="${completed.length}"></progress><span>생산기간 ${product.productionHours == null ? "미등록" : S.e(product.productionHours) + "시간"}</span></div>
       <div class="pm-chat-timeline">${completed.map((key) => {
         const state = evaluation.questions.find((s) => s.question.key === key), q = state.question;
+        const media = S.answerMedia(q, state.answer, assetMap);
         return `<article class="pms-bubble answer"><div class="pms-chat-head"><strong>${S.e(q.labels.customer)}</strong><button type="button" data-answer-back="${S.e(key)}">수정</button></div>
-          <p>${S.e(S.answerText(q, state.answer, assetMap))}</p>${S.answerGuides(q, state.answer, state).map((t) => `<p class="pm-answer-guide">${S.e(t)}</p>`).join("")}</article>`;
+          <p>${S.e(S.answerText(q, state.answer, assetMap))}</p>${S.answerGuides(q, state.answer, state).map((t) => `<p class="pm-answer-guide">${S.e(t)}</p>`).join("")}${media ? `<details class="pm-answer-media"><summary>선택·입력한 항목의 이미지·첨부파일</summary>${media}</details>` : ""}</article>`;
       }).join("")}<div id="pm-current-question"></div></div>`;
     bindBaseHistory();
     S.$("[data-change-product]", content).onclick = () => guarded(async () => { if (pendingUploads) throw Error("업로드 완료 후 제품을 변경해 주세요."); resetAnswers(); removeFaq(); await browse(); });
@@ -242,7 +265,7 @@
     target.innerHTML = `<article class="pms-bubble pm-current-question"><span class="pm-detail-eyebrow">QUESTION ${completed.length + 1}</span><h2 tabindex="-1">${S.e(q.question || q.labels.customer + "를 입력해 주세요.")}</h2>
       <div class="pms-actions">${S.badge(S.controls[q.control].split(" · ")[0], "blue")}${S.badge(state.required ? "필수 답변" : "선택사항")}</div>
       ${q.guide?.trim() ? `<div class="pm-tutorial"><strong>선택 가이드</strong><p class="pm-preserve-lines">${S.e(q.guide)}</p></div>` : ""}${S.media((q.assetIds || []).map((id) => assetMap.get(id)), q.labels.customer + " 가이드")}
-      <div id="pm-answer-input">${S.inputAnswer(q, answers[q.key] || state.answer, false, assetMap)}</div><div id="pm-choice-assets"></div><div id="pm-answer-guides" aria-live="polite"></div>
+      <div id="pm-answer-input">${S.inputAnswer(q, answers[q.key] || state.answer, false, assetMap)}</div><div id="pm-answer-guides" aria-live="polite"></div>
       <div id="pm-answer-errors" role="alert">${attempted.has(q.key) ? state.errors.map((e) => `<p class="pms-error">${S.e(e)}</p>`).join("") : ""}</div>
       <div class="pms-actions"><button type="button" class="primary" id="pm-answer-next">${completed.length + 1 === visible.length ? "구성 완료 · 결과 확인" : "다음 질문"}</button></div></article>`;
     const box = S.$("#pm-answer-input", content);
@@ -259,10 +282,6 @@
       const a = S.readAnswer(box, q, answers[q.key]);
       // Choice hints are immediate; conditions on entered values are evaluated by the server.
       showGuides(a, schedule ? { notices: [] } : currentState);
-      S.$("#pm-choice-assets", content).innerHTML = (a.choices || []).map((key) => {
-        const c = q.choices.find((c) => c.key === key);
-        return S.media((c?.assetIds || []).map((id) => assetMap.get(id)), q.labels.customer + " · " + c?.labels.customer);
-      }).join("");
       if (!schedule || pendingUploads) return;
       clearTimeout(liveTimer); liveController?.abort();
       const serial = ++liveSequence, version = flowSequence, selectedProduct = productSequence;
@@ -315,8 +334,11 @@
       const b = e.currentTarget; if (b.disabled || pendingUploads) return; b.disabled = true;
       try {
         const value = S.readAnswer(box, q, answers[q.key]); clearAfter(q.key); answers[q.key] = value; attempted.add(q.key);
-        const version = flowSequence, result = await requestEvaluation();
-        if (version !== flowSequence) return;
+        const version = flowSequence, selectedProduct = productSequence, id = activeId;
+        const result = await requestEvaluation();
+        if (version !== flowSequence || selectedProduct !== productSequence) return;
+        await attachPricingTest(result, id);
+        if (version !== flowSequence || selectedProduct !== productSequence) return;
         evaluation = result;
         const fresh = evaluation.questions.find((s) => s.question.key === q.key);
         if (fresh && !fresh.errors.length && !completed.includes(q.key)) completed.push(q.key);

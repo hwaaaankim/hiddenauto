@@ -187,3 +187,26 @@
 .pms .pm-detail-actions button:disabled { opacity: .6; }
 .pms .pm-detail-actions a[aria-disabled="true"] { background: #f3f5f8; color: #69778a; border-color: #d6dce5; }
 .pms .pm-spec-option .pm-media { margin-top: 12px; }
+
+/* Choice attachments are visible before selection and remain outside input labels. */
+.pms .pm-answer-choices { align-items: stretch; }
+.pms .pm-answer-choices.has-media { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 12px; }
+.pms .pm-answer-choice { min-width: 0; border: 1px solid var(--line, #dde4ee); background: var(--pms-panel, #fff); padding: 12px; border-radius: 8px; }
+.pms .pm-answer-choice:has(input:checked) { border-color: var(--blue, #245bd6); background: var(--blue-soft, #f1f5ff); box-shadow: inset 0 0 0 1px var(--blue, #245bd6); }
+.pms .pm-answer-choice:focus-within { outline: 2px solid var(--blue, #245bd6); outline-offset: 2px; }
+.pms .pm-answer-choice > .pms-check { display: flex; width: 100%; min-height: 32px; margin: 0; padding: 0; align-items: flex-start; gap: 10px; cursor: pointer; }
+.pms .pm-answer-choice > .pms-check input { flex: 0 0 auto; margin-top: 3px; }
+.pms .pm-answer-choice > .pms-check span { min-width: 0; overflow-wrap: anywhere; }
+.pms .pm-answer-choice .pm-media { margin-top: 10px; }
+.pms .pm-answer-choice .pm-media-images { display: grid; overflow: visible; grid-template-columns: repeat(auto-fit, minmax(min(100%, 100px), 1fr)); }
+.pms .pm-answer-choice .pm-media-images > button { width: 100%; height: 160px; }
+.pms .pm-answer-choice .pm-media-images img { width: 100%; height: 100%; object-fit: contain; }
+.pms .pm-answer-choice .pm-media-files a { overflow-wrap: anywhere; }
+.pms .pm-upload-owner { display: block; margin-bottom: 6px; color: var(--blue, #245bd6); font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+.pms .pm-upload-description { margin: 0 0 12px; white-space: pre-line; }
+.pms [data-pm-media-unavailable] { padding: 8px; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.pms .pm-answer-choice [hidden] { display: none !important; }
+@media (max-width: 500px) {
+  .pms .pm-answer-choices.has-media { grid-template-columns: minmax(0, 1fr); }
+  .pms .pm-answer-choice .pm-media-images > button { height: 180px; }
+}

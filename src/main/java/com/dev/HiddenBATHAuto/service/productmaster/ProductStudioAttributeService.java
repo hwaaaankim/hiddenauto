@@ -237,9 +237,9 @@ public class ProductStudioAttributeService {
           && (control(g) != request.control()
               || g.isNonStandard() != request.nonStandard()
               || (BASE.contains(g.getSystemRole().name()) && g.getSystemRole() != role)
-              || !json.write(fieldsFor(g)).equals(json.write(list(request.fields())))))
+              || !ProductStudioMedia.sameFieldStructure(fieldsFor(g), request.fields())))
         throw new IllegalStateException(
-            "제품이 사용하는 그룹의 유형·역할·입력 필드는 변경할 수 없습니다. 제품별 비규격 필드는 비규격 제품에서 편집해 주세요.");
+            "제품이 사용하는 그룹의 유형·역할·입력 필드 정의는 변경할 수 없습니다. 규격 입력 필드의 안내 이미지·파일만 변경할 수 있으며, 제품별 비규격 필드는 비규격 제품에서 편집해 주세요.");
       if (!g.getValues().isEmpty() && (!choice(request.control()) || request.nonStandard()))
         throw new IllegalArgumentException("보기가 등록된 그룹을 입력형 또는 비규격으로 바꿀 수 없습니다.");
     }
