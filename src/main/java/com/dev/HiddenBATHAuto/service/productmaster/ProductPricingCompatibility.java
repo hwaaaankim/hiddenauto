@@ -15,6 +15,22 @@ public final class ProductPricingCompatibility {
   public static String fingerprint(Process process, Map<String, Answer> fixed) {
     return hash(Map.of("process", process, "fixedAnswers", fixed));
   }
+
+  /** Keep the stored pricing identity current only for an otherwise identical media-only edit. */
+  public static Definition reconcileProcessMedia(Definition definition, Process current,
+      Process proposed, Map<String, Answer> fixed) {
+    if (definition == null) return null;
+    String before = fingerprint(current, fixed), after = fingerprint(proposed, fixed);
+    if (before.equals(after)) return definition;
+    if (!canonical(ProductStudioMedia.withoutProcessAssets(current))
+        .equals(canonical(ProductStudioMedia.withoutProcessAssets(proposed))))
+      throw new IllegalStateException("가격계산식에 연결된 프로세스입니다. 안내 이미지·파일만 변경할 수 있습니다. "
+          + "그룹·옵션·질문·분기·입력제한 변경은 가격계산식을 삭제한 뒤 다시 등록해 주세요.");
+    if (!Objects.equals(definition.schemaFingerprint(), before))
+      throw new IllegalStateException("기존 가격계산식과 현재 프로세스가 일치하지 않아 첨부파일을 변경할 수 없습니다. "
+          + "가격계산식을 먼저 확인해 주세요.");
+    return new Definition(definition.schemaVersion(), after, definition.terms(), definition.testAnswers());
+  }
   public static String signature(Process process, Map<String, Answer> fixed, Set<Long> impactGroups) {
     KeyMap keys = new KeyMap(process);
     return hash(Map.of("process", canonicalProcess(process, keys),
@@ -158,30 +174,61 @@ public final class ProductPricingCompatibility {
     java.util.function.Function<Condition, Condition> condition = c -> new Condition(question.apply(c.groupKey()),
         text(c.fieldKey()).isBlank() ? c.fieldKey() : field.apply(c.groupKey(), c.fieldKey()), c.operator(),
         list(c.choiceKeys()).stream().map(k -> choice.apply(c.groupKey(), k)).toList(), c.text(), c.lower(), c.upper(), c.lowerInclusive(), c.upperInclusive());
+    // Allocate every new key before remapping references, including forward references.
+    // The copied graph must never retain a source term or link identity.
+    Map<String, String> termKeys = new LinkedHashMap<>();
+    for (Term term : list(definition.terms())) {
+      if (text(term.key()).isBlank() || termKeys.putIfAbsent(term.key(), UUID.randomUUID().toString()) != null)
+        throw new IllegalArgumentException("복사할 가격 항의 식별자가 없거나 중복됩니다.");
+    }
     List<Term> terms = new ArrayList<>();
-    for (Term term : definition.terms()) {
+    for (Term term : list(definition.terms())) {
       Map<String, BigDecimal> rates = new LinkedHashMap<>();
       map(term.rates()).forEach((k, v) -> rates.put(field.apply(term.groupKey(), k), v));
-      Axis x = term.xAxis() == null ? null : new Axis(field.apply(term.groupKey(), term.xAxis().fieldKey()), term.xAxis().operator(), term.xAxis().headers(), term.xAxis().operators(), term.xAxis().outsidePolicy());
-      Axis y = term.yAxis() == null ? null : new Axis(field.apply(term.groupKey(), term.yAxis().fieldKey()), term.yAxis().operator(), term.yAxis().headers(), term.yAxis().operators(), term.yAxis().outsidePolicy());
+      Axis x = term.xAxis() == null ? null : copyAxis(term.xAxis(), field.apply(term.groupKey(), term.xAxis().fieldKey()));
+      Axis y = term.yAxis() == null ? null : copyAxis(term.yAxis(), field.apply(term.groupKey(), term.yAxis().fieldKey()));
       String bundle = text(term.bundleKey()).isBlank() ? null : unqualified(requiredKey(targetBundle.get(from.b(term.groupKey(), term.bundleKey()))));
       OptionRangePricing pricing = term.optionPricing();
       OptionRangePricing mappedPricing = pricing == null ? null : new OptionRangePricing(
-          question.apply(pricing.groupKey()), new Axis(field.apply(pricing.groupKey(), pricing.axis().fieldKey()),
-              pricing.axis().operator(), pricing.axis().headers(), pricing.axis().operators()), pricing.amounts(), pricing.aboveAmount());
-      terms.add(new Term(UUID.randomUUID().toString(), term.name(), question.apply(term.groupKey()), bundle,
+          question.apply(pricing.groupKey()), copyAxis(pricing.axis(), field.apply(pricing.groupKey(), pricing.axis().fieldKey())),
+          copyList(pricing.amounts()), pricing.aboveAmount());
+      List<MultiplierLink> multipliers = list(term.multipliers()).stream().map(link -> new MultiplierLink(
+          UUID.randomUUID().toString(), link.name(), list(link.termKeys()).stream()
+              .map(key -> requiredTermKey(termKeys.get(key))).toList(), link.aggregation())).toList();
+      terms.add(new Term(requiredTermKey(termKeys.get(term.key())), term.name(), question.apply(term.groupKey()), bundle,
           list(term.fieldKeys()).stream().map(k -> field.apply(term.groupKey(), k)).toList(), term.type(), term.amount(), rates, x, y,
-          term.values(), term.match(), list(term.conditions()).stream().map(condition).toList(), list(term.choiceKeys()).stream().map(k -> choice.apply(term.groupKey(), k)).toList(), mappedPricing,
+          term.values() == null ? null : term.values().stream().map(ProductPricingCompatibility::copyList).toList(),
+          term.match(), list(term.conditions()).stream().map(condition).toList(), list(term.choiceKeys()).stream().map(k -> choice.apply(term.groupKey(), k)).toList(), mappedPricing,
           term.optionTarget() == null ? null : new OptionTarget(question.apply(term.optionTarget().groupKey()),
-              choice.apply(term.optionTarget().groupKey(), term.optionTarget().choiceKey()))));
+              choice.apply(term.optionTarget().groupKey(), term.optionTarget().choiceKey())), term.role(), multipliers));
     }
     Map<String, Answer> answers = new LinkedHashMap<>();
     map(definition.testAnswers()).forEach((q, answer) -> {
       Map<String, Object> fields = new LinkedHashMap<>();
-      map(answer.fields()).forEach((key, value) -> fields.put(field.apply(q, key), value));
+      map(answer.fields()).forEach((key, value) -> fields.put(field.apply(q, key), copyValue(value)));
       answers.put(question.apply(q), new Answer(list(answer.choices()).stream().map(k -> choice.apply(q, k)).toList(), fields));
     });
-    return new Definition(1, fingerprint, terms, answers);
+    return new Definition(definition.schemaVersion(), fingerprint, terms, answers);
+  }
+  private static Axis copyAxis(Axis axis, String fieldKey) {
+    return new Axis(fieldKey, axis.operator(), copyList(axis.headers()), copyList(axis.operators()), axis.outsidePolicy());
+  }
+  private static <T> List<T> copyList(List<T> values) {
+    return values == null ? null : new ArrayList<>(values);
+  }
+  // Answer fields may contain mutable file-ID lists or structured input values.
+  private static Object copyValue(Object value) {
+    if (value instanceof List<?> values) return values.stream().map(ProductPricingCompatibility::copyValue).toList();
+    if (value instanceof Map<?, ?> values) {
+      Map<Object, Object> copied = new LinkedHashMap<>();
+      values.forEach((key, item) -> copied.put(key, copyValue(item)));
+      return copied;
+    }
+    return value;
+  }
+  private static String requiredTermKey(String key) {
+    if (key == null) throw new IllegalArgumentException("복사할 배율이 참조하는 가격 항이 없습니다. 배율 연결을 확인해 주세요.");
+    return key;
   }
   private static String requiredKey(String key) {
     if (key == null) throw new IllegalArgumentException("복사할 프로세스 키를 연결할 수 없습니다. 그룹·옵션·입력묶음 구성을 확인해 주세요.");

@@ -86,7 +86,7 @@
     return text;
   };
   M.amount = (value) => M.money(value, 2);
-  M.parsePaste = (text, two, includeHeaders) => {
+  M.parsePaste = (text, two, includeHeaders, scale = 2) => {
     const lines = String(text).replace(/\r/g, "").replace(/\n+$/, "").split("\n");
     if (!text.trim()) throw Error("엑셀에서 복사한 셀을 붙여넣어 주세요.");
     const cells = lines.map((row) => row.split("\t").map((v) => v.trim()));
@@ -107,7 +107,7 @@
     } else if (!two && cells[0].length === 1) amounts = [cells.map((r) => r[0])];
     if (!two && amounts.length !== 1) throw Error("1차원 가격표의 금액은 한 행 또는 한 열로 붙여넣어 주세요.");
     if (amounts.length > 200 || amounts[0].length > 200 || amounts.length * amounts[0].length > 20000) throw Error("축당 200개, 전체 20,000개 금액까지 가능합니다.");
-    return { xHeaders, yHeaders, amounts: amounts.map((row, r) => row.map((value, c) => { try { return M.amount(value); } catch (error) { throw Error(`금액 ${r + 1}행 ${c + 1}열: ${error.message}`); } })) };
+    return { xHeaders, yHeaders, amounts: amounts.map((row, r) => row.map((value, c) => { try { return M.money(value, scale); } catch (error) { throw Error(`금액 ${r + 1}행 ${c + 1}열: ${error.message}`); } })) };
   };
   M.snapshot = (term) => JSON.stringify(term);
   M.history = (get, set) => {
@@ -204,9 +204,9 @@
         }
         const c = M.index(term.xAxis, x), r = term.yAxis ? M.index(term.yAxis, y) : 0;
         if (c < 0 || r < 0) throw Error(`${c < 0 ? "X" : "Y"}축의 적용 범위를 벗어났습니다. 큰 기준 방식은 최대값, 작은 기준 방식은 최소값을 확인해 주세요.`);
-        const value = term.values[r]?.[c]; M.amount(value);
-        const amount = String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-        result.textContent = `X: ${M.range(term.xAxis, c)}${term.yAxis ? " / Y: " + M.range(term.yAxis, r) : ""} → ${amount}원`;
+        const value = term.values[r]?.[c]; M.money(value, term.role === "FACTOR" ? 6 : 2);
+        const parts = String(value).split("."), amount = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (parts[1] ? "." + parts[1] : "");
+        result.textContent = `X: ${M.range(term.xAxis, c)}${term.yAxis ? " / Y: " + M.range(term.yAxis, r) : ""} → ${amount}${term.role === "FACTOR" ? "배" : "원"}`;
         S.$(`[data-matrix-price="${r}:${c}"]`, body)?.closest("td").classList.add("is-price-hit");
       } catch (ex) { result.textContent = ex.message; result.classList.add("is-error"); }
     };
@@ -255,7 +255,7 @@
     }));
     S.$('[data-paste-apply]', body)?.addEventListener("click", () => report(async () => {
       requireApplied();
-      const data = M.parsePaste(S.$('[data-paste-text]', body).value, !!term.yAxis, S.$('[data-paste-mode]', body).value === "table");
+      const data = M.parsePaste(S.$('[data-paste-text]', body).value, !!term.yAxis, S.$('[data-paste-mode]', body).value === "table", term.role === 'FACTOR' ? 6 : 2);
 
       if (!await S.confirm(`${data.amounts.length}행 × ${data.amounts[0].length}열의 붙여넣은 표로 현재 ${data.xHeaders ? "기준값과 금액" : "금액"}을 교체하시겠습니까? 실행 취소로 복구할 수 있습니다.`)) return;
       if (data.xHeaders) M.resize(term, data.xHeaders, data.yHeaders || []);

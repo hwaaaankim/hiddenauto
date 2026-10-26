@@ -1,8 +1,7 @@
 package com.dev.HiddenBATHAuto.service.productmaster;
 
-import com.dev.HiddenBATHAuto.dto.productmaster.ProductPricingDtos.Axis;
-import com.dev.HiddenBATHAuto.dto.productmaster.ProductPricingDtos.Term;
-import com.dev.HiddenBATHAuto.dto.productmaster.ProductPricingDtos.OptionRangePricing;
+import com.dev.HiddenBATHAuto.dto.productmaster.ProductPricingDtos.*;
+import java.math.BigDecimal;
 import java.util.*;
 
 /** Preserve high precision coefficients and thresholds across JSON's JavaScript number boundary. */
@@ -45,6 +44,16 @@ public final class ProductPricingWire {
             Map<String, String> rates = new LinkedHashMap<>();
             term.rates().forEach((key, rate) -> rates.put(key, rate == null ? null : rate.toPlainString()));
             result.put("rates", rates);
+          } else if (value instanceof Term term && term.role() == TermRole.FACTOR
+              && ("amount".equals(component.getName()) || "values".equals(component.getName()))) {
+            result.put(component.getName(), decimals(item));
+          } else if (value instanceof TermResult term
+              && ("baseAmount".equals(component.getName())
+                  || term.role() == TermRole.FACTOR && "amount".equals(component.getName()))) {
+            result.put(component.getName(), decimals(item));
+          } else if ((value instanceof MultiplierResult || value instanceof FactorResult)
+              && "value".equals(component.getName())) {
+            result.put(component.getName(), decimals(item));
           } else result.put(component.getName(), response(item));
         }
       } catch (ReflectiveOperationException ex) {
@@ -52,6 +61,13 @@ public final class ProductPricingWire {
       }
       return result;
     }
+    return value;
+  }
+
+  /** Convert coefficient leaves without converting established monetary total fields. */
+  private static Object decimals(Object value) {
+    if (value instanceof BigDecimal number) return number.toPlainString();
+    if (value instanceof Collection<?> items) return items.stream().map(ProductPricingWire::decimals).toList();
     return value;
   }
 }

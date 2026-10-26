@@ -25,10 +25,13 @@
     let priceLinked = false;
     try { priceLinked = (await S.request("/pricing/status", "POST", { productIds: [p.id] }))[0]?.registered || false; }
     catch (err) { S.notice("가격식 연결 상태를 확인하지 못했습니다. " + err.message); }
-    const readOnly = priceLinked || Number(p.actualCount || 0) > 0 || new URLSearchParams(location.search).get("mode") === "view";
+    const explicitView = new URLSearchParams(location.search).get("mode") === "view";
+    const readOnly = Number(p.actualCount || 0) > 0 || explicitView;
+    const assetOnlyAllowed = priceLinked && Number(p.actualCount || 0) === 0 && !explicitView;
+    const canEditQuestionAssets = (q) => assetOnlyAllowed && S.group(q.groupId)?.nonStandard === true;
+    const commonAssetGuide = (q) => `<p class="pms-help">규격 그룹의 이미지·파일은 공통 그룹·옵션 관리에서 등록합니다. 이 그룹을 사용하는 제품에 함께 적용됩니다. <a href="/admin/product-master/groups?groupId=${q.groupId}" target="_blank" rel="noopener">공통 그룹·옵션 관리 열기</a></p>`;
     const lockMessage = Number(p.actualCount || 0) > 0
       ? `실 제품 ${p.actualCount}종이 등록되어 구성·프로세스의 변경과 저장은 잠겨 있습니다.`
-      : priceLinked ? "등록된 가격계산식과 연결되어 프로세스를 조회합니다. 가격계산식을 삭제한 뒤 프로세스를 변경하고 가격식을 다시 등록해 주세요."
       : "등록된 프로세스의 질문·답변·입력 제한·분기를 조회합니다.";
     let process = S.copy(p.process),
       stage = 0, zoom = 100, canvasObserver = null, canvasScroll = { x: 0, y: 0 };
@@ -38,9 +41,36 @@
         process.questions.filter((q) => !S.isBase(S.group(q.groupId))),
       fixed = () =>
         process.questions.filter((q) => S.isBase(S.group(q.groupId)));
-    const files = new Map((p.processAssets || []).map((a) => [a.id, a]));
-    const fs = (ids) => (ids || []).map((id) => files.get(id)).filter(Boolean);
+    const files = new Map([
+      ...(p.processAssets || []),
+      ...(p.groups || []).flatMap((g) => [
+        ...(g.assets || []), ...(g.values || []).flatMap((v) => v.assets || []),
+      ]),
+    ].map((a) => [a.id, a]));
+    // An unresolved file must remain linked until the administrator explicitly removes it.
+    const fs = (ids) => (ids || []).map((id) => files.get(id) || {
+      id, name: "첨부정보 확인 필요 · " + id, image: false, missing: true,
+    });
     if (!p.nonStandard) { root.innerHTML = '<p class="pms-help">규격 제품은 공통 고객 테스트에서 옵션으로 찾습니다.</p><a class="pms-button" href="/admin/product-master/standard-test">규격 고객 테스트</a>'; return; }
+    // Older copies may retain relations whose source/target question was removed in configuration.
+    // Explain the existing repair path; never mutate saved relations during a read/render.
+    function missingQuestionGuide() {
+      const keys = new Set(process.questions.map((q) => q.key));
+      const missing = (key) => key != null && key !== "" && !keys.has(key);
+      const badConditions = (conditions) => (conditions || []).some((c) => missing(c.groupKey));
+      const affected = [
+        ...(process.rules || []).filter((r) => badConditions(r.conditions) || (r.actions || []).some((a) => missing(a.targetKey)))
+          .map((r) => "분기: " + (r.name || r.key)),
+        ...(process.inputLimits || []).filter((l) => missing(l.targetKey) || missing(l.sourceKey) || (l.cases || []).some((c) => badConditions(c.conditions)))
+          .map((l) => "입력제한: " + (l.name || l.key)),
+        ...(process.notices || []).filter((n) => missing(n.targetKey) || badConditions(n.conditions))
+          .map((n) => "조건별 안내: " + (n.message || n.key)),
+        ...process.questions.flatMap((q) => (q.numberCases || []).filter((c) => badConditions(c.conditions))
+          .map((c) => "숫자 조건: " + nm(q) + " · " + (c.name || c.key))),
+      ];
+      if (!affected.length) return "";
+      return `<aside class="pms-alert" data-missing-question-guide role="alert"><strong>제외한 질문을 참조하는 연결이 ${affected.length}개 남아 있습니다.</strong><p>이전에 복사하거나 구성에서 질문을 제외할 때 남은 연결입니다. 제품 구성에서 사용할 그룹을 확인하고 저장하면 해당 분기·입력제한·안내를 정리합니다. 이후 이 화면에서 전체 검증 후 등록을 완료해 주세요.</p><p>일부 조건만 삭제해 적용 범위를 넓히지 않도록, 제외한 질문에 연결된 규칙은 전체를 정리합니다. 정리 후에는 남은 질문의 표시와 입력제한을 다시 확인해야 합니다.</p><details><summary>정리할 연결 확인</summary><ul>${affected.map((label) => `<li>${S.e(label)}</li>`).join("")}</ul></details>${readOnly ? `<p>실 제품이 있거나 조회 모드에서는 구성을 수정할 수 없습니다. 실 제품이 있는 제품은 새 제품으로 복사해 수정해 주세요.</p>` : `<a class="pms-button" href="/admin/product-master/products/${p.id}">제품 구성에서 저장 후 다시 진행</a>`}</aside>`;
+    }
     function dirty() {
       S.dirty = true;
     }
@@ -157,6 +187,7 @@
         publish,
       });
       process = S.copy(p.process);
+      (p.processAssets || []).forEach((a) => files.set(a.id, a));
       S.dirty = false;
       S.toast(publish ? "등록을 완료했습니다." : "임시 저장했습니다.");
       paint();
@@ -238,7 +269,7 @@
       if (oldCanvas) canvasScroll = { x: oldCanvas.scrollLeft, y: oldCanvas.scrollTop };
       canvasObserver?.disconnect();
       const saveStatus = S.dirty ? "저장하지 않은 변경사항" : "저장된 상태";
-      root.innerHTML = `${readOnly ? `<div class="pms-alert pm-readonly-notice"><strong>등록내용 조회 모드</strong><p>${S.e(lockMessage)} 질문·답변을 열거나 답변에 마우스를 올리면 묶음, 입력제한, 분기 연결을 확인할 수 있습니다.</p>${priceLinked ? `<a class="pms-button" href="/admin/product-master/products/${p.id}/pricing">연결된 가격계산식 관리</a>` : ""}</div>` : ""}<section class="pms-panel"><header class="pms-panel-title"><div><h2>${S.e(p.productName)}</h2><small>고정 분류: ${fixed()
+      root.innerHTML = `${missingQuestionGuide()}${readOnly ? `<div class="pms-alert pm-readonly-notice"><strong>등록내용 조회 모드</strong><p>${S.e(lockMessage)} 질문·답변을 열거나 답변에 마우스를 올리면 묶음, 입력제한, 분기 연결을 확인할 수 있습니다.</p>${priceLinked ? `<a class="pms-button" href="/admin/product-master/products/${p.id}/pricing">연결된 가격계산식 관리</a>` : ""}</div>` : ""}${priceLinked ? `<div class="pms-help pm-price-process-notice"><strong>이 제품의 기존 가격계산식은 보존됩니다.</strong><p>${readOnly ? "등록된 질문·옵션·분기와 연결된 가격계산식을 함께 확인할 수 있습니다." : "질문·옵션·숫자 묶음·분기를 수정하고 프로세스를 저장한 뒤, 가격계산 화면에서 변경된 구성에 맞게 항·조건·수량 연결을 수정하고 다시 검증·저장해 주세요. 이미지·파일만 바꾼 경우에는 계산 구조가 유지됩니다."}</p><p>복사한 제품의 프로세스와 가격계산식은 원본과 별도로 저장됩니다.</p><a class="pms-button" href="/admin/product-master/products/${p.id}/pricing">이 제품의 가격계산식 확인·수정</a></div>` : ""}<section class="pms-panel"><header class="pms-panel-title"><div><h2>${S.e(p.productName)}</h2><small>고정 분류: ${fixed()
         .map((q) => q.choices.map((c) => S.e(c.labels.management)).join("/"))
         .join(
           " · ",
@@ -251,7 +282,7 @@
         qs()
           .map(
             (q, i) =>
-              `<article class="pm-flow-node"><span class="pm-flow-state">${S.badge(ready(q) ? "답변 등록됨" : "설정 필요", ready(q) ? "green" : "amber")}</span><span class="pms-badge">${i + 1} · ${S.e(S.controls[q.control])}</span><h3>${S.e(q.question || nm(q))}</h3><p>${S.group(q.groupId)?.askQuestion === false ? "고정 사양 · 질문 제외" : S.isChoice(q.control) ? q.choices.length + "개 답변" : q.fields.length + "개 입력 항목"}${q.control === "NUMBER" ? " · " + (q.numberCases || []).length + "개 범위" : ""}</p><div class="pm-flow-answer-list">${(S.isChoice(q.control) ? q.choices.map((c) => c.labels.management) : q.fields.map((f) => f.labels.management + (q.control === "NUMBER" ? " · " + (f.min ?? "제한 없음") + "~" + (f.max ?? "제한 없음") + " " + (f.unit || "") : ""))).map((text, answerIndex) => `<span tabindex="0" class="pm-branch-tooltip" title="${S.e(answerDetails(q, (S.isChoice(q.control) ? q.choices : q.fields)[answerIndex]))}">${S.e(text)}</span>`).join("")}</div>${stage === 0 ? `<button data-edit="${S.e(q.key)}" class="primary">${readOnly ? "등록 답변·제한 보기" : "답변 등록·수정"}</button>` : ""}${stage === 1 ? `<button data-relate="${S.e(q.key)}" ${i === qs().length - 1 ? "disabled" : ""}>${readOnly ? "연결 내용 안내" : "이 답변에서 연관관계 설정"}</button>${!readOnly && i < qs().length - 1 ? `<button data-advanced-relate="${S.e(q.key)}">복합 조건·여러 동작 연결</button>` : ""}` : ""}${process.rules
+              `<article class="pm-flow-node"><span class="pm-flow-state">${S.badge(ready(q) ? "답변 등록됨" : "설정 필요", ready(q) ? "green" : "amber")}</span><span class="pms-badge">${i + 1} · ${S.e(S.controls[q.control])}</span><h3>${S.e(q.question || nm(q))}</h3><p>${S.group(q.groupId)?.askQuestion === false ? "고정 사양 · 질문 제외" : S.isChoice(q.control) ? q.choices.length + "개 답변" : q.fields.length + "개 입력 항목"}${q.control === "NUMBER" ? " · " + (q.numberCases || []).length + "개 범위" : ""}</p><small class="pm-question-asset-summary">질문 안내 ${(q.assetIds || []).length}개 · ${S.isChoice(q.control) ? "선택지" : "입력 필드"} 자료 ${(S.isChoice(q.control) ? q.choices : q.fields).reduce((count, item) => count + (item.assetIds || []).length, 0)}개</small><div class="pm-flow-answer-list">${(S.isChoice(q.control) ? q.choices.map((c) => c.labels.management) : q.fields.map((f) => f.labels.management + (q.control === "NUMBER" ? " · " + (f.min ?? "제한 없음") + "~" + (f.max ?? "제한 없음") + " " + (f.unit || "") : ""))).map((text, answerIndex) => `<span tabindex="0" class="pm-branch-tooltip" title="${S.e(answerDetails(q, (S.isChoice(q.control) ? q.choices : q.fields)[answerIndex]))}">${S.e(text)}</span>`).join("")}</div>${stage === 0 ? `<button data-edit="${S.e(q.key)}" class="primary">${readOnly ? "등록 답변·제한 보기" : "답변 등록·수정"}</button>` : ""}${canEditQuestionAssets(q) ? `<button type="button" data-edit-assets="${S.e(q.key)}">이미지·파일만 수정</button>` : assetOnlyAllowed && S.group(q.groupId)?.nonStandard === false ? commonAssetGuide(q) : ""}${stage === 1 ? `<button data-relate="${S.e(q.key)}" ${i === qs().length - 1 ? "disabled" : ""}>${readOnly ? "연결 내용 안내" : "이 답변에서 연관관계 설정"}</button>${!readOnly && i < qs().length - 1 ? `<button data-advanced-relate="${S.e(q.key)}">복합 조건·여러 동작 연결</button>` : ""}` : ""}${process.rules
                 .filter((r) => r.conditions.some((c) => c.groupKey === q.key))
                 .map(
                   (r) =>
@@ -271,6 +302,9 @@
           (b.onclick = () =>
             question(process.questions.find((q) => q.key === b.dataset.edit))),
       );
+      S.$$("[data-edit-assets]", root).forEach((button) => {
+        button.onclick = () => editQuestionAssets(process.questions.find((q) => q.key === button.dataset.editAssets));
+      });
       S.$$("[data-relate]", root).forEach(
         (b) => (b.onclick = () => relation(b.dataset.relate)),
       );
@@ -327,11 +361,103 @@
         S.run(e.currentTarget, () => save(true)),
       );
     }
+    function editQuestionAssets(original) {
+      if (!original || !canEditQuestionAssets(original)) return;
+      if (S.dirty || S.pendingUploads) return S.toast("현재 편집 중인 프로세스를 먼저 저장한 뒤 이미지·파일 전용 수정을 열어 주세요. 이 창은 마지막 저장된 내용을 기준으로 수정합니다.");
+      // Keep pricing inputs, keys, labels, presets and rules byte-for-byte equivalent in the payload.
+      const draft = S.copy(p.process), q = draft.questions.find((item) => item.key === original.key);
+      const choice = S.isChoice(q.control), rows = choice ? q.choices : q.fields;
+      const owners = [q, ...rows], lists = owners.map((owner) => fs(owner.assetIds));
+      const dirtyBefore = S.dirty;
+      let committed = false;
+      const d = S.dialog(nm(q) + " · 이미지·파일만 수정", "", {
+        onClose: () => { if (!committed) S.dirty = dirtyBefore; },
+      });
+      const body = S.$(".pms-dialog-body", d);
+      function options(index) {
+        const owner = owners[index], name = index === 0 ? "질문 전체 안내" : `${choice ? "선택지" : "입력 필드"} ${index} · ${owner.labels?.customer || owner.labels?.management || owner.key}`;
+        return {
+          title: name + " 이미지·파일",
+          scopeLabel: `${p.productName} → ${nm(q)} → ${name}`,
+          description: index === 0
+            ? "이 제품의 이 질문 전체에 표시할 안내자료입니다."
+            : `이 제품의 해당 ${choice ? "선택지" : "입력 필드"} 옆에 표시할 안내자료입니다.`,
+          saveLabel: "아래 ‘이미지·파일 저장’을 눌러야 고객 화면에 반영됩니다.",
+          maxFiles: index > 0 && !choice ? 20 : 200,
+        };
+      }
+      body.innerHTML = `<div class="pms-help"><strong>등록된 가격계산식을 유지하면서 안내자료만 변경합니다.</strong><p>제품: ${S.e(p.productName)} · 질문: ${S.e(nm(q))}</p><p>질문·옵션 이름, 내부 value, 숫자 범위, 분기, 가격계산식은 이 창에서 변경되지 않습니다. 특정 옵션 이미지는 해당 선택지 영역에 등록해 주세요.</p></div>${owners.map((owner, index) => `<details class="pm-answer-editor" ${index === 0 || (owner.assetIds || []).length ? "open" : ""}><summary><strong>${S.e(options(index).title)}</strong><small data-asset-only-count="${index}">${(owner.assetIds || []).length}개 첨부</small></summary><div class="pm-answer-body"><div data-asset-only-files="${index}">${S.files(lists[index], true, options(index))}</div></div></details>`).join("")}<div class="pms-actions pm-stage-actions"><button type="button" data-cancel-assets>취소</button><button type="button" class="primary" data-save-assets>이미지·파일 저장</button></div>`;
+      S.$$("[data-asset-only-files]", body).forEach((el) => {
+        const index = Number(el.dataset.assetOnlyFiles), owner = owners[index], list = lists[index];
+        S.fileEvents(el, list, () => {
+          list.forEach((a) => files.set(a.id, a));
+          owner.assetIds = list.map((a) => a.id);
+          S.$(`[data-asset-only-count="${index}"]`, body).textContent = list.length + "개 첨부";
+        }, S.base + "/assets/stage", options(index));
+      });
+      S.$("[data-cancel-assets]", body).onclick = () => d.close();
+      S.$("[data-save-assets]", body).onclick = (e) => S.run(e.currentTarget, async () => {
+        const saved = await S.request("/products/" + p.id + "/process", "PUT", {
+          version: p.version,
+          process: draft,
+          publish: p.status !== "DRAFT",
+        });
+        p = saved;
+        process = S.copy(saved.process);
+        process.inputLimits ??= [];
+        process.notices ??= [];
+        (saved.processAssets || []).forEach((asset) => files.set(asset.id, asset));
+        committed = true;
+        S.dirty = false;
+        d.close();
+        paint();
+        S.toast("이미지·파일을 저장했습니다. 등록된 가격계산식은 유지됩니다.");
+      });
+      S.bindMedia(body);
+    }
     function question(original, startTitle) {
+      if (S.group(original.groupId)?.nonStandard === false) {
+        const dialog = S.dialog(nm(original) + " · 공통 그룹 안내",
+          S.registeredQuestion(original, fs, S.group(original.groupId), process) + commonAssetGuide(original));
+        S.bindMedia(dialog);
+        return;
+      }
       let q = S.copy(original),
         step = 0,
         openRow = 0;
       const localLimits = S.copy(process.inputLimits), localNotices = S.copy(process.notices);
+      const attachmentLists = new WeakMap();
+      const rowType = () => S.isChoice(q.control) ? "선택지" : "입력 필드";
+      const rowOwners = () => S.isChoice(q.control) ? q.choices : q.fields;
+      function attachmentOptions(owner) {
+        const isQuestion = owner === q, index = rowOwners().indexOf(owner);
+        const name = isQuestion ? "질문 전체 안내" : `${rowType()} ${index + 1} · ${owner.labels?.customer || owner.labels?.management || "이름 미입력"}`;
+        return {
+          title: name + " 이미지·파일",
+          scopeLabel: `${p.productName} → ${nm(q)} → ${name}`,
+          description: isQuestion
+            ? "이 제품의 이 질문 전체에 보여 줄 안내자료입니다. 고객이 답변을 선택하기 전 질문 설명 아래에 표시됩니다."
+            : `이 제품의 이 ${rowType()}에만 연결됩니다. 고객이 답변을 고를 때 해당 ${rowType()} 옆에서 확인할 수 있습니다.`,
+          saveLabel: "‘이 질문 완성’ 후 프로세스의 ‘임시 저장’ 또는 ‘검증 후 등록완료’를 눌러야 고객 화면에 반영됩니다.",
+          maxFiles: q.fields.includes(owner) ? 20 : 200,
+        };
+      }
+      function attachmentCount(owner) { return (owner.assetIds || []).length + "개 첨부"; }
+      function refreshAttachmentLabels() {
+        S.$$("[data-row-asset-count]", body).forEach((el) => {
+          const owner = rowOwners()[Number(el.dataset.rowAssetCount)];
+          el.textContent = attachmentCount(owner);
+        });
+        S.$$("[data-row-files],[data-q-files]", body).forEach((el) => {
+          const owner = el.hasAttribute("data-q-files") ? q : rowOwners()[Number(el.dataset.rowFiles)];
+          const options = attachmentOptions(owner);
+          Object.assign(el._pmsFileOptions || {}, options);
+          const heading = S.$(".pm-upload-heading strong", el);
+          if (heading) heading.textContent = options.title;
+          const scope = S.$("[data-file-scope]", el);
+          if (scope) scope.textContent = options.scopeLabel;
+        });
+      }
       const questionProcess = () => ({ ...process, questions: process.questions.map((x) => x.key === q.key ? q : x), inputLimits: localLimits, notices: localNotices });
       q.numberCases ??= [];
       if (!S.isChoice(q.control) && !readOnly) for (const f of q.fields) {
@@ -370,15 +496,18 @@
           "조건별 안내메시지": "숫자의 특정 범위, 텍스트·파일 입력 유무에 따라 고객에게 안내합니다. 기본 사용법은 튜토리얼·FAQ로, 상황별 안내는 여기서 설정하세요.",
           "범위 조건 설정": "W만 또는 W·H·D를 조합해 숫자 조건을 만듭니다. 조건 사이의 겹침은 서버에서 검사합니다. 범위가 필요 없으면 기본 흐름으로 진행할 수 있습니다.",
           "고정 사양 입력": "고객에게 묻지 않는 항목입니다. 제품에 저장할 답변을 입력하세요.",
-          "확인": "등록된 질문·답변·안내·범위를 확인합니다. 질문을 완성한 뒤 다음 질문을 이어서 설정할 수 있습니다.",
+          "확인": "등록된 질문·답변·안내·이미지의 소속을 확인하세요. ‘이 질문 완성’은 편집 화면에 반영하는 단계입니다. 고객 화면에 적용하려면 창을 닫은 뒤 프로세스의 ‘임시 저장’ 또는 ‘검증 후 등록완료’를 눌러 주세요.",
         }[title]}</p>`;
         S.$("[data-content]", body).before(guidance);
+        if (assetOnlyAllowed && S.group(q.groupId)?.nonStandard === false) {
+          guidance.insertAdjacentHTML("afterend", commonAssetGuide(q));
+        }
         const box = S.$("[data-content]", body);
         if (title === "가능한 답변 등록") {
           const choice = S.isChoice(q.control),
             rows = choice ? q.choices : q.fields,
             prefix = choice ? "choices." : "fields.";
-          box.innerHTML = `<div class="pm-question-labels pms-form-grid one">${S.customerLabel(q)}${S.field("고객에게 물어볼 질문", "question", q.question || nm(q), "text", 'maxlength="300"')}${S.textarea("고객 튜토리얼·도움말", "guide", q.guide || "", 1000)}</div><div class="pms-check-grid">${S.check("반드시 답변", "required", q.required)}${!hidden ? S.check("기본 흐름에서 질문 표시", "visible", q.visible) : ""}${q.control === "NUMBER" ? S.check("앞 분기에서 표시할 입력 묶음을 반드시 지정", "requireRule", q.requireRule) : ""}</div>${q.control === "NUMBER" ? '<p class="pms-help">서랍·여닫이·혼합처럼 서로 다른 입력 묶음 중 하나를 앞 답변으로 정한다면 ‘앞 분기에서 표시할 입력 묶음을 반드시 지정’을 체크하세요. 앞 질문을 건너뛰어 모든 수량 필드가 함께 노출되는 경로는 검증에서 막습니다.</p><div data-number-grouping></div>' : ""}${!hidden && !q.visible ? '<p class="pms-help">기본 질문에서는 생략됩니다. 앞 답변에서 이 질문으로 ‘질문 표시’ 연결을 설정하면 조건이 맞을 때 나타납니다.</p>' : ""}<div class="pms-actions pms-section"><strong>${choice ? "선택 가능한 답변" : "입력받을 항목"}</strong><button data-add>+ ${choice ? "답변" : "입력 필드"}</button></div>${rows.map((x, i) => `<details class="pm-answer-editor" ${i === openRow ? "open" : ""}><summary>${i + 1}. <strong data-row-title="${i}">${S.e(x.labels?.management || (choice ? "새 답변" : "새 입력 필드"))}</strong>${q.control === "NUMBER" ? `<small>${x.bundleKey ? "묶음 입력" : "독립 입력"}</small>` : ""}</summary><div class="pm-answer-body">${S.labels(x, prefix + i, false)}${!choice ? `<div data-field-preview="${i}">${S.fieldLabelSample(x)}</div>` : '<p class="pms-help">이 이름은 고객의 선택지와 생산팀·관리팀의 선택 결과 앞에 표시됩니다.</p>'}${choice ? `<div class="pms-form-grid one">${S.textarea("이 답변 선택 시 고객 안내메시지", prefix + i + ".guide", x.guide || "", 2000)}</div>` : '<p class="pms-help">숫자 범위·입력 유무별 안내는 ‘조건별 안내메시지’ 단계에서 설정합니다.</p>'}${S.field("내부 value · 저장·분기 연결용 고유값", prefix + i + ".key", x.key, "text", 'maxlength="80" pattern="[A-Za-z0-9_-]+"')}<p class="pms-help">내부 value는 고객에게 표시되지 않습니다. 이미 연결한 항목의 value를 바꾸면 연결·입력제한도 다시 확인해야 합니다.</p><div class="pms-actions"><button data-remove="${i}">이 ${choice ? "답변" : "입력 필드"} 삭제</button></div><section class="pms-section"><h3>${choice ? "답변" : "입력 필드"} 이미지·파일</h3><p class="pms-help">이 ${choice ? "답변" : "입력 필드"} 옆에 표시될 참고자료입니다. 필드별 최대 20개, 프로세스 전체 최대 200개까지 등록할 수 있습니다.</p><div data-row-files="${i}">${S.files(fs(x.assetIds), !readOnly)}</div></section></div></details>`).join("")}<section class="pms-section"><h3>이 제품의 질문 이미지·파일</h3><div data-q-files>${S.files(fs(q.assetIds), !readOnly)}</div></section><div class="pms-actions pms-section"><button type="button" data-common-settings>${S.group(q.groupId)?.definitionLocked ? "공통 그룹 정보 (조회)" : "공통 그룹 이름·안내·파일 수정"}</button></div>${S.media(S.group(q.groupId)?.assets || [], "공통 그룹 이미지")}`;
+          box.innerHTML = `<div class="pms-help pm-process-asset-guide"><strong>이미지를 넣을 위치를 먼저 확인해 주세요.</strong><p>특정 옵션만 설명하는 자료는 해당 선택지를 펼쳐 등록하고, 모든 답변에 공통인 자료는 아래 ‘질문 전체 안내’에 등록합니다. 제품 대표이미지는 ‘제품 구성’에서 별도 등록합니다.</p><small>현재 편집: ${S.e(p.productName)} → ${S.e(nm(q))} · 질문 ${S.e(q.key)}</small></div><div class="pm-question-labels pms-form-grid one">${S.customerLabel(q)}${S.field("고객에게 물어볼 질문", "question", q.question || nm(q), "text", 'maxlength="300"')}${S.textarea("고객 튜토리얼·도움말", "guide", q.guide || "", 1000)}</div><div class="pms-check-grid">${S.check("반드시 답변", "required", q.required)}${!hidden ? S.check("기본 흐름에서 질문 표시", "visible", q.visible) : ""}${q.control === "NUMBER" ? S.check("앞 분기에서 표시할 입력 묶음을 반드시 지정", "requireRule", q.requireRule) : ""}</div>${q.control === "NUMBER" ? '<p class="pms-help">서랍·여닫이·혼합처럼 서로 다른 입력 묶음 중 하나를 앞 답변으로 정한다면 ‘앞 분기에서 표시할 입력 묶음을 반드시 지정’을 체크하세요. 앞 질문을 건너뛰어 모든 수량 필드가 함께 노출되는 경로는 검증에서 막습니다.</p><div data-number-grouping></div>' : ""}${!hidden && !q.visible ? '<p class="pms-help">기본 질문에서는 생략됩니다. 앞 답변에서 이 질문으로 ‘질문 표시’ 연결을 설정하면 조건이 맞을 때 나타납니다.</p>' : ""}<div class="pms-actions pms-section"><strong>${choice ? "선택 가능한 답변" : "입력받을 항목"}</strong><button data-add>+ ${choice ? "답변" : "입력 필드"}</button></div>${rows.map((x, i) => `<details class="pm-answer-editor" ${i === openRow ? "open" : ""}><summary>${i + 1}. <strong data-row-title="${i}">${S.e(x.labels?.management || (choice ? "새 답변" : "새 입력 필드"))}</strong><small data-row-asset-count="${i}">${attachmentCount(x)}</small>${q.control === "NUMBER" ? `<small>${x.bundleKey ? "묶음 입력" : "독립 입력"}</small>` : ""}</summary><div class="pm-answer-body">${S.labels(x, prefix + i, false)}${!choice ? `<div data-field-preview="${i}">${S.fieldLabelSample(x)}</div>` : '<p class="pms-help">이 이름은 고객의 선택지와 생산팀·관리팀의 선택 결과 앞에 표시됩니다.</p>'}${choice ? `<div class="pms-form-grid one">${S.textarea("이 답변 선택 시 고객 안내메시지", prefix + i + ".guide", x.guide || "", 2000)}</div>` : '<p class="pms-help">숫자 범위·입력 유무별 안내는 ‘조건별 안내메시지’ 단계에서 설정합니다.</p>'}${S.field("내부 value · 저장·분기 연결용 고유값", prefix + i + ".key", x.key, "text", 'maxlength="80" pattern="[A-Za-z0-9_-]+"')}<p class="pms-help">내부 value는 고객에게 표시되지 않습니다. 이미 연결한 항목의 value를 바꾸면 연결·입력제한도 다시 확인해야 합니다.</p><div class="pms-actions"><button data-remove="${i}">이 ${choice ? "답변" : "입력 필드"} 삭제</button></div><section class="pms-section"><p class="pms-help">${choice ? "선택 전 각 옵션 옆" : "이 입력칸 옆"}에서 보여 줄 자료입니다. ${choice ? "프로세스 전체 최대 200개" : "필드별 최대 20개, 프로세스 전체 최대 200개"}까지 등록할 수 있습니다.</p><div data-row-files="${i}">${S.files(fs(x.assetIds), !readOnly, attachmentOptions(x))}</div></section></div></details>`).join("")}<section class="pms-section"><h3>질문 전체 안내 이미지·파일</h3><div data-q-files>${S.files(fs(q.assetIds), !readOnly, attachmentOptions(q))}</div></section><div class="pms-actions pms-section"><button type="button" data-common-settings>${S.group(q.groupId)?.definitionLocked ? "공통 그룹 정보 (조회)" : "공통 그룹 이름·안내·파일 수정"}</button></div><p class="pms-help">공통 그룹 자료는 이 그룹을 사용하는 다른 제품에도 함께 표시됩니다. 이 제품의 특정 옵션 자료는 위의 해당 선택지에 등록해 주세요.</p>${S.media(S.group(q.groupId)?.assets || [], "모든 제품에서 함께 쓰는 그룹 안내자료")}`;
           if (q.control === "NUMBER") S.renderNumberGrouping(S.$("[data-number-grouping]", box), q, draw, readOnly);
           S.bind(box, q, (path) => {
             const fieldPath = /^fields\.(\d+)\.labels\./.exec(path);
@@ -389,6 +518,7 @@
             if (m)
               S.$('[data-row-title="' + m[1] + '"]', box).textContent =
                 rows[Number(m[1])].labels.management || "이름 미입력";
+            if (path.includes("labels.")) refreshAttachmentLabels();
           });
           S.$$(".pm-answer-editor", box).forEach((el, i) =>
             el.addEventListener("toggle", () => {
@@ -573,6 +703,7 @@
               dirty();
               d.close();
               paint();
+              S.toast("질문 설정을 편집 화면에 반영했습니다. 프로세스를 저장해야 고객 화면에 적용됩니다.");
               if (continueNext && nextKey) question(process.questions.find((x) => x.key === nextKey));
             } else {
               step++;
@@ -582,11 +713,13 @@
       }
       function bindFiles(el, owner) {
         if (readOnly) { S.bindMedia(el); return; }
-        const list = fs(owner.assetIds);
+        if (!attachmentLists.has(owner)) attachmentLists.set(owner, fs(owner.assetIds));
+        const list = attachmentLists.get(owner);
         S.fileEvents(el, list, () => {
           list.forEach((a) => files.set(a.id, a));
           owner.assetIds = list.map((a) => a.id);
-        }, S.base + "/assets/stage", { maxFiles: q.fields.includes(owner) ? 20 : 200 });
+          refreshAttachmentLabels();
+        }, S.base + "/assets/stage", attachmentOptions(owner));
       }
       function editCase(index) {
         const r =
@@ -691,7 +824,7 @@
         targets = qs().filter(
           (q) =>
             process.questions.indexOf(q) > process.questions.indexOf(source) &&
-            S.group(q.groupId)?.askQuestion !== false,
+            !q.fixed && S.group(q.groupId)?.askQuestion !== false,
         );
       if (!targets.length)
         return S.toast(

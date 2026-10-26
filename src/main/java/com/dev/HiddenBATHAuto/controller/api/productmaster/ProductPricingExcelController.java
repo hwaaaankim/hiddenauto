@@ -1,6 +1,10 @@
 package com.dev.HiddenBATHAuto.controller.api.productmaster;
 
 import com.dev.HiddenBATHAuto.dto.productmaster.ProductMasterDtos.ApiResponse;
+import com.dev.HiddenBATHAuto.dto.productmaster.ProductPricingDtos.TermRole;
+import java.math.BigDecimal;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import com.dev.HiddenBATHAuto.service.productmaster.ProductPricingExcelService;
 import com.dev.HiddenBATHAuto.service.productmaster.ProductPricingExcelService.MatrixExport;
 import com.dev.HiddenBATHAuto.service.productmaster.ProductPricingExcelService.MatrixImport;
@@ -40,11 +44,14 @@ public class ProductPricingExcelController {
   public ProductPricingExcelController(ProductPricingExcelService excel) { this.excel = excel; }
 
   @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  public ApiResponse<MatrixImport> importAmounts(
+  public ApiResponse<?> importAmounts(
       @RequestPart("file") MultipartFile file, @RequestParam int dimensions,
-      @RequestParam(defaultValue = "false") boolean includeHeaders) {
-    return ApiResponse.ok(includeHeaders ? "기준값과 금액을 불러왔습니다. 입력 항목 연결과 포함 여부를 확인해 주세요." : "금액을 불러왔습니다. X·Y축 기준값을 확인하고 입력해 주세요.",
-        excel.importFile(file, dimensions, includeHeaders));
+      @RequestParam(defaultValue = "false") boolean includeHeaders,
+      @RequestParam(defaultValue = "PRICE") TermRole role) {
+    MatrixImport imported = excel.importFile(file, dimensions, includeHeaders, role);
+    String noun = role == TermRole.FACTOR ? "배율" : "금액";
+    return ApiResponse.ok(includeHeaders ? "기준값과 " + noun + "을 불러왔습니다. 입력 항목 연결과 포함 여부를 확인해 주세요." : noun + "을 불러왔습니다. X·Y축 기준값을 확인하고 입력해 주세요.",
+        role == TermRole.FACTOR ? factorImport(imported) : imported);
   }
 
   @GetMapping("/template")
@@ -54,8 +61,9 @@ public class ProductPricingExcelController {
       @RequestParam(defaultValue = "3") int columns,
       @RequestParam(defaultValue = "false") boolean includeHeaders,
       @RequestParam(defaultValue = "X 입력") String xLabel,
-      @RequestParam(defaultValue = "Y 입력") String yLabel) {
-    return download(includeHeaders ? excel.tableTemplate(dimensions, rows, columns, xLabel, yLabel) : excel.template(dimensions, rows, columns, xLabel, yLabel), "price-matrix-template.xlsx");
+      @RequestParam(defaultValue = "Y 입력") String yLabel,
+      @RequestParam(defaultValue = "PRICE") TermRole role) {
+    return download(includeHeaders ? excel.tableTemplate(dimensions, rows, columns, xLabel, yLabel, role) : excel.template(dimensions, rows, columns, xLabel, yLabel, role), "price-matrix-template.xlsx");
   }
 
   @PostMapping("/export")
@@ -90,6 +98,20 @@ public class ProductPricingExcelController {
   public ResponseEntity<ApiResponse<Void>> generation(IllegalStateException exception) {
     log.error("비규격 가격계산 엑셀 생성 실패", exception);
     return ResponseEntity.internalServerError().body(ApiResponse.fail("가격계산 엑셀을 만들 수 없습니다."));
+  }
+
+  /** Decimal strings prevent a browser from rounding a six-place factor during JSON parsing. */
+  private static Map<String, Object> factorImport(MatrixImport value) {
+    Map<String, Object> result = new LinkedHashMap<>();
+    result.put("dimensions", value.dimensions()); result.put("rows", value.rows()); result.put("columns", value.columns());
+    result.put("amounts", value.amounts().stream().map(row -> row.stream().map(BigDecimal::toPlainString).toList()).toList());
+    result.put("sheetName", value.sheetName()); result.put("sourceRange", value.sourceRange());
+    result.put("xHeaders", value.xHeaders()); result.put("yHeaders", value.yHeaders());
+    result.put("xOperator", value.xOperator()); result.put("yOperator", value.yOperator());
+    result.put("xOperators", value.xOperators()); result.put("yOperators", value.yOperators());
+    result.put("xOutsidePolicy", value.xOutsidePolicy()); result.put("yOutsidePolicy", value.yOutsidePolicy());
+    result.put("role", "FACTOR");
+    return result;
   }
 
   private static ResponseEntity<byte[]> download(byte[] bytes, String filename) {

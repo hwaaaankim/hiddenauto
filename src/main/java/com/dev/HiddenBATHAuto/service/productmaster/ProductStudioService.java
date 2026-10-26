@@ -491,24 +491,62 @@ public class ProductStudioService {
 
   @Transactional
   public ProductView copyProduct(Long id, String name, List<Variant> fixed, String actor) {
+    return copyProduct(id, name, fixed, null, null, false, actor);
+  }
+
+  @Transactional
+  public ProductView copyProduct(Long id, String name, List<Variant> fixed,
+      List<Long> includedGroupIds, Long sourceVersion, String actor) {
+    return copyProduct(id, name, fixed, includedGroupIds, sourceVersion, false, actor);
+  }
+
+  @Transactional
+  public ProductView copyProduct(Long id, String name, List<Variant> fixed,
+      List<Long> includedGroupIds, Long sourceVersion, boolean copyPricing, String actor) {
+    if (copyPricing && sourceVersion == null)
+      throw new IllegalArgumentException("가격계산식까지 복사하려면 원제품을 다시 열어 최신 버전을 확인해 주세요.");
     ProductMaster source = products.findForUpdate(id).orElseThrow();
+    if (sourceVersion != null) ProductStudioAttributeService.version(sourceVersion, source.getRowVersion());
     if (!source.isNonStandard()) throw new IllegalArgumentException("비규격 제품만 복사할 수 있습니다.");
     validateName(name);
     if (fixed == null
         || fixed.size() != 3
         || fixed.stream()
             .anyMatch(
-                v ->
-                    !ProductStudioAttributeService.BASE.contains(
+                v -> v == null || v.groupId() == null
+                    || !ProductStudioAttributeService.BASE.contains(
                         attributes.require(v.groupId()).getSystemRole().name())))
       throw new IllegalArgumentException("필수 세 그룹만 각각 한 개씩 선택해주세요.");
-    List<Variant> merged = new ArrayList<>(fixed);
-    variants(source).stream()
-        .filter(
-            v ->
-                !ProductStudioAttributeService.BASE.contains(
-                    attributes.require(v.groupId()).getSystemRole().name()))
-        .forEach(merged::add);
+    Map<Long, Variant> fixedByGroup = new LinkedHashMap<>();
+    for (Variant replacement : fixed)
+      if (fixedByGroup.putIfAbsent(replacement.groupId(), replacement) != null)
+        throw new IllegalArgumentException("필수 세 그룹을 중복 없이 각각 한 번씩 선택해 주세요.");
+    List<Variant> sourceVariants = variants(source);
+    Set<Long> sourceFixedGroups = sourceVariants.stream()
+        .filter(v -> ProductStudioAttributeService.BASE.contains(
+            attributes.require(v.groupId()).getSystemRole().name()))
+        .map(Variant::groupId).collect(Collectors.toSet());
+    if (!sourceFixedGroups.equals(fixedByGroup.keySet()))
+      throw new IllegalArgumentException("원제품의 대분류·중분류·시리즈에서 값을 각각 선택해 주세요.");
+    Set<Long> optionalGroups = sourceVariants.stream().map(Variant::groupId)
+        .filter(groupId -> !sourceFixedGroups.contains(groupId)).collect(Collectors.toSet());
+    Set<Long> included = includedGroupIds == null ? new LinkedHashSet<>(optionalGroups)
+        : new LinkedHashSet<>(includedGroupIds);
+    if (included.contains(null) || !optionalGroups.containsAll(included)
+        || includedGroupIds != null && included.size() != includedGroupIds.size())
+      throw new IllegalArgumentException("복사할 질문은 원제품의 비필수 그룹에서 중복 없이 선택해 주세요.");
+    boolean partialCopy = !included.equals(optionalGroups);
+    if (copyPricing && (partialCopy || sourceVariants.stream()
+        .filter(v -> sourceFixedGroups.contains(v.groupId()))
+        .anyMatch(v -> !list(v.valueIds()).equals(list(fixedByGroup.get(v.groupId()).valueIds()))
+            || !canonical(map(v.inputs())).equals(canonical(map(fixedByGroup.get(v.groupId()).inputs()))))))
+      throw new IllegalArgumentException("가격계산식은 모든 질문과 필수 분류 선택값이 동일할 때만 함께 복사할 수 있습니다.");
+    // Preserve source order and replace only chosen base values; omitted optional groups
+    // never return through the source variants or process metadata below.
+    List<Variant> merged = sourceVariants.stream()
+        .filter(v -> sourceFixedGroups.contains(v.groupId()) || included.contains(v.groupId()))
+        .map(v -> fixedByGroup.getOrDefault(v.groupId(), v))
+        .collect(Collectors.toCollection(ArrayList::new));
     lockCustomGroups(merged);
     merged = validateVariants(merged, true);
     String hash = codes.newNonStandardIdentity();
@@ -526,15 +564,23 @@ public class ProductStudioService {
     p.setProductionHours(source.getProductionHours());
     p.setFaqTopicId(source.getFaqTopicId());
     p.setStudioDefinitionJson(json.write(merged));
-    p.setNameTokensJson(source.getNameTokensJson());
+    Set<Long> copiedGroupIds = merged.stream().map(Variant::groupId).collect(Collectors.toSet());
+    p.setNameTokensJson(json.write(json.list(source.getNameTokensJson(), NameToken.class).stream()
+        .filter(token -> copiedGroupIds.contains(token.groupId())).toList()));
     p.setStatus(ProductMasterStatus.DRAFT);
+    // Price formulas are opt-in and copied only after exact-schema validation below.
+    p.setStudioPriceJson(null);
+    p.setCurrentStock(0);
+    p.setLegacyUnallocatedStock(0);
     addComponents(p, merged);
     products.saveAndFlush(p);
     // The JSON is stored on the new product. Question/option keys are scoped to that product,
     // so retaining them preserves every internal branch without sharing editable option rows.
+    Process retainedProcess = ProductStudioProcessSubset.retain(readProcess(source), copiedGroupIds);
     String copiedProcess =
         assets.copyOwned(
-            "PROCESS", source.getId(), p.getId(), source.getStudioProcessJson(), actor);
+            "PROCESS", source.getId(), p.getId(), json.write(retainedProcess), actor,
+            processAssetIds(retainedProcess));
     p.setStudioProcessJson(copiedProcess);
     Process copied = readProcess(p);
     Map<String, Answer> oldFixed = fixedAnswers(source), newFixed = fixedAnswers(p);
@@ -574,13 +620,16 @@ public class ProductStudioService {
                             list(n.conditions()).stream()
                                 .map(c -> remapFixedCondition(c, oldFixed, newFixed)).toList()))
                         .toList()))));
+    // Detach cloned files belonging only to excluded questions. Original files are untouched.
+    assets.attach("PROCESS", p.getId(), processAssetIds(readProcess(p)), actor);
     assets.copyOwned("PRODUCT", source.getId(), p.getId(), null, actor);
-    if (source.getStatus() != ProductMasterStatus.DRAFT) {
+    if (!partialCopy && source.getStatus() != ProductMasterStatus.DRAFT) {
       Validation validation = validateProcess(p, readProcess(p));
       if (!validation.valid() || !validation.exhaustive())
         throw new IllegalArgumentException("복사한 프로세스 검증 실패: " + validation.issues());
       p.setStatus(ProductMasterStatus.ACTIVE);
     }
+    if (copyPricing) pricing.getObject().copyPricingToNewProduct(source, p, actor);
     products.flush();
     return view(p, true);
   }
@@ -861,22 +910,22 @@ public class ProductStudioService {
     List<ProductAttributeGroup> groups =
         selected.stream().map(v -> attributes.require(v.groupId())).toList();
     List<NameToken> tokens = validateTokens(edit.nameTokens(), groups);
-    boolean processChanged =
-        !new HashSet<>(variants(p).stream().map(Variant::groupId).toList())
-            .equals(new HashSet<>(selected.stream().map(Variant::groupId).toList()));
-    Process previousProcess = readProcess(p);
+    List<Long> previousGroupOrder = variants(p).stream().map(Variant::groupId).toList();
+    List<Long> selectedGroupOrder = selected.stream().map(Variant::groupId).toList();
+    boolean compositionReordered = !previousGroupOrder.stream().filter(selectedGroupOrder::contains).toList()
+        .equals(selectedGroupOrder.stream().filter(previousGroupOrder::contains).toList());
+    Process storedProcess = readProcess(p);
+    Process previousProcess = ProductStudioProcessSubset.retain(storedProcess, new HashSet<>(selectedGroupOrder));
+    boolean processChanged = !new HashSet<>(previousGroupOrder).equals(new HashSet<>(selectedGroupOrder))
+        || compositionReordered || ProductStudioProcessSubset.hasRemovedElements(storedProcess, previousProcess);
     p.setStudioDefinitionJson(json.write(selected));
     p.setNameTokensJson(json.write(tokens));
     p.setProductName(edit.productName().trim());
     p.setDescription(text(edit.description()));
     if (!custom) p.setStudioProcessJson(json.write(defaultProcess(selected)));
     else {
-      Map<Long, Question> previousByGroup =
-          previousProcess.questions().stream().collect(Collectors.toMap(Question::groupId, q -> q));
-      List<Question> reordered =
-          defaultProcess(selected).questions().stream()
-              .map(q -> q.fixed() ? q : previousByGroup.getOrDefault(q.groupId(), q))
-              .toList();
+      List<Question> reordered = ProductStudioProcessSubset.mergeQuestions(
+          previousProcess.questions(), defaultProcess(selected).questions(), compositionReordered);
       p.setStudioProcessJson(json.write(new Process(
           2, reordered, previousProcess.rules(), previousProcess.inputLimits(), previousProcess.notices())));
     }
@@ -890,6 +939,7 @@ public class ProductStudioService {
       p.setStatus(ProductMasterStatus.ACTIVE);
     }
     bindInputFiles(selected, actor);
+    if (custom) assets.attach("PROCESS", id, processAssetIds(readProcess(p)), actor);
     p.setUpdatedBy(actor);
     p.setUpdatedAt(LocalDateTime.now());
     assets.attach("PRODUCT", id, edit.assetIds(), actor);
@@ -1119,6 +1169,8 @@ public class ProductStudioService {
       throw new IllegalArgumentException("비규격 제품에서만 프로세스를 편집합니다.");
     requireNoActuals(p);
     Process normalized = normalizeProcess(p, save.process());
+    boolean retainsPricedProductStatus = pricing.getObject().isMediaOnlyProcessChange(p, normalized)
+        && !(save.publish() && p.getStatus() == ProductMasterStatus.DRAFT);
     pricing.getObject().assertProcessChangeAllowed(p, normalized);
     // A draft can contain alternative bundles before their display relations are connected.
     // It remains DRAFT; exhaustive reachability/dependency validation gates publication below.
@@ -1174,8 +1226,29 @@ public class ProductStudioService {
             || list(notice.conditions()).size() > 20 || list(notice.conditions()).stream().anyMatch(Objects::isNull))
           throw new IllegalArgumentException("안내메시지는 2,000자·조건식 20개까지 입력할 수 있습니다.");
     }
+    assets.attach("PROCESS", id, processAssetIds(normalized), actor);
+    // Price terms and test answers remain unchanged for question/option/field media-only edits.
+    // Both updates join this transaction; any attachment/process failure rolls everything back.
+    pricing.getObject().reconcileProcessMedia(p, normalized);
+    // Question order in the product and chatbot is the saved process order; identity ignores it.
+    Map<Long, Variant> byGroup =
+        variants(p).stream().collect(Collectors.toMap(Variant::groupId, v -> v));
+    List<Variant> ordered =
+        normalized.questions().stream().map(q -> byGroup.get(q.groupId())).toList();
+    p.setStudioDefinitionJson(json.write(ordered));
+    p.setStudioProcessJson(json.write(normalized));
+    // Media-only changes keep registration state. Structural edits follow draft/publish validation.
+    if (!retainsPricedProductStatus)
+      p.setStatus(save.publish() ? ProductMasterStatus.ACTIVE : ProductMasterStatus.DRAFT);
+    p.setUpdatedBy(actor);
+    p.setUpdatedAt(LocalDateTime.now());
+    products.flush();
+    return view(p, true);
+  }
+
+  private List<String> processAssetIds(Process process) {
     Set<String> allFiles = new LinkedHashSet<>();
-    for (Question q : normalized.questions()) {
+    for (Question q : process.questions()) {
       allFiles.addAll(list(q.assetIds()));
       for (Choice c : list(q.choices())) allFiles.addAll(list(c.assetIds()));
       if (attributes.require(q.groupId()).isNonStandard())
@@ -1184,19 +1257,7 @@ public class ProductStudioService {
         for (Object value : map(q.preset().fields()).values())
           if (value instanceof List<?> values) values.forEach(v -> allFiles.add(v.toString()));
     }
-    assets.attach("PROCESS", id, new ArrayList<>(allFiles), actor);
-    // Question order in the product and chatbot is the saved process order; identity ignores it.
-    Map<Long, Variant> byGroup =
-        variants(p).stream().collect(Collectors.toMap(Variant::groupId, v -> v));
-    List<Variant> ordered =
-        normalized.questions().stream().map(q -> byGroup.get(q.groupId())).toList();
-    p.setStudioDefinitionJson(json.write(ordered));
-    p.setStudioProcessJson(json.write(normalized));
-    p.setStatus(save.publish() ? ProductMasterStatus.ACTIVE : ProductMasterStatus.DRAFT);
-    p.setUpdatedBy(actor);
-    p.setUpdatedAt(LocalDateTime.now());
-    products.flush();
-    return view(p, true);
+    return new ArrayList<>(allFiles);
   }
 
   public Evaluation evaluate(Long id, EvaluateRequest request, String actor) {
@@ -1270,10 +1331,8 @@ public class ProductStudioService {
     for (Question q : process.questions()) {
       GroupView g = attributes.view(attributes.require(q.groupId()));
       List<String> questionAssets = new ArrayList<>(list(q.assetIds()));
-      Set<String> sharedFieldAssets = g.fields().stream()
-          .flatMap(f -> list(f.assetIds()).stream()).collect(Collectors.toSet());
-      questionAssets.addAll(g.assets().stream().map(AssetView::id)
-          .filter(id -> !sharedFieldAssets.contains(id)).toList());
+      questionAssets.addAll(ProductStudioMedia.questionAssets(g).stream()
+          .map(AssetView::id).toList());
       List<Choice> choices = new ArrayList<>();
       for (Choice c : list(q.choices())) {
         List<String> ids = new ArrayList<>(list(c.assetIds()));
@@ -1573,7 +1632,8 @@ public class ProductStudioService {
                                                   + "개"
                                               : display(v.inputs().get(f.key()))))
                               .collect(Collectors.joining(" / ")),
-                          List.of(),
+                          assets.publicViews(ProductStudioMedia.inputAssets(gv, v.inputs()),
+                              p.getQrPublicToken()),
                           gv.fields().stream()
                               .filter(f -> map(v.inputs()).containsKey(f.key()))
                               .map(Field::guide)
@@ -1584,7 +1644,8 @@ public class ProductStudioService {
         if (absent) items.add(new CatalogOption("0", "이 항목이 없는 제품", List.of()));
         next =
             new CatalogStep(
-                groupId, g.getCustomerLabel(), items, assets.publicViews(gv.assets(), imageToken));
+                groupId, g.getCustomerLabel(), items,
+                assets.publicViews(ProductStudioMedia.questionAssets(gv), imageToken));
       }
     }
     int totalPages = (candidates.size() + 199) / 200,

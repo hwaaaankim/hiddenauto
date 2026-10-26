@@ -210,11 +210,14 @@ public class ProductStudioCustomerService {
             .collect(Collectors.joining(" / "));
         String guide = g.fields().stream().filter(f -> map(v.inputs()).containsKey(f.key()))
             .map(Field::guide).filter(x -> x != null && !x.isBlank()).collect(Collectors.joining("\n"));
-        options.add(new CatalogOption(key, label, List.of(), guide));
+        List<AssetView> inputMedia = ProductStudioMedia.inputAssets(g, v.inputs());
+        options.add(new CatalogOption(key, label,
+            admin ? inputMedia : assets.publicViews(inputMedia, p.getQrPublicToken()), guide));
       }
     }
-    List<AssetView> media = scope.isEmpty() ? List.of() : admin ? g.assets()
-        : assets.publicViews(g.assets(), scope.get(0).getQrPublicToken());
+    List<AssetView> questionMedia = ProductStudioMedia.questionAssets(g);
+    List<AssetView> media = scope.isEmpty() ? List.of() : admin ? questionMedia
+        : assets.publicViews(questionMedia, scope.get(0).getQrPublicToken());
     return new BrowseGroup(g.id(), g.key(), g.role(), g.labels().customer(), g.question(),
         g.guide(), g.control().name(), options, media);
   }
@@ -222,8 +225,8 @@ public class ProductStudioCustomerService {
   private ProductCard card(ProductMaster p, List<Variant> variants,
       Map<Long, GroupView> groups, boolean admin) {
     List<AssetView> media = assets.owned("PRODUCT", p.getId());
-    if (media.stream().noneMatch(AssetView::image))
-      media = studio.allProductAssets(p).stream().filter(AssetView::image).limit(1).toList();
+    // Question/option/field guidance is not a product representative image.
+    // Keep an empty image slot until the administrator uploads PRODUCT media explicitly.
     if (!admin) media = assets.publicViews(media, p.getQrPublicToken());
     List<String> tags = variants.stream().filter(v -> !ProductStudioAttributeService.BASE
         .contains(groups.get(v.groupId()).role())).flatMap(v -> groups.get(v.groupId()).values()

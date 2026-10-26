@@ -1,5 +1,11 @@
 (function (S) {
   "use strict";
+  const productFileOptions = (name, id, saveLabel) => ({
+    title: "제품 대표이미지·공통 첨부파일",
+    scopeLabel: "제품: " + (name || "새 제품") + (id ? " · #" + id : ""),
+    description: "저장된 제품 이미지 중 가장 먼저 등록된 이미지가 고객 제품 카드에 표시됩니다. 대표를 교체하면 남아 있는 이전 이미지가 대표가 될 수 있으므로 저장 후 확인하세요. 대표이미지 한 장만 유지하면 해당 이미지가 표시됩니다. 질문·옵션 자료는 해당 그룹·옵션 또는 비규격 프로세스에 등록하세요.",
+    saveLabel,
+  });
   S.pricingStatus = function (status) {
     if (!status) return S.badge("가격 상태 확인 실패", "amber");
     return S.badge(status.registered ? (status.stale ? "가격식 재검증 필요" : "가격식 등록됨") : "가격식 미등록", status.stale ? "red" : status.registered ? "green" : "amber");
@@ -9,8 +15,14 @@
     return `<a class="pms-button" href="${link}">${status?.registered ? "계산식조회" : "계산식등록"}</a><button type="button" data-copy-pricing="${p.id}" ${!status || status.registered || !status.ready ? "disabled" : ""} title="가격식이 없고 프로세스가 완성된 제품에서 동일한 그룹·옵션·입력 제한·분기의 가격식을 복사합니다.">계산식불러오기</button>`;
   };
   S.showPricingCalculation = function (result, title = "실 제품 가격계산") {
+    const number = (v) => v == null ? "계산 불가" : Number(v).toLocaleString("ko-KR", { maximumFractionDigits: 6 });
     const money = (v) => v == null ? "계산 불가" : Number(v).toLocaleString("ko-KR", { maximumFractionDigits: 2 }) + "원";
-    S.dialog(title, `<div class="pms-help">현재 등록된 가격계산식으로 계산한 단가입니다. 재고 수량은 곱하지 않습니다.</div>${result.complete ? `<div class="pms-name-preview">${S.e(money(result.total))}</div>` : `<div class="pms-alert">${(result.errors || ["가격을 계산할 수 없습니다."]).map((e) => `<p>${S.e(e)}</p>`).join("")}</div>`}<div class="pms-table-scroll"><table><thead><tr><th>항</th><th>적용 여부</th><th>금액</th><th>계산 근거</th></tr></thead><tbody>${(result.terms || []).map((t) => `<tr><td>${S.e(t.name)}</td><td>${t.applied ? "적용" : "미적용"}</td><td>${t.applied ? S.e(money(t.amount)) : "—"}</td><td>${S.e(t.explanation)}</td></tr>`).join("")}</tbody></table></div>`);
+    const rows = (result.terms || []).map((t) => {
+      const factor = t.role === "FACTOR";
+      const links = (t.multipliers || []).map((m) => `<div>${S.e(m.name || "곱셈 연결")} × ${S.e(number(m.value))}${(m.terms || []).length ? ` (${m.terms.map((f) => `${S.e(f.name)}: ${S.e(number(f.value))}`).join(" · ")})` : ""}</div>`).join("");
+      return `<tr><td>${S.e(t.name)}${factor ? '<small>곱셈용 · 합계 제외</small>' : ""}</td><td>${t.applied ? "적용" : "미적용"}</td><td>${t.applied ? S.e(factor ? number(t.amount) + "배 / 수량" : money(t.amount)) : "—"}</td><td>${S.e(t.explanation)}${links}</td></tr>`;
+    }).join("");
+    S.dialog(title, `<div class="pms-help">현재 등록된 가격계산식으로 계산한 단가입니다. 재고 수량은 곱하지 않습니다. 곱셈용 항은 연결된 가격 항에 적용하며 합계에 별도로 더하지 않습니다.</div>${result.complete ? `<div class="pms-name-preview">${S.e(money(result.total))}</div>` : `<div class="pms-alert">${(result.errors || ["가격을 계산할 수 없습니다."]).map((e) => `<p>${S.e(e)}</p>`).join("")}</div>`}<div class="pms-table-scroll"><table><thead><tr><th>항</th><th>적용 여부</th><th>금액 / 곱셈값</th><th>계산 근거</th></tr></thead><tbody>${rows}</tbody></table></div>`);
   };
   S.drawingLinks = function (kind, id) {
     const url = "/admin/product-master/" + kind + "/" + id + "/drawing";
@@ -117,15 +129,10 @@
   };
   S.builderPage = async function (root, product) {
     const detail = !!product;
+    let priceState = null;
     if (product?.nonStandard && !product.actualCount) {
-      let priceLinked = false;
-      try { priceLinked = (await S.request("/pricing/status", "POST", { productIds: [product.id] }))[0]?.registered || false; }
+      try { priceState = (await S.request("/pricing/status", "POST", { productIds: [product.id] }))[0] || null; }
       catch (err) { S.notice("가격식 연결 상태를 확인하지 못했습니다. " + err.message); }
-      if (priceLinked) {
-        await S.viewPage(root, product);
-        root.insertAdjacentHTML("afterbegin", `<div class="pms-help pm-definition-lock"><strong>가격계산식이 연결된 제품입니다.</strong><p>그룹 구성·프로세스 변경이 필요하면 가격계산식을 삭제한 뒤 변경하고 다시 등록해 주세요.</p><a class="pms-button" href="/admin/product-master/products/${product.id}/pricing">가격계산식 관리</a></div>`);
-        return;
-      }
     }
     if (product?.actualCount > 0) {
       await S.viewPage(root, product);
@@ -186,6 +193,11 @@
         }));
     let productFiles = S.copy(product?.assets || []),
       query = "";
+    // Administrator field guidance and fixed FILE answers share metadata lookup,
+    // but retain their distinct field.assetIds and variant.inputs references.
+    const inputAssets = new Map([
+      ...(product?.processAssets || []), ...S.groups.flatMap((g) => g.assets || []),
+    ].map((a) => [a.id, a]));
     let model = {
       productName: product?.productName || "",
       description: product?.description || "",
@@ -199,6 +211,7 @@
       (detail ? "제품 정보" : "생성 요약") +
       '</h2></div><div class="pms-panel-body" id="pms-summary"></div></section></div>';
     if (detail && !nonStandard) root.insertAdjacentHTML("afterbegin", '<div data-standard-price-top></div>');
+    if (detail && nonStandard) root.insertAdjacentHTML("afterbegin", `<div class="pms-help"><strong>이 제품의 구성·질문 순서</strong><p>그룹 추가·제거·순서와 제품별 질문·답변·분기는 이 제품에만 저장됩니다. 복사 원본에는 적용되지 않습니다. 그룹 자체의 입력 유형·가격영향 설정과 필수 분류는 공통 정의입니다.</p>${priceState?.registered ? `<p><strong>${priceState.stale ? "기존 가격계산식의 연결 확인이 필요합니다." : "기존 가격계산식을 유지하며 구성을 수정할 수 있습니다."}</strong> 수정한 프로세스를 검증한 뒤 가격계산식에서 연결 항목과 테스트 결과를 다시 확인하세요. 연결이 맞지 않는 항은 기존 내용을 보며 수정할 수 있습니다.</p><a class="pms-button" href="/admin/product-master/products/${product.id}/pricing">가격계산식 확인·수정</a>` : ""}</div>`);
     if (!detail) {
       const bar = document.createElement("div");
       bar.className = "pms-panel pms-toolbar";
@@ -311,7 +324,10 @@
       lane.innerHTML = selected
         .map((r, i) => {
           const g = S.group(r.groupId);
-          return `<article class="pms-card" data-selected-group="${g.id}"><div class="pms-card-head"><span class="pms-handle">⠿</span><strong>${i + 1}. ${S.e(g.labels.management)}</strong>${S.isBase(g) ? S.badge("필수", "blue") : S.badge(g.nonStandard ? "비규격" : "규격", g.nonStandard ? "amber" : "")}<div class="grow"></div><button data-up="${i}" ${i === 0 ? "disabled" : ""} title="위로">↑</button><button data-down="${i}" ${i === selected.length - 1 ? "disabled" : ""} title="아래로">↓</button>${!S.isBase(g) ? `<button data-remove-group="${g.id}" class="pms-remove">×</button>` : ""}</div>${
+          (g.assets || []).forEach((a) => inputAssets.set(a.id, a));
+          const productQuestion = detail && g.nonStandard ? product.process?.questions.find((q) => q.groupId === g.id) : null;
+          const questionName = productQuestion?.labels?.customer || g.labels.management;
+          return `<article class="pms-card" data-selected-group="${g.id}"><div class="pms-card-head"><span class="pms-handle">⠿</span><strong>${i + 1}. ${S.e(questionName)}</strong>${S.isBase(g) ? S.badge("필수", "blue") : S.badge(g.nonStandard ? "비규격" : "규격", g.nonStandard ? "amber" : "")}<div class="grow"></div><button data-up="${i}" ${i === 0 ? "disabled" : ""} title="위로">↑</button><button data-down="${i}" ${i === selected.length - 1 ? "disabled" : ""} title="아래로">↓</button>${!S.isBase(g) ? `<button data-remove-group="${g.id}" class="pms-remove">×</button>` : ""}</div>${
             g.nonStandard
               ? `<div class="pms-help">${S.e(S.controls[g.control])} · 제품 생성 후 비규격 프로세스에서 상세 설정</div>`
               : S.isChoice(g.control)
@@ -322,8 +338,8 @@
                         `<label class="pms-check" title="고객: ${S.e(v.labels.customer)} / 생산: ${S.e(v.labels.production)} / 관리: ${S.e(v.labels.management)}"><input type="${detail && g.control === "RADIO" ? "radio" : "checkbox"}" name="variant-${g.id}" data-value-group="${g.id}" value="${v.id}" ${r.valueIds.includes(v.id) ? "checked" : ""}>${S.e(v.labels.management)}${!v.active ? " (비활성)" : ""}</label>`,
                     )
                     .join("")}</div>`
-                : `<div class="pms-section" data-fixed-fields="${g.id}">${S.inputAnswer({ key: g.key, control: g.control, fields: g.fields }, { fields: r.inputs })}</div>`
-          }${detail ? `<div class="pms-actions pms-section"><button type="button" data-group-settings="${g.id}">공통 표시명·안내·파일 수정</button>${g.nonStandard ? `<a class="pms-button" href="/admin/product-master/products/${product.id}/process?question=${encodeURIComponent(g.key)}">이 제품의 질문·답변 수정</a>` : ""}</div>${(() => {
+                : `<div class="pms-section" data-fixed-fields="${g.id}">${S.inputAnswer({ key: g.key, control: g.control, fields: g.fields }, { fields: r.inputs }, false, inputAssets)}</div>`
+          }${detail ? `<div class="pms-actions pms-section"><button type="button" data-group-settings="${g.id}">공통 그룹 정보${g.nonStandard ? " 조회" : "·파일 수정"}</button>${g.nonStandard ? `<a class="pms-button" href="/admin/product-master/products/${product.id}/process?question=${encodeURIComponent(g.key)}">이 제품의 질문·답변 수정</a>` : ""}</div>${(() => {
             const q = product.process?.questions.find((q) => q.groupId === g.id);
             const files = new Map([...(product.processAssets || []), ...(g.assets || []), ...g.values.flatMap((v) => v.assets || [])].map((a) => [a.id, a]));
             return q ? S.registeredQuestion(q, (ids) => (ids || []).map((id) => files.get(id)).filter(Boolean), g, product.process) : "";
@@ -406,35 +422,41 @@
         const row = selected.find(
             (x) => x.groupId === Number(el.dataset.fixedFields),
           ),
-          g = S.group(row.groupId);
+          g = S.group(row.groupId),
+          question = { key: g.key, control: g.control, fields: g.fields };
         el.oninput = () => {
           if (g.control === "FILE") return;
           row.inputs = S.readAnswer(
             el,
-            { control: g.control },
+            question,
             { fields: row.inputs },
           ).fields;
           S.dirty = true;
           paintSummary();
         };
-        S.$$("input[type=file]", el).forEach(
-          (input) =>
-            (input.onchange = () =>
-              S.run(null, async () => {
-                const fd = new FormData();
-                for (const f of input.files) fd.append("files", f);
-                const uploaded = await S.request("/assets/stage", "POST", fd);
-                row.inputs[input.dataset.answerField] = uploaded.map(
-                  (f) => f.id,
-                );
-                S.$(
-                  `[data-answer-files="${input.dataset.answerField}"]`,
-                  el,
-                ).textContent = uploaded.length + "개 파일 업로드됨";
-                S.dirty = true;
-                paintSummary();
-              })),
-        );
+        if (g.control === "FILE") {
+          const answer = { fields: row.inputs };
+          const fileOptions = {
+            title: "제품 사양으로 지정할 파일",
+            scopeLabel: "제품 사양 / 그룹: " + g.labels.customer,
+            description: "이 제품의 고정 사양에 연결되는 파일입니다. 입력 방법을 설명하는 이미지는 그룹 관리의 해당 입력 항목에 등록하세요.",
+            saveLabel: detail ? "‘변경 저장’을 눌러야 제품 사양에 반영됩니다." : "조합 미리보기를 확인하고 ‘등록’을 눌러야 제품 사양에 반영됩니다.",
+          };
+          S.$$("[data-answer-upload]", el).forEach((upload) => {
+            const field = g.fields.find((f) => f.key === upload.dataset.answerUpload);
+            if (!field) return;
+            const files = (Array.isArray(row.inputs[field.key]) ? row.inputs[field.key] : []).map((id) => inputAssets.get(id) || { id, name: "등록된 사양 파일", image: false });
+            upload.innerHTML = S.files(files, true, { ...fileOptions, answerField: field.key,
+              accept: (field.extensions || []).map((ext) => "." + ext).join(",") });
+          });
+          S.answerFileEvents(el, question, answer, inputAssets, { ...fileOptions,
+            onChange: (updated) => {
+              row.inputs = updated.fields;
+              S.dirty = true;
+              paintSummary();
+            },
+          });
+        }
       });
       paintSummary();
     }
@@ -446,14 +468,21 @@
         if (!g.nonStandard && S.isChoice(g.control)) count *= r.valueIds.length;
       }
       summary.innerHTML = detail
-        ? `${S.badge(S.status[product.status], product.status === "DRAFT" ? "amber" : "blue")}<p class="mono">${S.e(product.catalogCode)} · #${product.id}</p><div class="pms-form-grid two"><div class="wide">${S.field("제품명", "productName", model.productName, "text", 'maxlength="160"')}</div><button id="pms-regenerate-name">규칙으로 제품명 생성</button><div class="wide">${S.field("제품 설명", "description", model.description, "text", 'maxlength="1000"')}</div><div class="wide">${S.select("상태", "status", model.status, { ACTIVE: "사용중 (재고로 자동 판단)", OUT_OF_STOCK: "재고없음 (재고로 자동 판단)", DISCONTINUED: "단종", ...(product.status === "DRAFT" ? { DRAFT: "등록중" } : {}) })}</div></div><div class="pms-form-grid two">${metaHtml(model)}</div><section class="pms-section"><h2>제품 이미지·첨부</h2><div id="pms-product-files">${S.files(productFiles)}</div></section><div class="pms-section pms-actions"><button class="primary" id="pms-save-product">변경 저장</button><a class="pms-button" href="/admin/product-master/products/${product.id}/view">등록 내용 상세 조회</a>${custom ? `<a class="pms-button" href="/admin/product-master/products/${product.id}/process">비규격 프로세스</a>` : ""}<button id="pms-stock">재고 관리 · ${product.stock}</button>${custom ? `<a class="pms-button" href="/admin/product-master/products/${product.id}/test" target="_blank" rel="noopener">비규격 테스트</a>` : ""}</div>`
+        ? `${S.badge(S.status[product.status], product.status === "DRAFT" ? "amber" : "blue")}<p class="mono">${S.e(product.catalogCode)} · #${product.id}</p><div class="pms-form-grid two"><div class="wide">${S.field("제품명", "productName", model.productName, "text", 'maxlength="160"')}</div><button id="pms-regenerate-name">규칙으로 제품명 생성</button><div class="wide">${S.field("제품 설명", "description", model.description, "text", 'maxlength="1000"')}</div><div class="wide">${S.select("상태", "status", model.status, { ACTIVE: "사용중 (재고로 자동 판단)", OUT_OF_STOCK: "재고없음 (재고로 자동 판단)", DISCONTINUED: "단종", ...(product.status === "DRAFT" ? { DRAFT: "등록중" } : {}) })}</div></div><div class="pms-form-grid two">${metaHtml(model)}</div><section class="pms-section"><div id="pms-product-files">${S.files(productFiles, true, productFileOptions(model.productName, product.id, "‘변경 저장’을 눌러야 최종 반영됩니다."))}</div></section><div class="pms-section pms-actions"><button class="primary" id="pms-save-product">변경 저장</button><a class="pms-button" href="/admin/product-master/products/${product.id}/view">등록 내용 상세 조회</a>${custom ? `<a class="pms-button" href="/admin/product-master/products/${product.id}/process">비규격 프로세스</a>` : ""}<button id="pms-stock">재고 관리 · ${product.stock}</button>${custom ? `<a class="pms-button" href="/admin/product-master/products/${product.id}/test" target="_blank" rel="noopener">비규격 테스트</a>` : ""}</div>`
         : `<div class="pms-stat"><small>생성될 조합 수</small><strong>${count.toLocaleString()}</strong>${S.badge(custom ? "비규격 제품" : "규격 제품", custom ? "amber" : "blue")}</div><h3>제품명 예시</h3><p class="pms-name-preview">${S.e(
             S.nameText(
               selected.map((r) => ({ ...r, valueIds: r.valueIds.slice(0, 1) })),
               tokens,
             ) || "(구성 문자를 확인해 주세요)",
           )}</p><div class="pms-help">기본그룹은 필수입니다. 그룹마다 활성화된 보기 하나씩을 뽑아 조합합니다. 한 번에 최대 10,000개까지 생성할 수 있습니다.</div>${custom ? '<div class="pms-help">비규격은 등록중으로 생성됩니다. 각 제품에서 보기·입력 필드·관계 규칙을 설정하고 검증해야 등록완료됩니다.</div>' : ""}<div class="pms-form-grid">${metaHtml(model)}</div><button class="primary" id="pms-generate" ${count < 1 || count > 10000 ? "disabled" : ""}>조합 미리보기 · 자동 생성</button>`;
-      S.bind(summary, model);
+      S.bind(summary, model, (path) => {
+        if (!detail || path !== "productName") return;
+        const upload = S.$("#pms-product-files", summary);
+        const scopeLabel = productFileOptions(model.productName, product.id, "‘변경 저장’을 눌러야 최종 반영됩니다.").scopeLabel;
+        if (upload?._pmsFileOptions) upload._pmsFileOptions.scopeLabel = scopeLabel;
+        const label = upload && S.$("[data-file-scope]", upload);
+        if (label) label.textContent = scopeLabel;
+      });
       if (detail) {
         const priceTop = S.$("[data-standard-price-top]", root);
         if (priceTop) priceTop.innerHTML = S.unitPriceCard(product);
@@ -461,7 +490,7 @@
           () => S.unitPriceDialog(product, (saved) => {
             product = saved; model.unitPrice = saved.unitPrice; paintSummary();
           })));
-        S.fileEvents(S.$("#pms-product-files", summary), productFiles);
+        S.fileEvents(S.$("#pms-product-files", summary), productFiles, undefined, undefined, productFileOptions(model.productName, product.id, "‘변경 저장’을 눌러야 최종 반영됩니다."));
         S.$("#pms-regenerate-name", summary).onclick = () => {
           model.productName = S.nameText(selected, tokens);
           S.dirty = true;
@@ -586,7 +615,7 @@
         const pages = Math.ceil(live.length / 50);
         page = Math.max(0, Math.min(page, pages - 1));
         const visible = live.slice(page * 50, page * 50 + 50);
-        body.innerHTML = `<div class="pms-toolbar"><strong>${live.length.toLocaleString()}개 등록 예정</strong>${S.badge("중복 " + dupes.length, dupes.length ? "red" : "green")}<div class="grow"></div><label>전체 최초재고 <input id="pms-all-stock" type="number" min="0" max="10000000" value="${stock}" style="width:80px"></label><button id="pms-set-stock">일괄 적용</button><button id="pms-bulk-meta">생산기간·단가·FAQ 일괄 연결</button><button id="pms-remove-duplicates" ${!dupes.length ? "disabled" : ""}>중복 행 모두 제거</button><button class="primary" id="pms-register" ${dupes.length || !live.length ? "disabled" : ""}>등록 · ${live.length}개</button></div><div class="pms-help">×는 미리보기에서만 행을 제외합니다. 닫고 조건을 바꾸어 다시 생성할 수 있습니다. ${nonStandard ? "비규격은 필수 분류·그룹이 같아도 별개의 제품으로 등록할 수 있습니다. 제품별 질문·옵션·분기는 프로세스에서 독립적으로 설정합니다." : "같은 제품명이 있어도 실제 사양이 다르면 등록할 수 있습니다."}</div><div class="pms-table-scroll"><table><thead><tr><th>#</th><th style="min-width:200px">제품명</th><th>구성 / 주체별 표시</th><th>생산기간 / 단가 / FAQ</th><th>최초재고</th><th>제품 이미지·첨부</th><th>중복 확인</th><th></th></tr></thead><tbody>${visible
+        body.innerHTML = `<div class="pms-toolbar"><strong>${live.length.toLocaleString()}개 등록 예정</strong>${S.badge("중복 " + dupes.length, dupes.length ? "red" : "green")}<div class="grow"></div><label>전체 최초재고 <input id="pms-all-stock" type="number" min="0" max="10000000" value="${stock}" style="width:80px"></label><button id="pms-set-stock">일괄 적용</button><button id="pms-bulk-meta">생산기간·단가·FAQ 일괄 연결</button><button id="pms-remove-duplicates" ${!dupes.length ? "disabled" : ""}>중복 행 모두 제거</button><button class="primary" id="pms-register" ${dupes.length || !live.length ? "disabled" : ""}>등록 · ${live.length}개</button></div><div class="pms-help">×는 미리보기에서만 행을 제외합니다. 닫고 조건을 바꾸어 다시 생성할 수 있습니다. ${nonStandard ? "비규격은 필수 분류·그룹이 같아도 별개의 제품으로 등록할 수 있습니다. 제품별 질문·옵션·분기는 프로세스에서 독립적으로 설정합니다." : "같은 제품명이 있어도 실제 사양이 다르면 등록할 수 있습니다."}</div><div class="pms-table-scroll"><table><thead><tr><th>#</th><th style="min-width:200px">제품명</th><th>구성 / 주체별 표시</th><th>생산기간 / 단가 / FAQ</th><th>최초재고</th><th>제품 대표이미지·공통 첨부</th><th>중복 확인</th><th></th></tr></thead><tbody>${visible
           .map((r) => {
             const index = rows.indexOf(r);
             return `<tr class="${r.duplicateId ? "duplicate" : ""}"><td>${index + 1}</td><td><input data-row-name="${index}" maxlength="160" value="${S.e(r.productName)}"></td><td><details><summary>${r.variants
@@ -616,7 +645,7 @@
               })
               .join(
                 "",
-              )}</tbody></table></details></td><td>${!nonStandard ? `<label class="pm-preview-price"><span>제품 단가</span><input type="number" min="0" max="1000000000000" step="0.01" data-row-price="${index}" value="${S.e(r.unitPrice)}" aria-label="${S.e(r.productName)} 단가 (원)"><small>원 · 직접 수정 가능</small></label>` : ""}<button data-row-meta="${index}">${r.productionHours}시간 · FAQ 설정<br>${S.e(topics.find((t) => t.id === Number(r.faqTopicId))?.title || "FAQ 연결")}</button></td><td><input data-row-stock="${index}" type="number" min="0" max="10000000" style="width:70px" value="${r.initialStock}" ${nonStandard ? "disabled" : ""}></td><td><button data-row-files="${index}">첨부 ${r.files.length}</button></td><td>${r.duplicateId ? `<a href="/admin/product-master/products/${r.duplicateId}" target="_blank" rel="noopener">중복 #${r.duplicateId}</a><small>${S.e(r.duplicateName)}</small>` : S.badge("신규", "green")}</td><td><button data-remove-row="${index}" class="pms-remove">×</button></td></tr>`;
+              )}</tbody></table></details></td><td>${!nonStandard ? `<label class="pm-preview-price"><span>제품 단가</span><input type="number" min="0" max="1000000000000" step="0.01" data-row-price="${index}" value="${S.e(r.unitPrice)}" aria-label="${S.e(r.productName)} 단가 (원)"><small>원 · 직접 수정 가능</small></label>` : ""}<button data-row-meta="${index}">${r.productionHours}시간 · FAQ 설정<br>${S.e(topics.find((t) => t.id === Number(r.faqTopicId))?.title || "FAQ 연결")}</button></td><td><input data-row-stock="${index}" type="number" min="0" max="10000000" style="width:70px" value="${r.initialStock}" ${nonStandard ? "disabled" : ""}></td><td><button data-row-files="${index}" title="이 제품의 대표이미지·공통 첨부 등록">대표·공통 ${r.files.length}</button></td><td>${r.duplicateId ? `<a href="/admin/product-master/products/${r.duplicateId}" target="_blank" rel="noopener">중복 #${r.duplicateId}</a><small>${S.e(r.duplicateName)}</small>` : S.badge("신규", "green")}</td><td><button data-remove-row="${index}" class="pms-remove">×</button></td></tr>`;
           })
           .join(
             "",
@@ -701,12 +730,13 @@
           (b) =>
             (b.onclick = () => {
               const r = rows[Number(b.dataset.rowFiles)];
+              const fileOptions = productFileOptions(r.productName, null, "창을 닫은 뒤 조합 미리보기의 ‘등록’을 눌러야 최종 반영됩니다.");
               const fileDialog = S.dialog(
-                "제품 첨부 · " + r.productName,
-                S.files(r.files),
+                "제품 대표·공통 파일 · " + r.productName,
+                S.files(r.files, true, fileOptions),
                 { wide: false, onClose: paintPreview },
               );
-              S.fileEvents(S.$(".pms-dialog-body", fileDialog), r.files);
+              S.fileEvents(S.$(".pms-dialog-body", fileDialog), r.files, undefined, undefined, fileOptions);
             }),
         );
         S.$("#pms-register", body).onclick = (e) =>

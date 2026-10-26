@@ -5,7 +5,10 @@
   S.advancedRelationDialog = function (sourceKey, original, context) {
     const process = S.copy(context.getProcess ? context.getProcess() : context.process);
     const find = (key) => process.questions.find((q) => q.key === key);
-    const targets = () => process.questions.filter((q) => !q.fixed);
+    const targets = () => {
+      const lastSource = Math.max(-1, ...model.conditions.map((c) => process.questions.findIndex((q) => q.key === c.groupKey)));
+      return process.questions.filter((q, index) => !q.fixed && index > lastSource);
+    };
     const initial = find(sourceKey) || process.questions[0];
     const makeCondition = (q) => ({ groupKey: q?.key || "", fieldKey: S.isChoice(q?.control) ? null : q?.fields?.[0]?.key || "", operator: S.isChoice(q?.control) ? "EQ" : q?.control === "NUMBER" ? "GE" : "PRESENT", choiceKeys: [], text: "", lower: q?.control === "NUMBER" ? 0 : null, upper: null, lowerInclusive: true, upperInclusive: true });
     const model = original ? S.copy(original) : { key: S.key("R"), name: "", match: "ALL", conditions: [makeCondition(initial)], actions: [] };
@@ -26,8 +29,11 @@
     }
     function actionHtml(a, i) {
       const q = find(a.targetKey), base = "actions." + i;
-      const numeric = q?.control === "NUMBER";
-      return `<article class="pms-card" data-advanced-action="${i}"><header class="pm-card-heading"><strong>동작 ${i + 1}</strong><button type="button" class="danger" data-remove-action="${i}">동작 삭제</button></header><div class="pms-form-grid two">${S.select("영향받을 질문", base + ".targetKey", a.targetKey, Object.fromEntries(targets().map((q) => [q.key, name(q)])))}${S.select("적용 동작", base + ".effect", a.effect, effectNames)}</div>${a.effect === "RENAME" ? S.field("조건이 맞을 때 보여줄 질문", base + ".questionText", a.questionText || "", "text", 'maxlength="300"') : ""}${a.effect === "ALLOW" ? numeric ? `<div class="pms-check-grid">${S.numberBundleChecks(q, a.choiceKeys || [])}</div><p class="pms-help">숫자 묶음은 전체 필드가 함께 표시됩니다. 공통 H도 표시할 때 선택하세요. 입력 가능한 수량은 별도의 입력 제한에서 설정합니다.</p>` : S.isChoice(q?.control) ? `<div class="pms-check-grid">${(q.choices || []).map((o) => `<label class="pms-check"><input type="checkbox" data-advanced-allowed="${i}" value="${S.e(o.key)}" ${(a.choiceKeys || []).includes(o.key) ? "checked" : ""}>${S.e(o.labels.management)}</label>`).join("")}</div>` : '<p class="pms-alert">답변 제한은 선택형 또는 숫자입력형 질문에 적용하세요.</p>' : ""}${a.effect === "HIDE" ? '<p class="pms-help"><strong>선택한 질문만 생략합니다.</strong> 중간 질문들은 순서대로 진행합니다. 생략한 답변을 참조하는 뒤 질문이 남아 있으면 검증 오류가 발생합니다.</p>' : ""}</article>`;
+      const numeric = q?.control === "NUMBER", eligible = targets();
+      const validTarget = eligible.some((target) => target.key === a.targetKey);
+      const targetOptions = { "": "대상 질문을 선택해 주세요", ...Object.fromEntries(eligible.map((target) => [target.key, name(target)])) };
+      if (a.targetKey && !validTarget) targetOptions[a.targetKey] = "순서·고정 여부 확인 필요 · " + name(q);
+      return `<article class="pms-card" data-advanced-action="${i}"><header class="pm-card-heading"><strong>동작 ${i + 1}</strong><button type="button" class="danger" data-remove-action="${i}">동작 삭제</button></header><div class="pms-form-grid two">${S.select("영향받을 질문", base + ".targetKey", a.targetKey, targetOptions)}${S.select("적용 동작", base + ".effect", a.effect, effectNames)}</div>${a.targetKey && !validTarget ? '<p class="pms-alert">현재 대상이 조건보다 앞에 있거나 고정 사양입니다. 모든 시작 조건보다 뒤의 질문을 선택해 주세요. 기존 대상은 자동으로 다른 질문으로 바뀌지 않습니다.</p>' : ""}${a.effect === "RENAME" ? S.field("조건이 맞을 때 보여줄 질문", base + ".questionText", a.questionText || "", "text", 'maxlength="300"') : ""}${a.effect === "ALLOW" ? numeric ? `<div class="pms-check-grid">${S.numberBundleChecks(q, a.choiceKeys || [])}</div><p class="pms-help">숫자 묶음은 전체 필드가 함께 표시됩니다. 공통 H도 표시할 때 선택하세요. 입력 가능한 수량은 별도의 입력 제한에서 설정합니다.</p>` : S.isChoice(q?.control) ? `<div class="pms-check-grid">${(q.choices || []).map((o) => `<label class="pms-check"><input type="checkbox" data-advanced-allowed="${i}" value="${S.e(o.key)}" ${(a.choiceKeys || []).includes(o.key) ? "checked" : ""}>${S.e(o.labels.management)}</label>`).join("")}</div>` : '<p class="pms-alert">답변 제한은 선택형 또는 숫자입력형 질문에 적용하세요.</p>' : ""}${a.effect === "HIDE" ? '<p class="pms-help"><strong>선택한 질문만 생략합니다.</strong> 중간 질문들은 순서대로 진행합니다. 생략한 답변을 참조하는 뒤 질문이 남아 있으면 검증 오류가 발생합니다.</p>' : ""}</article>`;
     }
     function draw() {
       body.innerHTML = `<div class="pm-editor-guidance"><strong>여러 질문의 조건과 여러 동작을 한 연결로 구성합니다.</strong><p>예: W ≤ 600 <b>그리고</b> 문 종류가 혼합일 때 → 수량 질문을 변경하고 혼합 묶음만 표시합니다. 입력 제한은 이 연결과 별도로 설정합니다. 모든 조건의 원본은 모든 대상 질문보다 앞에 있어야 합니다.</p><p>같은 대상에 질문 문구 변경과 답변 표시 제한은 함께 적용할 수 있습니다. 서로 다른 표시 제한이나 상반되는 표시·건너뜀은 충돌합니다.</p><p><strong>이 창은 임시 연결을 구성합니다.</strong> 대리석 A·B·C 등의 연결을 차례로 추가한 뒤, 마지막 전체 경로 검증을 통과해야 등록완료할 수 있습니다.</p></div><div class="pms-form-grid two">${S.field("연결 이름", "name", model.name, "text", 'maxlength="120"')}${S.select("조건 결합 방식", "match", model.match, { ALL: "모든 조건을 만족할 때 (AND)", ANY: "하나 이상 조건을 만족할 때 (OR)" })}</div><div class="pms-actions"><strong>시작 조건</strong><button type="button" data-add-condition>+ 조건 추가</button></div>${model.conditions.map(conditionHtml).join("")}<div class="pms-actions pms-section"><strong>적용할 동작</strong><button type="button" data-add-action>+ 동작 추가</button></div>${model.actions.map(actionHtml).join("") || '<p class="pms-help">영향받을 질문과 동작을 한 개 이상 추가하세요.</p>'}<div data-advanced-issues role="alert"></div>`;
@@ -39,7 +45,7 @@
         if (/^conditions\.\d+\.(operator|fieldKey)$/.test(path) || /^actions\.\d+\.effect$/.test(path)) draw();
       });
       S.$("[data-add-condition]", body).onclick = () => { if (model.conditions.length >= 20) return S.toast("조건은 한 연결에 최대 20개입니다."); model.conditions.push(makeCondition(initial)); draw(); };
-      S.$("[data-add-action]", body).onclick = () => { if (model.actions.length >= 40) return S.toast("동작은 한 연결에 최대 40개입니다."); const lastSource = Math.max(...model.conditions.map((c) => process.questions.findIndex((q) => q.key === c.groupKey))); const q = targets().find((q) => process.questions.indexOf(q) > lastSource); model.actions.push({ targetKey: q?.key || "", effect: "HIDE", choiceKeys: [], questionText: "" }); draw(); };
+      S.$("[data-add-action]", body).onclick = () => { if (model.actions.length >= 40) return S.toast("동작은 한 연결에 최대 40개입니다."); const q = targets()[0]; if (!q) return S.toast("모든 시작 조건보다 뒤에 있는 수정 가능한 질문이 없습니다. 조건 질문 또는 질문 순서를 확인해 주세요."); model.actions.push({ targetKey: q.key, effect: "HIDE", choiceKeys: [], questionText: "" }); draw(); };
       S.$$('[data-remove-condition]', body).forEach((b) => b.onclick = () => { model.conditions.splice(Number(b.dataset.removeCondition), 1); draw(); });
       S.$$('[data-remove-action]', body).forEach((b) => b.onclick = () => { model.actions.splice(Number(b.dataset.removeAction), 1); draw(); });
       S.$$('[data-advanced-choice]', body).forEach((input) => input.onchange = () => { const i = Number(input.dataset.advancedChoice); model.conditions[i].choiceKeys = S.$$(`[data-advanced-choice="${i}"]:checked`, body).map((x) => x.value); });
@@ -54,6 +60,8 @@
       const updated = S.copy(context.getProcess ? context.getProcess() : context.process);
       if (!model.name.trim()) throw Error("연결 이름을 입력해 주세요.");
       if (!model.conditions.length || !model.actions.length) throw Error("조건과 동작을 각각 한 개 이상 추가해 주세요.");
+      if (model.actions.some((action) => !targets().some((target) => target.key === action.targetKey)))
+        throw Error("적용 대상은 모든 시작 조건보다 뒤에 있는 수정 가능한 질문이어야 합니다. 순서·고정 여부 확인이 표시된 대상을 다시 선택해 주세요.");
       model.actions.forEach((a) => { if (a.effect !== "ALLOW") a.choiceKeys = []; if (a.effect !== "RENAME") a.questionText = null; });
       const index = updated.rules.findIndex((r) => r.key === model.key);
       if (index < 0) updated.rules.push(S.copy(model)); else updated.rules[index] = S.copy(model);
