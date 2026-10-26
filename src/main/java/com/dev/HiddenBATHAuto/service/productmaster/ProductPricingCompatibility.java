@@ -195,12 +195,22 @@ public final class ProductPricingCompatibility {
       List<MultiplierLink> multipliers = list(term.multipliers()).stream().map(link -> new MultiplierLink(
           UUID.randomUUID().toString(), link.name(), list(link.termKeys()).stream()
               .map(key -> requiredTermKey(termKeys.get(key))).toList(), link.aggregation())).toList();
+      // A correction belongs to its owning term. Re-key and deep-copy it with that term;
+      // copying a formula must not share editable ranges or retain source question identities.
+      List<PriceAdjustment> adjustments = list(term.adjustments()).stream().map(adjustment -> new PriceAdjustment(
+          UUID.randomUUID().toString(), adjustment.name(), question.apply(adjustment.groupKey()),
+          copyAxis(adjustment.axis(), field.apply(adjustment.groupKey(), adjustment.axis().fieldKey())),
+          adjustment.values() == null ? null : adjustment.values().stream()
+              .map(ProductPricingCompatibility::copyAdjustmentValue).toList(),
+          copyAdjustmentValue(adjustment.above()),adjustment.sameGroupOnly())).toList();
       terms.add(new Term(requiredTermKey(termKeys.get(term.key())), term.name(), question.apply(term.groupKey()), bundle,
           list(term.fieldKeys()).stream().map(k -> field.apply(term.groupKey(), k)).toList(), term.type(), term.amount(), rates, x, y,
           term.values() == null ? null : term.values().stream().map(ProductPricingCompatibility::copyList).toList(),
           term.match(), list(term.conditions()).stream().map(condition).toList(), list(term.choiceKeys()).stream().map(k -> choice.apply(term.groupKey(), k)).toList(), mappedPricing,
           term.optionTarget() == null ? null : new OptionTarget(question.apply(term.optionTarget().groupKey()),
-              choice.apply(term.optionTarget().groupKey(), term.optionTarget().choiceKey())), term.role(), multipliers));
+              choice.apply(term.optionTarget().groupKey(), term.optionTarget().choiceKey())), term.role(), multipliers, adjustments,
+          list(term.branches()).isEmpty() ? List.of() : remap(new Definition(definition.schemaVersion(),
+              definition.schemaFingerprint(), term.branches(), Map.of()), source, target, fingerprint).terms()));
     }
     Map<String, Answer> answers = new LinkedHashMap<>();
     map(definition.testAnswers()).forEach((q, answer) -> {
@@ -209,6 +219,9 @@ public final class ProductPricingCompatibility {
       answers.put(question.apply(q), new Answer(list(answer.choices()).stream().map(k -> choice.apply(q, k)).toList(), fields));
     });
     return new Definition(definition.schemaVersion(), fingerprint, terms, answers);
+  }
+  private static AdjustmentValue copyAdjustmentValue(AdjustmentValue value) {
+    return value == null ? null : new AdjustmentValue(value.operation(), value.value(), value.useInput());
   }
   private static Axis copyAxis(Axis axis, String fieldKey) {
     return new Axis(fieldKey, axis.operator(), copyList(axis.headers()), copyList(axis.operators()), axis.outsidePolicy());

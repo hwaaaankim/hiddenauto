@@ -194,9 +194,12 @@
 .pms .pm-answer-choice { min-width: 0; border: 1px solid var(--line, #dde4ee); background: var(--pms-panel, #fff); padding: 12px; border-radius: 8px; }
 .pms .pm-answer-choice:has(input:checked) { border-color: var(--blue, #245bd6); background: var(--blue-soft, #f1f5ff); box-shadow: inset 0 0 0 1px var(--blue, #245bd6); }
 .pms .pm-answer-choice:focus-within { outline: 2px solid var(--blue, #245bd6); outline-offset: 2px; }
-.pms .pm-answer-choice > .pms-check { display: flex; width: 100%; min-height: 32px; margin: 0; padding: 0; align-items: flex-start; gap: 10px; cursor: pointer; }
-.pms .pm-answer-choice > .pms-check input { flex: 0 0 auto; margin-top: 3px; }
-.pms .pm-answer-choice > .pms-check span { min-width: 0; overflow-wrap: anywhere; }
+.pms .pm-answer-choice > .pms-check { display: flex; width: 100%; max-width: none; min-height: 40px; margin: 0; padding: 8px 12px; align-items: center; justify-content: center; gap: 10px; cursor: pointer; border: 0; border-radius: 0; background: transparent; box-shadow: none; text-align: center; }
+.pms .pm-answer-choice > .pms-check input { flex: 0 0 auto; margin: 0; align-self: center; }
+.pms .pm-answer-choice > .pms-check span { min-width: 0; overflow-wrap: anywhere; line-height: 1.5; text-align: center; }
+.pms .pm-answer-choice:not(:has(.pm-media)) { display: flex; align-items: center; padding: 0; min-height: 42px; }
+.pms .pm-answer-choice > .pms-check:has(input:checked) { border: 0; background: transparent; }
+.pms .pm-answer-choice:has(input:disabled) { opacity: .62; }
 .pms .pm-answer-choice .pm-media { margin-top: 10px; }
 .pms .pm-answer-choice .pm-media-images { display: grid; overflow: visible; grid-template-columns: repeat(auto-fit, minmax(min(100%, 100px), 1fr)); }
 .pms .pm-answer-choice .pm-media-images > button { width: 100%; height: 160px; }
@@ -210,3 +213,9 @@
   .pms .pm-answer-choices.has-media { grid-template-columns: minmax(0, 1fr); }
   .pms .pm-answer-choice .pm-media-images > button { height: 180px; }
 }
+.pms .pm-customer-price-term { padding: 14px 0; border-bottom: 1px solid var(--line, #dde4ee); line-height: 1.75; }
+.pms .pm-customer-price-term > p { margin: 0 0 8px; }
+.pms .pm-customer-adjustment-results { list-style: none; padding: 0 0 0 14px; margin: 12px 0; border-left: 3px solid #82a4df; }
+.pms .pm-customer-adjustment-results > li { margin: 12px 0; }
+.pms .pm-customer-adjustment-results small { display: block; margin-top: 4px; }
+.pms .pm-customer-adjustment-results p { margin: 6px 0 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }

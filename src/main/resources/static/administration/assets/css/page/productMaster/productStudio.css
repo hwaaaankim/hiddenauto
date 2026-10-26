@@ -2805,3 +2805,11 @@
   font-weight: 500;
 }
 .pms .pm-question-asset-summary { display: block; margin: 4px 0 10px; line-height: 1.6; }
+
+/* Selectable controls keep one border, room around the control and a centered caption. */
+.pms .pms-check-grid > label.pms-check {
+  min-height: 38px; padding: 8px 12px; gap: 9px; align-items: center; justify-content: center;
+  line-height: 1.5; text-align: center;
+}
+.pms .pms-check-grid > label.pms-check:has(input:disabled) { color: var(--muted); background: #f5f7fa; cursor: not-allowed; }
+.pms .pms-check-grid > label.pms-check:has(input:disabled):has(input:checked) { background: var(--blue-soft); }

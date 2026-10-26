@@ -87,7 +87,12 @@ public final class ProductPricingGraph {
       for (String child : list(link.termKeys())) reachable(child, terms, reached);
   }
 
-  public record Raw(boolean applied, BigDecimal amount, String explanation) {}
+  public record Raw(boolean applied, BigDecimal amount, String explanation,
+      BigDecimal baseAmount, List<AdjustmentResult> adjustments) {
+    public Raw(boolean applied, BigDecimal amount, String explanation) {
+      this(applied, amount, explanation, amount, List.of());
+    }
+  }
   public record Outcome(List<TermResult> terms, List<String> errors) {}
 
   public static Outcome calculate(List<Term> terms, Map<String, QuestionState> states,
@@ -126,7 +131,7 @@ public final class ProductPricingGraph {
       TermResult result;
       if (!source.applied()) {
         result = new TermResult(key, term.name(), false, BigDecimal.ZERO, source.explanation(),
-            role(term), source.amount(), List.of());
+            role(term), source.baseAmount(), List.of(), source.adjustments());
       } else try {
         require(source.amount() != null, source.explanation());
         BigDecimal amount = source.amount();
@@ -151,11 +156,11 @@ public final class ProductPricingGraph {
             role(term) == TermRole.FACTOR ? "계산한 배율이 허용 범위를 벗어났습니다." : "배율 적용 후 항 금액이 허용 범위를 벗어났습니다.");
         if (role(term) == TermRole.PRICE) amount = amount.setScale(2, RoundingMode.HALF_UP);
         result = new TermResult(key, term.name(), true, amount, explanation,
-            role(term), source.amount(), List.copyOf(multipliers));
+            role(term), source.baseAmount(), List.copyOf(multipliers), source.adjustments());
       } catch (IllegalArgumentException ex) {
         errors.add(term.name() + ": " + ex.getMessage());
         result = new TermResult(key, term.name(), true, null, ex.getMessage(), role(term),
-            source.amount(), List.copyOf(multipliers));
+            source.baseAmount(), List.copyOf(multipliers), source.adjustments());
       } finally { visiting.remove(key); }
       visiting.remove(key);
       results.put(key, result);

@@ -299,3 +299,77 @@
   .pms.pm-factor-editor .pms-dialog-foot { flex-wrap: wrap; }
   .pms.pm-factor-editor [data-factor-status] { flex-basis: 100%; }
 }
+
+/* Choice cards and guidance use a single readable surface in the price workflow. */
+.pms .pm-price-type-choice { grid-template-columns: 18px minmax(0, 1fr); padding: 15px 16px; gap: 9px 12px; align-items: center; line-height: 1.65; }
+.pms .pm-price-type-choice > input { margin: 0; align-self: center; width: 16px; height: 16px; }
+.pms .pm-price-type-choice > strong { min-width: 0; font-size: 13px; line-height: 1.55; }
+.pms .pm-price-type-choice > small { margin: 0; line-height: 1.7; }
+.pms .pm-factor-modes .pm-price-type-choice { align-content: center; }
+.pms .pm-factor-mode-example { color: #244d91; font-variant-numeric: tabular-nums; }
+.pms .pm-factor-context, .pms .pm-factor-recommendation { padding: 14px 16px; margin: 12px 0; border-left: 3px solid #82a4df; background: #f3f7ff; line-height: 1.8; overflow-wrap: anywhere; }
+.pms .pm-factor-context > p, .pms .pm-factor-recommendation > p { margin: 6px 0 0; }
+.pms .pm-factor-unavailable { margin: 12px 0; padding: 12px 14px; background: #f7f8fa; line-height: 1.7; color: var(--muted); }
+.pms .pm-factor-unavailable summary { cursor: pointer; }
+.pms .pm-factor-unavailable p { margin: 8px 0 0; }
+.pms .pm-price-axis-selection { margin-top: 10px; line-height: 1.8; }
+.pms .pm-price-coverage-hint { padding: 12px 14px; margin: 12px 0; background: #f3f7ff; border-left: 3px solid #82a4df; line-height: 1.75; }
+.pms .pm-price-coverage-hint.needs-review { background: #fff8eb; border-left-color: #d0a154; }
+.pms .pm-price-coverage-hint.is-covered { background: #f1f8f3; border-left-color: #74a485; }
+.pms .pm-price-coverage-hint p { margin: 7px 0 0; }
+.pms .pm-price-axis-policy > .pms-actions { margin-top: 12px; }
+@media (max-width: 640px) {
+  .pms .pm-price-type-choice { padding: 13px 14px; }
+  .pms .pm-factor-context, .pms .pm-factor-recommendation { padding: 12px 14px; }
+  .pms .pm-price-axis-policy > .pms-actions > button { flex: 1 1 180px; white-space: normal; height: auto; }
+}
+.pms .pm-factor-context-formula { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 10px 0; color: #244d91; }
+.pms .pm-factor-context > small { display: block; line-height: 1.7; }
+.pms .pm-factor-mode-sources { overflow-wrap: anywhere; }
+.pms .pm-batch-workflow { margin: 16px 0; padding: 16px; background: #f6f8fc; border-radius: 6px; line-height: 1.75; }
+.pms .pm-batch-workflow > h3 { margin: 16px 0 8px; }
+.pms .pm-batch-workflow > p { margin: 8px 0; }
+.pms .pm-batch-formula-explanation > p { margin: 6px 0 0; overflow-wrap: anywhere; }
+.pms .pm-batch-workflow > .pms-actions { margin: 14px 0; flex-wrap: wrap; gap: 10px; }
+.pms .pm-batch-workflow [data-batch-layout][aria-pressed="true"] { color: #244d91; border-color: #769bd1; background: #edf4ff; }
+.pms .pm-batch-work-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 10px; margin: 14px 0; padding: 0; list-style: none; }
+.pms .pm-batch-work-list > li { margin: 0; min-width: 0; }
+.pms .pm-batch-work-list button { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 42px; height: auto; padding: 10px 12px; white-space: normal; line-height: 1.6; text-align: center; }
+.pms .pm-batch-work-list [aria-current="step"] { background: #edf4ff; border-color: #769bd1; color: #244d91; font-weight: 600; }
+.pms .pm-batch-limit-guide { padding: 14px 16px; background: #fff8eb; border-left: 3px solid #d0a154; line-height: 1.8; }
+.pms .pm-batch-limit-guide > p { margin: 8px 0; }
+.pms [data-batch-progress] { flex: 1 1 240px; min-width: 0; line-height: 1.6; overflow-wrap: anywhere; }
+.pms [data-batch-progress]:empty { display: none; }
+@media (max-width: 640px) {
+  .pms .pm-batch-workflow, .pms .pm-batch-limit-guide { padding: 12px 14px; }
+  .pms .pm-batch-workflow > .pms-actions > button { flex: 1 1 150px; white-space: normal; height: auto; }
+}
+/* A conditional calculation belongs to its existing price term, in the shown order. */
+.pms .pm-price-adjustments { margin: 16px 0; padding: 14px 16px; background: #f3f7ff; border-left: 3px solid #82a4df; line-height: 1.75; }
+.pms .pm-price-adjustments > h4 { margin: 0 0 8px; font-size: 14px; }
+.pms .pm-price-adjustments > ol { padding: 0; margin: 14px 0; list-style: none; }
+.pms .pm-price-adjustments > ol > li { padding: 14px 0; border-top: 1px solid #d9e3f2; }
+.pms .pm-price-adjustments > ol > li > header { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+.pms .pm-price-adjustments > ol > li > header span { color: var(--muted); font-size: 12px; }
+.pms .pm-price-adjustments details { margin: 8px 0 12px; }
+.pms .pm-price-adjustments details > ul { padding-left: 20px; margin: 8px 0; }
+.pms .pm-price-adjustments .pms-actions { justify-content: flex-start; flex-wrap: wrap; gap: 8px; }
+.pms .pm-price-adjustment-result { padding: 10px 0; border-top: 1px solid #d9e3f2; }
+.pms .pm-price-adjustment-result > small { display: block; margin-top: 4px; }
+.pms .pm-price-adjustment-result > p { margin: 6px 0 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.pms .pm-adjustment-order, .pms .pm-adjustment-preview { padding: 14px 16px; margin: 14px 0; line-height: 1.8; background: #f3f7ff; border-left: 3px solid #82a4df; overflow-wrap: anywhere; }
+.pms .pm-adjustment-order p, .pms .pm-adjustment-preview p { margin: 6px 0; }
+.pms .pm-adjustment-range-rows { display: grid; gap: 14px; margin: 14px 0; }
+.pms .pm-adjustment-range-rows > article { padding: 14px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.pms .pm-adjustment-range-rows .pms-form-grid { margin-top: 12px; align-items: end; }
+.pms.pm-adjustment-editor .pms-dialog-foot { flex-wrap: wrap; gap: 10px; }
+@media (max-width: 640px) {
+  .pms .pm-price-adjustments, .pms .pm-adjustment-order, .pms .pm-adjustment-preview { padding: 12px 14px; }
+  .pms .pm-price-adjustments .pms-actions > button { height: auto; white-space: normal; }
+  .pms .pm-adjustment-range-rows .pms-form-grid { grid-template-columns: minmax(0, 1fr); }
+}
+.pms .pm-factor-context .pm-adjustment-order { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 10px 0; padding: 0; border: 0; background: transparent; color: #244d91; }
+.pms .pm-adjustment-range-rows > article { border: 0; border-bottom: 1px solid var(--line); background: transparent; }
+
+/* Conditional tables and same-group relation authoring. */
+.pm-price-branch-editor .pm-branch-case{display:grid;gap:12px;padding:16px;border:1px solid #dbe2ea;border-radius:12px;margin-top:14px}.pm-price-branch-editor .pms-check-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.pm-price-branch-editor label,.pm-related-editor label{display:grid;gap:8px}.pm-price-branch-editor label.pms-check{display:flex;align-items:center;gap:10px;padding:10px}.pm-related-editor .pms-dialog-body{display:grid;gap:14px}.pm-related-editor input,.pm-related-editor select{width:100%;min-height:40px}

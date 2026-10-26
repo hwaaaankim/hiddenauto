@@ -35,7 +35,7 @@
   };
   const opt = (value, text, selected) => `<option value="${e(value)}" ${String(value) === String(selected) ? "selected" : ""}>${e(text)}</option>`;
   const field = (text, attr, value, more = "") => `<label><span>${e(text)}</span><input ${attr} value="${e(value)}" ${more}></label>`;
-  const api = (id, suffix = "", method = "GET", data) => S.request(`/products/${id}/pricing${suffix}`, method, data);
+  const api = (id, suffix = "", method = "GET", data, signal) => S.request(`/products/${id}/pricing${suffix}`, method, data, signal);
   // Mirror the server's reference rule; full structure/path validation still runs on the server.
   S.pricingParticipation = (groups, terms) => groups.filter(g => g.control === "NUMBER").map(group => {
     const fields = (group.bundles || []).flatMap(b => b.fields || []), referenced = new Set();
@@ -43,6 +43,7 @@
       if (term.groupKey === group.groupKey) (term.fieldKeys || []).forEach(key => referenced.add(key));
       if (term.optionPricing?.groupKey === group.groupKey) referenced.add(term.optionPricing.axis?.fieldKey);
       (term.conditions || []).filter(c => c.groupKey === group.groupKey).forEach(c => referenced.add(c.fieldKey));
+      (term.adjustments || []).filter(a => a.groupKey === group.groupKey).forEach(a => referenced.add(a.axis?.fieldKey));
     }
     return { group, fields, used: fields.filter(f => referenced.has(f.key)) };
   });
@@ -133,7 +134,7 @@
       });
     }
     function diagnosticHtml(validation) {
-      return `<p><strong>${validation.valid && validation.exhaustive ? "계산 오류 검사 완료" : "수정이 필요한 오류가 있습니다"}</strong> · 가격 경로 ${e(validation.scenarios)}개 확인${validation.exhaustive ? "" : " · 검사 미완료"}</p>${validation.issues.length ? `<ul class="pm-price-diagnostic-list">${validation.issues.map(issue => `<li><strong>${issue.severity === "ERROR" ? "오류" : "확인 안내"} · ${e(issue.location)}</strong><p>${e(issue.message)}</p>${issue.target ? `<button type="button" data-diagnostic-target="${e(issue.target)}">해당 설정 수정</button>` : ""}</li>`).join("")}</ul>` : '<p>검사한 허용 입력 경로에서 조건 누락·중복 가산·계산 범위 오류가 발견되지 않았습니다.</p>'}`;
+      return `<p><strong>${validation.valid && validation.exhaustive ? "계산 오류 검사 완료" : "수정이 필요한 오류가 있습니다"}</strong> · 검사한 대표 상태 ${e(validation.scenarios)}개${validation.exhaustive ? "" : " · 검사 미완료"}</p>${validation.issues.length ? `<ul class="pm-price-diagnostic-list">${validation.issues.map(issue => `<li data-diagnostic-severity="${e(issue.severity)}"><strong>${issue.severity === "ERROR" ? "오류" : issue.severity === "WARNING" ? "확인 필요" : "안내"} · ${e(issue.location)}</strong><p>${e(issue.message)}</p>${issue.target ? `<button type="button" data-diagnostic-target="${e(issue.target)}">해당 설정 수정</button>` : ""}</li>`).join("")}</ul>` : '<p>허용 입력과 연결 관계를 검증한 결과, 조건 누락·중복 가산·계산 범위 오류가 발견되지 않았습니다.</p>'}`;
     }
     async function diagnose() {
       const signature = JSON.stringify(definition), draft = S.copy(definition);
@@ -153,7 +154,7 @@
     function openBatch(selectedGroup) {
       S.pricingBatch.open({ groups: pricingGroups(), definition, selectedGroup, summary,
         processUrl: `/admin/product-master/products/${product.id}/process`,
-        diagnose: context.ready ? terms => api(product.id, '/diagnose?draft=true', 'POST', { definition: { ...S.copy(definition), terms, schemaFingerprint: context.schemaFingerprint }, answers: {} }) : null,
+        diagnose: context.ready ? (terms, signal) => api(product.id, '/diagnose?draft=true', 'POST', { definition: { ...S.copy(definition), terms, schemaFingerprint: context.schemaFingerprint }, answers: {} }, signal) : null,
         edit: (term, onDraft, scope) => editTerm(null, "", "", term, onDraft, scope),
         apply: terms => { definition.terms = terms; changed(); renderTerms(); renderGroups(); S.toast("일괄 설정을 항에 반영했습니다. 실제 입력으로 테스트한 뒤 저장해 주세요."); }
       });
@@ -192,21 +193,154 @@
         return `${label(q)} · ${label(f)}: ${c.lower ?? c.text ?? ""} ${{ EQ: "일치", NE: "불일치", LE: "이하", LT: "미만", GE: "이상", GT: "초과" }[c.operator] || c.operator}`;
       }
     function applyTerms(next) { definition.terms = next; changed(); renderTerms(); renderGroups(); }
+    function branchEditor(owner) {
+      const original = JSON.stringify(definition.terms), draft = S.copy(owner);
+      const questions = process().questions || [], position = questions.findIndex(q => q.key === owner.groupKey);
+      const sources = questions.slice(0, position).filter(q => q.control === 'RADIO' && q.choices?.length);
+      if (!sources.length) { if(draft.branches?.length) return S.confirm('기준 질문이 없습니다. 조건표 연결을 해제하고 이 항의 기본 단독 가격표로 전환하시겠습니까? 전환 후 표와 전체 가격을 다시 검증해야 합니다.').then(ok=>{if(ok){draft.branches=[];applyTerms(definition.terms.map(t=>t.key===owner.key?draft:t));}}); return S.toast('이 사이즈 질문 앞에 가격표를 구분할 단일선택 질문을 먼저 등록하세요.'); }
+      let sourceKey = draft.branches?.[0]?.conditions?.[0]?.groupKey || sources[0].key;
+      const missingSource=!sources.some(q=>q.key===sourceKey);if(missingSource){sourceKey=sources[0].key;draft.branches.forEach(b=>b.conditions=[]);}
+      draft.branches = draft.branches || [];
+      const d = S.dialog('한 항 안의 조건별 가격표 · ' + owner.name, '', { foot: '<button type="button" data-branch-single>단독 가격표로 전환</button><button type="button" data-branch-add>조건표 추가</button><button type="button" data-branch-apply class="primary">전체 검사 후 현재 항에 반영</button>' });
+      const body = S.$('.pms-dialog-body', d);
+      const initialBranch=JSON.stringify(draft);S.priceTable.guardClose(d, () => JSON.stringify(draft) !== initialBranch);
+      d.classList.add('pm-price-branch-editor');
+      const source = () => sources.find(q => q.key === sourceKey);
+      function render() {
+        body.innerHTML = `<p>프로세스 분기는 질문 표시·허용 입력을 정합니다. 여기서는 사이즈 질문 하나의 금액을 어떤 표로 계산할지 정합니다. 현재 허용된 선택마다 정확히 한 표가 연결되어야 합니다.</p><label>앞의 기준 질문<select data-branch-source>${sources.map(q => `<option value="${e(q.key)}" ${q.key === sourceKey ? 'selected' : ''}>${e(label(q))}</option>`).join('')}</select></label><div data-branch-error role="alert"></div>${draft.branches.map((b,i) => `<section class="pm-branch-case"><strong>${i+1}. ${e(b.name)}</strong><div class="pms-check-grid">${source().choices.map(c=>`<label class="pms-check"><input type="checkbox" data-branch-choice="${i}" value="${e(c.key)}" ${(b.conditions?.[0]?.choiceKeys || []).includes(c.key)?'checked':''}>${e(label(c))}</label>`).join('')}</div><button type="button" data-branch-table="${i}">엑셀·가격표 수정</button><button type="button" data-branch-remove="${i}">이 조건표 삭제</button></section>`).join('')}`;
+        S.$('[data-branch-source]',body).onchange = async event => {
+          if (draft.branches.length && !await S.confirm('기준 질문을 바꾸면 기존 조건표의 선택 연결을 비웁니다. 계속할까요?')) {event.target.value=sourceKey;return;}
+          sourceKey=event.target.value;draft.branches.forEach(b=>b.conditions=[]);render();
+        };
+        S.$$('[data-branch-choice]',body).forEach(input=>input.onchange=()=>{
+          const row=Number(input.dataset.branchChoice), choices=S.$$(`[data-branch-choice="${row}"]:checked`,body).map(x=>x.value);
+          draft.branches[row].conditions=[{groupKey:sourceKey,fieldKey:null,operator:'EQ',choiceKeys:choices,text:null,lower:null,upper:null,lowerInclusive:true,upperInclusive:true}];
+        });
+        S.$$('[data-branch-remove]',body).forEach(b=>b.onclick=()=>{draft.branches.splice(Number(b.dataset.branchRemove),1);render();});
+        S.$$('[data-branch-table]',body).forEach(button=>button.onclick=()=>{
+          const index=Number(button.dataset.branchTable), branch=draft.branches[index];
+          editTerm(null,'','',branch,next=>{next.conditions=branch.conditions;next.branches=[];next.adjustments=[];next.multipliers=[];draft.branches[index]=next;render();},{locked:true});
+        });
+      }
+      S.$('[data-branch-single]',d).onclick=async()=>{if(!await S.confirm('조건표 연결을 해제하고 이 항의 기본 가격표를 사용합니다. 조회·수정에서 금액을 확인하고 전체 검증 후 저장하세요. 계속할까요?'))return;if(JSON.stringify(definition.terms)!==original)return S.toast('가격식이 변경되었습니다. 다시 여세요.');draft.branches=[];applyTerms(definition.terms.map(t=>t.key===owner.key?draft:t));d.close();};
+      S.$('[data-branch-add]',d).onclick=()=>{
+        if(draft.branches.length>=30)return S.toast('조건표는 최대 30개입니다.');
+        const b=S.copy(owner);b.key=key();b.name='조건표 '+(draft.branches.length+1);b.conditions=[];b.match='ALL';b.optionTarget=null;b.optionPricing=null;b.branches=[];b.multipliers=[];b.adjustments=[];draft.branches.push(b);render();
+      };
+      S.$('[data-branch-apply]',d).onclick=event=>S.run(event.currentTarget,async()=>{
+        try {
+          if(!draft.branches.length)throw Error('조건표를 한 개 이상 추가하세요.');
+          const counts=new Map(source().choices.map(c=>[c.key,0]));
+          draft.branches.forEach(b=>{const choices=b.conditions?.[0]?.choiceKeys || [];if(!choices.length)throw Error(b.name+': 연결할 선택지를 고르세요.');choices.forEach(c=>counts.set(c,(counts.get(c)||0)+1));});
+          const bad=source().choices.filter(c=>counts.get(c.key)!==1);
+          if(bad.length)S.$('[data-branch-error]',body).textContent='누락·중복 후보: '+bad.map(label).join(', ')+'. 실제 프로세스에서 허용되는 경로를 서버에서 확인합니다.';
+          if(JSON.stringify(definition.terms)!==original)throw Error('작성 중 가격식이 변경되었습니다. 다시 여세요.');
+          const checkedDraft=JSON.stringify(draft);const next=definition.terms.map(t=>t.key===owner.key?S.copy(draft):t);
+          const validation=await api(product.id,'/diagnose?draft=true','POST',{definition:{...S.copy(definition),terms:next,schemaFingerprint:context.schemaFingerprint},answers:{}});
+          if(!d.open)return;
+          if(!validation.valid || validation.exhaustive===false)throw Error((validation.issues || []).filter(i=>i.severity==='ERROR').map(i=>i.message).join(' / ') || '전체 검증을 완료하지 못했습니다.');
+          if(JSON.stringify(definition.terms)!==original)throw Error('검사 중 가격식이 변경되었습니다. 다시 여세요.');
+          if(JSON.stringify(draft)!==checkedDraft)throw Error('검사 중 조건표가 변경되었습니다. 현재 내용으로 다시 검사하세요.');
+          applyTerms(next);d.close();
+        }catch(error){S.$('[data-branch-error]',body).textContent=error.message;}
+      });
+      render();
+    }
+    function relatedEditor(owner, adjustmentKey = null) {
+      const existingRelated = owner.adjustments?.find(a => a.key === adjustmentKey);
+      if(F.isFactor(owner))return;
+      const base = group(owner.groupKey), used = new Set(owner.fieldKeys || []);
+      (owner.adjustments || []).forEach(a=>{if(a.key!==adjustmentKey && a.groupKey===owner.groupKey)used.add(a.axis?.fieldKey);});
+      try { F.closure(definition.terms,owner).filter(t=>t.key!==owner.key && t.groupKey===owner.groupKey).forEach(t=>(t.fieldKeys || []).forEach(f=>used.add(f))); } catch { return S.toast('기존 연결의 삭제된 참조를 먼저 수정하세요.'); }
+      const remaining = (base?.bundles || []).flatMap(b=>b.fields || []).filter(f=>!used.has(f.key));
+      if(!remaining.length)return S.toast('이 그룹의 남은 숫자 입력이 없습니다. 기존 연관식을 수정하세요.');
+      const original=JSON.stringify(definition.terms), d=S.dialog('연관식 추가 · '+owner.name,'',{foot:'<button type="button" data-related-next class="primary">다음 · 연관식 설정</button>'});
+      d.classList.add('pm-related-editor');
+      const body=S.$('.pms-dialog-body',d);
+      body.innerHTML=`<p>현재 항에 사용하지 않은 같은 그룹의 입력만 연결합니다. 기본 표 → 연관식 → 기존 수량·배율 순서로 계산합니다.</p><label>남은 입력<select data-related-field>${remaining.map(f=>`<option value="${e(f.key)}">${e(label(f))}</option>`).join('')}</select></label><label>적용 방식<select data-related-mode><option value="RAW">고객 입력값 그대로 적용</option><option value="FIXED">조건 없이 고정 금액·배율 적용</option><option value="RANGE">입력 구간을 나누어 +금액·×배율 적용</option></select></label><label>연산<select data-related-operation><option value="ADD">더하기</option><option value="MULTIPLY">곱하기</option></select></label><label>고정 금액 또는 배율<input data-related-value type="number" min="0" step="0.000001" placeholder="고정 방식일 때 직접 입력"></label><p data-related-error role="alert"></p>`;
+      if(existingRelated) { S.$('[data-related-field]',body).value=existingRelated.axis.fieldKey; S.$('[data-related-mode]',body).value=existingRelated.above.useInput?'RAW':'FIXED'; S.$('[data-related-operation]',body).value=existingRelated.above.operation; S.$('[data-related-value]',body).value=existingRelated.above.value; }
+      const updateRelatedMode=()=>{const mode=S.$('[data-related-mode]',body).value;S.$('[data-related-value]',body).disabled=mode!=='FIXED';S.$('[data-related-value]',body).closest('label').hidden=mode!=='FIXED';S.$('[data-related-operation]',body).disabled=mode==='RANGE';};S.$('[data-related-mode]',body).onchange=updateRelatedMode;updateRelatedMode();
+      const relatedSignature=()=>JSON.stringify(['[data-related-field]','[data-related-mode]','[data-related-operation]','[data-related-value]'].map(selector=>S.$(selector,body).value));
+      const initialRelated=relatedSignature();S.priceTable.guardClose(d,()=>relatedSignature()!==initialRelated);
+      S.$('[data-related-next]',d).onclick=event=>S.run(event.currentTarget,async()=>{
+        try {
+          const checkedRelated=relatedSignature(), field=S.$('[data-related-field]',body).value, mode=S.$('[data-related-mode]',body).value;
+          if(JSON.stringify(definition.terms)!==original)throw Error('가격식이 변경되었습니다. 다시 여세요.');
+          const subset=[{...base,bundles:base.bundles.map(b=>({...b,fields:b.fields.filter(f=>f.key===field)})).filter(b=>b.fields.length)}];
+          if(mode==='RANGE') {
+            F.openAdjustment({term:owner,terms:definition.terms,groups:subset,sameGroupOnly:true,process:process(),diagnose:(terms,signal)=>api(product.id,'/diagnose?draft=true','POST',{definition:{...S.copy(definition),terms,schemaFingerprint:context.schemaFingerprint},answers:{}},signal),apply:terms=>{if(JSON.stringify(definition.terms)!==original)throw Error('작성 중 가격식이 변경되었습니다.');applyTerms(terms);},onTest:(term,terms,options)=>testSingleTerm(term,terms,options)});
+            d.close();return;
+          }
+          const operation=S.$('[data-related-operation]',body).value;
+          const value=mode==='RAW'?'1':S.priceTable.money(S.$('[data-related-value]',body).value,operation==='ADD'?2:6);
+          const a={sameGroupOnly:true,key:adjustmentKey || key(),name:label(remaining.find(f=>f.key===field))+' 연관식',groupKey:owner.groupKey,axis:{fieldKey:field,operator:'LE',headers:['0']},values:[{operation,value,useInput:mode==='RAW'}],above:{operation,value,useInput:mode==='RAW'}};
+          const next=definition.terms.map(t=>t.key===owner.key?{...S.copy(t),adjustments:adjustmentKey?(t.adjustments || []).map(item=>item.key===adjustmentKey?a:item):[...(t.adjustments || []),a]}:t);
+          const validation=await api(product.id,'/diagnose?draft=true','POST',{definition:{...S.copy(definition),terms:next,schemaFingerprint:context.schemaFingerprint},answers:{}});
+          if(!d.open)return;
+          if(!validation.valid || validation.exhaustive===false)throw Error((validation.issues || []).filter(i=>i.severity==='ERROR').map(i=>i.message).join(' / ') || '전체 검증 미완료');
+          if(JSON.stringify(definition.terms)!==original)throw Error('검사 중 가격식이 변경되었습니다.');
+          if(relatedSignature()!==checkedRelated)throw Error('검사 중 연관식 입력이 변경되었습니다. 다시 검사하세요.');
+          applyTerms(next);d.close();
+        }catch(error){S.$('[data-related-error]',body).textContent=error.message;}
+      });
+    }
     function factorEditor(term, linkKey = null) {
       const original = JSON.stringify(definition.terms);
       return F.open({ term, terms: definition.terms, groups: context.groups, process: process(), linkKey,
-        diagnose: context.ready ? terms => api(product.id, '/diagnose?draft=true', 'POST', { definition: { ...S.copy(definition), terms, schemaFingerprint: context.schemaFingerprint }, answers: {} }) : null,
+        diagnose: context.ready ? (terms, signal) => api(product.id, '/diagnose?draft=true', 'POST', { definition: { ...S.copy(definition), terms, schemaFingerprint: context.schemaFingerprint }, answers: {} }, signal) : null,
         apply: terms => { if (JSON.stringify(definition.terms) !== original) throw Error('배율 작성 중 계산식이 변경되었습니다. 현재 항을 다시 확인해 주세요.'); applyTerms(terms); S.toast('배율 연결을 반영했습니다. 실제 입력으로 계산한 뒤 저장하세요.'); },
-        onTest: context.ready ? (term, terms) => testSingleTerm(term, terms) : null });
+        onTest: context.ready ? (term, terms, options) => testSingleTerm(term, terms, options) : null });
+    }
+    function adjustmentEditor(term, adjustmentKey = null) {
+      const existing = term?.adjustments?.find(a=>a.key===adjustmentKey);
+      if(existing && [...existing.values,existing.above].some(v=>v.useInput)) return relatedEditor(term,adjustmentKey);
+      if (!term || F.isFactor(term)) return;
+      const original = JSON.stringify(definition.terms);
+      return F.openAdjustment({ term, terms: definition.terms, groups: existing?.sameGroupOnly ? context.groups.filter(g=>g.groupKey===term.groupKey).map(g=>({...g,bundles:g.bundles.map(b=>({...b,fields:b.fields.filter(f=>f.key===existing.axis.fieldKey)})).filter(b=>b.fields.length)})) : context.groups, process: process(), adjustmentKey, sameGroupOnly: !!existing?.sameGroupOnly,
+        diagnose: context.ready ? (terms, signal) => api(product.id, '/diagnose?draft=true', 'POST', { definition: { ...S.copy(definition), terms, schemaFingerprint: context.schemaFingerprint }, answers: {} }, signal) : null,
+        apply: terms => { if (JSON.stringify(definition.terms) !== original) throw Error('조건별 계산을 작성하는 동안 계산식이 변경되었습니다. 현재 항을 다시 확인해 주세요.'); applyTerms(terms); S.toast('이 항 안에 조건별 계산을 반영했습니다. 실제 입력으로 계산한 뒤 저장하세요.'); },
+        onTest: context.ready ? (term, terms, options) => testSingleTerm(term, terms, options) : null });
+    }
+    const intermediateMoney = value => value == null ? '계산 대기' : decimalText(value, 100) + '원';
+    function adjustmentValueText(value) {
+      if (!value || value.value == null) return '계산값 미입력';
+      if(value.useInput)return (value.operation==='ADD'?'＋ ':'× ')+'고객 입력값 × '+value.value;
+      return value.operation === 'ADD' ? '＋ ' + money(value.value) : value.operation === 'MULTIPLY' ? '× ' + F.valueText(value.value) : '계산 방식 확인 필요';
+    }
+    function adjustmentCards(term) {
+      if (F.isFactor(term) || !term.adjustments?.length) return '';
+      return `<section class="pm-price-adjustments"><h4>이 항 안의 조건별 계산</h4><p class="pms-help">기본 계산 결과 → 아래 순서의 조건별 더하기·곱하기 → 기존 배율·수량 연결 순서로 계산합니다. 별도 금액 항으로 합산되지 않습니다. 질문을 보여주거나 입력을 제한하는 프로세스 분기와는 별개의 가격 조건입니다.</p><ol>${term.adjustments.map((adjustment, index) => {
+        const source = group(adjustment.groupKey), field = source?.bundles?.flatMap(b => b.fields || []).find(f => f.key === adjustment.axis?.fieldKey), headers = adjustment.axis?.headers || [];
+        const rows = headers.map((bound, i) => `${S.priceTable.range({ ...adjustment.axis, outsidePolicy: 'ERROR' }, i)} → ${adjustmentValueText(adjustment.values?.[i])}`);
+        if (headers.length) rows.push(`${headers.at(-1)} ${S.priceTable.operator(adjustment.axis, headers.length - 1) === 'LE' ? '초과' : '이상'} → ${adjustmentValueText(adjustment.above)}`);
+        return `<li><header><strong>${index + 1}. ${e(adjustment.name)}</strong><span>${e(source?.label || '현재 구성에서 삭제된 그룹')} · ${e(field ? label(field) : '현재 구성에서 삭제된 입력')}</span></header><details><summary>입력 구간별 더하기·곱하기 ${rows.length}개 확인</summary><ul>${rows.map(row => `<li>${e(row)}</li>`).join('')}</ul></details><div class="pms-actions"><button type="button" data-adjustment-move="${e(adjustment.key)}" data-adjustment-owner="${e(term.key)}" data-direction="-1" aria-label="${e(adjustment.name)} 계산 순서 위로" ${index ? '' : 'disabled'}>↑ 위로</button><button type="button" data-adjustment-move="${e(adjustment.key)}" data-adjustment-owner="${e(term.key)}" data-direction="1" aria-label="${e(adjustment.name)} 계산 순서 아래로" ${index < term.adjustments.length - 1 ? '' : 'disabled'}>↓ 아래로</button><button type="button" data-adjustment-edit="${e(adjustment.key)}" data-adjustment-owner="${e(term.key)}">조건·계산 수정</button><button type="button" data-adjustment-remove="${e(adjustment.key)}" data-adjustment-owner="${e(term.key)}">이 조건 계산 삭제</button></div></li>`;
+      }).join('')}</ol><p class="pms-help">순서를 바꾸면 금액도 달라질 수 있습니다. 예: (100,000원 ＋ 30,000원) × 2 = 260,000원 / (100,000원 × 2) ＋ 30,000원 = 230,000원.</p></section>`;
     }
     function resultValue(row) { return row?.role === 'FACTOR' ? F.valueText(row.amount) : money(row.amount); }
     function breakdown(rows) {
-      return `<div class="pm-price-breakdown">${(rows || []).map(row => `<article class="${row.role === 'FACTOR' ? 'is-factor' : ''}"><div><strong>${e(row.name)}</strong>${row.role === 'FACTOR' ? S.badge('배율 · 별도 합산 안 함', 'blue') : ''}<small>${e(row.explanation)}</small>${(row.multipliers || []).length ? `<details><summary>원래 값과 배율 계산 근거</summary><p>원래 값: ${e(row.role === 'FACTOR' ? F.valueText(row.baseAmount) : money(row.baseAmount))}</p>${row.multipliers.map(link => `<p>${e(link.name)}: ${(link.terms || []).map(t => e(t.name) + ' ' + e(F.valueText(t.value))).join(link.aggregation === 'SUM' ? ' ＋ ' : ' × ')} → ${e(F.valueText(link.value))}</p>`).join('')}</details>` : ''}</div><span class="${row.applied ? '' : 'pm-muted'}">${row.applied ? e(resultValue(row)) : row.role === 'FACTOR' ? '현재 조건에서 미사용' : '적용 제외 · 0원'}</span></article>`).join('')}</div>`;
+      return `<div class="pm-price-breakdown">${(rows || []).map(row => `<article class="${row.role === 'FACTOR' ? 'is-factor' : ''}"><div><strong>${e(row.name)}</strong>${row.role === 'FACTOR' ? S.badge('배율 · 별도 합산 안 함', 'blue') : ''}<small>${e(row.explanation)}</small>${(row.adjustments || []).length || (row.multipliers || []).length ? `<details><summary>기본값·조건별 계산·배율 적용 순서 확인</summary><p>기본 계산 결과: ${e(row.role === 'FACTOR' ? F.valueText(row.baseAmount) : intermediateMoney(row.baseAmount))}</p>${(row.adjustments || []).map((adjustment, index) => `<section class="pm-price-adjustment-result"><strong>${index + 1}. ${e(adjustment.name)}</strong><small>입력 ${e(adjustment.input)} · ${e(adjustment.range || '')}</small><p>${e(intermediateMoney(adjustment.before))} ${e(adjustmentValueText(adjustment))} = ${e(intermediateMoney(adjustment.after))}</p></section>`).join('')}${(row.multipliers || []).map(link => `<p>이어서 × ${e(link.name)}: ${(link.terms || []).map(t => e(t.name) + ' ' + e(F.valueText(t.value))).join(link.aggregation === 'SUM' ? ' ＋ ' : ' × ')} → ${e(F.valueText(link.value))}</p>`).join('')}<p>이 항의 최종값: ${e(resultValue(row))}</p></details>` : ''}</div><span class="${row.applied ? '' : 'pm-muted'}">${row.applied ? e(resultValue(row)) : row.role === 'FACTOR' ? '현재 조건에서 미사용' : '적용 제외 · 0원'}</span></article>`).join('')}</div>`;
     }
     function renderTerms() {
-      S.$('[data-price-terms]', root).innerHTML = definition.terms.map((term, i) => `<article class="pm-price-term ${F.isFactor(term) ? 'is-factor' : ''}"><div class="pm-price-term-number">${i + 1}</div><div class="pm-price-term-copy"><header><strong>${e(term.name)}</strong>${S.badge(F.isFactor(term) ? '배율 전용 · 합계에 더하지 않음' : term.optionPricing ? '숫자 범위별 옵션 금액' : types[term.type], F.isFactor(term) ? 'blue' : '')}</header><p>${e(group(term.groupKey)?.label || '현재 구성에서 삭제된 그룹')} · ${e(summary(term))}</p>${term.optionTarget ? `<small>가격 대상: ${e(group(term.optionTarget.groupKey)?.label || term.optionTarget.groupKey)} · ${e(label(group(term.optionTarget.groupKey)?.choices?.find(c => c.key === term.optionTarget.choiceKey)))}</small>` : ''}${term.conditions?.length ? `<small>적용 조건 · ${term.match === 'ANY' ? '하나 이상 일치' : '모두 일치'}: ${term.conditions.map(c => e(conditionText(c))).join(term.match === 'ANY' ? ' 또는 ' : ' 그리고 ')}</small>` : ''}${F.isFactor(term) ? `<small>연결된 항: ${F.parents(definition.terms, term.key).map(t => e(t.name)).join(', ') || '없음 · 금액 항의 × 배율 연결에서 연결하세요'}</small>` : ''}<div class="pm-factor-links">${F.links(term).map(link => `<section><span>× <strong>${e(link.name)}</strong> · ${link.aggregation === 'SUM' ? '선택값의 합' : link.aggregation === 'PRODUCT' ? '선택값의 곱' : '조건에 맞는 값 1개'}</span><small>${link.termKeys.map(id => e(definition.terms.find(t => t.key === id)?.name || '삭제된 항')).join(' / ')}</small><div class="pms-actions"><button type="button" data-factor-edit="${e(term.key)}" data-factor-link="${e(link.key)}">연결 수정</button><button type="button" data-factor-unlink="${e(term.key)}" data-factor-link="${e(link.key)}">연결 해제</button></div></section>`).join('')}</div></div><div class="pms-actions"><button type="button" data-term-move="${i}" data-direction="-1" aria-label="${e(term.name)} 위로" ${i ? '' : 'disabled'}>↑</button><button type="button" data-term-move="${i}" data-direction="1" aria-label="${e(term.name)} 아래로" ${i < definition.terms.length - 1 ? '' : 'disabled'}>↓</button><button type="button" data-term-factor="${e(term.key)}">× 배율·수량 연결</button><button type="button" data-term-edit="${i}">조회·수정</button><button type="button" data-term-duplicate="${i}">복사해서 새 항</button><button type="button" data-term-remove="${i}" class="danger pm-icon-remove" aria-label="${e(term.name)} 항 삭제">×</button></div></article>`).join('') || '<div class="pms-empty">상단의 입력묶음 또는 ‘항 생성’을 눌러 금액 항을 만든 뒤 필요한 배율을 연결하세요.</div>';
+      S.$('[data-price-terms]', root).innerHTML = definition.terms.map((term, i) => `<article class="pm-price-term ${F.isFactor(term) ? 'is-factor' : ''}"><div class="pm-price-term-number">${i + 1}</div><div class="pm-price-term-copy"><header><strong>${e(term.name)}</strong>${S.badge(F.isFactor(term) ? '배율 전용 · 합계에 더하지 않음' : term.optionPricing ? '숫자 범위별 옵션 금액' : types[term.type], F.isFactor(term) ? 'blue' : '')}</header><p>${e(group(term.groupKey)?.label || '현재 구성에서 삭제된 그룹')} · ${e(summary(term))}</p>${term.optionTarget ? `<small>가격 대상: ${e(group(term.optionTarget.groupKey)?.label || term.optionTarget.groupKey)} · ${e(label(group(term.optionTarget.groupKey)?.choices?.find(c => c.key === term.optionTarget.choiceKey)))}</small>` : ''}${term.conditions?.length ? `<small>적용 조건 · ${term.match === 'ANY' ? '하나 이상 일치' : '모두 일치'}: ${term.conditions.map(c => e(conditionText(c))).join(term.match === 'ANY' ? ' 또는 ' : ' 그리고 ')}</small>` : ''}${F.isFactor(term) ? `<small>연결된 항: ${F.parents(definition.terms, term.key).map(t => e(t.name)).join(', ') || '없음 · 금액 항의 × 배율 연결에서 연결하세요'}</small>` : ''}${adjustmentCards(term)}<div class="pm-factor-links">${F.links(term).map(link => `<section><span>× <strong>${e(link.name)}</strong> · ${link.aggregation === 'SUM' ? '선택값의 합' : link.aggregation === 'PRODUCT' ? '선택값의 곱' : '조건에 맞는 값 1개'}</span><small>${link.termKeys.map(id => e(definition.terms.find(t => t.key === id)?.name || '삭제된 항')).join(' / ')}</small><div class="pms-actions"><button type="button" data-factor-edit="${e(term.key)}" data-factor-link="${e(link.key)}">연결 수정</button><button type="button" data-factor-unlink="${e(term.key)}" data-factor-link="${e(link.key)}">연결 해제</button></div></section>`).join('')}</div></div><div class="pms-actions"><button type="button" data-term-move="${i}" data-direction="-1" aria-label="${e(term.name)} 위로" ${i ? '' : 'disabled'}>↑</button><button type="button" data-term-move="${i}" data-direction="1" aria-label="${e(term.name)} 아래로" ${i < definition.terms.length - 1 ? '' : 'disabled'}>↓</button>${!F.isFactor(term) ? `<button type="button" data-term-adjustment="${e(term.key)}" ${(term.adjustments || []).length >= 20 ? 'disabled title="한 항의 조건별 계산은 최대 20개입니다. 아래 기존 조건을 수정하거나 삭제하세요."' : ''}>조건 연결(고급)</button>` : ''}${!F.isFactor(term) && term.type.startsWith('MATRIX') ? `<button type="button" data-term-branches="${e(term.key)}">조건별 가격표 ${term.branches?.length || 0}개</button>` : ''}${!F.isFactor(term) ? `<button type="button" data-term-related="${e(term.key)}" class="primary">연관식 추가</button>` : ''}<button type="button" data-term-factor="${e(term.key)}">수량·배율 연결(고급)</button><button type="button" data-term-edit="${i}">조회·수정</button><button type="button" data-term-duplicate="${i}">복사해서 새 항</button><button type="button" data-term-remove="${i}" class="danger pm-icon-remove" aria-label="${e(term.name)} 항 삭제">×</button></div></article>`).join('') || '<div class="pms-empty">상단의 입력묶음 또는 ‘항 생성’을 눌러 금액 항을 만든 뒤 필요한 배율을 연결하세요.</div>';
+      S.$$('[data-term-related]', root).forEach(b=>b.onclick=()=>relatedEditor(definition.terms.find(t=>t.key===b.dataset.termRelated)));
+      S.$$('[data-term-branches]', root).forEach(b => b.onclick = () => branchEditor(definition.terms.find(t => t.key === b.dataset.termBranches)));
       S.$$('[data-term-edit]', root).forEach(b => b.onclick = () => editTerm(Number(b.dataset.termEdit)));
       S.$$('[data-term-factor]', root).forEach(b => b.onclick = () => factorEditor(definition.terms.find(t => t.key === b.dataset.termFactor)));
+      S.$$('[data-term-adjustment]', root).forEach(b => b.onclick = () => { if (!b.disabled) return S.run(b, () => adjustmentEditor(definition.terms.find(t => t.key === b.dataset.termAdjustment))); });
+      S.$$('[data-adjustment-edit]', root).forEach(b => b.onclick = () => S.run(b, () => adjustmentEditor(definition.terms.find(t => t.key === b.dataset.adjustmentOwner), b.dataset.adjustmentEdit)));
+      S.$$('[data-adjustment-move]', root).forEach(b => b.onclick = () => {
+        if (b.disabled) return;
+        const next = S.copy(definition.terms), term = next.find(t => t.key === b.dataset.adjustmentOwner), index = term?.adjustments?.findIndex(a => a.key === b.dataset.adjustmentMove), direction = Number(b.dataset.direction), to = index + direction;
+        if (!term || !Number.isInteger(index) || ![1, -1].includes(direction) || index < 0 || to < 0 || to >= term.adjustments.length) return;
+        term.adjustments.splice(to, 0, term.adjustments.splice(index, 1)[0]); applyTerms(next);
+        S.toast('이 항 안의 조건별 계산 순서를 변경했습니다. 전체 가격을 다시 계산해 주세요.');
+      });
+      S.$$('[data-adjustment-remove]', root).forEach(b => b.onclick = () => S.run(b, async () => {
+        const original = JSON.stringify(definition.terms), owner = definition.terms.find(t => t.key === b.dataset.adjustmentOwner), adjustment = owner?.adjustments?.find(a => a.key === b.dataset.adjustmentRemove);
+        if (!adjustment || !await S.confirm(`‘${owner.name}’ 안의 ‘${adjustment.name}’ 조건별 계산을 삭제하시겠습니까? 기본 가격표와 기존 배율 연결은 유지되며 최종 금액은 달라질 수 있습니다.`)) return;
+        if (JSON.stringify(definition.terms) !== original) throw Error('삭제를 확인하는 동안 계산식이 변경되었습니다. 현재 내용을 다시 확인해 주세요.');
+        const next = S.copy(definition.terms), term = next.find(t => t.key === owner.key); term.adjustments = term.adjustments.filter(a => a.key !== adjustment.key); applyTerms(next);
+      }));
       S.$$('[data-factor-edit]', root).forEach(b => b.onclick = () => factorEditor(definition.terms.find(t => t.key === b.dataset.factorEdit), b.dataset.factorLink));
       S.$$('[data-factor-unlink]', root).forEach(b => b.onclick = () => S.run(b, async () => {
         const before = definition.terms, next = F.removeLink(before, b.dataset.factorUnlink, b.dataset.factorLink), removed = before.filter(t => !next.some(x => x.key === t.key));
@@ -299,7 +433,7 @@
       return !!next.complete;
     }
 
-    async function testSingleTerm(term, sourceTerms = definition.terms) {
+    async function testSingleTerm(term, sourceTerms = definition.terms, options = {}) {
       if (!context.ready) throw Error("프로세스를 등록완료한 뒤 실제 입력 테스트를 진행해 주세요.");
       const testTerms = F.testClosure(sourceTerms, term);
       let localAnswers = S.copy(answers), localEvaluation = null, calculation = null, localSequence = 0;
@@ -333,7 +467,7 @@
         collect(); const draft = S.copy(localAnswers), serial = ++localSequence;
         const next = await api(product.id, '/evaluate', 'POST', { definition: { schemaVersion: 1, schemaFingerprint: context.schemaFingerprint, terms: testTerms, testAnswers: {} }, answers: draft });
         if (!dialog.open || serial !== localSequence) return;
-        calculation = next; if (next.evaluation) { localEvaluation = next.evaluation; localAnswers = mergeTestAnswers(next.evaluation, draft); } render();
+        calculation = next; if (next.evaluation) { localEvaluation = next.evaluation; localAnswers = mergeTestAnswers(next.evaluation, draft); } render(); options.onCalculated?.(next);
       });
       S.$('[data-test-use]', dialog).onclick = () => { if (!calculation?.complete) return; cancelTest(); answers = S.copy(localAnswers); evaluation = localEvaluation; result = null; renderTest(); clearResult('항 테스트의 입력값을 가져왔습니다. 모든 항을 반영한 뒤 전체 가격을 다시 계산해 주세요.'); dialog.close(); };
       try { localEvaluation = await S.request(`/products/${product.id}/evaluate`, 'POST', { answers: localAnswers }); if (dialog.open) { localAnswers = mergeTestAnswers(localEvaluation, localAnswers); render(); } }
@@ -416,7 +550,7 @@
         bindEditor(); bindMatrixFlow(); updateHistory();
       }
       function sourceHtml() {
-        return `<div class="pms-form-grid two">${field("항 이름 (예: 사이즈 추가금)", 'data-term-name type="text" maxlength="120"', term.name)}<label><span>이 제품의 가격계산 영향 그룹</span><select data-term-group>${!supported(g()) ? '<option value="" disabled selected>그룹을 선택해 주세요.</option>' : ""}${pricingGroups().map((x) => opt(x.groupKey, x.label, term.groupKey)).join("")}</select></label></div>${g()?.control === "NUMBER" ? `<h3 class="pm-price-editor-subtitle">1. 입력묶음 가져오기</h3><p class="pms-help">함께 가격을 계산할 숫자는 같은 입력묶음에 있어야 합니다. 묶음을 고른 뒤 이 항에 사용할 숫자를 1개 또는 2개 선택하세요. 3차원 엑셀 가격표는 지원하지 않습니다. 한 항에는 가격표 하나만 작성합니다. W·H 표를 만든 뒤 D도 더하려면 ‘항 생성’에서 남은 D를 선택하세요. 새 항은 미사용 숫자를 우선 선택하며 이미 사용한 숫자의 가격표는 기존 항에서 수정하세요.</p><div class="pm-price-source-bundles">${g().bundles.map((b) => `<label class="pm-price-bundle-choice"><input type="radio" name="term-bundle" value="${e(b.key)}" ${b.key === term.bundleKey ? "checked" : ""}><span><strong>${b.fields.length > 1 ? `묶음 · ${b.fields.length}개 입력` : "독립 · 1개 입력"} — ${e(b.label || b.fields.map(label).join(" · "))}</strong><small>${b.fields.map((f) => e(label(f)) + (f.unit ? " (" + e(f.unit) + ")" : "")).join(" · ")}</small></span></label>`).join("")}</div>${g().bundles.every(b => b.fields.length < 2) ? `<p class="pms-help"><b>현재는 독립 입력만 있어 2차원을 선택할 수 없습니다.</b> 프로세스에서 두 필드 체크 → ‘선택 필드 그룹화’ → ‘이 질문 완성’ → ‘검증 후 등록완료’ 후 이 화면을 다시 여세요. <a href="/admin/product-master/products/${product.id}/process" target="_blank" rel="noopener">프로세스 확인</a></p>` : ""}<h3 class="pm-price-editor-subtitle">2. 이 항에서 사용할 숫자 항목 · 1개는 1차원 / 2개는 2차원</h3><div class="pms-check-grid">${allFields().map((f) => `<label class="pms-check"><input type="checkbox" data-term-field value="${e(f.key)}" ${term.fieldKeys.includes(f.key) ? "checked" : ""}>${e(label(f))}${f.unit ? " (" + e(f.unit) + ")" : ""}${!term.optionTarget && !unusedFields(bundle()).some(x => x.key === f.key) ? " · 다른 가격표에서 사용 중" : ""}</label>`).join("")}</div><p class="pms-help">예: 가로·세로만 선택하면 2차원 가격표로 금액을 찾습니다. 높이는 별도 항을 만들어 곱셈이나 1차원 가격표로 계산할 수 있습니다. 항목마다 방식이 다르면 메인 화면의 ‘옵션별 일괄 설정’에서 한 번에 지정할 수 있습니다.</p>` : `<fieldset class="pm-price-choice-scope"><legend>금액을 적용할 옵션</legend><p class="pms-help">이 항은 선택 옵션의 고정금액 또는 앞 숫자 범위에 따른 옵션 금액을 설정합니다. 옵션별 곱셈·가격표는 메인 화면의 ‘옵션별 일괄 설정’에서 숫자 입력과 연결하세요. 여러 옵션의 고정금액도 일괄 설정할 수 있습니다. 고정금액만 사용할 때는 미지정 시 어떤 옵션이든 한 번 적용됩니다. 숫자 범위별 가격은 적용할 옵션을 반드시 지정하세요.</p><div class="pms-check-grid">${(g()?.choices || []).map((c) => `<label class="pms-check"><input type="checkbox" data-term-choice value="${e(c.key)}" ${(term.choiceKeys || []).includes(c.key) ? "checked" : ""}>${e(label(c))}</label>`).join("")}</div></fieldset>`}`;
+        return `<div class="pms-form-grid two">${field("항 이름 (예: 사이즈 추가금)", 'data-term-name type="text" maxlength="120"', term.name)}<label><span>이 제품의 가격계산 영향 그룹</span><select data-term-group>${!supported(g()) ? '<option value="" disabled selected>그룹을 선택해 주세요.</option>' : ""}${pricingGroups().map((x) => opt(x.groupKey, x.label, term.groupKey)).join("")}</select></label></div>${g()?.control === "NUMBER" ? `<h3 class="pm-price-editor-subtitle">1. 입력묶음 가져오기</h3><p class="pms-help">함께 가격을 계산할 숫자는 같은 입력묶음에 있어야 합니다. 묶음을 고른 뒤 이 항에 사용할 숫자를 1개 또는 2개 선택하세요. 3차원 엑셀 가격표는 지원하지 않습니다. 한 항에는 가격표 하나만 작성합니다. W·H 표를 만든 뒤 D도 더하려면 ‘항 생성’에서 남은 D를 선택하세요. 새 항은 미사용 숫자를 우선 선택하며 이미 사용한 숫자의 가격표는 기존 항에서 수정하세요.</p><div class="pm-price-source-bundles">${g().bundles.map((b) => `<label class="pm-price-bundle-choice"><input type="radio" name="term-bundle" value="${e(b.key)}" ${b.key === term.bundleKey ? "checked" : ""}><span><strong>${b.fields.length > 1 ? `묶음 · ${b.fields.length}개 입력` : "독립 · 1개 입력"} — ${e(b.label || b.fields.map(label).join(" · "))}</strong><small>${b.fields.map((f) => e(label(f)) + (f.unit ? " (" + e(f.unit) + ")" : "")).join(" · ")}</small></span></label>`).join("")}</div>${g().bundles.every(b => b.fields.length < 2) ? `<p class="pms-help"><b>현재는 독립 입력만 있어 2차원을 선택할 수 없습니다.</b> 프로세스에서 두 필드 체크 → ‘선택 필드 그룹화’ → ‘이 질문 완성’ → ‘검증 후 등록완료’ 후 이 화면을 다시 여세요. <a href="/admin/product-master/products/${product.id}/process" target="_blank" rel="noopener">프로세스 확인</a></p>` : ""}<h3 class="pm-price-editor-subtitle">2. 이 항에서 사용할 숫자 항목 · 1개는 1차원 / 2개는 2차원</h3><div class="pms-check-grid">${allFields().map((f) => `<label class="pms-check"><input type="checkbox" data-term-field value="${e(f.key)}" ${term.fieldKeys.includes(f.key) ? "checked" : ""} ${!term.fieldKeys.includes(f.key) && fields().length >= 2 ? 'disabled title="선택한 두 항목 중 하나를 해제하면 이 항목을 선택할 수 있습니다."' : ""}>${e(label(f))}${f.unit ? " (" + e(f.unit) + ")" : ""}${!term.optionTarget && !unusedFields(bundle()).some(x => x.key === f.key) ? " · 다른 가격표에서 사용 중" : ""}</label>`).join("")}</div><p class="pms-help pm-price-axis-selection" role="status">선택: ${e(fields().map(label).join(" · ") || "없음")} · ${fields().length}/2개. ${fields().length >= 2 ? "두 항목을 선택하여 나머지 선택을 잠갔습니다. 바꾸려면 선택한 항목 하나를 먼저 해제하세요." : "하나를 선택하면 1차원, 두 개를 선택하면 2차원 가격표를 만들 수 있습니다."} 남은 숫자는 별도의 1차원 금액으로 더하거나, 이 가격표에서 결정된 금액에 곱할 배율로 연결할 수 있습니다.</p>` : `<fieldset class="pm-price-choice-scope"><legend>금액을 적용할 옵션</legend><p class="pms-help">이 항은 선택 옵션의 고정금액 또는 앞 숫자 범위에 따른 옵션 금액을 설정합니다. 옵션별 곱셈·가격표는 메인 화면의 ‘옵션별 일괄 설정’에서 숫자 입력과 연결하세요. 여러 옵션의 고정금액도 일괄 설정할 수 있습니다. 고정금액만 사용할 때는 미지정 시 어떤 옵션이든 한 번 적용됩니다. 숫자 범위별 가격은 적용할 옵션을 반드시 지정하세요.</p><div class="pms-check-grid">${(g()?.choices || []).map((c) => `<label class="pms-check"><input type="checkbox" data-term-choice value="${e(c.key)}" ${(term.choiceKeys || []).includes(c.key) ? "checked" : ""}>${e(label(c))}</label>`).join("")}</div></fieldset>`}`;
       }
       function priceHtml(isNumber) {
         const allowed = isNumber ? ["FIXED", "MULTIPLY", ...(fields().length === 1 ? ["MATRIX_1D"] : []), ...(fields().length === 2 ? ["MATRIX_2D"] : [])] : ["FIXED"];
@@ -449,7 +583,7 @@
           ${panel(1, `<h3 class="pm-price-editor-subtitle">각 금액이 어떤 크기의 가격인지 연결하세요</h3><div data-matrix-import-status role="status">${e(tableUi.importMessage || `${term.values.length}행 × ${term.xAxis.headers.length}열 · 기준값과 실제 금액을 입력하세요.`)}</div>${S.priceTable.toolsHtml(term, tableUi)}<div class="pms-actions"><button type="button" data-matrix-column>＋ X 기준 추가</button>${two ? '<button type="button" data-matrix-row>＋ Y 기준 추가</button>' : ''}${two ? '<button type="button" data-axis-swap>X·Y 축 교환</button>' : ''}</div><p class="pms-help">기준값과 금액은 필수입니다. 무료 구간은 0원을 넣으세요. 포함 경계는 다음 단계의 기본 방식을 따르며 필요할 때 각 기준 아래에서 바꿀 수 있습니다.</p><div class="pm-price-matrix-wrap" tabindex="0" aria-label="가로로 스크롤할 수 있는 가격표">${two ? table2d() : table1d()}</div>`)}
           ${panel(2, `<h3 class="pm-price-editor-subtitle">입력값 사이와 표 밖의 가격을 정하세요</h3><p class="pms-help">최소·최대 주문 크기는 프로세스 설정입니다. 가격표의 첫·마지막 기준은 금액을 찾는 경계이며, 업로드한다고 주문 제한값이 바뀌지 않습니다.</p><div class="pms-form-grid two">${axes.map(([key, axis]) => {
             const f = fields().find(f => f.key === axis.fieldKey), lower = S.priceTable.lower(axis), edge = axis.headers[lower ? 0 : axis.headers.length - 1];
-            return `<section class="pm-price-axis-policy"><h4>${key.toUpperCase()}축 · ${e(label(f))}</h4><p class="pms-help">프로세스: 최소 ${e(f?.min ?? (f?.allowNegative ? '미설정' : '0 (음수 불가)'))} / 최대 ${e(f?.max ?? '미설정')} ${e(f?.unit || '')}<br>현재 표: 첫 기준 ${e(axis.headers[0] ?? '미입력')} / 마지막 기준 ${e(axis.headers.at(-1) ?? '미입력')}</p><label><span>기준 사이의 입력값 처리</span><select data-axis-operator="${key}">${axisOptions(axis)}</select></label><div data-axis-example="${key}">${S.priceTable.axisExample(axis)}</div><label><span>표 밖 입력 처리</span><select data-axis-outside="${key}">${opt('ERROR', '계산 중단 · 기준 추가 또는 주문 범위 수정', axis.outsidePolicy || 'ERROR')}${opt('EDGE', '표의 끝 기준 가격 적용', axis.outsidePolicy || 'ERROR')}</select></label><p class="pms-help">${axis.outsidePolicy === 'EDGE' ? `${e(edge)} 기준 ${key === 'x' ? '열' : '행'}의 금액을 표 밖에도 적용합니다. 고객 입력 크기와 주문 허용 범위는 그대로입니다.` : `표 밖까지 주문이 허용되면 최종 적용이 막힙니다. ${lower ? '최소' : '최대'} 입력값이 미설정인 경우도 여기서 처리 방식을 확인하세요.`}</p><button type="button" data-range-help="${key}">값의 출처·계산 예시 확인</button></section>`;
+            return `<section class="pm-price-axis-policy"><h4>${key.toUpperCase()}축 · ${e(label(f))}</h4><p class="pms-help">프로세스: 최소 ${e(f?.min ?? (f?.allowNegative ? '미설정' : '0 (음수 불가)'))} / 최대 ${e(f?.max ?? '미설정')} ${e(f?.unit || '')}<br>현재 표: 첫 기준 ${e(axis.headers[0] ?? '미입력')} / 마지막 기준 ${e(axis.headers.at(-1) ?? '미입력')}</p>${S.priceTable.coverageHtml(axis, f)}<label><span>기준 사이의 입력값 처리</span><select data-axis-operator="${key}">${axisOptions(axis)}</select></label><div data-axis-example="${key}">${S.priceTable.axisExample(axis)}</div><label><span>표 밖 입력 처리</span><select data-axis-outside="${key}">${opt('ERROR', '계산 중단 · 기준 추가 또는 주문 범위 수정', axis.outsidePolicy || 'ERROR')}${opt('EDGE', '표의 끝 기준 가격 적용', axis.outsidePolicy || 'ERROR')}</select></label><p class="pms-help">${axis.outsidePolicy === 'EDGE' ? `${e(edge)} 기준 ${key === 'x' ? '열' : '행'}의 금액을 표 밖에도 적용합니다. 고객 입력 크기와 주문 허용 범위는 그대로입니다.` : '표 밖 값을 오류로 처리하는 방식도 사용할 수 있습니다. 실제 허용 범위를 표가 모두 덮도록 기준을 추가하거나, 프로세스의 주문 범위·적용 조건을 확인하세요.'}</p><div class="pms-actions"><button type="button" data-matrix-go="1">표 기준·금액 추가 또는 수정</button><button type="button" data-range-help="${key}">값의 출처·계산 예시 확인</button><a href="/admin/product-master/products/${product.id}/process" target="_blank" rel="noopener">프로세스 입력 범위·분기 확인</a></div></section>`;
           }).join('')}</div><details><summary>실제 주문 범위를 바꾸려면?</summary><p>제품의 프로세스 → 해당 숫자 질문 → 입력 항목 설정에서 최소·최대값을 수정합니다. 이 창에서는 가격표 처리만 바꿉니다. 최종 검사에서는 분기별 입력 제한과 항의 적용 조건도 함께 확인합니다.</p><a href="/admin/product-master/products/${product.id}/process" target="_blank" rel="noopener">프로세스 설정 새 창으로 열기</a><p>아직 반영하지 않은 항은 이 창을 닫지 않고 보관하세요. 프로세스 변경 후에는 가격계산 화면을 다시 열어 최신 연결을 확인하세요. 이미 실 제품이 연결되어 프로세스가 잠긴 경우, 이 가격표의 기준을 추가하거나 표 밖 처리 방식을 지정할 수 있습니다.</p></details>`)}
           ${panel(3, `${S.priceTable.previewHtml(term, fields())}<p class="pms-help">입력 테스트는 선택 사항입니다. 다음 단계에서 필요한 적용 조건을 정한 뒤 항 반영 시 전체 허용 경로를 검사합니다.</p><div class="pms-actions"><button type="button" data-matrix-go="1">기준·금액 수정</button><button type="button" data-matrix-export>현재 가격표 다운로드</button></div>`)} `;
       }
@@ -488,7 +622,7 @@
           const axis = term[key === 'x' ? 'xAxis' : 'yAxis'], field = fields().find(f => f.key === axis.fieldKey);
           const describe = () => {
             const lower = S.priceTable.lower(axis), edge = axis.headers[lower ? 0 : axis.headers.length - 1];
-            return `<p><strong>${key.toUpperCase()}축 · ${e(label(field))}</strong></p><p>가격 기준 출처: 업로드한 기준 또는 직접 입력한 기준 ${e(axis.headers[0])} ~ ${e(axis.headers.at(-1))}.</p><p>주문 제한 출처: 프로세스의 최소 ${e(field?.min ?? '미설정')} / 최대 ${e(field?.max ?? '미설정')}. 이 선택으로 주문 제한을 자동 변경하지 않습니다.</p><p>${lower ? '첫 기준보다 작은' : '마지막 기준보다 큰'} 허용 입력은 <strong>${e(edge)} 기준의 ${key === 'x' ? '열' : '행'} 금액</strong>을 사용합니다. 경계에서 미만·초과로 제외한 값에도 같은 끝 가격이 적용됩니다. 2차원은 다른 축의 해당 기준과 만나는 금액을 사용합니다.</p>`;
+            return `<p><strong>${key.toUpperCase()}축 · ${e(label(field))}</strong></p><p>가격 기준 출처: 업로드한 기준 또는 직접 입력한 기준 ${e(axis.headers[0])} ~ ${e(axis.headers.at(-1))}.</p><p>주문 제한 출처: 프로세스의 최소 ${e(field?.min ?? '미설정')} / 최대 ${e(field?.max ?? '미설정')}. 이 선택으로 주문 제한을 자동 변경하지 않습니다.</p><p>‘표의 끝 기준 가격 적용’을 선택하면 ${lower ? '첫 기준보다 작은' : '마지막 기준보다 큰'} 허용 입력도 <strong>${e(edge)} 기준의 ${key === 'x' ? '열' : '행'} 금액</strong>을 사용합니다. 경계에서 미만·초과로 제외한 값에도 같은 끝 가격이 적용됩니다. 2차원은 다른 축의 해당 기준과 만나는 금액을 사용합니다.</p><p>‘계산 중단’을 선택하면 표 밖 입력은 계산하지 않습니다. 기준을 추가하거나 실제 주문 범위·분기 조건이 표 안에 들어오도록 구성하면 이 방식으로도 등록할 수 있습니다.</p>`;
           };
           S.$(`[data-range-help="${key}"]`, body).onclick = () => { const popup = S.dialog('가격 기준과 입력 제한의 차이', describe(), { wide: false, foot: '<button type="button" data-range-close>확인</button>' }); S.$('[data-range-close]', popup).onclick = () => popup.close(); };
           S.$(`[data-axis-outside="${key}"]`, body).onchange = async event => {
@@ -540,6 +674,7 @@
         S.$("[data-term-group]", body)?.addEventListener("change", async (event) => { const next = event.target.value; if (hasPriceData() && !await S.confirm("그룹을 변경하면 현재 항의 기준표·금액을 초기화합니다. 계속하시겠습니까?")) { draw(); return; } term.groupKey = next; term.bundleKey = ""; selectBundle(); resetPrice("FIXED"); term.choiceKeys = []; draw(); });
         S.$$('[name="term-bundle"]', body).forEach((input) => { input.onchange = async () => { const next = input.value; if (hasPriceData() && !await S.confirm("입력묶음을 변경하면 현재 항의 기준표·금액을 초기화합니다. 계속하시겠습니까?")) { draw(); return; } term.bundleKey = next; selectBundle(); resetPrice("FIXED"); draw(); }; });
         S.$$("[data-term-field]", body).forEach((input) => { input.onchange = async () => {
+          if (input.disabled) { input.checked = term.fieldKeys.includes(input.value); return; }
           const next = S.$$("[data-term-field]:checked", body).map((el) => el.value);
           if (next.length > 2) { input.checked = false; return editorError("가격표에는 숫자 입력을 1개 또는 2개만 연결할 수 있습니다. 세 번째 숫자는 별도의 항으로 추가해 주세요. 3차원 엑셀 가격표는 지원하지 않습니다."); }
           if (hasPriceData() && !await S.confirm("계산에 쓸 항목을 변경하면 현재 항의 금액·가격표를 초기화합니다. 계속하시겠습니까?")) { draw(); return; }

@@ -11,6 +11,15 @@ public final class ProductPricingDtos {
   private ProductPricingDtos() {}
   public enum TermType { FIXED, MULTIPLY, MATRIX_1D, MATRIX_2D }
   public enum TermRole { PRICE, FACTOR }
+  public enum AdjustmentOperation { ADD, MULTIPLY }
+  public record AdjustmentValue(AdjustmentOperation operation, BigDecimal value, boolean useInput) {
+    public AdjustmentValue(AdjustmentOperation operation, BigDecimal value) { this(operation,value,false); }
+  }
+  /** Owner-local correction of a raw price, applied before its quantity/factor links. */
+  public record PriceAdjustment(String key, String name, String groupKey, Axis axis,
+      List<AdjustmentValue> values, AdjustmentValue above, boolean sameGroupOnly) {
+    public PriceAdjustment(String key,String name,String groupKey,Axis axis,List<AdjustmentValue> values,AdjustmentValue above) { this(key,name,groupKey,axis,values,above,false); }
+  }
   public enum MultiplierAggregation { EXACT_ONE, SUM, PRODUCT }
   public record MultiplierLink(String key, String name, List<String> termKeys,
       MultiplierAggregation aggregation) {
@@ -42,7 +51,25 @@ public final class ProductPricingDtos {
       List<String> fieldKeys, TermType type, BigDecimal amount, Map<String, BigDecimal> rates,
       Axis xAxis, Axis yAxis, List<List<BigDecimal>> values, String match,
       List<Condition> conditions, List<String> choiceKeys, OptionRangePricing optionPricing,
-      OptionTarget optionTarget, TermRole role, List<MultiplierLink> multipliers) {
+      OptionTarget optionTarget, TermRole role, List<MultiplierLink> multipliers,
+      List<PriceAdjustment> adjustments, List<Term> branches) {
+    public Term(String key, String name, String groupKey, String bundleKey,
+        List<String> fieldKeys, TermType type, BigDecimal amount, Map<String, BigDecimal> rates,
+        Axis xAxis, Axis yAxis, List<List<BigDecimal>> values, String match,
+        List<Condition> conditions, List<String> choiceKeys, OptionRangePricing optionPricing,
+        OptionTarget optionTarget, TermRole role, List<MultiplierLink> multipliers,
+        List<PriceAdjustment> adjustments) {
+      this(key,name,groupKey,bundleKey,fieldKeys,type,amount,rates,xAxis,yAxis,values,match,
+          conditions,choiceKeys,optionPricing,optionTarget,role,multipliers,adjustments,List.of());
+    }
+    public Term(String key, String name, String groupKey, String bundleKey,
+        List<String> fieldKeys, TermType type, BigDecimal amount, Map<String, BigDecimal> rates,
+        Axis xAxis, Axis yAxis, List<List<BigDecimal>> values, String match,
+        List<Condition> conditions, List<String> choiceKeys, OptionRangePricing optionPricing,
+        OptionTarget optionTarget, TermRole role, List<MultiplierLink> multipliers) {
+      this(key, name, groupKey, bundleKey, fieldKeys, type, amount, rates, xAxis, yAxis,
+          values, match, conditions, choiceKeys, optionPricing, optionTarget, role, multipliers, List.of());
+    }
     public Term(String key, String name, String groupKey, String bundleKey,
         List<String> fieldKeys, TermType type, BigDecimal amount, Map<String, BigDecimal> rates,
         Axis xAxis, Axis yAxis, List<List<BigDecimal>> values, String match,
@@ -86,8 +113,16 @@ public final class ProductPricingDtos {
   public record FactorResult(String key, String name, BigDecimal value) {}
   public record MultiplierResult(String key, String name, MultiplierAggregation aggregation,
       List<FactorResult> terms, BigDecimal value) {}
+  public record AdjustmentResult(String key, String name, String groupKey, String fieldKey,
+      BigDecimal input, AdjustmentOperation operation, BigDecimal value, BigDecimal before,
+      BigDecimal after, String range) {}
   public record TermResult(String key, String name, boolean applied, BigDecimal amount,
-      String explanation, TermRole role, BigDecimal baseAmount, List<MultiplierResult> multipliers) {
+      String explanation, TermRole role, BigDecimal baseAmount, List<MultiplierResult> multipliers,
+      List<AdjustmentResult> adjustments) {
+    public TermResult(String key, String name, boolean applied, BigDecimal amount,
+        String explanation, TermRole role, BigDecimal baseAmount, List<MultiplierResult> multipliers) {
+      this(key, name, applied, amount, explanation, role, baseAmount, multipliers, List.of());
+    }
     public TermResult(String key, String name, boolean applied, BigDecimal amount, String explanation) {
       this(key, name, applied, amount, explanation, TermRole.PRICE, amount, List.of());
     }
