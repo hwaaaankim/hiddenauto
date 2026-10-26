@@ -45,6 +45,36 @@
     return i && axis.headers[i - 1] != null
       ? `${axis.headers[i - 1]} ${M.operator(axis, i - 1) === "LE" ? "초과" : "이상"} ~ ${upper}` : `0 이상 ~ ${upper}`;
   };
+  // This is an editing hint from the real process field and imported table. The server
+  // still validates dynamic limits, branch reachability and term conditions before saving.
+  M.axisCoverage = (axis, field) => {
+    if (!axis || !field) return { kind: 'unknown' };
+    try { M.validateAxis(axis); } catch { return { kind: 'incomplete' }; }
+    const lower = M.lower(axis), at = lower ? 0 : axis.headers.length - 1;
+    const edge = axis.headers[at], operator = M.operator(axis, at);
+    const limit = lower ? (field.min ?? (field.allowNegative ? null : '0')) : field.max;
+    if (limit == null || limit === '') return { kind: 'unbounded', lower, edge, operator, limit: null };
+    try {
+      const signed = value => {
+        const text = String(value).trim(), negative = text.startsWith('-');
+        return (negative ? -1n : 1n) * M.scaled(negative ? text.slice(1) : text);
+      };
+      const bound = signed(limit), end = signed(edge);
+      const outside = lower ? bound < end || bound === end && operator === 'GT' : bound > end || bound === end && operator === 'LT';
+      return { kind: outside ? 'outside' : 'covered', lower, edge, operator, limit };
+    } catch { return { kind: 'unknown' }; }
+  };
+  M.coverageHtml = (axis, field) => {
+    const c = M.axisCoverage(axis, field), comparison = { LE: '이하', LT: '미만', GE: '이상', GT: '초과' };
+    if (c.kind === 'incomplete') return '<div class="pm-price-coverage-hint" data-axis-coverage="incomplete">기준값을 먼저 입력하면 실제 주문 범위와 비교해 드립니다.</div>';
+    if (c.kind === 'unknown') return '<div class="pm-price-coverage-hint" data-axis-coverage="unknown">입력 항목과 가격표 기준을 연결한 뒤 범위를 확인해 주세요.</div>';
+    const title = c.kind === 'covered' ? '기본 주문 범위가 이 축의 표 안에 있습니다.'
+      : c.kind === 'unbounded' ? `프로세스의 ${c.lower ? '최소' : '최대'}값이 미설정되어 표 밖 입력을 허용할 수 있습니다.`
+      : `프로세스의 ${c.lower ? '최소' : '최대'}값 ${c.limit}이 현재 표의 ${c.edge} ${comparison[c.operator]} 범위 밖에 있습니다.`;
+    const action = c.kind === 'covered' ? '‘계산 중단’ 방식도 선택할 수 있습니다. 분기·입력제한·적용 조건까지 포함한 최종 검증은 항 반영과 저장 시 진행합니다.'
+      : '끝 가격을 계속 적용하려면 아래에서 선택하세요. 크기별 금액이 달라진다면 표 기준·금액을 추가하고, 주문을 제한하려면 프로세스의 실제 허용 범위를 수정하세요. 분기에서 범위를 이미 제한했다면 최종 검증에서 함께 확인합니다.';
+    return `<div class="pm-price-coverage-hint ${c.kind === 'covered' ? 'is-covered' : 'needs-review'}" data-axis-coverage="${c.kind}"><strong>${e(title)}</strong><p>${e(action)}</p></div>`;
+  };
   M.spacing = (first, second) => {
     const delta = M.scaled(second) - M.scaled(first);
     if (delta <= 0n) return '';

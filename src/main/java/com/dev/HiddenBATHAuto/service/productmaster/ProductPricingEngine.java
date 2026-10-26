@@ -44,10 +44,14 @@ public final class ProductPricingEngine {
   public static Set<String> numericFieldReferences(Term term, String groupKey) {
     Set<String> fields = new LinkedHashSet<>();
     if (term == null) return fields;
+    for (Term branch : list(term.branches())) fields.addAll(numericFieldReferences(branch, groupKey));
     if (Objects.equals(groupKey, term.groupKey())) fields.addAll(list(term.fieldKeys()));
     OptionRangePricing range = term.optionPricing();
     if (range != null && Objects.equals(groupKey, range.groupKey()) && range.axis() != null)
       fields.add(range.axis().fieldKey());
+    for (PriceAdjustment adjustment : list(term.adjustments()))
+      if (adjustment != null && Objects.equals(groupKey, adjustment.groupKey()) && adjustment.axis() != null)
+        fields.add(adjustment.axis().fieldKey());
     for (Condition condition : list(term.conditions()))
       if (condition != null && Objects.equals(groupKey, condition.groupKey())) fields.add(condition.fieldKey());
     fields.removeIf(key -> text(key).isBlank());
@@ -77,6 +81,8 @@ public final class ProductPricingEngine {
 
   public static List<String> validate(Process process, List<PricingGroup> groups, Definition definition) {
     List<String> errors = new ArrayList<>();
+    try { definition = ProductPricingBranches.expand(definition); }
+    catch (IllegalArgumentException ex) { return List.of(ex.getMessage()); }
     if (definition == null || definition.schemaVersion() != 1) return List.of("버전 1 가격계산식이 필요합니다.");
     if (list(definition.terms()).isEmpty() || list(definition.terms()).size() > MAX_TERMS)
       return List.of("가격 항을 1~100개 등록해 주세요.");
@@ -126,6 +132,7 @@ public final class ProductPricingEngine {
               "항에 연결한 선택 보기가 없거나 중복되었습니다.");
         }
         validateOptionPricing(term, process, questions);
+        validateAdjustments(term, questions, definition.terms());
         switch (term.type()) {
           case FIXED -> money(term.amount(), role(term) == TermRole.FACTOR ? "고정배율" : "고정금액", role(term) == TermRole.FACTOR ? 6 : 2);
           case MULTIPLY -> {
@@ -198,6 +205,47 @@ public final class ProductPricingEngine {
         name + "은 0~" + MAX_MONEY.toPlainString() + " 범위, 소수 " + scale + "자리 이내로 입력해 주세요.");
   }
 
+  private static void validateAdjustments(Term term, Map<String, Question> questions, List<Term> allTerms) {
+    List<PriceAdjustment> adjustments = list(term.adjustments());
+    require(adjustments.isEmpty() || role(term) == TermRole.PRICE,
+        "구간별 더하기·곱하기 보정은 금액 항에만 연결할 수 있습니다. 배율 항에는 원화 보정을 연결할 수 없습니다.");
+    require(adjustments.size() <= 20, "구간별 보정은 항당 최대 20개입니다.");
+    Set<String> keys = new HashSet<>();
+    for (PriceAdjustment adjustment : adjustments) {
+      require(adjustment != null, "빈 구간별 보정이 있습니다.");
+      require(adjustment.key() != null && adjustment.key().matches("[A-Za-z0-9_-]{1,80}") && keys.add(adjustment.key()),
+          "구간별 보정 식별자가 없거나 중복되었습니다.");
+      require(!text(adjustment.name()).isBlank() && adjustment.name().length() <= 120,
+          "구간별 보정 이름은 1~120자입니다.");
+      if (adjustment.sameGroupOnly()) require(Objects.equals(term.groupKey(),adjustment.groupKey()) && adjustment.axis()!=null && !list(term.fieldKeys()).contains(adjustment.axis().fieldKey()) && adjustments.stream().noneMatch(other -> other != null && other != adjustment && Objects.equals(other.groupKey(),adjustment.groupKey()) && other.axis()!=null && Objects.equals(other.axis().fieldKey(),adjustment.axis().fieldKey())), "연관식은 같은 그룹에서 기본 항에 사용하지 않은 숫자만 선택하세요.");
+      if (adjustment.sameGroupOnly()) {
+        Set<String> visited=new HashSet<>();Deque<String> pending=new ArrayDeque<>();
+        list(term.multipliers()).forEach(link->pending.addAll(list(link.termKeys())));
+        while(!pending.isEmpty()) {
+          String key=pending.removeFirst();if(!visited.add(key))continue;
+          Term linked=allTerms.stream().filter(Objects::nonNull).filter(t->Objects.equals(t.key(),key)).findFirst().orElse(null);
+          if(linked==null)continue;
+          require(!Objects.equals(linked.groupKey(),adjustment.groupKey()) || !list(linked.fieldKeys()).contains(adjustment.axis().fieldKey()),"연관식에 고른 입력은 기존 배율 연결에서 이미 사용하고 있습니다.");
+          list(linked.multipliers()).forEach(link->pending.addAll(list(link.termKeys())));
+        }
+      }
+      Question source = questions.get(adjustment.groupKey());
+      require(source != null && source.control() == Control.NUMBER, "구간별 보정의 숫자 입력 질문을 찾을 수 없습니다.");
+      validateAxis(adjustment.axis(), list(source.fields()).stream().map(Field::key).toList(), "보정 구간");
+      require(!lowerAxis(adjustment.axis()), "보정 구간은 작은 값부터 각 구간의 끝값(이하/미만)을 입력해 주세요.");
+      require(!adjustment.axis().usesEdgeOutside(), "보정은 마지막 기준을 넘는 구간의 연산을 직접 설정합니다. 끝 가격 적용 방식은 사용할 수 없습니다.");
+      require(list(adjustment.values()).size() == adjustment.axis().headers().size(), "보정 구간 수와 연산 수가 다릅니다.");
+      for (AdjustmentValue value : adjustment.values()) validateAdjustmentValue(value);
+      validateAdjustmentValue(adjustment.above());
+    }
+  }
+
+  private static void validateAdjustmentValue(AdjustmentValue value) {
+    require(value != null && value.operation() != null, "모든 보정 구간과 마지막 구간에 더하기 또는 곱하기를 선택해 주세요.");
+    money(value.value(), value.operation() == AdjustmentOperation.ADD ? "더할 금액" : "곱할 배율",
+        value.operation() == AdjustmentOperation.ADD ? 2 : 6);
+  }
+
   private static boolean safeNumber(BigDecimal number) {
     return number != null && number.precision() <= 24
         && (long) number.precision() - number.scale() <= 24 && Math.max(0, number.scale()) <= 6;
@@ -234,6 +282,8 @@ public final class ProductPricingEngine {
 
   /** Internal batch entry after validate() has succeeded for this exact process and definition. */
   public static Calculation calculateValidated(Process process, Definition definition, Map<String, Answer> submitted) {
+    Definition storedDefinition = definition;
+    definition = ProductPricingBranches.expand(definition);
     Evaluation evaluated = ProductStudioEngine.evaluate(process, map(submitted));
     List<String> errors = new ArrayList<>(evaluated.errors());
     Map<String, QuestionState> states = evaluated.questions().stream()
@@ -280,7 +330,7 @@ public final class ProductPricingEngine {
     if (total.compareTo(MAX_MONEY) > 0) errors.add("최종가격이 허용 범위를 벗어났습니다.");
     boolean complete = errors.isEmpty();
     return new Calculation(complete ? total.setScale(2, RoundingMode.HALF_UP) : null, complete,
-        List.copyOf(errors), List.copyOf(results), evaluated);
+        List.copyOf(errors), ProductPricingBranches.results(storedDefinition,results), evaluated);
   }
 
   private static ProductPricingGraph.Raw rawTerm(Term term, Evaluation evaluated,
@@ -337,7 +387,31 @@ public final class ProductPricingEngine {
           }
         }
         require(amount.signum() >= 0 && amount.compareTo(MAX_MONEY) <= 0, role(term) == TermRole.FACTOR ? "계산한 배율이 허용 범위를 벗어났습니다." : "계산한 항 금액이 허용 범위를 벗어났습니다.");
-        return new ProductPricingGraph.Raw(true, amount, explanation);
+        BigDecimal baseAmount = amount;
+        List<AdjustmentResult> adjustments = new ArrayList<>();
+        for (PriceAdjustment adjustment : list(term.adjustments())) {
+          QuestionState source = states.get(adjustment.groupKey());
+          require(source != null && (source.visible() || source.question().fixed()) && source.errors().isEmpty()
+              && source.allowed().contains(adjustment.axis().fieldKey()),
+              adjustment.name() + ": 보정 기준 숫자 입력이 현재 분기에서 표시·허용되지 않거나 입력 오류가 있습니다. 금액 항의 적용 조건을 확인해 주세요.");
+          BigDecimal numeric = input(evaluated.answers(), adjustment.groupKey(), adjustment.axis().fieldKey());
+          int selected = matchingIndex(adjustment.axis(), numeric);
+          AdjustmentValue operation = selected < 0 ? adjustment.above() : adjustment.values().get(selected);
+          BigDecimal before = amount;
+          BigDecimal operand = operation.useInput() ? numeric.multiply(operation.value()) : operation.value();
+          amount = operation.operation() == AdjustmentOperation.ADD
+              ? amount.add(operand) : amount.multiply(operand);
+          require(amount.signum() >= 0 && amount.compareTo(MAX_MONEY) <= 0,
+              adjustment.name() + ": 보정 후 금액이 허용 범위를 벗어났습니다.");
+          String range = adjustmentRange(adjustment.axis(), selected);
+          adjustments.add(new AdjustmentResult(adjustment.key(), adjustment.name(), adjustment.groupKey(),
+              adjustment.axis().fieldKey(), numeric, operation.operation(), operand, before, amount, range));
+          explanation += " → " + adjustment.name() + " (" + fieldLabel(source.question(), adjustment.axis().fieldKey())
+              + " " + numeric.toPlainString() + ", " + range + "): " + before.stripTrailingZeros().toPlainString()
+              + (operation.operation() == AdjustmentOperation.ADD ? " + " : " × ")
+              + operand.stripTrailingZeros().toPlainString() + " = " + amount.stripTrailingZeros().toPlainString();
+        }
+        return new ProductPricingGraph.Raw(true, amount, explanation, baseAmount, List.copyOf(adjustments));
       } catch (IllegalArgumentException ex) {
         return new ProductPricingGraph.Raw(true, null, ex.getMessage());
       }
@@ -403,6 +477,13 @@ public final class ProductPricingEngine {
       case LE -> " 이하"; case LT -> " 미만"; case GE -> " 이상"; case GT -> " 초과";
     };
     return axis.headers().get(index).toPlainString() + suffix;
+  }
+
+  private static String adjustmentRange(Axis axis, int selected) {
+    int previous = selected < 0 ? axis.headers().size() - 1 : selected - 1;
+    String lower = previous < 0 ? "" : axis.headers().get(previous).toPlainString()
+        + (axis.operatorAt(previous) == Threshold.LE ? " 초과" : " 이상");
+    return selected < 0 ? lower : (lower.isEmpty() ? "" : lower + " ~ ") + thresholdLabel(axis, selected);
   }
 
   private static int matchingIndex(Axis axis, BigDecimal value) {

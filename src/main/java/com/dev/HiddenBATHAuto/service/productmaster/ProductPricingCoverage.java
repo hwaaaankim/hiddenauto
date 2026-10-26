@@ -37,21 +37,124 @@ public final class ProductPricingCoverage {
       for (String message : definitionErrors) add(issues, "PRICE_STRUCTURE", "가격계산식", message);
       return new Validation(false, false, 0, List.copyOf(issues));
     }
-    Probe probe = new Probe(process, groups, definition, issues);
-    probe.walk(0, new LinkedHashMap<>(map(fixedAnswers)));
-    if (!probe.exhaustive) add(issues, "PRICE_VALIDATION_LIMIT", "가격 검증",
-        "프로세스와 가격식의 조합 검증 한도 20,000개 상태를 초과했습니다. 조건·묶음·매트릭스를 나눠 주세요. 미검증 가격식은 등록할 수 없습니다.");
-    if (probe.exhaustive) for (Term term : definition.terms()) {
-      if (!probe.hitTerms.contains(term.key())) add(issues, "PRICE_UNREACHABLE_TERM", term.name(),
+    definition = ProductPricingBranches.expand(definition);
+    // A projection may omit unrelated questions, but must never hide an invalid original
+    // process. The full process is checked first, including SUM bounds and unreachable rules.
+    Budget budget = new Budget();
+    Validation processValidation = ProductStudioEngine.validate(process, fixedAnswers);
+    if (!processValidation.valid() || !processValidation.exhaustive()) return processValidation;
+    List<ProductPricingValidationPlan.Part> parts = ProductPricingValidationPlan.build(process, definition, fixedAnswers);
+    Set<String> hit = new HashSet<>();
+    Map<String, Issue> advisories = new LinkedHashMap<>();
+    long scenarios = 0;
+    BigDecimal maximumTotal = BigDecimal.ZERO;
+    boolean exhaustive = true, correlatedTotals = false, sumCoupledQuantity = false;
+    for (ProductPricingValidationPlan.Part part : parts) {
+      Probe probe = new Probe(part.process(), groups, part.definition(), issues, budget);
+      probe.walk(0, new LinkedHashMap<>(part.fixed()));
+      scenarios += probe.scenarios;
+      hit.addAll(probe.hitTerms);
+      ProductPricingValidationPlan.Bound bound = ProductPricingValidationPlan.conservativeBound(part);
+      // Predicate witnesses are exact for table/fixed amounts. A raw numeric quantity
+      // coupled by a SUM limit can attain its product maximum inside a predicate cell.
+      if (bound.sumCoupledQuantity()) {
+        sumCoupledQuantity = true;
+        maximumTotal = maximumTotal.add(bound.total());
+        if (bound.unsafeIntermediate() || bound.total().compareTo(ProductPricingEngine.MAX_MONEY) > 0) {
+          exhaustive = false;
+          issues.add(new Issue("ERROR", "PRICE_VALIDATION_LIMIT", part.name(),
+              "‘" + part.name() + "’은 합계(SUM) 입력제한과 입력 수량 곱셈이 함께 연결되어 있습니다. "
+                  + "표 경계의 대표값 검사만으로 구간 내부의 최대 금액이 허용 한도 이내인지 확인할 수 없습니다. "
+                  + "이 결과를 실제 금액 초과로 단정하지는 않지만 미검증 상태로 등록하지 않습니다. "
+                  + "실제 허용할 입력 최대값·곱할 단가·배율을 확인하고 항을 하나씩 점검한 뒤 전체 검사를 다시 진행하세요.",
+              "terms." + part.definition().terms().get(0).key()));
+        }
+      } else maximumTotal = maximumTotal.add(probe.maximumTotal);
+      advisories.putAll(probe.advisories);
+      if (!probe.exhaustive) {
+        exhaustive = false;
+        limit(issues, part, probe, budget);
+        break;
+      }
+    }
+    // Independently maximising each component is a conservative upper bound. It can
+    // exceed the monetary limit for mutually exclusive branches even if every real
+    // total is valid. In that case verify correlated combinations; do not reject an
+    // unattainable bound as an actual overflow and do not waive the total-price check.
+    if (exhaustive && issues.isEmpty() && sumCoupledQuantity
+        && maximumTotal.compareTo(ProductPricingEngine.MAX_MONEY) > 0) {
+      exhaustive = false;
+      issues.add(new Issue("ERROR", "PRICE_VALIDATION_LIMIT", "합계 제한과 최종 금액",
+          "합계(SUM) 입력제한과 수량 곱셈이 연결된 항들의 최종 금액 상한을 확인하지 못했습니다. "
+              + "각 항의 표 경계 대표값만 확인하면 구간 내부에서 더 커지는 최종 금액을 놓칠 수 있어 등록을 중단합니다. "
+              + "이는 실제 입력이 금액 한도를 초과했다고 단정하는 오류가 아닙니다. 각 항의 실제 허용 최대값·단가·배율을 확인하고 전체 검사를 다시 진행하세요.",
+          "terms." + definition.terms().get(0).key()));
+    }
+    if (exhaustive && issues.isEmpty() && maximumTotal.compareTo(ProductPricingEngine.MAX_MONEY) > 0 && parts.size() > 1) {
+      correlatedTotals = true;
+      Probe correlated = new Probe(process, groups, definition, issues, budget);
+      correlated.walk(0, new LinkedHashMap<>(map(fixedAnswers)));
+      scenarios += correlated.scenarios;
+      if (!correlated.exhaustive) {
+        exhaustive = false;
+        limit(issues, new ProductPricingValidationPlan.Part(definition, process, map(fixedAnswers),
+            "전체 금액의 동시 적용"), correlated, budget);
+      }
+    }
+    if (exhaustive) for (Term term : definition.terms()) {
+      if (!hit.contains(term.key())) add(issues, "PRICE_UNREACHABLE_TERM", term.name(),
           "현재 프로세스의 어떤 허용 경로에서도 이 항이 적용되지 않습니다. 항의 입력묶음·선택 보기와 적용 조건이 같은 분기를 가리키는지 확인해 주세요.");
     }
-    if (probe.exhaustive && probe.scenarios == 0) add(issues, "PRICE_EMPTY_DOMAIN", "가격 검증",
+    if (exhaustive && scenarios == 0) add(issues, "PRICE_EMPTY_DOMAIN", "가격 검증",
         "가격계산을 검증할 수 있는 완성된 프로세스 경로가 없습니다.");
-    issues.addAll(probe.advisories.values());
-    if (probe.advisories.size() >= 50) issues.add(new Issue("WARNING", "PRICE_ADVISORY_LIMIT", "확인 안내",
+    issues.addAll(advisories.values().stream().limit(50).toList());
+    if (advisories.size() >= 50) issues.add(new Issue("WARNING", "PRICE_ADVISORY_LIMIT", "확인 안내",
         "조건 누락·동시 가산 안내가 많아 대표 50개를 표시했습니다. 안내한 조건을 정리한 뒤 다시 검사하면 나머지 사례를 확인할 수 있습니다."));
-    return new Validation(issues.stream().noneMatch(i -> "ERROR".equals(i.severity())) && probe.exhaustive, probe.exhaustive,
-        probe.scenarios, List.copyOf(issues));
+    if (exhaustive && issues.stream().noneMatch(i -> "ERROR".equals(i.severity()))
+        && (parts.size() > 1 || parts.get(0).process().questions().size() < process.questions().size()))
+      issues.add(new Issue("INFO", "PRICE_VALIDATION_PARTITIONED", "검사 방법",
+          "계산에 연결된 질문·분기·입력제한을 유지하여 " + parts.size() + "개 검증 묶음으로 나누어 확인했습니다. "
+              + "확인한 대표 입력 " + scenarios + "건은 각 묶음의 검사 건수 합계이며 모든 질문의 조합을 곱한 경로 수가 아닙니다. "
+              + (correlatedTotals ? "최종 합계는 항의 동시 적용 조합까지 검사했습니다. " : "각 묶음의 금액 상한을 합산해 최종 금액 한도도 확인했습니다. ")
+              + "검증 묶음: " + parts.stream().map(ProductPricingValidationPlan.Part::name).collect(Collectors.joining(" / "))));
+    return new Validation(issues.stream().noneMatch(i -> "ERROR".equals(i.severity())) && exhaustive, exhaustive,
+        scenarios, List.copyOf(issues));
+  }
+
+  private static void limit(List<Issue> issues, ProductPricingValidationPlan.Part part, Probe probe, Budget budget) {
+    String target = part.definition().terms().stream().filter(t -> ProductPricingEngine.role(t) == TermRole.PRICE)
+        .findFirst().map(t -> "terms." + t.key()).orElse(null);
+    String tables = part.definition().terms().stream().filter(ProductPricingEngine::matrix)
+        .map(t -> t.name() + " (" + t.xAxis().headers().size()
+            + (t.yAxis() == null ? "개 기준" : " × " + t.yAxis().headers().size() + "개 표 기준") + ")")
+        .collect(Collectors.joining(" / "));
+    String adjustments = part.definition().terms().stream().flatMap(t -> list(t.adjustments()).stream())
+        .map(a -> a.name() + " (" + (a.axis().headers().size() + 1) + "개 더하기·곱하기 구간)")
+        .collect(Collectors.joining(" / "));
+    issues.add(new Issue("ERROR", "PRICE_VALIDATION_LIMIT", part.name(),
+        "독립된 가격 항은 나누어 검사했지만, ‘" + part.name() + "’의 연결된 입력·분기 검증을 완료하지 못했습니다. "
+            + (probe.limitDetail.isBlank() ? "" : probe.limitDetail + " ")
+            + (tables.isBlank() ? "" : "검사 대상: " + tables + ". ")
+            + (adjustments.isBlank() ? "" : "연결된 구간 보정: " + adjustments + ". ")
+            + "한 번의 가격 검증은 전체 묶음 합계 " + MAX_SCENARIOS + "개 상태로 제한하며, 검사 단계마다 15초 기준으로 중단 여부를 확인합니다. "
+            + (budget.timedOut ? "검사 시간이 한도에 도달했습니다. " : "")
+            + "작성 내용은 유지하고 항을 하나씩 확인하여 복잡한 표·조건의 위치를 찾으세요. "
+            + "가격표의 불필요한 기준·중복 조건을 정리하거나 실제 주문에서 허용할 입력 범위·분기를 조정한 뒤 전체 검사를 다시 진행하세요. "
+            + "개별 항 검사만으로 최종 전체 검증을 생략하지 않으며, 미검증 가격식은 등록하지 않습니다.", target));
+  }
+
+  private static final class Budget {
+    long visits;
+    final long deadline = System.nanoTime() + 15_000_000_000L;
+    boolean timedOut;
+    boolean expired() {
+      if (System.nanoTime() > deadline) timedOut = true;
+      return timedOut;
+    }
+    boolean next() {
+      if (++visits > MAX_SCENARIOS) return false;
+      return (visits & 127) != 1 || !expired();
+    }
   }
 
   private static void add(List<Issue> issues, String code, String location, String message) {
@@ -72,13 +175,17 @@ public final class ProductPricingCoverage {
     final Map<String, Scope> scopes = new LinkedHashMap<>();
     private record Scope(Question question, String key, String label, List<Term> terms) {}
     long visits, scenarios;
+    BigDecimal maximumTotal = BigDecimal.ZERO;
+    String limitDetail = "";
+    final Budget budget;
     boolean exhaustive = true;
 
-    Probe(Process process, List<PricingGroup> groups, Definition definition, List<Issue> issues) {
+    Probe(Process process, List<PricingGroup> groups, Definition definition, List<Issue> issues, Budget budget) {
       this.process = process;
       this.groups = groups;
       this.definition = definition;
       this.issues = issues;
+      this.budget = budget;
       // A checkbox multiplier requires a mapping for every selected option. Predicate
       // equivalence alone can otherwise merge [mapped] with [mapped, unmapped] and miss
       // a gap when the consuming PRICE applies only to the mapped option's branch.
@@ -92,7 +199,13 @@ public final class ProductPricingCoverage {
         for (Choice option : list(question.choices())) pricePredicates.add(new Condition(question.key(),
             null, Operator.EQ, List.of(option.key()), null, null, null, false, false));
       for (Term term : definition.terms()) {
+        for (PriceAdjustment a : list(term.adjustments())) if (a.values().stream().anyMatch(AdjustmentValue::useInput) || a.above().useInput()) multipliedFields.add(a.groupKey()+":"+a.axis().fieldKey());
         pricePredicates.addAll(list(term.conditions()));
+        for (PriceAdjustment adjustment : list(term.adjustments())) {
+          axis(adjustment.groupKey(), adjustment.axis());
+          pricePredicates.add(numeric(adjustment.groupKey(), adjustment.axis().fieldKey(), Operator.PRESENT, null));
+          pricePredicates.add(numeric(adjustment.groupKey(), adjustment.axis().fieldKey(), Operator.GE, BigDecimal.ZERO));
+        }
         if (term.optionPricing() != null) {
           OptionRangePricing pricing = term.optionPricing();
           axis(pricing.groupKey(), pricing.axis());
@@ -143,7 +256,12 @@ public final class ProductPricingCoverage {
     }
 
     void walk(int index, Map<String, Answer> submitted) {
-      if (++visits > MAX_SCENARIOS) { exhaustive = false; return; }
+      visits++;
+      if (!budget.next()) {
+        exhaustive = false;
+        limitDetail = "앞선 질문과 표 기준 조합에서 검사한 상태 " + (budget.visits - 1) + "개입니다.";
+        return;
+      }
       if (index == process.questions().size()) { check(submitted); return; }
       Evaluation evaluation = ProductStudioEngine.evaluate(process, submitted);
       QuestionState state = evaluation.questions().get(index);
@@ -174,7 +292,16 @@ public final class ProductPricingCoverage {
       List<Answer> answers = projection.sums().isEmpty()
           ? ProductStudioEngine.samples(q, state.required(), state.allowed(), sampling)
           : ProductStudioConstraints.sumSamples(q, state.required(), sampling, projection.sums());
-      if (answers.size() > MAX_SCENARIOS) { exhaustive = false; return; }
+      if (budget.expired()) {
+        exhaustive = false;
+        limitDetail = "질문 ‘" + label(q) + "’의 대표 입력 조합을 준비하는 단계에서 검사 시간 기준에 도달했습니다.";
+        return;
+      }
+      if (answers.size() > MAX_SCENARIOS) {
+        exhaustive = false;
+        limitDetail = "질문 ‘" + label(q) + "’의 입력 조합이 " + MAX_SCENARIOS + "개를 넘습니다.";
+        return;
+      }
       boolean progressed = false;
       for (Answer answer : answers) {
         Map<String, Answer> next = new LinkedHashMap<>(submitted);
@@ -189,14 +316,20 @@ public final class ProductPricingCoverage {
 
     private Process sampling(Question q) {
       List<Condition> predicates = new ArrayList<>(pricePredicates);
-      // A multiplied quantity's effective endpoint may be set by a preceding question. Include
-      // that projected maximum, not the broader base maximum, when checking monetary overflow.
+      Process boundaries = withPredicates(predicates);
+      // Raw quantities vary inside a predicate cell. Preserve both grid endpoints of
+      // every table/condition interval, not only the global min/max: W * factor(W)
+      // can peak at an interior threshold when the following interval has a lower
+      // factor. q already contains the effective bounds projected from earlier answers.
       for (Field f : list(q.fields())) if (multipliedFields.contains(q.key() + ":" + f.key())) {
-        BigDecimal minimum = f.min() == null ? f.allowNegative() ? new BigDecimal("-1000000000") : BigDecimal.ZERO : f.min();
-        BigDecimal maximum = f.max() == null ? new BigDecimal("1000000000") : f.max();
-        predicates.add(numeric(q.key(), f.key(), Operator.EQ, minimum));
-        predicates.add(numeric(q.key(), f.key(), Operator.EQ, maximum));
+        for (Object endpoint : ProductStudioEngine.domain(q, f, boundaries))
+          if (endpoint instanceof BigDecimal value)
+            predicates.add(numeric(q.key(), f.key(), Operator.EQ, value));
       }
+      return withPredicates(predicates);
+    }
+
+    private Process withPredicates(List<Condition> predicates) {
       List<InputNotice> notices = new ArrayList<>(list(process.notices()));
       int index = 0;
       for (Condition predicate : new LinkedHashSet<>(predicates)) notices.add(new InputNotice(
@@ -209,6 +342,7 @@ public final class ProductPricingCoverage {
     private void check(Map<String, Answer> answers) {
       scenarios++;
       Calculation calculation = ProductPricingEngine.calculateValidated(process, definition, answers);
+      if (calculation.complete() && calculation.total() != null) maximumTotal = maximumTotal.max(calculation.total());
       calculation.terms().stream().filter(TermResult::applied).map(TermResult::key).forEach(hitTerms::add);
       Set<String> explained = new HashSet<>();
       for (TermResult result : calculation.terms()) {

@@ -331,8 +331,17 @@
         return `<li><strong>${S.e(label(target))}</strong> · ${S.e(text)}</li>`;
       }).join("")}</ul></article>`).join("") || '<p class="pms-help">추가 연결 없이 위 질문 순서대로 진행합니다.</p>'}</div></section>` : "";
     const quote = summary?.pricingTest;
+    // The server supplies already validated intermediate results. Keep decimal text
+    // intact until the final, rounded term value instead of recomputing in the client.
+    const calculationValue = (value, unit = '원') => {
+      if (value == null) return '계산 대기';
+      const text = String(value), parts = text.match(/^([+-]?)(\d+)(\.\d+)?$/);
+      return (parts ? parts[1] + parts[2].replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (parts[3] || '') : text) + unit;
+    };
+    const adjustmentResult = term => (term.adjustments || []).length ? `<ol class="pm-customer-adjustment-results">${term.adjustments.map((adjustment, index) => `<li><strong>${index + 1}. ${S.e(adjustment.name)}</strong><small>입력 ${S.e(adjustment.input)} · ${S.e(adjustment.range || '')}</small><p>${S.e(calculationValue(adjustment.before))} ${adjustment.operation === 'ADD' ? '＋ ' + S.e(calculationValue(adjustment.value)) : '× ' + S.e(calculationValue(adjustment.value, '배'))} = ${S.e(calculationValue(adjustment.after))}</p></li>`).join('')}</ol>${(term.multipliers || []).length ? `<p class="pms-help">위 결과에 ${term.multipliers.map(link => S.e(link.name) + ' ' + S.e(calculationValue(link.value, '배'))).join(' × ')}를 이어서 곱합니다.</p>` : ''}` : '';
+
     const priceTest = quote ? `<section class="pm-customer-price-test pms-section" aria-live="polite"><h3>가격계산 테스트 결과</h3>${quote.complete && quote.total != null
-      ? `<p class="pm-customer-price-total"><strong>${S.e(Number(quote.total).toLocaleString("ko-KR", { maximumFractionDigits: 2 }))}원</strong></p><details><summary>적용된 금액·배율 확인</summary>${(quote.terms || []).filter((t) => t.applied).map((t) => `<p><strong>${S.e(t.name)}</strong> · ${t.amount == null ? "계산 확인 필요" : S.e(Number(t.amount).toLocaleString("ko-KR", { maximumFractionDigits: t.role === "FACTOR" ? 6 : 2 })) + (t.role === "FACTOR" ? " (배율·수량)" : "원")}<br><small>${S.e(t.explanation || "")}</small></p>`).join("")}</details>`
+      ? `<p class="pm-customer-price-total"><strong>${S.e(Number(quote.total).toLocaleString("ko-KR", { maximumFractionDigits: 2 }))}원</strong></p><details><summary>적용된 금액·조건별 계산·배율 확인</summary>${(quote.terms || []).filter((t) => t.applied).map((t) => `<section class="pm-customer-price-term"><p><strong>${S.e(t.name)}</strong> · ${t.amount == null ? "계산 확인 필요" : S.e(Number(t.amount).toLocaleString("ko-KR", { maximumFractionDigits: t.role === "FACTOR" ? 6 : 2 })) + (t.role === "FACTOR" ? " (배율·수량)" : "원")}<br><small>${S.e(t.explanation || "")}</small></p>${adjustmentResult(t)}</section>`).join("")}</details>`
       : `<div class="pms-alert">${(quote.errors?.length ? quote.errors : ["가격계산을 완료하지 못했습니다."]).map((message) => `<p>${S.e(message)}</p>`).join("")}</div>`}<a class="pms-button" href="/admin/product-master/products/${encodeURIComponent(summary.pricingProductId)}/pricing">가격계산식 확인·수정</a></section>` : "";
     const summarySection = summary ? `<section id="${prefix}-selection" class="pm-product-section"><header><span class="pm-detail-eyebrow">YOUR SELECTION</span><h2>선택·입력한 제품 구성</h2><p>입력하신 사양이 이 제품의 제작 구성으로 정리되었습니다.</p></header>
       <div class="pm-selection-grid">${questions.map((q) => `<div><span>${S.e(label(q))}</span><strong>${S.e(S.answerText(q, answer(q) || {}, amap))}</strong></div>`).join("")}</div>

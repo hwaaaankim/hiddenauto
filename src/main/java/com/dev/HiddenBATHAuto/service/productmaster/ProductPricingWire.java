@@ -51,8 +51,11 @@ public final class ProductPricingWire {
               && ("baseAmount".equals(component.getName())
                   || term.role() == TermRole.FACTOR && "amount".equals(component.getName()))) {
             result.put(component.getName(), decimals(item));
-          } else if ((value instanceof MultiplierResult || value instanceof FactorResult)
-              && "value".equals(component.getName())) {
+          } else if ((value instanceof MultiplierResult || value instanceof FactorResult
+                  || value instanceof AdjustmentValue) && "value".equals(component.getName())) {
+            result.put(component.getName(), decimals(item));
+          } else if (value instanceof AdjustmentResult
+              && Set.of("input", "value", "before", "after").contains(component.getName())) {
             result.put(component.getName(), decimals(item));
           } else result.put(component.getName(), response(item));
         }
