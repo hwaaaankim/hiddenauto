@@ -51,6 +51,12 @@ public class ProductStudioApiController {
     return ApiResponse.ok(attributes.catalog());
   }
 
+  @GetMapping("/customer-showroom")
+  public ApiResponse<List<ProductStudioCustomerService.ShowroomSection>> showroom(
+      @RequestParam(defaultValue = "false") boolean nonStandard) {
+    return ApiResponse.ok(customer.showroom(nonStandard));
+  }
+
   @PostMapping("/customer-browse")
   public ApiResponse<com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioCustomerDtos.BrowseResult> browse(
       @RequestBody com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioCustomerDtos.BrowseRequest request) {

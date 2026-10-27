@@ -236,6 +236,10 @@ public class WebSecurityConfig {
                         /*
                          * 비로그인 사용자 접근 가능 URL
                          */
+                        .requestMatchers("/admin/customer-order-example", "/admin/customer-order-example/**",
+                                "/admin/api/product-master/studio/customer-showroom")
+                        .hasAuthority("ROLE_ADMIN")
+
                         .requestMatchers(visitorsCommonUrls)
                         .permitAll()
 

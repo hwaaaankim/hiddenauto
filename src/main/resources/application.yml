@@ -4,7 +4,7 @@ feature:
 
 spring:
   profiles:
-    active: prod
+    active: test
 
   application:
     name: HiddenBATHAuto
