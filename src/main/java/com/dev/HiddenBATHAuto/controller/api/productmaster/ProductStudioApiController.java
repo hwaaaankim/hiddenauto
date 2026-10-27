@@ -57,6 +57,18 @@ public class ProductStudioApiController {
     return ApiResponse.ok(customer.showroom(nonStandard));
   }
 
+  @GetMapping("/customer-showroom/page")
+  public ApiResponse<ProductStudioCustomerService.ShowroomPage> showroomPage(
+      @RequestParam(defaultValue = "false") boolean nonStandard,
+      @RequestParam(required = false) String category,
+      @RequestParam(required = false) String subcategory,
+      @RequestParam(required = false) String series,
+      @RequestParam(defaultValue = "0") int offset,
+      @RequestParam(defaultValue = "false") boolean includeNavigation) {
+    return ApiResponse.ok(customer.showroomPage(nonStandard, category, subcategory, series,
+        offset, includeNavigation));
+  }
+
   @PostMapping("/customer-browse")
   public ApiResponse<com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioCustomerDtos.BrowseResult> browse(
       @RequestBody com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioCustomerDtos.BrowseRequest request) {
