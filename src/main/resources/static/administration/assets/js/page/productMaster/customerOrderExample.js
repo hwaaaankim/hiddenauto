@@ -21,11 +21,14 @@
     return parts ? '₩' + parts[1] + parts[2].replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ((parts[3] || '').replace(/0+$/, '').replace(/\.$/, '')) : '₩' + String(value);
   };
   const sample = i => imageRoot + String((Math.abs(Number(i) || 0) % 22) + 1).padStart(2, '0') + '.webp';
-  let sections = [], kind = false, category = '', subcategory = '', series = '', busy = 0, running = false;
+  let navigation = [], sections = [], kind = false, category = '', subcategory = '', series = '', busy = 0, running = false;
   let product = null, answers = {}, evaluation = null, completed = [], assets = new Map(), currentQuestion = null;
   let uploadCount = 0, slide = 0, album = [], lastAction = null, pendingRoute = false;
   let loadingProgress = 0, loadingHide = null, galleryAnimation = null, gallerySequence = 0, galleryRequested = 0;
   const railMotions = new WeakMap();
+  let catalogEpoch = 0, seriesObserver = null, seriesLoading = false, seriesAutoPaused = false;
+  let catalogScrollVersion = 0, consumedScrollVersion = 0;
+  let catalogPage = { nextOffset: 0, totalSections: 0, hasMore: false, productTotal: 0 };
   let motion = 'smooth';
   try { motion = localStorage.getItem('hb-store-motion-v2') || 'smooth'; } catch (_) { /* Storage can be disabled. */ }
   document.body.dataset.motion = motion === 'reduced' ? 'reduced' : 'smooth';
@@ -87,6 +90,7 @@
     finally {
       if (local) localBusy(false, label); else setBusy(false);
       running = false;
+      armSeriesObserver();
       if (pendingRoute && !uploadCount) { pendingRoute = false; run(route); }
     }
   }
@@ -116,15 +120,75 @@
   function selectedSections() {
     return sections.filter(s => (!category || s.category === category) && (!subcategory || s.subcategory === subcategory) && (!series || s.series === series));
   }
+  function catalogPath(offset = 0, includeNavigation = false) {
+    const query = new URLSearchParams({ nonStandard: String(kind), offset: String(offset), includeNavigation: String(includeNavigation) });
+    for (const [key, value] of Object.entries({ category, subcategory, series })) if (value) query.set(key, value);
+    return '/customer-showroom/page?' + query.toString();
+  }
+  function invalidCatalogFilters() {
+    let changed = false;
+    if (category && !navigation.some(s => s.category === category)) { category = ''; changed = true; }
+    if (subcategory && !navigation.some(s => (!category || s.category === category) && s.subcategory === subcategory)) { subcategory = ''; changed = true; }
+    if (series && !navigation.some(s => (!category || s.category === category) && (!subcategory || s.subcategory === subcategory) && s.series === series)) { series = ''; changed = true; }
+    return changed;
+  }
   async function catalog(fetchData = true, replace = false) {
-    if (fetchData) sections = await request(`/customer-showroom?nonStandard=${kind}`);
-    if (pendingRoute) return;
+    const epoch = ++catalogEpoch; seriesObserver?.disconnect(); seriesLoading = false; seriesAutoPaused = false;
+    consumedScrollVersion = catalogScrollVersion;
+    let result = await request(catalogPath(0, fetchData || !navigation.length));
+    if (pendingRoute || epoch !== catalogEpoch) return;
+    if (fetchData || !navigation.length) navigation = list(result.navigation);
+    if (invalidCatalogFilters()) result = await request(catalogPath());
+    if (pendingRoute || epoch !== catalogEpoch) return;
+    sections = list(result.sections); catalogPage = result;
     product = null; currentQuestion = null; answers = {}; completed = []; evaluation = null;
-    if (!sections.some(s => s.category === category)) category = '';
-    if (!sections.some(s => (!category || s.category === category) && s.subcategory === subcategory)) subcategory = '';
-    if (!sections.some(s => (!category || s.category === category) && (!subcategory || s.subcategory === subcategory) && s.series === series)) series = '';
     document.body.classList.remove('hb-detail-page');
     saveRoute(null, replace); paintCatalog();
+  }
+  function seriesMoreState(message) {
+    const box = document.getElementById('hb-series-more'), button = document.getElementById('hb-more-series');
+    if (!box || !button) return;
+    box.hidden = !catalogPage.hasMore;
+    box.setAttribute('aria-busy', String(seriesLoading)); button.disabled = seriesLoading;
+    button.textContent = seriesLoading ? '다음 시리즈를 불러오고 있습니다.' : message ? '시리즈 다시 불러오기' : '시리즈 5개 더 보기';
+    document.getElementById('hb-series-more-status').textContent = message || `${sections.length} / ${catalogPage.totalSections}개 시리즈`;
+  }
+  function armSeriesObserver() {
+    seriesObserver?.disconnect();
+    const sentinel = document.getElementById('hb-series-sentinel');
+    if (!sentinel || !catalogPage.hasMore || product || seriesLoading || seriesAutoPaused || !('IntersectionObserver' in window)) return;
+    seriesObserver = new IntersectionObserver(entries => {
+      if (catalogScrollVersion > consumedScrollVersion && entries.some(entry => entry.isIntersecting)) loadSeriesBatch(true);
+    }, { rootMargin: '260px 0px', threshold: 0 });
+    seriesObserver.observe(sentinel);
+  }
+  async function loadSeriesBatch(automatic = false) {
+    if (seriesLoading || running || product || !catalogPage.hasMore || (automatic && (seriesAutoPaused || catalogScrollVersion <= consumedScrollVersion))) return;
+    consumedScrollVersion = catalogScrollVersion;
+    const epoch = catalogEpoch, offset = catalogPage.nextOffset;
+    seriesLoading = true; seriesObserver?.disconnect(); seriesMoreState();
+    try {
+      const result = await request(catalogPath(offset));
+      if (epoch !== catalogEpoch || product) return;
+      const keys = new Set(sections.map(section => section.key));
+      const added = list(result.sections).filter(section => !keys.has(section.key));
+      sections.push(...added); catalogPage = result; seriesAutoPaused = false;
+      const target = document.getElementById('hb-collections');
+      const y = scrollY, anchor = document.documentElement.style.overflowAnchor;
+      document.documentElement.style.overflowAnchor = 'none';
+      target.insertAdjacentHTML('beforeend', added.map(sectionHtml).join(''));
+      void target.offsetHeight; window.scrollTo({ top: y, behavior: 'instant' });
+      requestAnimationFrame(() => { document.documentElement.style.overflowAnchor = anchor; });
+      bindCollection(main);
+      // Only newly appended sections enter; existing rails keep their DOM and scroll positions.
+      const nodes = [...target.querySelectorAll(':scope > .hb-section')].slice(-added.length);
+      if (added.length && duration(1)) nodes.forEach(node => node.animate([{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: duration(360), easing: 'ease-out' }));
+    } catch (err) {
+      if (epoch !== catalogEpoch) return;
+      seriesAutoPaused = true; seriesMoreState(err.message || '시리즈를 불러오지 못했습니다. 다시 시도해 주세요.');
+    } finally {
+      if (epoch === catalogEpoch) { seriesLoading = false; seriesMoreState(seriesAutoPaused ? document.getElementById('hb-series-more-status')?.textContent : ''); armSeriesObserver(); }
+    }
   }
   function selectOptions(values, selected, all) {
     return `<option value="">${all}</option>` + [...new Set(values.filter(Boolean))].map(v => `<option value="${e(v)}" ${v === selected ? 'selected' : ''}>${e(v)}</option>`).join('');
@@ -140,6 +204,7 @@
     const text = p.nonStandard ? '옵션 구성 후 가격 확인' : money(p.unitPrice);
     return `<article class="hb-card"><a href="${e(routeUrl(p.id))}" data-product="${e(p.id)}"><div class="hb-card-copy"><small>${kind ? 'MADE TO ORDER' : 'STANDARD COLLECTION'}</small><h3>${e(p.productName)}</h3><div class="hb-card-price">${e(text)}</div></div><div class="hb-card-image is-loading"><img src="${e(cardImage(p, i))}" alt="${e(p.productName)}${photo(p) ? '' : ' · 예시 이미지'}" loading="lazy" data-fallback="${e(sample(p.id))}"></div><div class="hb-card-foot"><span>${photo(p) ? '등록 이미지' : '<span class="hb-sample-badge">예시 이미지</span>'} · ${e(S.status[p.status] || p.status)}${p.showroomRepeated ? '<br><span class="hb-sample-badge hb-duplicate-label">슬라이드 확인용 중복 제품</span>' : ''}</span><span>자세히 보기 ↗</span></div></a></article>`;
   }
+  function sectionHtml(s) { return `<section class="hb-section" data-section="${e(s.key)}"><div class="hb-section-head"><div><span class="hb-eyebrow">${e([s.category, s.subcategory].filter(Boolean).join(' / '))}</span><h2>${e(s.series)}</h2><p class="hb-sample-text">공간과 취향에 맞는 제품을 만나보세요.</p></div><div class="hb-arrows"><button data-scroll="-1" aria-label="${e(s.series)} 이전 제품">‹</button><button data-scroll="1" aria-label="${e(s.series)} 다음 제품">›</button></div></div><div class="hb-rail" tabindex="0" aria-label="${e(s.series)} 제품 슬라이드">${railCards(s)}${s.products.length < s.total ? `<button class="hb-more" data-more="${e(s.key)}">제품 더 보기<br><small>${s.products.length} / ${s.total}</small></button>` : ''}</div></section>`; }
   function railItems(rail) { return [...rail.querySelectorAll(':scope > .hb-card, :scope > button')]; }
   function scrollRail(rail, direction) {
     const items = railItems(rail);
@@ -164,7 +229,8 @@
     state.frame = requestAnimationFrame(frame);
   }
   function bindRail(rail, prev, next) {
-    if (!rail || !prev || !next) return;
+    if (!rail || !prev || !next || rail._hbBound) return;
+    rail._hbBound = true;
     const refresh = () => {
       prev.disabled = rail.scrollLeft <= 1;
       next.disabled = rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 1;
@@ -186,15 +252,40 @@
     });
     requestAnimationFrame(refresh);
   }
+  function fitSeriesRail(rail) {
+    if (!rail) return;
+    const fit = () => {
+      if (!rail.isConnected || rail.clientWidth <= 0) return;
+      const gap = parseFloat(getComputedStyle(rail).columnGap) || 0;
+      const minimum = innerWidth <= 600 ? 82 : innerWidth <= 800 ? 90 : 104;
+      const oldStep = rail._hbSeriesStep || minimum + gap;
+      const index = Math.round(rail.scrollLeft / oldStep);
+      const count = Math.max(1, Math.floor((rail.clientWidth + gap) / (minimum + gap)));
+      const slot = (rail.clientWidth - gap * (count - 1)) / count;
+      const state = railMotions.get(rail); if (state?.frame) cancelAnimationFrame(state.frame);
+      railMotions.delete(rail); delete rail.dataset.moving;
+      rail.style.setProperty('--hb-series-slot', slot + 'px'); rail.dataset.visibleItems = String(count);
+      rail._hbSeriesStep = slot + gap;
+      rail.scrollLeft = Math.min(Math.max(0, rail.children.length - count), index) * rail._hbSeriesStep;
+      rail.dispatchEvent(new Event('scroll'));
+    };
+    fit();
+    const resize = new ResizeObserver(fit); resize.observe(rail); rail._hbSizeObserver = resize;
+    // Native touch/trackpad movement snaps to the same whole-item boundaries.
+    rail.addEventListener('hb-resize', fit);
+  }
   function paintCatalog() {
-    const seriesOffset = series ? main.querySelector('.hb-series-nav')?.scrollLeft || 0 : 0;
-    const shown = selectedSections(), scope = sections.filter(s => !category || s.category === category);
+    const oldSeriesRail = main.querySelector('.hb-series-nav');
+    const seriesOffset = series ? oldSeriesRail?.scrollLeft || 0 : 0;
+    oldSeriesRail?._hbSizeObserver?.disconnect();
+    const shown = selectedSections(), scope = navigation.filter(s => !category || s.category === category);
     const navScope = scope.filter(s => !subcategory || s.subcategory === subcategory);
     const uniqueSeries = [...new Map(navScope.map(s => [s.series, s])).values()];
     const markup = `<section class="hb-intro"><div><span class="hb-eyebrow">HIDDENBATH COLLECTION</span><h1>당신의 공간을 위한 선택.</h1><p class="hb-sample-text">정돈된 형태, 섬세한 소재. 나만의 욕실을 차근차근 완성해 보세요.</p></div><div class="hb-kind" role="group" aria-label="제품 구분"><button data-kind="standard" aria-pressed="${!kind}">규격제품</button><button data-kind="custom" aria-pressed="${kind}">비규격제품</button></div></section>
-      <div class="hb-filter"><label>대분류<select id="hb-category" aria-label="대분류">${selectOptions(sections.map(s => s.category), category, '전체 대분류')}</select></label>${scope.some(s => s.subcategory) ? `<label>중분류<select id="hb-subcategory" aria-label="중분류">${selectOptions(scope.map(s => s.subcategory), subcategory, '전체 중분류')}</select></label>` : ''}<small>${kind ? '비규격 · 질문에 답하며 맞춤 구성' : '규격 · 등록된 사양으로 선택'} / ${shown.reduce((n, s) => n + s.total, 0)}개 제품</small></div>
-      ${uniqueSeries.length ? `<section class="hb-series-shell" aria-label="시리즈 탐색"><div class="hb-series-controls"><button data-series-prev aria-label="이전 시리즈">‹</button><button data-series-next aria-label="다음 시리즈">›</button></div><nav class="hb-series-nav" tabindex="0" aria-label="시리즈 선택"><button data-series="" aria-pressed="${!series}"><span class="hb-circle"><span class="hb-eyebrow">ALL</span></span><span>전체 시리즈</span></button>${uniqueSeries.map((s, i) => `<button data-series="${e(s.series)}" aria-pressed="${s.series === series}"><span class="hb-circle"><img src="${e(cardImage(s.products[0] || {}, i))}" alt="" data-fallback="${e(sample(i))}"></span><span>${e(s.series)}</span></button>`).join('')}</nav></section>` : ''}
-      <div id="hb-collections">${shown.length ? shown.map(s => `<section class="hb-section" data-section="${e(s.key)}"><div class="hb-section-head"><div><span class="hb-eyebrow">${e([s.category, s.subcategory].filter(Boolean).join(' / '))}</span><h2>${e(s.series)}</h2><p class="hb-sample-text">공간과 취향에 맞는 제품을 만나보세요.</p></div><div class="hb-arrows"><button data-scroll="-1" aria-label="${e(s.series)} 이전 제품">‹</button><button data-scroll="1" aria-label="${e(s.series)} 다음 제품">›</button></div></div><div class="hb-rail" tabindex="0" aria-label="${e(s.series)} 제품 슬라이드">${railCards(s)}${s.products.length < s.total ? `<button class="hb-more" data-more="${e(s.key)}">제품 더 보기<br><small>${s.products.length} / ${s.total}</small></button>` : ''}</div></section>`).join('') : `<div class="hb-empty"><span class="hb-eyebrow">COLLECTION</span><h2>표시할 ${kind ? '비규격' : '규격'}제품이 없습니다.</h2><p>ProductMaster에서 대분류·중분류·시리즈와 활성 옵션을 확인하고 제품을 등록해 주세요.</p><a href="/admin/product-master/${kind ? 'non-standard' : 'products'}">제품 관리로 이동 ↗</a></div>`}</div>
+      <div class="hb-filter"><label>대분류<select id="hb-category" aria-label="대분류">${selectOptions(navigation.map(s => s.category), category, '전체 대분류')}</select></label>${scope.some(s => s.subcategory) ? `<label>중분류<select id="hb-subcategory" aria-label="중분류">${selectOptions(scope.map(s => s.subcategory), subcategory, '전체 중분류')}</select></label>` : ''}<small>${kind ? '비규격 · 질문에 답하며 맞춤 구성' : '규격 · 등록된 사양으로 선택'} / ${catalogPage.productTotal}개 제품</small></div>
+      ${uniqueSeries.length ? `<section class="hb-series-shell" aria-label="시리즈 탐색"><div class="hb-series-controls"><button data-series-prev aria-label="이전 시리즈">‹</button><button data-series-next aria-label="다음 시리즈">›</button></div><nav class="hb-series-nav" tabindex="0" aria-label="시리즈 선택"><button data-series="" aria-pressed="${!series}"><span class="hb-circle"><span class="hb-eyebrow">ALL</span></span><span>전체 시리즈</span></button>${uniqueSeries.map((s, i) => `<button data-series="${e(s.series)}" aria-pressed="${s.series === series}"><span class="hb-circle"><img src="${e(cardImage({ assets: s.assets, id: s.productId }, i))}" alt="" loading="lazy" data-fallback="${e(sample(i))}"></span><span>${e(s.series)}</span></button>`).join('')}</nav></section>` : ''}
+      <div id="hb-collections">${shown.length ? shown.map(sectionHtml).join('') : `<div class="hb-empty"><span class="hb-eyebrow">COLLECTION</span><h2>표시할 ${kind ? '비규격' : '규격'}제품이 없습니다.</h2><p>ProductMaster에서 대분류·중분류·시리즈와 활성 옵션을 확인하고 제품을 등록해 주세요.</p><a href="/admin/product-master/${kind ? 'non-standard' : 'products'}">제품 관리로 이동 ↗</a></div>`}</div>
+      <div id="hb-series-more" class="hb-series-more" ${catalogPage.hasMore ? '' : 'hidden'}><div id="hb-series-sentinel" aria-hidden="true"></div><button id="hb-more-series" type="button">시리즈 5개 더 보기</button><p id="hb-series-more-status" role="status" aria-live="polite"></p></div>
       <section class="hb-story"><div><span class="hb-eyebrow">DETAILS THAT MATTER</span><h2 class="hb-sample-text">매일 마주하는 공간,<br>나에게 맞는 균형.</h2><p class="hb-sample-text">소재와 크기, 작은 디테일까지. 질문을 따라 선택하고 완성된 구성의 가격을 확인해 보세요. 이 문단은 디자인 확인을 위한 예시 설명입니다.</p><small class="hb-sample-badge">공간 채우기용 문구·이미지</small></div><div class="hb-story-images"><img src="${sample(0)}" alt="욕실 가구 예시 이미지" loading="lazy"><img src="${sample(10)}" alt="욕실 가구 예시 이미지" loading="lazy"></div></section>`;
     // Preserve the kind tabs themselves so their selected background can transition.
     const previousIntro = main.querySelector(':scope > .hb-intro');
@@ -216,8 +307,12 @@
     document.querySelectorAll('[data-series]').forEach(b => b.onclick = () => run(async () => { series = b.dataset.series; await catalog(false); }));
     const seriesRail = main.querySelector('.hb-series-nav');
     bindRail(seriesRail, main.querySelector('[data-series-prev]'), main.querySelector('[data-series-next]'));
-    if (seriesRail) { seriesRail.scrollLeft = seriesOffset; seriesRail.dispatchEvent(new Event('scroll')); }
-    document.querySelectorAll('[data-more]').forEach(b => b.onclick = () => run(async () => {
+    if (seriesRail) { fitSeriesRail(seriesRail); seriesRail.scrollLeft = Math.round(seriesOffset / seriesRail._hbSeriesStep) * seriesRail._hbSeriesStep; seriesRail.dispatchEvent(new Event('scroll')); }
+    document.getElementById('hb-more-series').onclick = () => { seriesAutoPaused = false; loadSeriesBatch(); };
+    seriesMoreState(); bindCollection(main);
+  }
+  function bindCollection(root) {
+    root.querySelectorAll('[data-more]').forEach(b => b.onclick = () => run(async () => {
       const s = sections.find(x => x.key === b.dataset.more);
       const data = await request('/customer-browse', 'POST', { nonStandard: kind, selections: s.selections, filters: {}, size: 12, page: Math.floor(s.products.length / 12) });
       const ids = new Set(s.products.map(p => p.id));
@@ -228,10 +323,10 @@
       if (s.products.length >= s.total) b.remove(); else b.innerHTML = `제품 더 보기<br><small>${s.products.length} / ${s.total}</small>`;
       rail.scrollLeft = x; rail.dispatchEvent(new Event('scroll')); bindProductLinks(rail);
     }, '다음 제품을 불러오고 있습니다.'));
-    main.querySelectorAll('.hb-section').forEach(section => {
+    root.querySelectorAll('.hb-section').forEach(section => {
       bindRail(section.querySelector('.hb-rail'), section.querySelector('[data-scroll="-1"]'), section.querySelector('[data-scroll="1"]'));
     });
-    bindProductLinks(main);
+    bindProductLinks(root);
   }
   function bindProductLinks(root) {
     root.querySelectorAll('.hb-card-image img').forEach(img => {
@@ -243,6 +338,7 @@
     });
   }
   async function detail(id, replace = false) {
+    catalogEpoch++; seriesObserver?.disconnect(); seriesLoading = false; seriesMoreState();
     const next = await request(`/products/${id}`);
     if (pendingRoute) return;
     if (next.status === 'DISCONTINUED') throw Error('단종된 제품은 이 예시 화면에서 선택할 수 없습니다.');
@@ -269,6 +365,7 @@
     });
   }
   function paintDetail() {
+    main.querySelector('.hb-series-nav')?._hbSizeObserver?.disconnect();
     main.innerHTML = `<div class="hb-breadcrumb"><a href="${e(routeUrl())}" id="hb-back">컬렉션</a><span>/</span><span>${kind ? '비규격제품' : '규격제품'}</span><span>/</span><span>${e(product.catalogCode)}</span></div>
       <section class="hb-detail"><div class="hb-gallery"><div class="hb-gallery-stage" role="region" aria-label="제품 이미지 슬라이드" tabindex="0"><div class="hb-gallery-track">${album.map((a, i) => `<div class="hb-gallery-slide" aria-hidden="${i !== 0}"><img src="${e(safeUrl(a.url))}" alt="${e(product.productName)} · ${e(a.name)}${a.repeated ? ' · 슬라이드 확인용 중복' : ''}" data-fallback="${e(sample(product.id))}"></div>`).join('')}</div><div class="hb-image-loading" role="status" hidden>이미지를 불러오는 중입니다.</div><div class="hb-gallery-tools"><button id="hb-prev" aria-label="이전 이미지">‹</button><span class="hb-gallery-count" aria-live="polite"></span><button id="hb-next" aria-label="다음 이미지">›</button></div></div><div class="hb-gallery-thumbs">${album.map((a, i) => `<button data-slide="${i}" aria-label="${i + 1}번 이미지" aria-pressed="${i === 0}"><img src="${e(safeUrl(a.url))}" alt="" data-fallback="${e(sample(product.id))}"></button>`).join('')}</div><p class="hb-gallery-caption"></p></div>
       <div class="hb-info pms"><span class="hb-eyebrow">${kind ? 'MADE TO ORDER' : 'STANDARD COLLECTION'}</span><h1>${e(product.productName)}</h1>${product.description ? `<p class="hb-info-description">${e(product.description)}</p>` : '<p class="hb-info-description hb-sample-text">공간의 분위기를 완성하는 간결한 형태와 섬세한 디테일. 일상에 자연스럽게 스며드는 욕실 가구를 만나보세요. · 디자인 확인용 예시 설명</p>'}<dl class="hb-meta"><dt>제품코드</dt><dd>${e(product.catalogCode || '미등록')}</dd><dt>제품 구분</dt><dd>${kind ? '비규격 · 맞춤 구성' : '규격제품'}</dd><dt>생산기간</dt><dd>${product.productionHours == null ? '미등록' : e(product.productionHours) + '시간'}</dd><dt>등록 상태</dt><dd>${e(S.status[product.status] || product.status)}</dd>${!kind ? `<dt>등록 단가</dt><dd>${e(money(product.unitPrice))}</dd>` : ''}</dl><div id="hb-config"></div><div id="hb-price" aria-live="polite"></div></div></section>`;
@@ -554,6 +651,12 @@
     const match = location.pathname.match(/\/products\/(\d+)\/?$/);
     if (match) await detail(Number(match[1]), true); else await catalog(true, true);
   }
+  window.addEventListener('scroll', () => {
+    if (product) return;
+    const freshScroll = catalogScrollVersion <= consumedScrollVersion;
+    catalogScrollVersion++;
+    if (freshScroll && !seriesLoading && !running) armSeriesObserver();
+  }, { passive: true });
   window.addEventListener('resize', () => main.querySelectorAll('.hb-rail, .hb-series-nav').forEach(rail => rail.dispatchEvent(new Event('hb-resize'))));
   window.addEventListener('popstate', () => { if (running || uploadCount) pendingRoute = true; else run(route); });
   document.querySelectorAll('[data-store-home]').forEach(link => { link.onclick = ev => { if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) return; ev.preventDefault(); run(async () => { category = subcategory = series = ''; await catalog(); window.scrollTo({ top: 0, behavior: 'smooth' }); }); }; });

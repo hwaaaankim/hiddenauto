@@ -31,7 +31,59 @@ public class ProductStudioCustomerService {
   public record ShowroomSection(String key, String category, String subcategory, String series,
       Map<Long, String> selections, List<ProductCard> products, long total) {}
 
+  public record ShowroomNavigation(String key, String category, String subcategory, String series,
+      long total, Long productId, List<AssetView> assets) {}
+  public record ShowroomPage(List<ShowroomNavigation> navigation, List<ShowroomSection> sections,
+      int nextOffset, long totalSections, boolean hasMore, long productTotal) {}
+  private record ShowroomData(Map<Long, GroupView> groups, Map<Long, List<Variant>> definitions,
+      List<Map.Entry<String, List<ProductMaster>>> buckets, Map<String, Map<Long, String>> paths,
+      Map<String, Map<String, String>> names) {}
+
   public List<ShowroomSection> showroom(boolean nonStandard) {
+    ShowroomData data = showroomData(nonStandard);
+    return data.buckets().stream().map(entry -> showroomSection(data, entry)).toList();
+  }
+
+  /** Only five sections receive product cards. Navigation carries one cover per classification. */
+  public ShowroomPage showroomPage(boolean nonStandard, String category, String subcategory,
+      String series, int offset, boolean includeNavigation) {
+    if (offset < 0)
+      throw new IllegalArgumentException("시리즈 조회 위치를 확인해 주세요.");
+    for (String filter : Arrays.asList(category, subcategory, series))
+      if (filter != null && filter.length() > 200)
+        throw new IllegalArgumentException("분류 조건의 길이를 확인해 주세요.");
+    ShowroomData data = showroomData(nonStandard);
+    List<ShowroomNavigation> navigation = includeNavigation ? data.buckets().stream().map(entry -> {
+      Map<String, String> label = data.names().get(entry.getKey());
+      ProductMaster first = entry.getValue().get(0);
+      List<AssetView> cover = assets.owned("PRODUCT", first.getId()).stream()
+          .filter(AssetView::image).limit(1).toList();
+      return new ShowroomNavigation(entry.getKey(), label.get("CATEGORY"), label.get("SUBCATEGORY"),
+          label.get("SERIES"), entry.getValue().size(), first.getId(), cover);
+    }).toList() : List.of();
+    List<Map.Entry<String, List<ProductMaster>>> matching = data.buckets().stream().filter(entry -> {
+      Map<String, String> label = data.names().get(entry.getKey());
+      return (text(category).isEmpty() || Objects.equals(category, label.get("CATEGORY")))
+          && (text(subcategory).isEmpty() || Objects.equals(subcategory, label.get("SUBCATEGORY")))
+          && (text(series).isEmpty() || Objects.equals(series, label.get("SERIES")));
+    }).toList();
+    List<ShowroomSection> batch = matching.stream().skip(offset).limit(5)
+        .map(entry -> showroomSection(data, entry)).toList();
+    int next = offset + batch.size();
+    return new ShowroomPage(navigation, batch, next, matching.size(), next < matching.size(),
+        matching.stream().mapToLong(entry -> entry.getValue().size()).sum());
+  }
+
+  private ShowroomSection showroomSection(ShowroomData data,
+      Map.Entry<String, List<ProductMaster>> entry) {
+    String key = entry.getKey(); Map<String, String> label = data.names().get(key);
+    return new ShowroomSection(key, label.get("CATEGORY"), label.get("SUBCATEGORY"),
+        label.get("SERIES"), data.paths().get(key), entry.getValue().stream().limit(12)
+            .map(p -> card(p, data.definitions().get(p.getId()), data.groups(), true)).toList(),
+        entry.getValue().size());
+  }
+
+  private ShowroomData showroomData(boolean nonStandard) {
     List<GroupView> catalog = attributes.catalog();
     Map<Long, GroupView> byGroup = catalog.stream().collect(Collectors.toMap(GroupView::id, g -> g));
     List<GroupView> basics = new ArrayList<>();
@@ -65,7 +117,7 @@ public class ProductStudioCustomerService {
       definitions.put(p.getId(), variants);
       buckets.computeIfAbsent(key, x -> new ArrayList<>()).add(p);
     }
-    return buckets.entrySet().stream().sorted((a, b) -> {
+    List<Map.Entry<String, List<ProductMaster>>> ordered = buckets.entrySet().stream().sorted((a, b) -> {
       for (GroupView g : basics) {
         List<String> valueOrder = g.values().stream().map(v -> v.id().toString()).toList();
         int compared = Integer.compare(valueOrder.indexOf(paths.get(a.getKey()).get(g.id())),
@@ -73,12 +125,8 @@ public class ProductStudioCustomerService {
         if (compared != 0) return compared;
       }
       return 0;
-    }).map(entry -> {
-      String key = entry.getKey(); Map<String, String> label = names.get(key);
-      return new ShowroomSection(key, label.get("CATEGORY"), label.get("SUBCATEGORY"),
-          label.get("SERIES"), paths.get(key), entry.getValue().stream().limit(12)
-              .map(p -> card(p, definitions.get(p.getId()), byGroup, true)).toList(), entry.getValue().size());
     }).toList();
+    return new ShowroomData(byGroup, definitions, ordered, paths, names);
   }
 
   public BrowseResult browse(BrowseRequest request, boolean admin) {
