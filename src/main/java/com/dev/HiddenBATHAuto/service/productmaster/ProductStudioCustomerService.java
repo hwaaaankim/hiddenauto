@@ -27,6 +27,60 @@ public class ProductStudioCustomerService {
   private final ProductMasterCodeService codes;
   private final ProductStudioJson json;
 
+  /** One product query for the showroom. Never writes sample products into the database. */
+  public record ShowroomSection(String key, String category, String subcategory, String series,
+      Map<Long, String> selections, List<ProductCard> products, long total) {}
+
+  public List<ShowroomSection> showroom(boolean nonStandard) {
+    List<GroupView> catalog = attributes.catalog();
+    Map<Long, GroupView> byGroup = catalog.stream().collect(Collectors.toMap(GroupView::id, g -> g));
+    List<GroupView> basics = new ArrayList<>();
+    for (String role : List.of("CATEGORY", "SUBCATEGORY", "SERIES")) {
+      List<GroupView> matching = catalog.stream().filter(g -> role.equals(g.role())).toList();
+      if (matching.size() != 1) throw new IllegalStateException("필수 분류 그룹을 확인해 주세요: " + role);
+      if (!"SUBCATEGORY".equals(role) || matching.get(0).askQuestion()) basics.add(matching.get(0));
+    }
+    List<ProductMaster> candidates = products.findAll((Specification<ProductMaster>) (r, q, b) -> b.and(
+        b.equal(r.get("nonStandard"), nonStandard),
+        b.notEqual(r.get("status"), ProductMasterStatus.DISCONTINUED),
+        b.isNotNull(r.get("studioDefinitionJson"))), Sort.by("id"));
+    Map<String, List<ProductMaster>> buckets = new LinkedHashMap<>();
+    Map<Long, List<Variant>> definitions = new HashMap<>();
+    Map<String, Map<Long, String>> paths = new LinkedHashMap<>();
+    Map<String, Map<String, String>> names = new HashMap<>();
+    for (ProductMaster p : candidates) {
+      List<Variant> variants = studio.variants(p);
+      if (!available(variants, byGroup)) continue;
+      Map<Long, String> path = new LinkedHashMap<>();
+      Map<String, String> labels = new HashMap<>();
+      for (GroupView g : basics) {
+        Variant v = variant(variants, g.id());
+        Long value = v.valueIds().get(0);
+        path.put(g.id(), value.toString());
+        labels.put(g.role(), g.values().stream().filter(x -> value.equals(x.id()))
+            .findFirst().orElseThrow().labels().customer());
+      }
+      String key = path.values().stream().collect(Collectors.joining("-"));
+      paths.putIfAbsent(key, path); names.putIfAbsent(key, labels);
+      definitions.put(p.getId(), variants);
+      buckets.computeIfAbsent(key, x -> new ArrayList<>()).add(p);
+    }
+    return buckets.entrySet().stream().sorted((a, b) -> {
+      for (GroupView g : basics) {
+        List<String> valueOrder = g.values().stream().map(v -> v.id().toString()).toList();
+        int compared = Integer.compare(valueOrder.indexOf(paths.get(a.getKey()).get(g.id())),
+            valueOrder.indexOf(paths.get(b.getKey()).get(g.id())));
+        if (compared != 0) return compared;
+      }
+      return 0;
+    }).map(entry -> {
+      String key = entry.getKey(); Map<String, String> label = names.get(key);
+      return new ShowroomSection(key, label.get("CATEGORY"), label.get("SUBCATEGORY"),
+          label.get("SERIES"), paths.get(key), entry.getValue().stream().limit(12)
+              .map(p -> card(p, definitions.get(p.getId()), byGroup, true)).toList(), entry.getValue().size());
+    }).toList();
+  }
+
   public BrowseResult browse(BrowseRequest request, boolean admin) {
     if (request == null) throw new IllegalArgumentException("제품 선택 정보가 필요합니다.");
     Map<Long, String> selected = map(request.selections());

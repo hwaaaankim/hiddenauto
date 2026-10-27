@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="_csrf" th:if="${_csrf != null}" th:content="${_csrf.token}">
+  <meta name="_csrf_header" th:if="${_csrf != null}" th:content="${_csrf.headerName}">
+  <title>HIDDENBATH · 고객주문예시</title>
+  <link rel="stylesheet" href="/administration/assets/css/page/productMaster/productStudio.css">
+  <link rel="stylesheet" href="/administration/assets/css/page/productMaster/productShowcase.css">
+  <link rel="stylesheet" href="/administration/assets/css/page/productMaster/customerOrderExample.css?v=20261027-2">
+</head>
+<body class="hb-store">
+  <a class="hb-skip" href="#hb-main">본문으로 이동</a>
+  <header class="hb-header">
+    <nav class="hb-header-start" aria-label="컬렉션 메뉴"><a href="/admin/customer-order-example" data-store-home>컬렉션</a><a href="/admin/product-master/products">제품 관리</a></nav>
+    <a class="hb-brand" data-store-home href="/admin/customer-order-example" aria-label="히든바스 스토어 홈">
+      <svg class="hb-wordmark" viewBox="0 0 190 48" role="img" aria-label="HIDDENBATH · THE BATHROOM COLLECTION">
+        <text x="0" y="25" textLength="190" lengthAdjust="spacingAndGlyphs">HIDDEN<tspan>BATH</tspan></text>
+        <text class="hb-wordmark-caption" x="0" y="44" textLength="190" lengthAdjust="spacingAndGlyphs">THE BATHROOM COLLECTION</text>
+      </svg>
+    </a>
+    <nav class="hb-header-end" aria-label="관리자 메뉴"><span class="hb-private">ADMIN PREVIEW</span><a href="/admin">관리자 돌아가기 ↗</a></nav>
+  </header>
+  <div class="hb-preview-note"><span>고객주문예시</span> 등록된 제품으로 구성과 가격을 확인하는 관리자 전용 화면입니다. <span class="hb-sample-text">옅은 회색 문구·예시 이미지는 공간 채우기용입니다.</span></div>
+  <div id="hb-error" class="hb-error" role="alert" hidden></div>
+  <main id="hb-main" tabindex="-1"></main>
+  <footer class="hb-footer"><div class="hb-brand">HIDDEN<span>BATH</span></div><p class="hb-sample-text">일상의 가장 사적인 공간에, 오래 머무는 아름다움.</p><small>고객주문예시 · 결제 및 주문 저장 기능은 연결되어 있지 않습니다.</small><button id="hb-motion-toggle" class="hb-motion-toggle" type="button" aria-pressed="false">모션 줄이기</button></footer>
+  <div id="hb-loading" class="hb-loading" role="status" aria-live="polite" aria-label="불러오는 중" hidden><div class="hb-loader"><span>HIDDENBATH</span><div class="hb-loader-track"><i></i></div><p id="hb-loading-label">제품을 불러오는 중입니다.</p></div></div>
+  <script src="/administration/assets/js/page/productMaster/studio/common.js"></script>
+  <script src="/administration/assets/js/page/productMaster/studio/showcase.js"></script>
+  <script src="/administration/assets/js/page/productMaster/customerOrderExample.js?v=20261027-2"></script>
+</body>
+</html>
