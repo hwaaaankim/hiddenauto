@@ -21,9 +21,15 @@ public final class ProductPricingCoverage {
   public static Validation validateRegistration(Process process, List<PricingGroup> groups,
       Definition definition, Map<String, Answer> fixedAnswers, boolean draft) {
     Validation coverage = validate(process, groups, definition, fixedAnswers);
-    List<Issue> issues = new ArrayList<>(coverage.issues());
+    // Editing a formula is not publishing it. Monetary witnesses must remain visible,
+    // but they must not prevent adding the next independent term or its conditions.
+    List<Issue> issues = coverage.issues().stream().map(issue -> draft
+        && ("PRICE_TERM_MONEY_LIMIT".equals(issue.code()) || "PRICE_TOTAL_MONEY_LIMIT".equals(issue.code()))
+        ? new Issue("WARNING", issue.code(), issue.location(),
+            "작성 중 안내: 이 항은 초안에 반영할 수 있습니다. 최종 저장 전 아래 범위·단가·조건을 확인해야 합니다. "
+                + issue.message(), issue.target()) : issue).collect(Collectors.toCollection(ArrayList::new));
     issues.addAll(ProductPricingEngine.participationIssues(groups, definition, draft));
-    return new Validation(coverage.valid() && issues.stream().noneMatch(i -> "ERROR".equals(i.severity())),
+    return new Validation(coverage.exhaustive() && issues.stream().noneMatch(i -> "ERROR".equals(i.severity())),
         coverage.exhaustive(), coverage.scenarios(), List.copyOf(issues));
   }
 
@@ -45,12 +51,13 @@ public final class ProductPricingCoverage {
     if (!processValidation.valid() || !processValidation.exhaustive()) return processValidation;
     List<ProductPricingValidationPlan.Part> parts = ProductPricingValidationPlan.build(process, definition, fixedAnswers);
     Set<String> hit = new HashSet<>();
+    Set<String> moneyIssues = new HashSet<>();
     Map<String, Issue> advisories = new LinkedHashMap<>();
     long scenarios = 0;
     BigDecimal maximumTotal = BigDecimal.ZERO;
     boolean exhaustive = true, correlatedTotals = false, sumCoupledQuantity = false;
     for (ProductPricingValidationPlan.Part part : parts) {
-      Probe probe = new Probe(part.process(), groups, part.definition(), issues, budget);
+      Probe probe = new Probe(part.process(), groups, part.definition(), issues, budget, moneyIssues);
       probe.walk(0, new LinkedHashMap<>(part.fixed()));
       scenarios += probe.scenarios;
       hit.addAll(probe.hitTerms);
@@ -92,7 +99,7 @@ public final class ProductPricingCoverage {
     }
     if (exhaustive && issues.isEmpty() && maximumTotal.compareTo(ProductPricingEngine.MAX_MONEY) > 0 && parts.size() > 1) {
       correlatedTotals = true;
-      Probe correlated = new Probe(process, groups, definition, issues, budget);
+      Probe correlated = new Probe(process, groups, definition, issues, budget, moneyIssues);
       correlated.walk(0, new LinkedHashMap<>(map(fixedAnswers)));
       scenarios += correlated.scenarios;
       if (!correlated.exhaustive) {
@@ -172,6 +179,7 @@ public final class ProductPricingCoverage {
     final Set<String> hitTerms = new HashSet<>();
     final Map<String, Issue> advisories = new LinkedHashMap<>();
     final Set<String> rangeIssues = new HashSet<>();
+    final Set<String> moneyIssues;
     final Map<String, Scope> scopes = new LinkedHashMap<>();
     private record Scope(Question question, String key, String label, List<Term> terms) {}
     long visits, scenarios;
@@ -180,12 +188,13 @@ public final class ProductPricingCoverage {
     final Budget budget;
     boolean exhaustive = true;
 
-    Probe(Process process, List<PricingGroup> groups, Definition definition, List<Issue> issues, Budget budget) {
+    Probe(Process process, List<PricingGroup> groups, Definition definition, List<Issue> issues, Budget budget, Set<String> moneyIssues) {
       this.process = process;
       this.groups = groups;
       this.definition = definition;
       this.issues = issues;
       this.budget = budget;
+      this.moneyIssues = moneyIssues;
       // A checkbox multiplier requires a mapping for every selected option. Predicate
       // equivalence alone can otherwise merge [mapped] with [mapped, unmapped] and miss
       // a gap when the consuming PRICE applies only to the mapped option's branch.
@@ -345,6 +354,15 @@ public final class ProductPricingCoverage {
       if (calculation.complete() && calculation.total() != null) maximumTotal = maximumTotal.max(calculation.total());
       calculation.terms().stream().filter(TermResult::applied).map(TermResult::key).forEach(hitTerms::add);
       Set<String> explained = new HashSet<>();
+      boolean diagnosedMoney = false;
+      if (calculation.errors().stream().anyMatch(ProductPricingMoneyDiagnostics::monetary)) {
+        List<Issue> monetary = ProductPricingMoneyDiagnostics.issues(definition, calculation);
+        diagnosedMoney = !monetary.isEmpty();
+        for (Issue issue : monetary) {
+          // One real witness per failing term/total is enough. Continue every safety check.
+          if (moneyIssues.add(issue.code() + ":" + issue.target()) && issues.size() < 100) issues.add(issue);
+        }
+      }
       for (TermResult result : calculation.terms()) {
         if (!result.applied() || result.amount() != null || !result.explanation().startsWith("가격표 범위 밖:")) continue;
         Term term = definition.terms().stream().filter(t -> t.key().equals(result.key())).findFirst().orElseThrow();
@@ -352,7 +370,8 @@ public final class ProductPricingCoverage {
         rangeIssue(term, term.xAxis(), "x", calculation.evaluation());
         if (term.yAxis() != null) rangeIssue(term, term.yAxis(), "y", calculation.evaluation());
       }
-      if (!calculation.complete()) { for (String error : calculation.errors()) if (!explained.contains(error)) add(issues,
+      if (!calculation.complete()) { for (String error : calculation.errors()) if (!explained.contains(error)
+          && !(diagnosedMoney && ProductPricingMoneyDiagnostics.monetary(error))) add(issues,
           error.startsWith("가격표 중복:") ? "PRICE_TABLE_OVERLAP" : error.startsWith("가격표 범위 누락:") ? "PRICE_TABLE_GAP" : "PRICE_PATH",
           "가격계산", error + " 예시: " + example(answers));
       } else checkScopes(calculation);

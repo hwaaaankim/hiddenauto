@@ -327,7 +327,8 @@ public final class ProductPricingEngine {
               + "에서 적용되는 가격표가 없습니다: " + entry.getValue().stream().map(Term::name).collect(Collectors.joining(" / "))
               + ". 허용 입력 범위를 빠짐없이 나누세요. 예: 600 이하 / 600 초과. 무료 구간은 0원 가격표로 명시하세요.");
     }
-    if (total.compareTo(MAX_MONEY) > 0) errors.add("최종가격이 허용 범위를 벗어났습니다.");
+    if (total.compareTo(MAX_MONEY) > 0) errors.add("최종가격이 허용 범위를 벗어났습니다. 계산 합계: "
+        + total.toPlainString() + "원 / 허용 한도: " + MAX_MONEY.toPlainString() + "원. 각 항의 입력 수량·단가와 동시 적용 조건을 확인해 주세요.");
     boolean complete = errors.isEmpty();
     return new Calculation(complete ? total.setScale(2, RoundingMode.HALF_UP) : null, complete,
         List.copyOf(errors), ProductPricingBranches.results(storedDefinition,results), evaluated);
@@ -386,7 +387,7 @@ public final class ProductPricingEngine {
             amount = term.values().get(row).get(column);
           }
         }
-        require(amount.signum() >= 0 && amount.compareTo(MAX_MONEY) <= 0, role(term) == TermRole.FACTOR ? "계산한 배율이 허용 범위를 벗어났습니다." : "계산한 항 금액이 허용 범위를 벗어났습니다.");
+        require(amount.signum() >= 0 && amount.compareTo(MAX_MONEY) <= 0, (role(term) == TermRole.FACTOR ? "계산한 배율이 허용 범위를 벗어났습니다." : "계산한 항 금액이 허용 범위를 벗어났습니다.") + " 계산값: " + amount.toPlainString());
         BigDecimal baseAmount = amount;
         List<AdjustmentResult> adjustments = new ArrayList<>();
         for (PriceAdjustment adjustment : list(term.adjustments())) {
@@ -402,7 +403,7 @@ public final class ProductPricingEngine {
           amount = operation.operation() == AdjustmentOperation.ADD
               ? amount.add(operand) : amount.multiply(operand);
           require(amount.signum() >= 0 && amount.compareTo(MAX_MONEY) <= 0,
-              adjustment.name() + ": 보정 후 금액이 허용 범위를 벗어났습니다.");
+              adjustment.name() + ": 보정 후 금액이 허용 범위를 벗어났습니다. 계산값: " + amount.toPlainString());
           String range = adjustmentRange(adjustment.axis(), selected);
           adjustments.add(new AdjustmentResult(adjustment.key(), adjustment.name(), adjustment.groupKey(),
               adjustment.axis().fieldKey(), numeric, operation.operation(), operand, before, amount, range));
