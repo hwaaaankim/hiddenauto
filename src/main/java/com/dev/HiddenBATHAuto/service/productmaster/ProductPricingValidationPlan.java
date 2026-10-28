@@ -45,6 +45,30 @@ final class ProductPricingValidationPlan {
                   && (adjustment.values().stream().anyMatch(AdjustmentValue::useInput) || adjustment.above().useInput()))));
       return new Bound(total, unsafe, coupled);
     }
+    /** A deliberately loose upper bound over all valid branches. A missing case ceiling
+     * must not be replaced by the ceiling from a different branch. SUM bounds imply
+     * a per-field ceiling only after allowing the other fields their lowest base values;
+     * zero is retained for optional/missing fields. Step rounding can only tighten it. */
+    BigDecimal maximum(Question question, Field field) {
+      BigDecimal maximum = field.max() == null ? new BigDecimal("1000000000") : field.max();
+      for (InputLimit limit : list(part.process().inputLimits())) {
+        if (!question.key().equals(limit.targetKey()) || !limit.fieldKeys().contains(field.key())) continue;
+        BigDecimal ceiling;
+        if (text(limit.sourceKey()).isBlank()) ceiling = limit.max();
+        else if (list(limit.cases()).isEmpty() || limit.cases().stream().anyMatch(c -> c.max() == null)) continue;
+        else ceiling = limit.cases().stream().map(LimitCase::max).max(BigDecimal::compareTo).orElse(null);
+        if (ceiling == null) continue;
+        if ("SUM".equals(limit.aggregation())) {
+          for (Field other : question.fields()) if (!other.key().equals(field.key()) && limit.fieldKeys().contains(other.key())) {
+            BigDecimal lower = other.min() == null
+                ? other.allowNegative() ? new BigDecimal("-1000000000") : BigDecimal.ZERO : other.min();
+            ceiling = ceiling.subtract(lower.min(BigDecimal.ZERO));
+          }
+        }
+        maximum = maximum.min(ceiling);
+      }
+      return maximum.max(BigDecimal.ZERO);
+    }
     BigDecimal capped(BigDecimal value) { return value.min(TOO_LARGE); }
     BigDecimal value(String key) {
       if (values.containsKey(key)) return values.get(key);
@@ -58,7 +82,7 @@ final class ProductPricingValidationPlan {
         Question q = part.process().questions().stream().filter(x -> x.key().equals(term.groupKey())).findFirst().orElseThrow();
         for (String field : term.fieldKeys()) {
           Field f = q.fields().stream().filter(x -> x.key().equals(field)).findFirst().orElseThrow();
-          BigDecimal maximum = f.max() == null ? new BigDecimal("1000000000") : f.max().max(BigDecimal.ZERO);
+          BigDecimal maximum = maximum(q, f);
           value = capped(value.add(maximum.multiply(term.rates().get(field))));
         }
       } else value = term.values().stream().flatMap(List::stream).max(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
@@ -72,8 +96,9 @@ final class ProductPricingValidationPlan {
         for (AdjustmentValue candidate : candidates) {
           BigDecimal operand = candidate.value();
           if (candidate.useInput()) {
-            Field source = part.process().questions().stream().filter(q -> q.key().equals(adjustment.groupKey())).flatMap(q -> q.fields().stream()).filter(f -> f.key().equals(adjustment.axis().fieldKey())).findFirst().orElseThrow();
-            operand = operand.multiply(source.max() == null ? new BigDecimal("1000000000") : source.max().max(BigDecimal.ZERO));
+            Question question = part.process().questions().stream().filter(q -> q.key().equals(adjustment.groupKey())).findFirst().orElseThrow();
+            Field source = question.fields().stream().filter(f -> f.key().equals(adjustment.axis().fieldKey())).findFirst().orElseThrow();
+            operand = operand.multiply(maximum(question, source));
           }
           maximum = maximum.max(candidate.operation() == AdjustmentOperation.ADD
               ? capped(value.add(operand)) : capped(value.multiply(operand)));

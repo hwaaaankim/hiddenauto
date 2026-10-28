@@ -153,7 +153,7 @@ public final class ProductPricingGraph {
           explanation += " × " + link.name() + "(" + value.stripTrailingZeros().toPlainString() + ")";
         }
         require(amount.signum() >= 0 && amount.compareTo(ProductPricingEngine.MAX_MONEY) <= 0,
-            role(term) == TermRole.FACTOR ? "계산한 배율이 허용 범위를 벗어났습니다." : "배율 적용 후 항 금액이 허용 범위를 벗어났습니다.");
+            (role(term) == TermRole.FACTOR ? "계산한 배율이 허용 범위를 벗어났습니다." : "배율 적용 후 항 금액이 허용 범위를 벗어났습니다.") + " 계산값: " + amount.toPlainString());
         if (role(term) == TermRole.PRICE) amount = amount.setScale(2, RoundingMode.HALF_UP);
         result = new TermResult(key, term.name(), true, amount, explanation,
             role(term), source.baseAmount(), List.copyOf(multipliers), source.adjustments());

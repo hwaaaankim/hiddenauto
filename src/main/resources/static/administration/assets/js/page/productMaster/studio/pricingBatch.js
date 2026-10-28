@@ -312,7 +312,7 @@
           if (check.signal.aborted || !d.open) return;
           if (signature() !== before) throw Error('검사 중 작성 내용이 변경되었습니다. 변경 내용 검토를 다시 눌러 주세요.');
           S.$('[data-batch-progress]', d).textContent = validation.valid && validation.exhaustive !== false ? '전체 연결 검증 완료' + (Number.isFinite(validation.scenarios) ? ` · ${validation.scenarios.toLocaleString()}개 검증 사례` : '') : '전체 연결 확인이 필요합니다.';
-          validationNotes = (validation.issues || []).filter(issue => issue.severity === 'INFO');
+          validationNotes = (validation.issues || []).filter(issue => issue.severity === 'INFO' || issue.severity === 'WARNING');
           if (!validation.valid || validation.exhaustive === false) { showValidation(validation, all); return; }
         }
         const overlapping = affected.filter(t => all.some(other => other.key !== t.key && B.overlap(t, other)));
