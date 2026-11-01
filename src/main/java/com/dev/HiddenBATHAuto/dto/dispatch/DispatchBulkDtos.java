@@ -224,6 +224,10 @@ public final class DispatchBulkDtos {
         private Integer deliveryCost;
         private boolean dispatchComplete;
 
+        /** True means method/handler/cost/status only: reuse the locked order's actual destination.
+         * Null retains compatibility with older dispatch clients. */
+        private Boolean keepDeliveryAddress;
+
         private String zipCode;
         private String doName;
         private String siName;

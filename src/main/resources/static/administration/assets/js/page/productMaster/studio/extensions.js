@@ -4,76 +4,97 @@
     path = (id) => "/admin/product-master/products/" + id;
   S.copyProductDialog = async function (product) {
     const p = await S.request("/products/" + product.id);
-    let priceStatus = null;
-    try { priceStatus = (await S.request("/pricing/status", "POST", { productIds: [p.id] }))[0] || null; }
-    catch (_) { /* Product copying remains available; pricing copying requires a verified status. */ }
-    const optional = p.variants.filter((v) => !S.isBase(S.group(v.groupId)));
-    const m = {
-      productName: p.productName + " 복사",
-      fixed: S.copy(p.variants.filter((v) => S.isBase(S.group(v.groupId)))),
-      includedGroupIds: optional.map((v) => v.groupId),
-      copyPricing: false,
-    };
-    const sourceProcess = p.process || { questions: [], rules: [], inputLimits: [], notices: [] };
-    const d = S.dialog(
-      "비규격 제품 복사 · 가져올 질문 선택",
-      `<p class="pms-help">새 제품의 구성·질문·옵션·분기·첨부파일은 원본과 별도로 저장됩니다. <strong>실 제품·재고·입출고 이력은 복사하지 않습니다.</strong> 필수 분류와 공통 그룹 정의·FAQ 연결은 공유하며, 가격계산식은 아래에서 함께 복사할지 선택하며, 복사한 뒤에는 새 제품에서 독립적으로 수정·삭제할 수 있습니다.</p>${S.field("새 제품명", "productName", m.productName, "text", 'maxlength="160"')}<h3>1. 필수 분류 선택</h3><p class="pms-help">대분류·중분류·시리즈는 유지하며, 선택값은 새 제품에만 적용합니다.</p><div class="pms-form-grid three">${m.fixed
-        .map((v, i) => {
-          const g = S.group(v.groupId);
-          return S.select(g.labels.management, "fixed." + i + ".valueId", v.valueIds[0],
-            Object.fromEntries(g.values.filter((v) => v.active).map((v) => [v.id, v.labels.management])));
-        }).join("")}</div><section class="pms-section"><h3>2. 복사할 질문·그룹 선택</h3><p class="pms-help">기본은 전체 선택입니다. 필요 없는 질문의 체크를 해제하세요. 제외 질문을 참조하는 분기·입력제한·안내는 설정 전체를 함께 제외하며, 일부 조건만 제거하여 적용 범위를 바꾸지 않습니다.</p><div class="pms-actions"><button type="button" data-copy-select-all>전체 선택</button><button type="button" data-copy-select-none>비필수 질문 모두 제외</button></div><div class="pms-check-grid">${optional.map((v, i) => {
-          const g = S.group(v.groupId), q = sourceProcess.questions.find((q) => q.groupId === g.id);
-          return `<label class="pms-check"><input type="checkbox" data-copy-include value="${g.id}" checked><span>${i + 1}. ${esc(q?.labels?.customer || g.labels.customer)} <small>(${esc(S.controls[g.control])})</small></span></label>`;
-        }).join("") || '<p>복사할 비필수 질문이 없습니다. 필수 분류만 복사합니다.</p>'}</div><div class="pms-help" data-copy-summary role="status" aria-live="polite"></div></section><section class="pms-section"><h3>3. 가격계산식 복사 선택</h3><label class="pms-check"><input type="checkbox" data-copy-pricing-option><span>등록된 가격계산식과 테스트 입력도 함께 복사</span></label><p class="pms-help" data-copy-pricing-reason role="status" aria-live="polite"></p></section>`,
-      { foot: '<button data-copy class="primary">선택한 구성으로 제품 복사</button>' },
-    );
-    m.fixed.forEach((v) => (v.valueId = v.valueIds[0]));
-    S.bind(d, m, selectionSummary);
-    function selectionSummary() {
-      const groupIds = new Set([...m.fixed.map((v) => v.groupId), ...m.includedGroupIds]);
-      const kept = sourceProcess.questions.filter((q) => groupIds.has(q.groupId));
-      const keys = new Set(kept.map((q) => q.key));
-      const conditionsPresent = (conditions) => (conditions || []).every((c) => c && keys.has(c.groupKey));
-      const removedRules = (sourceProcess.rules || []).filter((r) => !conditionsPresent(r.conditions) || (r.actions || []).some((a) => !a || !keys.has(a.targetKey))).length;
-      const removedLimits = (sourceProcess.inputLimits || []).filter((l) => !keys.has(l.targetKey) || (l.sourceKey && !keys.has(l.sourceKey)) || (l.cases || []).some((c) => !conditionsPresent(c.conditions))).length;
-      const removedNotices = (sourceProcess.notices || []).filter((n) => !keys.has(n.targetKey) || !conditionsPresent(n.conditions)).length;
-      const allCases = sourceProcess.questions.reduce((n, q) => n + (q.numberCases || []).length, 0);
-      const keptCases = kept.reduce((n, q) => n + (q.numberCases || []).filter((c) => conditionsPresent(c.conditions)).length, 0);
-      const removedTokens = (p.nameTokens || []).filter((t) => !groupIds.has(t.groupId)).length;
-      const excluded = optional.length - m.includedGroupIds.length;
-      const unchangedFixed = m.fixed.every((v) => Number(v.valueId) === Number(v.valueIds[0]));
-      const pricingEligible = !!priceStatus?.registered && priceStatus.ready && !priceStatus.stale && !excluded && unchangedFixed;
-      const priceInput = S.$("[data-copy-pricing-option]", d);
-      priceInput.disabled = !pricingEligible;
-      if (!pricingEligible) { m.copyPricing = false; priceInput.checked = false; }
-      S.$("[data-copy-pricing-reason]", d).textContent = !priceStatus ? "가격 등록상태를 확인하지 못했습니다. 제품만 복사한 뒤 가격계산식 불러오기를 이용해 주세요."
-        : !priceStatus.registered ? "원제품에 등록된 가격계산식이 없습니다."
-        : priceStatus.stale || !priceStatus.ready ? "원제품의 프로세스·가격계산식 검증이 필요합니다. 원제품에서 검증·저장한 뒤 복사할 수 있습니다."
-        : excluded || !unchangedFixed ? "모든 질문·옵션·입력묶음·분기·입력제한과 필수 분류 선택값이 동일해야 함께 복사할 수 있습니다. 현재 선택은 달라 제품만 복사합니다."
-        : "현재 원본과 동일한 구성입니다. 선택하면 가격 항·곱셈 연결·가격표·테스트 입력을 새 제품에 별도로 복제합니다. 저장할 때 서버에서 동일성과 계산을 다시 검증합니다.";
-      S.$("[data-copy-summary]", d).innerHTML = `<strong>필수 분류 3개 + 선택한 질문 ${m.includedGroupIds.length}개를 복사합니다.</strong><p>${excluded ? `제외: 질문 ${excluded}개 · 분기 ${removedRules}개 · 입력제한 ${removedLimits}개 · 안내 ${removedNotices}개 · 숫자안내 ${allCases - keptCases}개 · 제품명 요소 ${removedTokens}개` : "모든 질문과 연결 설정을 새 제품으로 복사합니다."}</p><p>${excluded ? "일부 질문을 제외한 제품은 ‘등록중’으로 생성됩니다. 복사 후 프로세스의 남은 연결을 확인하고 검증·등록완료해 주세요." : "복사 후 구성·질문·옵션을 수정해도 원본은 바뀌지 않습니다."} 실 제품 0종 · 재고 0개로 시작합니다.</p>`;
+    const optional = p.variants.filter(v => !S.isBase(S.group(v.groupId)));
+    const fixed = S.copy(p.variants.filter(v => S.isBase(S.group(v.groupId))));
+    fixed.forEach(v => { v.valueId = v.valueIds[0]; });
+    const wanted = { options: true, branches: true, pricing: true, tests: true };
+    let plan = null, serial = 0, controller = null;
+    const originalDirty = S.dirty;
+    const d = S.dialog("비규격 제품 복사 · 구성과 연결 확인", `
+      <p class="pms-help">그룹의 공통 정의와 필수 분류·FAQ 연결은 공유합니다. <strong>선택한 제품별 질문·보기·입력조건·분기·계산식은 새 제품에 별도로 저장됩니다.</strong> 실 제품·재고·입출고 이력은 복사하지 않습니다.</p>
+      ${S.field("새 제품명", "productName", p.productName + " 복사", "text", 'maxlength="160"')}
+      <h3>1. 필수 분류 선택</h3><div class="pms-form-grid three">${fixed.map((v, i) => {
+        const g = S.group(v.groupId);
+        return S.select(g.labels.management, "fixed." + i + ".valueId", String(v.valueId),
+          Object.fromEntries(g.values.filter(o => o.active || v.valueIds.includes(o.id)).map(o => [o.id, o.labels.management])));
+      }).join("")}</div>
+      <section class="pms-section"><h3>2. 가져올 질문·그룹</h3>
+      <p class="pms-help">기본은 전체 선택입니다. 선택에서 제외한 질문이 분기나 가격계산의 조건·대상에 필요한지 서버에서 확인합니다. 조건 일부만 잘라 적용 범위를 바꾸지 않습니다.</p>
+      <div class="pms-actions"><button type="button" data-copy-select-all>전체 선택</button><button type="button" data-copy-select-none>비필수 질문 모두 제외</button></div>
+      <div class="pms-check-grid">${optional.map((v, i) => {
+        const g = S.group(v.groupId), q = p.process?.questions.find(q => q.groupId === g.id);
+        return `<label class="pms-check"><input type="checkbox" data-copy-include value="${g.id}" checked><span>${i + 1}. ${esc(q?.labels?.customer || g.labels.customer)} <small>(${esc(S.controls[g.control])})</small></span></label>`;
+      }).join("") || "<p>비필수 질문이 없습니다.</p>"}</div></section>
+      <section class="pms-section"><h3>3. 복사할 설정</h3>
+      <div class="pms-copy-options">${[
+        ["options", "비규격 옵션·입력조건 유지", "질문, 보기, 숫자·문자·파일 필드, 입력묶음, 기본 입력조건·안내·첨부"],
+        ["branches", "프로세스 분기 유지", "선택한 질문 사이의 표시·건너뛰기·허용 보기·필수 조건 연결"],
+        ["pricing", "가격계산식 유지", "가격 항, 조건, 구간표, 추가·곱셈 보정, 배율 연결을 별도로 복제"],
+        ["tests", "가격계산 테스트 입력 유지", "해제하면 계산식은 유지하고 저장된 테스트 입력만 비웁니다."],
+      ].map(([key, title, help]) => `<div class="pms-copy-option"><label class="pms-check"><input type="checkbox" data-copy-setting="${key}" checked><span><strong>${title}</strong><small>${help}</small></span></label><p class="pms-help" data-copy-reason="${key}"></p></div>`).join("")}</div>
+      <div class="pms-help" data-copy-summary role="status" aria-live="polite"></div></section>`,
+      { foot: '<button type="button" data-copy class="primary" disabled>검증 중…</button>', onClose: () => { controller?.abort(); S.dirty = originalDirty; } });
+    const m = { productName: p.productName + " 복사", fixed };
+    S.bind(d, m, path => { if (path.startsWith("fixed.")) refreshPlan(); });
+    function selectedIds() { return S.$$("[data-copy-include]:checked", d).map(el => Number(el.value)); }
+    function payload() {
+      return { productName: m.productName, sourceVersion: p.version, includedGroupIds: selectedIds(),
+        fixed: fixed.map(v => ({ groupId: v.groupId, valueIds: [Number(v.valueId)], inputs: {} })),
+        copyOptions: wanted.options, copyBranches: wanted.options && wanted.branches && !!plan?.branchesAllowed,
+        copyPricing: wanted.pricing && !!plan?.pricingAllowed,
+        copyTestAnswers: wanted.tests && wanted.pricing && !!plan?.pricingAllowed };
     }
-    function readSelection() {
-      m.includedGroupIds = S.$$("[data-copy-include]:checked", d).map((input) => Number(input.value));
-      selectionSummary();
+    function paintSettings() {
+      const branches = wanted.options && !!plan?.branchesAllowed;
+      const pricing = wanted.options && wanted.branches && branches && !!plan?.pricingAllowed;
+      for (const [key, allowed] of Object.entries({ options: true, branches, pricing, tests: pricing && wanted.pricing })) {
+        const input = S.$(`[data-copy-setting="${key}"]`, d);
+        input.disabled = !allowed; input.checked = allowed && wanted[key];
+      }
+      const reasons = {
+        options: wanted.options ? "남은 질문의 옵션·조건은 유지합니다. 제외한 질문을 참조하는 조건은 설정 전체를 제외하고 아래에 안내합니다." : "그룹 연결과 필수 분류만 복사합니다. 제품별 보기·필드·조건은 새로 구성하며 분기·계산식은 복사하지 않습니다.",
+        branches: !wanted.options ? "옵션·입력조건 유지가 필요합니다." : !plan ? "연결을 확인하고 있습니다." : plan.branchReasons.join(" / ") || (wanted.branches ? "분기에 필요한 질문이 모두 선택되었습니다." : "분기를 제외합니다. 남은 질문은 순서대로 표시되는 등록중 제품으로 생성합니다."),
+        pricing: !wanted.options || !wanted.branches ? "옵션·입력조건과 프로세스 분기를 먼저 함께 선택해 주세요." : !plan ? "가격 참조를 확인하고 있습니다." : plan.pricingReasons.join(" / ") || "가격과 무관한 질문 제외는 허용합니다. 복사 시 전체 경로·가격계산을 다시 검증합니다.",
+        tests: pricing && wanted.pricing ? (wanted.tests ? "선택한 질문의 테스트 입력을 복제하고 계산 결과를 검증합니다." : "테스트 입력만 비웁니다. 복사한 제품에서 테스트 값을 새로 입력할 수 있습니다.") : "가격계산식을 복사할 때 선택할 수 있습니다.",
+      };
+      Object.entries(reasons).forEach(([key, reason]) => { S.$(`[data-copy-reason="${key}"]`, d).textContent = reason; });
+      S.$("[data-copy-summary]", d).innerHTML = plan ? `<strong>필수 분류 ${fixed.length}개 + 선택한 질문 ${selectedIds().length}개</strong><p>${wanted.options ? "선택한 옵션·입력조건 유지" : "그룹만 복사"} · ${branches && wanted.branches ? "분기 유지" : "분기 제외"} · ${pricing && wanted.pricing ? "가격계산식 유지" : "가격계산식 제외"}</p>${plan.warnings.map(v => `<p>${esc(v)}</p>`).join("")}<p>${!wanted.options || !wanted.branches || !branches ? "‘등록중’으로 생성합니다. 새 제품에서 옵션·질문 순서·조건을 구성하고 검증·등록완료해 주세요." : "복사 후 서버 검증 결과에 따라 사용중 또는 등록중으로 생성합니다."} 실 제품 0종 · 재고 0개로 시작합니다.</p>` : "선택한 구성과 연결을 확인하고 있습니다.";
     }
-    S.$$("[data-copy-include]", d).forEach((input) => { input.onchange = readSelection; });
-    S.$("[data-copy-select-all]", d).onclick = () => { S.$$("[data-copy-include]", d).forEach((input) => { input.checked = true; }); readSelection(); };
-    S.$("[data-copy-select-none]", d).onclick = () => { S.$$("[data-copy-include]", d).forEach((input) => { input.checked = false; }); readSelection(); };
-    S.$("[data-copy-pricing-option]", d).onchange = (event) => { m.copyPricing = !event.currentTarget.disabled && event.currentTarget.checked; };
-    selectionSummary();
-    S.$("[data-copy]", d).onclick = (e) => S.run(e.currentTarget, async () => {
-      const saved = await S.request("/products/" + p.id + "/copy", "POST", {
-        productName: m.productName,
-        sourceVersion: p.version,
-        includedGroupIds: m.includedGroupIds,
-        copyPricing: m.copyPricing,
-        fixed: m.fixed.map((v) => ({ groupId: v.groupId, valueIds: [Number(v.valueId)], inputs: {} })),
-      });
-      S.dirty = false;
-      location.href = path(saved.id) + "?copied=1";
+    async function refreshPlan() {
+      const mine = ++serial;
+      controller?.abort(); controller = new AbortController(); plan = null;
+      const button = S.$("[data-copy]", d); button.disabled = true; button.textContent = "검증 중…";
+      S.$("[data-copy-summary]", d).textContent = "선택한 구성과 연결을 확인하고 있습니다.";
+      try {
+        const result = await S.request(`/products/${p.id}/copy-plan`, "POST", {
+          ...payload(), copyBranches: wanted.options && wanted.branches,
+        }, controller.signal);
+        if (mine !== serial || !d.isConnected) return;
+        plan = result; paintSettings(); button.disabled = false; button.textContent = "선택한 구성으로 제품 복사";
+      } catch (err) {
+        if (err.name === "AbortError" || mine !== serial || !d.isConnected) return;
+        S.$("[data-copy-summary]", d).textContent = "구성 검증 실패: " + err.message + " 복사 창을 다시 열어 주세요.";
+        button.textContent = "구성 확인 필요";
+      }
+    }
+    S.$$("[data-copy-include]", d).forEach(el => { el.onchange = refreshPlan; });
+    for (const [selector, checked] of [["all", true], ["none", false]])
+      S.$(`[data-copy-select-${selector}]`, d).onclick = () => { S.$$("[data-copy-include]", d).forEach(el => { el.checked = checked; }); refreshPlan(); };
+    S.$$("[data-copy-setting]", d).forEach(el => { el.onchange = () => { wanted[el.dataset.copySetting] = el.checked; refreshPlan(); }; });
+    S.$("[data-copy]", d).onclick = e => S.run(e.currentTarget, async () => {
+      if (!plan) throw Error("복사할 구성 검증이 끝난 뒤 진행해 주세요.");
+      const selected = payload();
+      const saved = await S.request(`/products/${p.id}/copy`, "POST", selected);
+      const lines = ["제품 복사를 완료했습니다. 원제품 #" + p.id + " → 새 제품 #" + saved.id,
+        `비규격 옵션 ${selected.copyOptions ? "유지" : "제외"} · 프로세스 분기 ${selected.copyBranches ? "유지" : "제외"} · 가격계산식 ${selected.copyPricing ? "유지" : "제외"} · 테스트 입력 ${selected.copyTestAnswers ? "유지" : "제외"}`,
+        ...plan.warnings];
+      if (!selected.copyBranches && wanted.branches) lines.push(...plan.branchReasons);
+      if (!selected.copyPricing && wanted.pricing) lines.push(...plan.pricingReasons);
+      if (saved.status === "DRAFT") lines.push("등록중으로 생성했습니다. 질문·조건·계산식을 확인하고 검증·등록완료 후 사용해 주세요.");
+      try { sessionStorage.setItem("pms-copy-receipt-" + saved.id, JSON.stringify(lines)); } catch (_) { S.toast(lines.join(" · ")); }
+      S.dirty = false; location.href = path(saved.id) + "?copied=1";
     });
+    await refreshPlan();
   };
   S.faqPage = async function (root) {
     let topics = await S.request("/faq");

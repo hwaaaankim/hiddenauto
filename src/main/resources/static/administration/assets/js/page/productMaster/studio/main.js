@@ -68,6 +68,19 @@
       markTab(p.nonStandard ? "custom" : "standard");
       await S[mode === "view" ? "viewPage" : "actualsPage"](work, p);
     } else await S.listPage(work, mode === "custom");
+    if (mode === "detail" && new URLSearchParams(location.search).get("copied") === "1") {
+      try {
+        const key = "pms-copy-receipt-" + root.dataset.productId;
+        const raw = sessionStorage.getItem(key);
+        if (raw) {
+          const lines = JSON.parse(raw);
+          const receipt = document.createElement("section");
+          receipt.className = "pms-help pms-copy-receipt"; receipt.setAttribute("role", "status");
+          receipt.innerHTML = "<strong>제품 복사 결과</strong>" + lines.map(line => "<p>" + S.e(line) + "</p>").join("");
+          work.prepend(receipt); sessionStorage.removeItem(key);
+        }
+      } catch (_) { /* Storage is optional; copy completion itself has already succeeded. */ }
+    }
     if (
       ["groups", "standard", "custom"].includes(mode) &&
       !localStorage.getItem("pm-studio-tour-dismissed-v3-" + mode)

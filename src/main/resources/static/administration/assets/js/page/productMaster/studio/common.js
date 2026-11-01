@@ -49,6 +49,45 @@
     if (!rows.length) return '<span class="pm-muted">—</span>';
     return `<button type="button" class="pm-spec-peek" data-spec-peek="${S.e(JSON.stringify(rows))}" aria-expanded="false" aria-label="실제 사양 전체 ${rows.length}개 보기"><span class="pm-spec-first"><span class="pm-spec-label">${S.e(rows[0].label)}</span><span>${S.e(rows[0].value)}</span></span>${rows.length > 1 ? `<span class="pm-spec-count">+${rows.length - 1}</span>` : ""}</button>`;
   };
+  // Native modal dialog stays above other modal editors and blocks duplicate input.
+  // Reference counting keeps the overlay visible until every overlapping request finishes.
+  let busyCount = 0, busyDialog = null, busyTimer = null;
+  S.busyStart = (label = "요청을 처리하고 있습니다.") => {
+    clearTimeout(busyTimer);
+    busyCount++;
+    if (!busyDialog) {
+      busyDialog = document.createElement("dialog");
+      busyDialog.className = "pms-busy-dialog";
+      busyDialog.setAttribute("aria-label", "처리 중");
+      busyDialog.setAttribute("aria-busy", "true");
+      busyDialog.innerHTML = '<div class="pms-busy-card" role="status" aria-live="polite"><strong data-busy-label></strong><span>완료될 때까지 잠시 기다려 주세요.</span><div class="pms-busy-track" role="progressbar" aria-label="요청 처리 중"><i></i></div><button type="button" data-busy-cancel-upload hidden>파일 업로드 취소</button></div>';
+      busyDialog.addEventListener("cancel", event => event.preventDefault());
+      busyDialog.querySelector("[data-busy-cancel-upload]").onclick = () => {
+        document.querySelectorAll("[data-pms-upload-scope]").forEach(scope => scope._pmsFileState?.controller?.abort());
+      };
+      document.body.append(busyDialog);
+    }
+    busyDialog.querySelector("[data-busy-label]").textContent = label;
+    busyDialog.querySelector("[data-busy-cancel-upload]").hidden = !S.pendingUploads;
+    if (busyDialog.open) busyDialog.close();
+    busyDialog.showModal();
+    let ended = false;
+    return () => {
+      if (ended) return; ended = true;
+      busyCount = Math.max(0, busyCount - 1);
+      busyDialog.querySelector("[data-busy-cancel-upload]").hidden = !S.pendingUploads;
+      if (!busyCount) busyTimer = setTimeout(() => {
+        if (!busyCount) busyDialog?.close();
+      }, 90);
+    };
+  };
+  S.withBusy = async (fn, label) => {
+    const done = S.busyStart(label);
+    try {
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      return await fn();
+    } finally { done(); }
+  };
   S.api = async (path, method = "GET", body, signal) => {
     const headers = { Accept: "application/json" };
     const opts = { method, headers, credentials: "same-origin", signal };
@@ -62,6 +101,11 @@
         opts.body = JSON.stringify(body);
       }
     }
+    const finish = S.busyStart(body instanceof FormData ? "파일을 업로드하고 있습니다."
+      : /copy-plan$/.test(path) ? "복사할 구성의 의존성을 확인하고 있습니다."
+      : /\/copy$/.test(path) ? "제품의 구성과 연결 설정을 복사하고 있습니다."
+      : method === "GET" ? "정보를 불러오고 있습니다." : "변경사항을 처리하고 있습니다.");
+    try {
     const response = await fetch(
       path.startsWith("/") ? path : S.base + path,
       opts,
@@ -83,6 +127,7 @@
       throw error;
     }
     return data.data === undefined ? data : data.data;
+    } finally { finish(); }
   };
   // API suffixes begin with '/'; pass them through this scoped helper.
   S.request = (path, method = "GET", body, signal) =>
@@ -98,7 +143,7 @@
     const el = document.createElement("div");
     el.className = "pms-toast";
     el.textContent = text;
-    (S.$$("dialog[open]").at(-1) || document.body).append(el);
+    (S.$$("dialog[open]:not(.pms-busy-dialog)").at(-1) || document.body).append(el);
     el.setAttribute("role", "status");
     setTimeout(() => el.remove(), 3500);
   };
@@ -113,7 +158,7 @@
     try {
       return await fn();
     } catch (err) {
-      const scope = errorScope || S.$$("dialog[open]").at(-1);
+      const scope = errorScope || S.$$("dialog[open]:not(.pms-busy-dialog)").at(-1);
       if (!err.inlineShown) {
         if (scope) S.showErrors(scope, err.fieldErrors || { "": err.message });
         else S.notice(err.message);
@@ -348,11 +393,11 @@
         if (from === to || from == null || to == null) return;
         try {
           S.dirty = true;
-          await onMove(from, to);
+          await S.withBusy(() => onMove(from, to), "항목 순서를 변경하고 있습니다.");
           const moved = S.$$(selector, root)[to];
           moved?.classList.add("pms-moved");
           setTimeout(() => moved?.classList.remove("pms-moved"), 850);
-          S.toast(`${from + 1}번째 항목을 ${to + 1}번째 위치로 이동했습니다.`);
+          S.toast(`${from + 1}번째 항목을 ${to + 1}번째로 이동했습니다. 저장·적용 버튼을 눌러 반영해 주세요.`);
         } catch (error) {
           S.notice(error.message);
           S.toast(error.message);

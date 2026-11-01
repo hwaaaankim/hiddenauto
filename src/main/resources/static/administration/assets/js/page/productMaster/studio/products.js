@@ -394,7 +394,7 @@
       for (const direction of ["up", "down"])
         S.$$("[data-" + direction + "]", lane).forEach(
           (b) =>
-            (b.onclick = () => {
+            (b.onclick = () => S.run(b, () => S.withBusy(() => {
               const index = Number(b.dataset[direction]);
               selected.splice(
                 index + (direction === "up" ? -1 : 1),
@@ -403,7 +403,8 @@
               );
               S.dirty = true;
               paint();
-            }),
+              S.toast("질문 순서를 변경했습니다. 저장 버튼을 눌러 반영해 주세요.");
+            }, "질문 순서를 변경하고 있습니다."))),
         );
       S.$$("[data-fixed-input]", lane).forEach(
         (input) =>
@@ -977,12 +978,12 @@
         });
         S.$$("[data-copy-product]", content).forEach(
           (b) =>
-            (b.onclick = () =>
+            (b.onclick = () => S.run(b, () =>
               S.copyProductDialog(
                 data.content.find(
                   (p) => p.id === Number(b.dataset.copyProduct),
                 ),
-              )),
+              ))),
         );
         S.$$("[data-page]", content).forEach(
           (b) =>

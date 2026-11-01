@@ -1016,10 +1016,12 @@
   };
 
   async function downloadExcel(payload) {
+    return S.withBusy(async () => {
     const headers = { "Content-Type": "application/json" }, token = S.$('meta[name="_csrf"]')?.content, csrfHeader = S.$('meta[name="_csrf_header"]')?.content;
     if (token && csrfHeader) headers[csrfHeader] = token;
     const response = await fetch(S.base + "/pricing/excel/export", { method: "POST", headers, credentials: "same-origin", body: JSON.stringify(payload) });
     if (!response.ok || response.redirected) { let message = "엑셀 다운로드에 실패했습니다."; try { message = (await response.json()).message || message; } catch {} throw Error(message); }
     const url = URL.createObjectURL(await response.blob()), a = document.createElement("a"); a.href = url; a.download = "price-matrix.xlsx"; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, "가격표 엑셀을 준비하고 있습니다.");
   }
 })(window.PMS);

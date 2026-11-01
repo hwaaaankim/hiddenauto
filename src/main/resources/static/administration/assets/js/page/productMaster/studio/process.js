@@ -85,7 +85,7 @@
       for (const dir of ["up", "down"])
         S.$$("[data-question-" + dir + "]", order).forEach(
           (b) =>
-            (b.onclick = () => {
+            (b.onclick = () => S.run(b, () => S.withBusy(() => {
               const i = Number(
                 b.dataset[dir === "up" ? "questionUp" : "questionDown"],
               );
@@ -96,7 +96,8 @@
               );
               changed();
               paint();
-            }),
+              S.toast("질문 순서를 변경했습니다. 저장 버튼을 눌러 반영해 주세요.");
+            }, "질문 순서를 변경하고 있습니다."))),
         );
     }
     S.sortable(order, "[data-question-key]", (from, to) => {

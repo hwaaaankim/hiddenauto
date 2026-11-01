@@ -216,6 +216,59 @@ public class ProductPricingService {
     target.setUpdatedBy(actor);
   }
 
+  /** Advisory preview; final copy re-runs validation inside the source product transaction. */
+  public List<String> productCopyIssues(ProductMaster source, Process proposed, Map<String, Answer> nextFixed) {
+    List<String> issues = new ArrayList<>();
+    Definition definition = read(source);
+    if (definition == null) return List.of("원제품에 등록된 가격계산식이 없습니다.");
+    Process original = process(source);
+    issues.addAll(readyIssues(source, original, false));
+    issues.addAll(ProductPricingEngine.validate(original, pricingGroups(source, original), definition));
+    issues.addAll(participationErrors(pricingGroups(source, original), definition));
+    if (!Objects.equals(definition.schemaFingerprint(), fingerprint(original, studio.fixedAnswers(source))))
+      issues.add("원제품의 프로세스가 가격계산식 저장 이후 변경되었습니다. 가격계산식을 검증·저장한 뒤 복사해 주세요.");
+    issues.addAll(ProductStudioCopyPolicy.priceDifferences(original, proposed, definition,
+        studio.fixedAnswers(source), nextFixed));
+    return List.copyOf(issues);
+  }
+
+  /** Product-copy-only projection: omitting an unrelated question must not forbid valid pricing. */
+  @Transactional
+  public void copySelectedPricingToNewProduct(ProductMaster source, ProductMaster target,
+      Process sourceProjection, boolean copyTests, String actor) {
+    if (read(target) != null) throw new IllegalStateException("복사 대상에 이미 가격계산식이 있습니다.");
+    lockImpactGroups(target);
+    Process original = process(source), targetProcess = process(target);
+    requireReady(source, original);
+    // A selected subset stays DRAFT for review, but its copied formula still needs full validation.
+    Validation processValidation = ProductStudioEngine.validate(targetProcess, studio.fixedAnswers(target));
+    if (!processValidation.valid() || !processValidation.exhaustive())
+      throw new IllegalArgumentException("복사 대상의 프로세스 검증을 완료할 수 없습니다. "
+          + processValidation.issues().stream().filter(i -> "ERROR".equals(i.severity()))
+              .map(Issue::message).limit(10).collect(Collectors.joining(" / ")));
+    Definition definition = read(source);
+    if (definition == null) throw new IllegalArgumentException("원제품에 등록된 가격계산식이 없습니다.");
+    requireFingerprint(source, original, definition);
+    List<String> errors = ProductPricingEngine.validate(original, pricingGroups(source, original), definition);
+    if (!errors.isEmpty()) throw new IllegalArgumentException("원제품 가격계산식 오류: " + String.join(" / ", errors));
+    requireCoverage(source, original, definition);
+    // Caller has already validated the selected dependency closure before cloning attachments.
+    Definition projected = ProductStudioCopyPolicy.retainTestAnswers(definition, sourceProjection);
+    Definition copied = ProductPricingCompatibility.remap(projected, sourceProjection, targetProcess,
+        fingerprint(targetProcess, studio.fixedAnswers(target)));
+    errors = ProductPricingEngine.validate(targetProcess, pricingGroups(target, targetProcess), copied);
+    if (!errors.isEmpty()) throw new IllegalArgumentException("복사할 가격계산식 오류: " + String.join(" / ", errors));
+    requireCoverage(target, targetProcess, copied);
+    Map<String, Answer> tests = Map.of();
+    if (copyTests) {
+      Calculation test = calculate(target, targetProcess, copied, copied.testAnswers());
+      if (!test.complete()) throw new IllegalArgumentException("복사한 테스트 입력을 확인해 주세요. " + String.join(" / ", test.errors()));
+      tests = test.evaluation().answers();
+    }
+    target.setStudioPriceJson(json.write(new Definition(copied.schemaVersion(), copied.schemaFingerprint(), copied.terms(), tests)));
+    target.setUpdatedBy(actor);
+  }
+
   public List<ActualCalculation> actuals(Long id) {
     ProductMaster p = require(id);
     Process process = process(p);
@@ -281,12 +334,24 @@ public class ProductPricingService {
     if (current == null) return false;
     Process before = process(product);
     return Objects.equals(current.schemaFingerprint(), fingerprint(before, studio.fixedAnswers(product)))
-        && sameProcessStructure(before, proposed);
+        && canRetainPrice(product, before, proposed, current);
   }
 
   private boolean sameProcessStructure(Process current, Process proposed) {
     return Objects.equals(canonical(ProductStudioMedia.withoutProcessAssets(current)),
         canonical(ProductStudioMedia.withoutProcessAssets(proposed)));
+  }
+
+  private boolean canRetainPrice(ProductMaster product, Process before, Process proposed, Definition definition) {
+    if (sameProcessStructure(before, proposed)) return true;
+    if (!ProductStudioCopyPolicy.sameExceptQuestionOrder(before, proposed)) return false;
+    Map<String, Answer> fixed = studio.fixedAnswers(product);
+    Validation processValidation = ProductStudioEngine.validate(proposed, fixed);
+    if (!processValidation.valid() || !processValidation.exhaustive()
+        || !ProductPricingEngine.validate(proposed, pricingGroups(product, proposed), definition).isEmpty()) return false;
+    Validation coverage = ProductPricingCoverage.validateRegistration(proposed, pricingGroups(product, proposed), definition, fixed, false);
+    return coverage.valid() && coverage.exhaustive()
+        && (map(definition.testAnswers()).isEmpty() || calculate(product, proposed, definition, definition.testAnswers()).complete());
   }
 
   /** Media-only edits carry the existing valid formula forward; structural edits retain it as stale. */
@@ -296,9 +361,11 @@ public class ProductPricingService {
     if (current == null) return;
     Process before = process(product);
     Map<String, Answer> fixed = studio.fixedAnswers(product);
-    if (!sameProcessStructure(before, proposed)
-        || !Objects.equals(current.schemaFingerprint(), fingerprint(before, fixed))) return;
-    Definition updated = ProductPricingCompatibility.reconcileProcessMedia(current, before, proposed, fixed);
+    if (!Objects.equals(current.schemaFingerprint(), fingerprint(before, fixed))
+        || !canRetainPrice(product, before, proposed, current)) return;
+    Definition updated = sameProcessStructure(before, proposed)
+        ? ProductPricingCompatibility.reconcileProcessMedia(current, before, proposed, fixed)
+        : new Definition(current.schemaVersion(), fingerprint(proposed, fixed), current.terms(), current.testAnswers());
     if (updated != current) product.setStudioPriceJson(json.write(updated));
   }
 

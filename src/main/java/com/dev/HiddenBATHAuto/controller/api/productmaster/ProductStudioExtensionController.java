@@ -23,7 +23,8 @@ public class ProductStudioExtensionController {
   private final ProductStudioService studio;
   private final ProductStudioDeletionService deletions;
 
-  public record CopyRequest(String productName, List<Variant> fixed, List<Long> includedGroupIds, Long sourceVersion, boolean copyPricing) {}
+  public record CopyRequest(String productName, List<Variant> fixed, List<Long> includedGroupIds,
+      Long sourceVersion, boolean copyPricing, Boolean copyOptions, Boolean copyBranches, Boolean copyTestAnswers) {}
 
   @PostMapping("/validate-question")
   public Object validateQuestion(@RequestBody Question q) {
@@ -80,10 +81,18 @@ public class ProductStudioExtensionController {
     return ApiResponse.ok(extension.decode(code));
   }
 
+  @PostMapping("/products/{id}/copy-plan")
+  public Object copyPlan(@PathVariable Long id, @RequestBody CopyRequest r) {
+    if (r == null) throw new IllegalArgumentException("복사할 제품 정보를 입력해 주세요.");
+    return ApiResponse.ok(studio.previewProductCopy(id, r.fixed(), r.includedGroupIds(), r.sourceVersion(),
+        !Boolean.FALSE.equals(r.copyOptions()), !Boolean.FALSE.equals(r.copyBranches())));
+  }
+
   @PostMapping("/products/{id}/copy")
   public Object copy(@PathVariable Long id, @RequestBody CopyRequest r, Principal p) {
     if (r == null) throw new IllegalArgumentException("복사할 제품 정보를 입력해 주세요.");
-    return ApiResponse.ok(studio.copyProduct(id, r.productName(), r.fixed(), r.includedGroupIds(), r.sourceVersion(), r.copyPricing(), p.getName()));
+    return ApiResponse.ok(studio.copyProduct(id, r.productName(), r.fixed(), r.includedGroupIds(), r.sourceVersion(), !Boolean.FALSE.equals(r.copyOptions()), !Boolean.FALSE.equals(r.copyBranches()),
+        r.copyPricing(), !Boolean.FALSE.equals(r.copyTestAnswers()), p.getName()));
   }
 
   @DeleteMapping("/products/{id}")
