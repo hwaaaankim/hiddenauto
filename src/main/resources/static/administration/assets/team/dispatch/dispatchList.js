@@ -2169,9 +2169,11 @@
 		const statementClass = statementType === 'PARCEL' ? 'statement-parcel' : 'statement-site';
 		const title = statementTypeLabel(statementType);
 		const pages = data && Array.isArray(data.pages) ? data.pages : [];
-		const pageHtml = pages.map(function(page) {
-			return buildStatementPrintPage(page, layoutType);
-		}).join('');
+        let group = 0;
+        const pageHtml = pages.map(function(page, index) {
+            if (index === 0 || Number(page.pageNumber || 1) === 1) group++;
+            return buildStatementPrintPage(page, layoutType, group);
+        }).join('');
 
 		return [
 			'<!doctype html>',
@@ -2183,24 +2185,15 @@
 			'<style>' + buildStatementPrintStyles() + '</style>',
 			'</head>',
 			'<body class="statement-print-body ' + layoutClass + ' ' + statementClass + '">',
+            '<div id="dispatch-statement-print-status" class="statement-print-status" role="status">인쇄 페이지를 준비하고 있습니다. 준비가 끝나면 인쇄창이 열립니다.</div>',
 			pageHtml,
-			'<script>',
-			'(function(){',
-			'var printed=false;',
-			'function printNow(){',
-			'if(printed){return;} printed=true;',
-			'setTimeout(function(){window.focus();window.print();},250);',
-			'}',
-			'if(document.readyState==="complete"){printNow();}',
-			'else{window.addEventListener("load",printNow);}',
-			'})();',
-			'<\/script>',
+            '<script src="/administration/assets/team/dispatch/dispatchStatementPagination.js?v=20261030-1"><\/script>',
 			'</body>',
 			'</html>'
 		].join('');
 	}
 
-	function buildStatementPrintPage(page, layoutType) {
+	function buildStatementPrintPage(page, layoutType, group) {
 		const storageCopy = buildStatementCopyHtml(page, '보관용', layoutType);
 		const customerCopy = buildStatementCopyHtml(page, '고객용', layoutType);
 		const splitClass = layoutType === 'HORIZONTAL'
@@ -2214,7 +2207,7 @@
 		 */
 		if (layoutType === 'HORIZONTAL') {
 			return [
-				'<section class="statement-paper">',
+				'<section class="statement-paper" data-statement-group="' + escapeAttr(group) + '">',
 				'  <div class="statement-landscape-canvas">',
 				splitHtml,
 				'  </div>',
@@ -2222,7 +2215,7 @@
 			].join('');
 		}
 
-		return '<section class="statement-paper">' + splitHtml + '</section>';
+		return '<section class="statement-paper" data-statement-group="' + escapeAttr(group) + '">' + splitHtml + '</section>';
 	}
 
 	function buildStatementCopyHtml(page, copyLabel, layoutType) {
@@ -2293,7 +2286,7 @@
 			'  <tbody>',
 			'    <tr>',
 			'      <th>거래처명</th><td>' + statementMetaValueHtml(page && page.companyName) + '</td>',
-			'      <th>주문번호</th><td>' + statementMetaValueHtml(page && page.orderIdsText) + '</td>',
+			'      <th>주문번호</th><td data-statement-order-ids>' + statementMetaValueHtml(page && page.orderIdsText) + '</td>',
 			'    </tr>',
 			'    <tr>',
 			'      <th>하차지 담당자</th><td>' + statementMetaValueHtml(page && page.recipientName) + '</td>',
@@ -2398,7 +2391,7 @@
 		const normalizedItems = Array.isArray(items) ? items : [];
 		const rows = [];
 
-		for (let index = 0; index < fixedRows; index++) {
+		for (let index = 0; index < Math.max(fixedRows, normalizedItems.length); index++) {
 			const item = index < normalizedItems.length ? normalizedItems[index] : null;
 			rows.push(buildStatementItemRowHtml(item, index, includeMemo));
 		}
@@ -2423,7 +2416,9 @@
 			cells.push('<td>' + (item ? statementCellHtml(item.memo) : '&nbsp;') + '</td>');
 		}
 
-		return '<tr>' + cells.join('') + '</tr>';
+		return '<tr data-statement-item="' + (item ? 'true' : 'false') + '"' +
+            (item && item.orderId != null ? ' data-statement-order-id="' + escapeAttr(item.orderId) + '"' : '') +
+            '>' + cells.join('') + '</tr>';
 	}
 
 	function buildStatementAddressText(page) {
@@ -2472,7 +2467,10 @@
 			'.statement-item-table{width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:1.8mm;font-size:8pt;}',
 			'.statement-item-table th,.statement-item-table td{border:.25mm solid #475569;padding:.75mm .9mm;vertical-align:middle;line-height:1.2;overflow-wrap:anywhere;}',
 			'.statement-item-table th{height:8mm;background:#dfe6ee;text-align:center;font-weight:900;}',
-			'.statement-item-table td{height:12mm;}',
+			'.statement-item-table td{height:12mm;white-space:pre-wrap;}',
+            '.statement-print-status{position:sticky;top:0;z-index:2;padding:12px;background:#f8fafc;color:#111827;font-size:14px;}',
+            '.statement-print-status button{margin-left:12px;padding:6px 16px;}',
+            'body:not([data-statement-ready="true"]) .statement-paper{visibility:hidden;}',
 			'.statement-site-item-table .statement-col-no{width:7%;}',
 			'.statement-site-item-table .statement-col-product{width:31%;}',
 			'.statement-site-item-table .statement-col-size{width:18%;}',
@@ -2504,6 +2502,9 @@
 			'.layout-vertical .statement-continuation{min-height:15mm;font-size:6.7pt;}',
 			'@media print{',
 			'html,body{width:210mm;height:auto;background:#fff;}',
+            '.statement-print-status{display:none!important;}',
+            'body:not([data-statement-ready="true"]) .statement-paper{display:none!important;}',
+            'body:not([data-statement-ready="true"]) .statement-print-status{display:block!important;}',
 			'.statement-paper{margin:0;box-shadow:none;}',
 			'}'
 		].join('');

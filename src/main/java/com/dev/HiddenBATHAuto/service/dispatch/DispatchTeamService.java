@@ -1,5 +1,6 @@
 package com.dev.HiddenBATHAuto.service.dispatch;
 
+import com.dev.HiddenBATHAuto.service.dispatch.DispatchDeliveryAddressPolicy.AddressInput;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDate;
@@ -443,26 +444,11 @@ public class DispatchTeamService {
                     ? persistedSiteAddress(order)
                     : persistedGeneralAddress(order);
 
-            if (!targetAddress.hasDaumAddress()) {
-                throw new IllegalArgumentException(
-                        (siteDelivery ? "현장주소" : "일반 배송주소")
-                                + "를 우편번호 검색으로 입력해 주세요. orderId=" + orderId
-                );
-            }
-
-            boolean addressTypeChanged = isSiteDeliveryMethod(order.getDeliveryMethod()) != siteDelivery;
-            boolean relevantAddressChanged = !targetAddress.sameStoredValues(persistedAddress);
-            boolean postcodeSearchConfirmed = siteDelivery
-                    ? item.isSiteAddressSearched()
-                    : item.isGeneralAddressSearched();
-
-            if ((relevantAddressChanged || addressTypeChanged)
-                    && !postcodeSearchConfirmed) {
-                throw new IllegalArgumentException(
-                        (siteDelivery ? "현장주소" : "일반 배송주소")
-                                + "는 Daum 우편번호 검색을 통해 선택해야 합니다. orderId=" + orderId
-                );
-            }
+            targetAddress = DispatchDeliveryAddressPolicy.resolveRequest(
+                    targetAddress, persistedAddress, persistedActualAddress(order),
+                    isSiteDeliveryMethod(order.getDeliveryMethod()) != siteDelivery,
+                    siteDelivery ? item.isSiteAddressSearched() : item.isGeneralAddressSearched(),
+                    item.getKeepDeliveryAddress(), orderId);
 
             String targetOrdererName = cleanInput(item.getOrdererName());
             String targetOrdererPhone = cleanInput(item.getOrdererPhone());
@@ -706,6 +692,7 @@ public class DispatchTeamService {
         lockDeliveryHandlerIds(affectedHandlerIds);
 
         var customerSearchBefore = com.dev.HiddenBATHAuto.model.task.audit.CustomerOrderSearchSnapshot.from(order);
+        retainAddressOnMethodChange(order, nextDeliveryMethod);
         order.setDeliveryMethod(nextDeliveryMethod);
         order.setAssignedDeliveryHandler(nextHandler);
         order.setAssignedDeliveryTeam(nextHandler != null ? nextHandler.getTeamCategory() : null);
@@ -1199,6 +1186,7 @@ public class DispatchTeamService {
         for (BulkDeliveryMethodPlan plan : plans) {
             Order order = plan.order();
             customerSearchBefore.put(order.getId(), com.dev.HiddenBATHAuto.model.task.audit.CustomerOrderSearchSnapshot.from(order));
+            retainAddressOnMethodChange(order, targetMethod);
             order.setDeliveryMethod(targetMethod);
             order.setAssignedDeliveryHandler(plan.removeAssignment() ? null : plan.handler());
             order.setAssignedDeliveryTeam(plan.removeAssignment() ? null : plan.handler().getTeamCategory());
@@ -1573,35 +1561,6 @@ public class DispatchTeamService {
     ) {
     }
 
-    private record AddressInput(
-            String zipCode,
-            String doName,
-            String siName,
-            String guName,
-            String roadAddress,
-            String detailAddress
-    ) {
-        private boolean hasDaumAddress() {
-            return zipCode != null && roadAddress != null;
-        }
-
-        private boolean sameStoredValues(AddressInput other) {
-            return other != null
-                    && Objects.equals(zipCode, other.zipCode)
-                    && Objects.equals(doName, other.doName)
-                    && Objects.equals(siName, other.siName)
-                    && Objects.equals(guName, other.guName)
-                    && Objects.equals(roadAddress, other.roadAddress)
-                    && Objects.equals(detailAddress, other.detailAddress);
-        }
-
-        private String display() {
-            return DeliveryAddressNormalizationUtil.build(
-                    zipCode, doName, siName, guName, roadAddress, detailAddress
-            ).display();
-        }
-    }
-
     private AddressInput normalizeGeneralAddress(OrderManagementItemDto item) {
         return new AddressInput(
                 cleanInput(item.getZipCode()),
@@ -1644,6 +1603,18 @@ public class DispatchTeamService {
                 cleanInput(order.getSiteRoadAddress()),
                 cleanInput(order.getSiteDetailAddress())
         );
+    }
+
+    private AddressInput persistedActualAddress(Order order) {
+        return DispatchDeliveryAddressPolicy.actual(persistedSiteAddress(order), persistedGeneralAddress(order));
+    }
+
+    private void retainAddressOnMethodChange(Order order, DeliveryMethod targetMethod) {
+        if (isSiteDeliveryMethod(order.getDeliveryMethod()) == isSiteDeliveryMethod(targetMethod)) return;
+        AddressInput address = persistedActualAddress(order);
+        if (!address.hasDestination()) return; // Do not erase incomplete legacy data in a method-only API.
+        if (isSiteDeliveryMethod(targetMethod)) applySiteAddress(order, address);
+        else { applyGeneralAddress(order, address); clearSiteAddress(order); }
     }
 
     private void applyGeneralAddress(Order order, AddressInput address) {

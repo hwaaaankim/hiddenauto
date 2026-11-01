@@ -489,26 +489,15 @@ public class ProductStudioService {
     }
   }
 
-  @Transactional
-  public ProductView copyProduct(Long id, String name, List<Variant> fixed, String actor) {
-    return copyProduct(id, name, fixed, null, null, false, actor);
-  }
+  private record CopySetup(List<Variant> variants, Set<Long> groupIds,
+      ProductStudioCopyPolicy.Plan dependencies, Process process) {}
 
-  @Transactional
-  public ProductView copyProduct(Long id, String name, List<Variant> fixed,
-      List<Long> includedGroupIds, Long sourceVersion, String actor) {
-    return copyProduct(id, name, fixed, includedGroupIds, sourceVersion, false, actor);
-  }
+  public record ProductCopyPlan(boolean branchesAllowed, boolean pricingAllowed,
+      List<String> branchReasons, List<String> pricingReasons, List<String> warnings,
+      int retainedQuestions, int removedRules, int removedNumberCases, int removedLimits, int removedNotices) {}
 
-  @Transactional
-  public ProductView copyProduct(Long id, String name, List<Variant> fixed,
-      List<Long> includedGroupIds, Long sourceVersion, boolean copyPricing, String actor) {
-    if (copyPricing && sourceVersion == null)
-      throw new IllegalArgumentException("가격계산식까지 복사하려면 원제품을 다시 열어 최신 버전을 확인해 주세요.");
-    ProductMaster source = products.findForUpdate(id).orElseThrow();
-    if (sourceVersion != null) ProductStudioAttributeService.version(sourceVersion, source.getRowVersion());
-    if (!source.isNonStandard()) throw new IllegalArgumentException("비규격 제품만 복사할 수 있습니다.");
-    validateName(name);
+  private CopySetup copySetup(ProductMaster source, List<Variant> fixed, List<Long> includedGroupIds,
+      boolean copyOptions, boolean copyBranches) {
     if (fixed == null
         || fixed.size() != 3
         || fixed.stream()
@@ -535,20 +524,88 @@ public class ProductStudioService {
     if (included.contains(null) || !optionalGroups.containsAll(included)
         || includedGroupIds != null && included.size() != includedGroupIds.size())
       throw new IllegalArgumentException("복사할 질문은 원제품의 비필수 그룹에서 중복 없이 선택해 주세요.");
-    boolean partialCopy = !included.equals(optionalGroups);
-    if (copyPricing && (partialCopy || sourceVariants.stream()
-        .filter(v -> sourceFixedGroups.contains(v.groupId()))
-        .anyMatch(v -> !list(v.valueIds()).equals(list(fixedByGroup.get(v.groupId()).valueIds()))
-            || !canonical(map(v.inputs())).equals(canonical(map(fixedByGroup.get(v.groupId()).inputs()))))))
-      throw new IllegalArgumentException("가격계산식은 모든 질문과 필수 분류 선택값이 동일할 때만 함께 복사할 수 있습니다.");
-    // Preserve source order and replace only chosen base values; omitted optional groups
-    // never return through the source variants or process metadata below.
     List<Variant> merged = sourceVariants.stream()
         .filter(v -> sourceFixedGroups.contains(v.groupId()) || included.contains(v.groupId()))
-        .map(v -> fixedByGroup.getOrDefault(v.groupId(), v))
-        .collect(Collectors.toCollection(ArrayList::new));
-    lockCustomGroups(merged);
+        .map(v -> fixedByGroup.getOrDefault(v.groupId(), v)).toList();
+    Set<Long> copiedIds = merged.stream().map(Variant::groupId).collect(Collectors.toSet());
+    Process original = readProcess(source), defaults = defaultProcess(merged);
+    ProductStudioCopyPolicy.Plan dependencies = ProductStudioCopyPolicy.plan(original, copiedIds);
+    Process projected = ProductStudioCopyPolicy.project(original, copiedIds, copyOptions,
+        copyBranches && dependencies.branchesAllowed(), defaults);
+    ProductMaster temporary = new ProductMaster();
+    temporary.setStudioDefinitionJson(json.write(merged));
+    projected = remapCopyProcess(projected, fixedAnswers(source), fixedAnswers(temporary));
+    projected = normalizeProcess(temporary, projected);
+    return new CopySetup(merged, copiedIds, dependencies, projected);
+  }
+
+  public ProductCopyPlan previewProductCopy(Long id, List<Variant> fixed, List<Long> includedGroupIds,
+      Long sourceVersion, boolean copyOptions, boolean copyBranches) {
+    ProductMaster source = require(id);
+    if (!source.isNonStandard()) throw new IllegalArgumentException("비규격 제품만 복사할 수 있습니다.");
+    ProductStudioAttributeService.version(sourceVersion, source.getRowVersion());
+    return productCopyPlan(source, copySetup(source, fixed, includedGroupIds, copyOptions, copyBranches),
+        copyOptions, copyBranches);
+  }
+
+  private ProductCopyPlan productCopyPlan(ProductMaster source, CopySetup setup,
+      boolean copyOptions, boolean copyBranches) {
+    var dependencies = setup.dependencies();
+    List<String> branchReasons = new ArrayList<>(dependencies.branchReasons());
+    if (!copyOptions) branchReasons.add("비규격 옵션·입력조건을 함께 선택해야 분기를 복사할 수 있습니다.");
+    List<String> priceReasons = new ArrayList<>();
+    if (!copyOptions || !copyBranches || !dependencies.branchesAllowed())
+      priceReasons.add("옵션·입력조건과 유효한 프로세스 분기를 함께 선택해야 가격계산식을 복사할 수 있습니다.");
+    ProductMaster temporary = new ProductMaster();
+    temporary.setStudioDefinitionJson(json.write(setup.variants()));
+    priceReasons.addAll(pricing.getObject().productCopyIssues(source, setup.process(), fixedAnswers(temporary)));
+    List<String> warnings = new ArrayList<>();
+    if (copyOptions) warnings.addAll(dependencies.optionWarnings());
+    if (!Objects.equals(canonical(variants(source)), canonical(setup.variants())))
+      warnings.add("원제품과 그룹 또는 필수 분류 선택값이 달라 ‘등록중’으로 복사합니다. 삭제된 연결과 질문 순서를 확인하고 검증·등록완료 후 사용해 주세요.");
+    return new ProductCopyPlan(branchReasons.isEmpty(), priceReasons.isEmpty(), List.copyOf(branchReasons),
+        List.copyOf(priceReasons), List.copyOf(warnings), dependencies.retainedQuestions(),
+        dependencies.removedRules(), dependencies.removedNumberCases(), dependencies.removedLimits(), dependencies.removedNotices());
+  }
+
+  @Transactional
+  public ProductView copyProduct(Long id, String name, List<Variant> fixed, String actor) {
+    return copyProduct(id, name, fixed, null, null, false, actor);
+  }
+
+  @Transactional
+  public ProductView copyProduct(Long id, String name, List<Variant> fixed,
+      List<Long> includedGroupIds, Long sourceVersion, String actor) {
+    return copyProduct(id, name, fixed, includedGroupIds, sourceVersion, false, actor);
+  }
+
+  @Transactional
+  public ProductView copyProduct(Long id, String name, List<Variant> fixed,
+      List<Long> includedGroupIds, Long sourceVersion, boolean copyPricing, String actor) {
+    return copyProduct(id, name, fixed, includedGroupIds, sourceVersion, true, true, copyPricing, true, actor);
+  }
+
+  @Transactional
+  public ProductView copyProduct(Long id, String name, List<Variant> fixed,
+      List<Long> includedGroupIds, Long sourceVersion, boolean copyOptions, boolean copyBranches,
+      boolean copyPricing, boolean copyTestAnswers, String actor) {
+    if (sourceVersion == null)
+      throw new IllegalArgumentException("원제품의 최신 구성을 확인할 수 있도록 복사 창을 다시 열어 주세요.");
+    ProductMaster source = products.findForUpdate(id).orElseThrow();
+    ProductStudioAttributeService.version(sourceVersion, source.getRowVersion());
+    if (!source.isNonStandard()) throw new IllegalArgumentException("비규격 제품만 복사할 수 있습니다.");
+    validateName(name);
+    CopySetup setup = copySetup(source, fixed, includedGroupIds, copyOptions, copyBranches);
+    List<Variant> merged = new ArrayList<>(setup.variants());
+    // Source metadata also participates in dependency/price validation; serialize its shared edits.
+    lockCustomGroups(variants(source));
     merged = validateVariants(merged, true);
+    setup = copySetup(source, fixed, includedGroupIds, copyOptions, copyBranches);
+    ProductCopyPlan plan = productCopyPlan(source, setup, copyOptions, copyBranches);
+    if (copyBranches && !plan.branchesAllowed())
+      throw new IllegalArgumentException("프로세스 분기를 복사할 수 없습니다. " + String.join(" / ", plan.branchReasons()));
+    if (copyPricing && !plan.pricingAllowed())
+      throw new IllegalArgumentException("가격계산식을 복사할 수 없습니다. " + String.join(" / ", plan.pricingReasons()));
     String hash = codes.newNonStandardIdentity();
     ProductMaster p = new ProductMaster();
     p.setNonStandard(true);
@@ -568,7 +625,7 @@ public class ProductStudioService {
     p.setNameTokensJson(json.write(json.list(source.getNameTokensJson(), NameToken.class).stream()
         .filter(token -> copiedGroupIds.contains(token.groupId())).toList()));
     p.setStatus(ProductMasterStatus.DRAFT);
-    // Price formulas are opt-in and copied only after exact-schema validation below.
+    // Every copy is independent; no formula survives an incompatible selection.
     p.setStudioPriceJson(null);
     p.setCurrentStock(0);
     p.setLegacyUnallocatedStock(0);
@@ -576,62 +633,40 @@ public class ProductStudioService {
     products.saveAndFlush(p);
     // The JSON is stored on the new product. Question/option keys are scoped to that product,
     // so retaining them preserves every internal branch without sharing editable option rows.
-    Process retainedProcess = ProductStudioProcessSubset.retain(readProcess(source), copiedGroupIds);
+    Process retainedProcess = setup.process();
     String copiedProcess =
         assets.copyOwned(
             "PROCESS", source.getId(), p.getId(), json.write(retainedProcess), actor,
             processAssetIds(retainedProcess));
     p.setStudioProcessJson(copiedProcess);
-    Process copied = readProcess(p);
-    Map<String, Answer> oldFixed = fixedAnswers(source), newFixed = fixedAnswers(p);
-    List<Rule> copiedRules =
-        copied.rules().stream()
-            .map(
-                r ->
-                    new Rule(
-                        r.key(),
-                        r.name(),
-                        r.match(),
-                        r.conditions().stream()
-                            .map(
-                              c -> remapFixedCondition(c, oldFixed, newFixed))
-                            .toList(),
-                        r.actions()))
-            .toList();
-    p.setStudioProcessJson(
-        json.write(
-            normalizeProcess(
-                p,
-                new Process(
-                    copied.schemaVersion(), copied.questions(), copiedRules,
-                    list(copied.inputLimits()).stream()
-                        .map(l -> new InputLimit(
-                            l.key(), l.name(), l.targetKey(), l.fieldKeys(), l.aggregation(),
-                            l.min(), l.max(), l.sourceKey(),
-                            list(l.cases()).stream()
-                                .map(c -> new LimitCase(c.key(), c.name(),
-                                    list(c.conditions()).stream()
-                                        .map(condition -> remapFixedCondition(condition, oldFixed, newFixed))
-                                        .toList(), c.min(), c.max()))
-                                .toList()))
-                        .toList(),
-                    list(copied.notices()).stream()
-                        .map(n -> new InputNotice(n.key(), n.targetKey(), n.fieldKey(), n.message(), n.mode(),
-                            list(n.conditions()).stream()
-                                .map(c -> remapFixedCondition(c, oldFixed, newFixed)).toList()))
-                        .toList()))));
+    p.setStudioProcessJson(json.write(normalizeProcess(p, readProcess(p))));
     // Detach cloned files belonging only to excluded questions. Original files are untouched.
     assets.attach("PROCESS", p.getId(), processAssetIds(readProcess(p)), actor);
     assets.copyOwned("PRODUCT", source.getId(), p.getId(), null, actor);
-    if (!partialCopy && source.getStatus() != ProductMasterStatus.DRAFT) {
+    boolean unchangedComposition = Objects.equals(canonical(variants(source)), canonical(merged));
+    if (copyOptions && copyBranches && unchangedComposition && source.getStatus() != ProductMasterStatus.DRAFT) {
       Validation validation = validateProcess(p, readProcess(p));
-      if (!validation.valid() || !validation.exhaustive())
-        throw new IllegalArgumentException("복사한 프로세스 검증 실패: " + validation.issues());
-      p.setStatus(ProductMasterStatus.ACTIVE);
+      if (validation.valid() && validation.exhaustive()) p.setStatus(ProductMasterStatus.ACTIVE);
     }
-    if (copyPricing) pricing.getObject().copyPricingToNewProduct(source, p, actor);
+    if (copyPricing) pricing.getObject().copySelectedPricingToNewProduct(source, p, retainedProcess, copyTestAnswers, actor);
     products.flush();
     return view(p, true);
+  }
+
+  private Process remapCopyProcess(Process copied, Map<String, Answer> oldFixed, Map<String, Answer> newFixed) {
+    List<Question> questions = copied.questions().stream().map(q -> new Question(q.key(), q.groupId(), q.labels(),
+        q.control(), q.fixed(), q.visible(), q.required(), q.requireRule(), q.question(), q.guide(), q.choices(),
+        q.fields(), q.assetIds(), list(q.numberCases()).stream().map(n -> new NumberCase(n.key(), n.name(),
+            list(n.conditions()).stream().map(c -> remapFixedCondition(c, oldFixed, newFixed)).toList(), n.guide())).toList(), q.preset())).toList();
+    return new Process(copied.schemaVersion(), questions, list(copied.rules()).stream()
+        .map(r -> new Rule(r.key(), r.name(), r.match(), list(r.conditions()).stream()
+            .map(c -> remapFixedCondition(c, oldFixed, newFixed)).toList(), r.actions())).toList(),
+        list(copied.inputLimits()).stream().map(l -> new InputLimit(l.key(), l.name(), l.targetKey(),
+            l.fieldKeys(), l.aggregation(), l.min(), l.max(), l.sourceKey(), list(l.cases()).stream()
+                .map(c -> new LimitCase(c.key(), c.name(), list(c.conditions()).stream()
+                    .map(v -> remapFixedCondition(v, oldFixed, newFixed)).toList(), c.min(), c.max())).toList())).toList(),
+        list(copied.notices()).stream().map(n -> new InputNotice(n.key(), n.targetKey(), n.fieldKey(), n.message(), n.mode(),
+            list(n.conditions()).stream().map(c -> remapFixedCondition(c, oldFixed, newFixed)).toList())).toList());
   }
 
   private Condition remapFixedCondition(
@@ -922,14 +957,17 @@ public class ProductStudioService {
     p.setNameTokensJson(json.write(tokens));
     p.setProductName(edit.productName().trim());
     p.setDescription(text(edit.description()));
+    boolean retainsPricedOrder = false;
     if (!custom) p.setStudioProcessJson(json.write(defaultProcess(selected)));
     else {
       List<Question> reordered = ProductStudioProcessSubset.mergeQuestions(
           previousProcess.questions(), defaultProcess(selected).questions(), compositionReordered);
-      p.setStudioProcessJson(json.write(new Process(
-          2, reordered, previousProcess.rules(), previousProcess.inputLimits(), previousProcess.notices())));
+      Process proposed = new Process(2, reordered, previousProcess.rules(), previousProcess.inputLimits(), previousProcess.notices());
+      retainsPricedOrder = pricing.getObject().isMediaOnlyProcessChange(p, proposed);
+      pricing.getObject().reconcileProcessMedia(p, proposed);
+      p.setStudioProcessJson(json.write(proposed));
     }
-    if (custom && processChanged) p.setStatus(ProductMasterStatus.DRAFT);
+    if (custom && processChanged && !retainsPricedOrder) p.setStatus(ProductMasterStatus.DRAFT);
     else if ("DISCONTINUED".equals(edit.status())) p.setStatus(ProductMasterStatus.DISCONTINUED);
     else if (p.getStatus() != ProductMasterStatus.DRAFT) {
       if (custom) {

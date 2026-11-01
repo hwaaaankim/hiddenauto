@@ -2813,3 +2813,31 @@
 }
 .pms .pms-check-grid > label.pms-check:has(input:disabled) { color: var(--muted); background: #f5f7fa; cursor: not-allowed; }
 .pms .pms-check-grid > label.pms-check:has(input:disabled):has(input:checked) { background: var(--blue-soft); }
+
+/* ProductMaster requests and local ordering share an accessible, modal loading indicator. */
+.pms-busy-dialog {position:fixed;inset:0;width:100vw;max-width:none;height:100dvh;max-height:none;margin:0;padding:20px;border:0;background:transparent;color:#273344;box-sizing:border-box;outline:none;overscroll-behavior:contain;}
+.pms-busy-dialog[open] {display:grid;place-items:center;}
+.pms-busy-dialog::backdrop {background:rgba(24,31,42,.30);}
+.pms-busy-card {width:min(360px,100%);box-sizing:border-box;background:#fff;border:1px solid #d6dce5;border-radius:5px;padding:24px;box-shadow:0 12px 40px #1113;font:13px/1.6 -apple-system,BlinkMacSystemFont,"Malgun Gothic",sans-serif;display:grid;gap:8px;}
+.pms-busy-card strong {font-size:14px;line-height:1.5;word-break:keep-all;}
+.pms-busy-card>span {color:#69778a;font-size:12px;}
+.pms-busy-track {height:3px;overflow:hidden;border-radius:2px;background:#e7ebf1;margin-top:10px;}
+.pms-busy-track i {display:block;width:40%;height:100%;background:#2457c5;animation:pms-busy-travel 1.4s ease-in-out infinite;}
+@keyframes pms-busy-travel {from{transform:translateX(-110%)}to{transform:translateX(360%)}}
+@media(prefers-reduced-motion:reduce){.pms-busy-track i{animation:none;transform:translateX(75%);}}
+.pms-copy-options {display:grid;gap:12px;}
+.pms-copy-option {border:1px solid var(--line);border-radius:5px;padding:12px 14px;}
+.pms-copy-option .pms-check {align-items:flex-start;margin:0;}
+.pms-copy-option .pms-check input {flex:none;margin-top:4px;}
+.pms-copy-option .pms-check span {display:grid;gap:4px;min-width:0;}
+.pms-copy-option .pms-check small {font-size:11px;color:var(--muted);font-weight:400;}
+.pms-copy-option .pms-help {margin:8px 0 0;overflow-wrap:anywhere;}
+.pms-copy-option:has(input:disabled) {background:var(--bg);}
+
+.pms-busy-card [data-busy-cancel-upload] {justify-self:start;border:1px solid #d6dce5;border-radius:5px;background:#fff;color:#273344;padding:6px 10px;font:inherit;cursor:pointer;}
+.pms-busy-card [hidden] {display:none!important;}
+.pms .pms-copy-option label.pms-check {display:flex;align-items:flex-start;width:100%;box-sizing:border-box;border:0;padding:0;background:transparent;}
+.pms .pms-copy-option label.pms-check > span {display:grid;gap:5px;}
+.pms .pms-copy-option label.pms-check > span > strong,
+.pms .pms-copy-option label.pms-check > span > small {display:block;}
+.pms .pms-copy-option:has(input:checked):not(:has(input:disabled)) {border-color:#b4c9ef;background:#f8fbff;}

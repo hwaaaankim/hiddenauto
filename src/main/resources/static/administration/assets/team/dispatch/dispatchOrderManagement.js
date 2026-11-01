@@ -142,26 +142,51 @@
 	}
 
 	function createDraft(row) {
-		return {
-			orderId: Number(row.orderId),
-			methodId: row.deliveryMethodId == null ? '' : String(row.deliveryMethodId),
-			handlerId: row.deliveryHandlerId == null ? '' : String(row.deliveryHandlerId),
-			deliveryCost: row.deliveryCost == null ? '0' : String(row.deliveryCost),
-			dispatchComplete: false,
-			general: addressFromRow(row, false),
-			site: addressFromRow(row, true),
-			generalAddressSearched: false,
-			siteAddressSearched: false,
-			ordererName: row.ordererName || '',
-			ordererPhone: row.ordererPhone || ''
-		};
-	}
+        const draft = {
+            orderId: Number(row.orderId),
+            methodId: row.deliveryMethodId == null ? '' : String(row.deliveryMethodId),
+            handlerId: row.deliveryHandlerId == null ? '' : String(row.deliveryHandlerId),
+            deliveryCost: row.deliveryCost == null ? '0' : String(row.deliveryCost),
+            dispatchComplete: false,
+            general: addressFromRow(row, false), site: addressFromRow(row, true),
+            generalAddressSearched: false, siteAddressSearched: false,
+            ordererName: row.ordererName || '', ordererPhone: row.ordererPhone || ''
+        };
+        const role = isSiteMethod(draft.methodId) ? 'site' : 'general';
+        draft[role] = { ...actualAddressFromRow(row) };
+        return draft;
+    }
+
+    function cleanAddressPart(value) {
+        return String(value == null ? '' : value).normalize('NFKC')
+            .replace(/[‐‑‒–—−－]/g, '-').trim()
+            .replace(/(?<=\d)\s*-\s*(?=\d)/g, '-')
+            .replace(/(^|\s)-+(?=\s|$)/g, '$1').replace(/^-+\s*|\s*-+$/g, '')
+            .replace(/\s+/g, ' ').replace(/^(?:-|--|없음|null|미입력|해당없음|해당 없음)$/i, '');
+    }
+    function meaningfulAddress(address) {
+        return ['doName', 'siName', 'guName', 'roadAddress', 'detailAddress'].some(key => Boolean(cleanAddressPart(address[key])));
+    }
+    function hasDestination(address) { return Boolean(address.roadAddress || address.detailAddress); }
+    function actualAddressFromRow(row) {
+        const site = addressFromRow(row, true);
+        return meaningfulAddress(site) ? site : addressFromRow(row, false);
+    }
+    function setDraftMethod(draft, methodId) {
+        const oldRole = isSiteMethod(draft.methodId) ? 'site' : 'general';
+        const nextRole = isSiteMethod(methodId) ? 'site' : 'general';
+        if (oldRole !== nextRole) {
+            draft[nextRole] = { ...draft[oldRole] };
+            draft[nextRole + 'AddressSearched'] = draft[oldRole + 'AddressSearched'];
+        }
+        draft.methodId = methodId;
+    }
 
 	function addressFromRow(row, site) {
 		const prefix = site ? 'site' : '';
 		const field = function (name) {
 			const key = prefix ? prefix + name.charAt(0).toUpperCase() + name.slice(1) : name;
-			return row[key] || '';
+			return cleanAddressPart(row[key]);
 		};
 		return {
 			zipCode: field('zipCode'),
@@ -218,6 +243,8 @@
 				'<i class="ri-map-pin-search-line me-1"></i>Daum 주소검색</button></div>' +
 				'<div class="text-muted small mt-2">[' + escapeHtml(address.zipCode || '-') + '] ' + escapeHtml(address.roadAddress || '주소를 검색해 주세요.') +
 				(address.detailAddress ? ' ' + escapeHtml(address.detailAddress) : '') + '</div>' +
+                '<div class="text-muted small mt-1">배송수단만 변경하면 현재 배송지는 유지됩니다. 다른 배송지로 바꿀 때만 주소검색을 이용하세요.</div>' +
+                buildAddressStateHtml(draft, row) +
 				(site ? '<div class="row g-2 mt-1"><div class="col-md-6 ' +
 				(requirements.ordererName ? 'dispatch-order-management-field-needs-action' : '') + '">' +
 				'<label class="dispatch-list-label dispatch-order-management-required">현장배송 수령자</label>' +
@@ -276,8 +303,7 @@
 		const site = isSiteMethod(draft.methodId);
 		const handlerRequired = requiresHandler(draft.methodId);
 		const address = site ? draft.site : draft.general;
-		const originalAddress = site ? addressFromRow(row, true) : addressFromRow(row, false);
-		const originallySite = isSiteMethod(row.deliveryMethodId);
+		const originalAddress = actualAddressFromRow(row);
 
 		if (!draft.methodId) {
 			result.method = true;
@@ -291,14 +317,18 @@
 			result.handler = true;
 			result.messages.push('배송담당자 배정을 위해 배송희망일이 필요합니다.');
 		}
-		if (!address.zipCode || !address.roadAddress) {
-			result.address = true;
-			result.messages.push((site ? '현장주소' : '일반 배송주소') + '를 Daum 주소검색으로 입력해 주세요.');
-		} else if ((addressChanged(address, originalAddress) || site !== originallySite)
-				&& !draft[site ? 'siteAddressSearched' : 'generalAddressSearched']) {
-			result.address = true;
-			result.messages.push((site ? '현장주소' : '일반 배송주소') + ' 변경은 Daum 주소검색이 필요합니다.');
-		}
+        if (!hasDestination(address)) {
+            result.address = true;
+            result.messages.push('기존 배송지에도 도로명·상세주소가 없습니다. 배송지를 확인해 입력해 주세요.');
+        } else if (addressCoreChanged(address, originalAddress)) {
+            if (!address.zipCode || !address.roadAddress) {
+                result.address = true;
+                result.messages.push('새 배송주소의 우편번호와 도로명주소를 검색해 입력해 주세요.');
+            } else if (!draft[site ? 'siteAddressSearched' : 'generalAddressSearched']) {
+                result.address = true;
+                result.messages.push('실제 배송주소 변경 확인이 필요합니다. 변경 항목: ' + addressCoreDifferences(address, originalAddress).join(' / ') + '. 새 배송지라면 주소검색, 수단만 바꾸려면 기존 배송지 유지를 선택하세요.');
+            }
+        }
 		if (site && !String(draft.ordererName || '').trim()) {
 			result.ordererName = true;
 			result.messages.push('현장배송 수령자를 입력해 주세요.');
@@ -323,7 +353,8 @@
 		if (!draft) return;
 		const field = event.target.dataset.field;
 		if (field === 'methodId' || field === 'handlerId') {
-			draft[field] = event.target.value;
+			if (field === 'methodId') setDraftMethod(draft, event.target.value);
+            else draft[field] = event.target.value;
 			renderCards();
 			syncBulkHandlerAvailability();
 		} else if (field === 'ordererName' || field === 'ordererPhone' || field === 'deliveryCost') {
@@ -343,19 +374,32 @@
 		if (event.target.dataset.addressField) {
 			const role = card.querySelector('[data-address-role]')?.dataset.addressRole;
 			if (role && draft[role]) draft[role][event.target.dataset.addressField] = event.target.value;
+            const note = card.querySelector('[data-address-state]');
+            if (note) note.outerHTML = buildAddressStateHtml(draft, state.rows.get(draft.orderId) || {});
 			return;
 		}
 		const field = event.target.dataset.field;
-		if (field) draft[field] = event.target.value;
+        // select input fires before change; retain the previous method until its address is carried.
+        if (field && !['methodId', 'handlerId', 'dispatchComplete'].includes(field)) draft[field] = event.target.value;
 	}
 
-	function handleListClick(event) {
-		const button = event.target.closest('[data-address-search]');
-		if (!button) return;
-		const card = button.closest('[data-order-id]');
-		if (!card) return;
-		openPostcode(Number(card.dataset.orderId), button.dataset.addressSearch);
-	}
+    function handleListClick(event) {
+        const button = event.target.closest('[data-address-search],[data-address-restore]');
+        if (!button) return;
+        const card = button.closest('[data-order-id]');
+        if (!card) return;
+        const orderId = Number(card.dataset.orderId);
+        if (button.hasAttribute('data-address-restore')) {
+            const draft = state.drafts.get(orderId), row = state.rows.get(orderId);
+            if (!draft || !row) return;
+            const role = isSiteMethod(draft.methodId) ? 'site' : 'general';
+            draft[role] = { ...actualAddressFromRow(row) };
+            draft[role + 'AddressSearched'] = false;
+            hideError(); renderCards();
+            return;
+        }
+        openPostcode(orderId, button.dataset.addressSearch);
+    }
 
 	function applyBulkValues() {
 		const methodId = bulkMethodEl ? bulkMethodEl.value : '';
@@ -365,7 +409,7 @@
 			return;
 		}
 		state.drafts.forEach(function (draft) {
-			if (methodId) draft.methodId = methodId;
+			if (methodId) setDraftMethod(draft, methodId);
 			if (handlerId && requiresHandler(draft.methodId)) draft.handlerId = handlerId;
 		});
 		hideError();
@@ -572,14 +616,14 @@
 			const afterCost = draft.deliveryCost === '' ? 0 : Number(draft.deliveryCost);
 			appendChange(changes, '배송비', formatMoney(beforeCost), formatMoney(afterCost), beforeCost !== afterCost);
 
-			const beforeAddress = originalSite ? addressFromRow(row, true) : addressFromRow(row, false);
+			const beforeAddress = actualAddressFromRow(row);
 			const afterAddress = finalSite ? draft.site : draft.general;
 			appendChange(
 				changes,
 				'배송주소',
-				(originalSite ? '현장 · ' : '일반 · ') + formatAddress(beforeAddress),
-				(finalSite ? '현장 · ' : '일반 · ') + formatAddress(afterAddress),
-				originalSite !== finalSite || addressChanged(beforeAddress, afterAddress)
+				formatAddress(beforeAddress),
+				formatAddress(afterAddress),
+				addressChanged(beforeAddress, afterAddress)
 			);
 
 			if (finalSite) {
@@ -652,13 +696,35 @@
 		return (address.zipCode ? '[' + address.zipCode + '] ' : '') + (body || '-');
 	}
 
+    function buildAddressStateHtml(draft, row) {
+        const before = actualAddressFromRow(row);
+        const after = isSiteMethod(draft.methodId) ? draft.site : draft.general;
+        const changed = addressChanged(before, after);
+        if (!changed) return hasDestination(before)
+            ? '<div data-address-state class="text-success small mt-2" role="status">기존 배송지 유지 · 배송수단 변경을 위한 주소 재검색은 필요하지 않습니다.</div>'
+            : '<div data-address-state class="text-warning small mt-2" role="status">기존 배송지가 비어 있습니다. 주소검색으로 실제 배송지를 입력해 주세요.</div>';
+        const fields = addressCoreDifferences(after, before);
+        return '<div data-address-state class="small mt-2" role="status">' +
+            '<div>기존 배송지: ' + escapeHtml(formatAddress(before)) + '</div>' +
+            '<div>변경 중 배송지: ' + escapeHtml(formatAddress(after)) + '</div>' +
+            (fields.length ? '<div>변경 항목: ' + fields.map(escapeHtml).join(' / ') + '</div>' : '<div>상세주소만 수정 중입니다. 같은 도로명주소를 다시 검색할 필요는 없습니다.</div>') +
+            '<button type="button" class="btn btn-sm btn-outline-secondary mt-1" data-address-restore>기존 배송지 유지</button></div>';
+    }
+    function addressCoreDifferences(after, before) {
+        const labels = { zipCode: '우편번호', doName: '시/도', siName: '시/군', guName: '구/읍/면', roadAddress: '도로명주소' };
+        return Object.keys(labels).filter(key => cleanAddressPart(after[key]) !== cleanAddressPart(before[key]))
+            .map(key => labels[key] + ': ' + (cleanAddressPart(before[key]) || '(없음)') + ' → ' + (cleanAddressPart(after[key]) || '(없음)'));
+    }
 	function toPayload(draft) {
+        const row = state.rows.get(draft.orderId) || {};
+        const address = isSiteMethod(draft.methodId) ? draft.site : draft.general;
 		return {
 			orderId: draft.orderId,
 			deliveryMethodId: Number(draft.methodId),
 			deliveryHandlerId: requiresHandler(draft.methodId) && draft.handlerId ? Number(draft.handlerId) : null,
 			deliveryCost: draft.deliveryCost === '' ? 0 : Number(draft.deliveryCost),
 			dispatchComplete: Boolean(draft.dispatchComplete),
+            keepDeliveryAddress: !addressChanged(address, actualAddressFromRow(row)),
 			zipCode: draft.general.zipCode,
 			doName: draft.general.doName,
 			siName: draft.general.siName,
@@ -678,9 +744,12 @@
 		};
 	}
 
+    function addressCoreChanged(left, right) {
+        return ['zipCode', 'doName', 'siName', 'guName', 'roadAddress'].some(key => cleanAddressPart(left[key]) !== cleanAddressPart(right[key]));
+    }
 	function addressChanged(left, right) {
 		return ['zipCode', 'doName', 'siName', 'guName', 'roadAddress', 'detailAddress'].some(function (key) {
-			return String(left[key] || '').trim() !== String(right[key] || '').trim();
+			return cleanAddressPart(left[key]) !== cleanAddressPart(right[key]);
 		});
 	}
 
