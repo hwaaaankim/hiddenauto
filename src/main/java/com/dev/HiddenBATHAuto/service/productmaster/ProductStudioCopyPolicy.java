@@ -63,7 +63,7 @@ public final class ProductStudioCopyPolicy {
     // A question formerly shown/required only through a branch must be usable in the linear draft.
     List<Question> questions = retained.questions().stream().map(q -> new Question(q.key(), q.groupId(),
         q.labels(), q.control(), q.fixed(), q.fixed() ? q.visible() : true, q.required(), false,
-        q.question(), q.guide(), q.choices(), q.fields(), q.assetIds(), q.numberCases(), q.preset())).toList();
+        q.question(), q.guide(), q.choices(), q.fields(), q.assetIds(), q.numberCases(), q.preset(), q.helpDisplay())).toList();
     return new Process(retained.schemaVersion(), questions, List.of(), retained.inputLimits(), retained.notices());
   }
 

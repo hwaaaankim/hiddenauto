@@ -48,7 +48,13 @@ public class ProductPricingExcelService {
       String sourceRange,
       List<String> xHeaders, List<String> yHeaders,
       String xOperator, String yOperator, List<String> xOperators, List<String> yOperators,
-      String xOutsidePolicy, String yOutsidePolicy) {
+      String xOutsidePolicy, String yOutsidePolicy, String xZeroThrough, String yZeroThrough) {
+    public MatrixImport(int dimensions, int rows, int columns, List<List<BigDecimal>> amounts,
+        String sheetName, String sourceRange, List<String> xHeaders, List<String> yHeaders,
+        String xOperator, String yOperator, List<String> xOperators, List<String> yOperators,
+        String xOutsidePolicy, String yOutsidePolicy) {
+      this(dimensions,rows,columns,amounts,sheetName,sourceRange,xHeaders,yHeaders,xOperator,yOperator,xOperators,yOperators,xOutsidePolicy,yOutsidePolicy,null,null);
+    }
     public MatrixImport(int dimensions, int rows, int columns, List<List<BigDecimal>> amounts,
         String sheetName, String sourceRange, List<String> xHeaders, List<String> yHeaders,
         String xOperator, String yOperator, List<String> xOperators, List<String> yOperators) {
@@ -70,7 +76,13 @@ public class ProductPricingExcelService {
       List<BigDecimal> xHeaders,
       List<BigDecimal> yHeaders,
       List<List<BigDecimal>> amounts, List<String> xOperators, List<String> yOperators,
-      String xOutsidePolicy, String yOutsidePolicy, TermRole role) {
+      String xOutsidePolicy, String yOutsidePolicy, TermRole role, BigDecimal xZeroThrough, BigDecimal yZeroThrough) {
+    public MatrixExport(int dimensions, String title, String xLabel, String yLabel,
+        String xOperator, String yOperator, List<BigDecimal> xHeaders, List<BigDecimal> yHeaders,
+        List<List<BigDecimal>> amounts, List<String> xOperators, List<String> yOperators,
+        String xOutsidePolicy, String yOutsidePolicy, TermRole role) {
+      this(dimensions,title,xLabel,yLabel,xOperator,yOperator,xHeaders,yHeaders,amounts,xOperators,yOperators,xOutsidePolicy,yOutsidePolicy,role,null,null);
+    }
     public MatrixExport(int dimensions, String title, String xLabel, String yLabel,
         String xOperator, String yOperator, List<BigDecimal> xHeaders, List<BigDecimal> yHeaders,
         List<List<BigDecimal>> amounts, List<String> xOperators, List<String> yOperators,
@@ -285,8 +297,8 @@ public class ProductPricingExcelService {
       for (int c = 1; c <= columns; c++) x.add(boundCell(cell(sheet, firstRow, firstColumn + c), "X축 " + c + "번째 기준"));
       if (dimensions == 2) for (int r = 1; r <= rows; r++)
         y.add(boundCell(cell(sheet, firstRow + r, firstColumn), "Y축 " + r + "번째 기준"));
-      headers(x, columns, "X축");
-      if (dimensions == 2) headers(y, rows, "Y축");
+      importHeaders(x, columns, "X축");
+      if (dimensions == 2) importHeaders(y, rows, "Y축");
       List<List<BigDecimal>> amounts = new ArrayList<>();
       for (int r = 1; r <= rows; r++) {
         List<BigDecimal> values = new ArrayList<>();
@@ -295,7 +307,7 @@ public class ProductPricingExcelService {
         amounts.add(List.copyOf(values));
       }
       Sheet settings = workbook.getSheet("가격표설정");
-      String xo = null, yo = null, xp = null, yp = null;
+      String xo = null, yo = null, xp = null, yp = null, xz = null, yz = null;
       List<String> xops = null, yops = null;
       if (settings != null) {
         String storedRole = setting(settings, 7);
@@ -308,6 +320,8 @@ public class ProductPricingExcelService {
         if (dimensions == 2) { yo = setting(settings, 2); operatorLabel(yo); }
         xops = readOperators(setting(settings, 3), columns, "X축");
         xp = outsidePolicy(setting(settings, 5));
+        xz = blank(setting(settings, 8)) ? null : setting(settings, 8);
+        yz = blank(setting(settings, 9)) ? null : setting(settings, 9);
         if (dimensions == 2) yp = outsidePolicy(setting(settings, 6));
         if (dimensions == 2) yops = readOperators(setting(settings, 4), rows, "Y축");
       }
@@ -316,7 +330,7 @@ public class ProductPricingExcelService {
       return new MatrixImport(dimensions, rows, columns, List.copyOf(amounts), sheet.getSheetName(),
           new CellReference(firstRow + 1, firstColumn + 1).formatAsString() + ":" + new CellReference(bounds[2], bounds[3]).formatAsString(),
           x.stream().map(BigDecimal::toPlainString).toList(), y.stream().map(BigDecimal::toPlainString).toList(),
-          xo, yo, xops, yops, xp, yp);
+          xo, yo, xops, yops, xp, yp, xz, yz);
     } catch (IllegalArgumentException e) { throw e; }
     catch (Exception e) { throw new IllegalArgumentException("가격표 XLSX를 읽을 수 없습니다. 기준 포함 양식으로 다시 저장해 주세요.", e); }
   }
@@ -401,6 +415,7 @@ public class ProductPricingExcelService {
     if (blanks > 0) issues.add("[빈 금액 " + blanks + "개] " + String.join(", ", blankCells)
         + (blanks > blankCells.size() ? " 외" : "") + ". 실제 가격을 채우세요. 무료일 때만 0을 입력하고, 사용하지 않는 끝 행·열은 기준값과 함께 삭제하세요.");
     if (invalid > 0) issues.add("[숫자 형식·금액 오류 " + invalid + "개] " + String.join(" / ", invalidCells));
+    if (includeHeaders) issues.removeIf(message -> message.startsWith("[기준 중복]") || message.startsWith("[기준 순서 오류]"));
     if (!issues.isEmpty()) throw new IllegalArgumentException("선택한 방식: " + (includeHeaders ? "기준 포함" : "금액만") + " / " + dimensions + "차원\n"
         + (factor(role) ? String.join("\n", issues).replace("금액", "배율").replace("무료일 때만", "배율이 0일 때만") : String.join("\n", issues)) + "\n화면의 ‘회색 예시가 있는 양식 다운로드’를 참고해 수정한 뒤 다시 올려 주세요. 현재 작성한 가격표는 유지됩니다.");
   }
@@ -478,6 +493,14 @@ public class ProductPricingExcelService {
           ? ((XSSFCell) cell).getRawValue() : cell.getStringCellValue().trim());
     } catch (NumberFormatException e) { throw new IllegalArgumentException(name + ": 숫자가 아닙니다."); }
   }
+  private static void importHeaders(List<BigDecimal> values, int count, String axis) {
+    // Import is a draft. Duplicate/unsorted thresholds can be corrected in the web table;
+    // persisted formulas and exports still require strictly increasing thresholds.
+    if (values.size() != count || values.stream().anyMatch(n -> n == null || n.signum() < 0
+        || n.precision() > 24 || Math.max(0,n.scale()) > 6))
+      throw new IllegalArgumentException(axis + " 기준값은 0 이상, 소수 6자리 이내여야 합니다.");
+  }
+
   private static String outsidePolicy(String value) {
     if (blank(value)) return "ERROR";
     if ("ERROR".equals(value) || "EDGE".equals(value)) return value;
@@ -535,6 +558,9 @@ public class ProductPricingExcelService {
     }
     sheet.setColumnWidth(0, 22 * 256); sheet.createFreezePane(1, 1);
     writeSettings(workbook, request.dimensions(), request.xOperator(), request.yOperator(), request.xOperators(), request.yOperators(), request.xOutsidePolicy(), request.yOutsidePolicy(), request.role());
+    Sheet settings = workbook.getSheet("가격표설정");
+    text(settings, 8, 0, "X 첫 기준 이하 무료"); text(settings, 8, 1, request.xZeroThrough() == null ? "" : request.xZeroThrough().toPlainString());
+    text(settings, 9, 0, "Y 첫 기준 이하 무료"); text(settings, 9, 1, request.yZeroThrough() == null ? "" : request.yZeroThrough().toPlainString());
   }
 
   private static List<List<BigDecimal>> validateExport(MatrixExport request) {

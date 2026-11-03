@@ -1896,7 +1896,7 @@ public class ManagementController {
 	// - 기존 다른 화면 유틸과 충돌하지 않도록 전부 AS 전용 이름 사용
 	// =========================================================
 	private static final Set<String> ALLOWED_AS_LIST_KEYWORD_TYPES = Set.of("all", "companyName", "requesterName",
-			"customerName", "subject", "productName", "applicantName", "applicantPhone", "onsiteContact");
+			"customerName", "subject", "productName", "applicantName", "applicantPhone", "onsiteContact", "address");
 
 	private static final Set<String> ALLOWED_AS_LIST_SORT_FIELDS = Set.of("companyName", "requesterName", "handlerName",
 			"requestedAt", "scheduledDate", "asProcessDate", "status");

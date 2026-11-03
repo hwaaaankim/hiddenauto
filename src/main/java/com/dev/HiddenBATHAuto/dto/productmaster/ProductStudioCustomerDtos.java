@@ -29,7 +29,11 @@ public final class ProductStudioCustomerDtos {
       String guide,
       String control,
       List<CatalogOption> options,
-      List<AssetView> assets) {}
+      List<AssetView> assets, String helpDisplay) {
+    public BrowseGroup(Long groupId, String key, String role, String label, String question, String guide, String control, List<CatalogOption> options, List<AssetView> assets) {
+      this(groupId,key,role,label,question,guide,control,options,assets,"ALWAYS");
+    }
+  }
 
   public record ProductCard(
       Long id,

@@ -896,7 +896,8 @@ public class OrderExcelUploadService {
                         group.getSiteGuName()
                 ).orElse(null);
 
-                if (groupDeliveryHandler == null) {
+                if (groupDeliveryHandler == null || !hasText(parsed.getZipCode()) || !hasText(parsed.getJibunAddress())) {
+                    // 담당자 매칭 성공 여부와 별개로 우편번호·지번주소도 보완합니다.
                     // 2차: 직접 매칭에 실패한 경우에만 외부 주소 검색을 한 번 수행한 후 다시 매칭합니다.
                     parsed = addressParser.resolveWithExternal(parsed);
                     applyParsedSiteAddress(group, parsed, rule);
@@ -1812,11 +1813,14 @@ public class OrderExcelUploadService {
 
         if (hasText(groupRoadAddress) || hasText(groupDetailAddress)) {
             order.setRoadAddress(groupRoadAddress);
+            order.setJibunAddress(firstMeaningful(group.getJibunAddress(),
+                    Objects.equals(normalizeMeaningful(groupRoadAddress), normalizeMeaningful(companyAddress.roadAddress())) ? company.getJibunAddress() : null));
             order.setDetailAddress(groupDetailAddress);
             return;
         }
 
         order.setRoadAddress(companyAddress.roadAddress());
+        order.setJibunAddress(company.getJibunAddress());
         order.setDetailAddress(companyAddress.detailAddress());
     }
 
@@ -1834,6 +1838,7 @@ public class OrderExcelUploadService {
             order.setSiteSiName(null);
             order.setSiteGuName(null);
             order.setSiteRoadAddress(null);
+            order.setSiteJibunAddress(null);
             order.setSiteDetailAddress(null);
             return;
         }
@@ -1857,6 +1862,7 @@ public class OrderExcelUploadService {
         order.setSiteSiName(siName);
         order.setSiteGuName(guName);
         order.setSiteRoadAddress(roadAddress);
+        order.setSiteJibunAddress(trimToNull(group.getSiteJibunAddress()));
         order.setSiteDetailAddress(detailAddress);
 
         // 기존 현장배송 저장 규칙을 유지합니다. 현장/화물은 기본 배송지와 현장 배송지 모두
@@ -1866,6 +1872,7 @@ public class OrderExcelUploadService {
         order.setSiName(siName);
         order.setGuName(guName);
         order.setRoadAddress(roadAddress);
+        order.setJibunAddress(trimToNull(group.getSiteJibunAddress()));
         order.setDetailAddress(detailAddress);
     }
 

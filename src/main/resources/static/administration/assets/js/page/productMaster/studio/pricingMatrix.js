@@ -15,6 +15,21 @@
     return headers;
   };
   M.parseHeaders = (value) => M.validateHeaders(String(value).trim().split(/[,;\s]+/).filter(Boolean));
+  M.zeroAt = (axis,value) => axis?.zeroThrough != null && M.scaled(value) <= M.scaled(axis.zeroThrough);
+  M.spacingInfo = headers => {
+    try {
+      if(headers.length<2)return {uniform:true,step:'',text:'기준 1개'};
+      const gaps=headers.slice(1).map((v,i)=>M.spacing(headers[i],v));
+      const uniform=gaps.every(v=>v && v===gaps[0]);
+      const pieces=[];
+      for(let i=0;i<gaps.length;i++) {
+        if(!gaps[i]) {pieces.push(`${headers[i]} → ${headers[i+1]}: 중복·순서 확인`);continue;}
+        let end=i;while(end+1<gaps.length&&gaps[end+1]===gaps[i])end++;
+        pieces.push(`${headers[i]} → ${headers[end+1]}: ${gaps[i]} 간격${end>i?' ('+(end-i+1)+'구간)':''}`);i=end;
+      }
+      return {uniform,step:uniform?gaps[0]:'',text:(uniform?'일정 간격 · ':'불규칙 간격 · ')+pieces.join(' / ')};
+    }catch{return {uniform:false,step:'',text:'기준값을 완성한 뒤 실제 구간을 확인하세요.'};}
+  };
   M.lower = axis => ["GE", "GT"].includes(axis.operator);
   M.validateAxis = axis => {
     M.validateHeaders(axis.headers);
@@ -25,10 +40,12 @@
       const op = M.operator(axis, i);
       if (!["LE", "LT", "GE", "GT"].includes(op) || M.lower(axis) !== ["GE", "GT"].includes(op)) throw Error("한 축에 큰 기준과 작은 기준을 섞을 수 없습니다.");
     });
+    if (axis.zeroThrough != null && M.scaled(axis.zeroThrough) !== M.scaled(axis.headers[0])) throw Error("무료 구간의 끝값은 첫 기준값과 같아야 합니다. 기준을 바꾸었다면 무료 설정도 다시 확인하세요.");
     return axis;
   };
   M.index = (axis, value) => {
     M.validateAxis(axis); const n = M.scaled(value);
+    if (M.zeroAt(axis,value)) return 0;
     if (M.lower(axis)) {
       for (let i = axis.headers.length - 1; i >= 0; i--) if (n > M.scaled(axis.headers[i]) || n === M.scaled(axis.headers[i]) && M.operator(axis, i) === "GE") return i;
       return axis.outsidePolicy === 'EDGE' ? 0 : -1;
@@ -38,6 +55,7 @@
   };
   M.range = (axis, i) => {
     const bound = axis.headers[i];
+    if(i===0 && axis.zeroThrough != null) return `0 이상 ~ ${axis.zeroThrough} 이하: 무료 0원`;
     if (axis.outsidePolicy === "EDGE" && (M.lower(axis) ? i === 0 : i === axis.headers.length - 1)) return `${bound ?? "미입력"} 기준 · 표 밖 입력에도 이 끝 가격 적용`; 
     if (bound == null || bound === "") return "기준값을 입력하세요";
     if (M.lower(axis)) return `${bound} ${M.operator(axis, i) === "GE" ? "이상" : "초과"} ~ ${axis.headers[i + 1] != null ? axis.headers[i + 1] + (M.operator(axis, i + 1) === "GE" ? " 미만" : " 이하") : "상한 없음 (프로세스 허용 범위 안)"}`;
@@ -191,7 +209,7 @@
   };
   M.toolsHtml = (term, ui = {}) => {
     const missing = [term.xAxis, term.yAxis].filter(Boolean).some(a => a.headers.some(v => v == null || v === ""));
-    return `<details class="pm-price-table-builder" open><summary><strong>기준값 입력·자동 생성</strong> · 업로드한 금액에 300, 400, 500 연결</summary><p class="pms-help">X는 열 수 ${term.xAxis.headers.length}개${term.yAxis ? `, Y는 행 수 ${term.yAxis.headers.length}개` : ''}입니다. 시작값·간격·개수를 입력하거나 아래에 기준값을 직접 작성하세요. 자동 생성 후 ‘기준값 반영 미리보기’를 눌러야 표에 반영됩니다.</p><div class="pms-form-grid two">${[['x', term.xAxis], ...(term.yAxis ? [['y', term.yAxis]] : [])].map(([key, axis]) => `<section class="pm-price-axis-builder"><strong>${key.toUpperCase()}축 · ${key === 'x' ? '왼쪽 → 오른쪽' : '위 → 아래'}</strong><div class="pm-price-sequence"><label><span>시작값</span><input type="number" min="0" step="any" data-seq-start="${key}" value="${e(ui['seqStart' + key] ?? '')}" placeholder="300"></label><label><span>증가 간격</span><input type="number" min="0" step="any" data-seq-step="${key}" value="${e(ui['seqStep' + key] ?? '100')}"></label><label><span>생성 개수</span><input type="number" min="1" max="200" step="1" data-seq-count="${key}" value="${e(ui['seqCount' + key] ?? axis.headers.length)}"></label></div><button type="button" data-generate-axis="${key}">이 간격으로 기준 생성</button><label><span>${key.toUpperCase()} 기준값 직접 입력</span><textarea data-build-${key} rows="2" placeholder="300, 400, 500">${e(ui[key === 'x' ? 'dirtyX' : 'dirtyY'] ? ui[key === 'x' ? 'buildX' : 'buildY'] : axis.headers.map(v => v ?? '').join(', '))}</textarea></label></section>`).join('')}</div><label><span>기준을 바꿀 때 금액 처리</span><select data-build-mode><option value="position" ${(ui.buildMode || (missing ? 'position' : 'identity')) === 'position' ? 'selected' : ''}>현재 칸의 금액 유지 · 기준 이름만 연결 (엑셀 업로드 후)</option><option value="identity" ${(ui.buildMode || (missing ? 'position' : 'identity')) === 'identity' ? 'selected' : ''}>같은 기준값의 금액 유지 · 표 크기 변경 가능</option></select></label><p data-build-status class="pms-help" role="status"></p><div class="pms-actions"><button type="button" data-build-table>기준값 반영 미리보기</button><button type="button" data-build-reset>현재 표의 기준으로 되돌리기</button><button type="button" data-fill-zero>빈 금액만 0원으로 채우기</button></div></details><details class="pm-price-paste" data-price-method-panel="paste"><summary>엑셀 셀 복사 → 붙여넣기</summary><p class="pms-help">기준 포함은 첫 행 X·첫 열 Y를 포함한 표 전체입니다. 금액만 붙여넣으면 행·열 수에 맞춰 표를 만들고 위에서 기준값을 입력합니다.</p><label><span>붙여넣는 데이터</span><select data-paste-mode><option value="amounts">금액만</option><option value="table">X·Y 기준값 포함 (좌측 상단 제목칸 포함)</option></select></label><label><span>복사한 셀</span><textarea data-paste-text rows="3"></textarea></label><button type="button" data-paste-apply>붙여넣은 표 반영</button></details>`;
+    return `<details class="pm-price-table-builder" open><summary><strong>기준값 입력·자동 생성</strong> · 업로드한 금액에 300, 400, 500 연결</summary><p class="pms-help">X는 열 수 ${term.xAxis.headers.length}개${term.yAxis ? `, Y는 행 수 ${term.yAxis.headers.length}개` : ''}입니다. 시작값·간격·개수를 입력하거나 아래에 기준값을 직접 작성하세요. 자동 생성 후 ‘기준값 반영 미리보기’를 눌러야 표에 반영됩니다.</p><div class="pms-form-grid two">${[['x', term.xAxis], ...(term.yAxis ? [['y', term.yAxis]] : [])].map(([key, axis]) => `<section class="pm-price-axis-builder"><strong>${key.toUpperCase()}축 · ${key === 'x' ? '왼쪽 → 오른쪽' : '위 → 아래'}</strong><p class="pms-help">현재 표: ${e(M.spacingInfo(axis.headers).text)}. 실제 계산은 아래의 각 기준값을 그대로 사용합니다.</p><div class="pm-price-sequence"><label><span>자동 생성 시작값</span><input type="number" min="0" step="any" data-seq-start="${key}" value="${e(ui['seqStart' + key] ?? '')}" placeholder="300"></label><label><span>새 기준 자동 생성 간격</span><input type="number" min="0" step="any" data-seq-step="${key}" value="${e(ui['seqStep' + key] ?? M.spacingInfo(axis.headers).step)}" placeholder="불규칙 간격은 직접 입력"></label><label><span>생성 개수</span><input type="number" min="1" max="200" step="1" data-seq-count="${key}" value="${e(ui['seqCount' + key] ?? axis.headers.length)}"></label></div><button type="button" data-generate-axis="${key}">이 간격으로 기준 생성</button><label><span>${key.toUpperCase()} 기준값 직접 입력</span><textarea data-build-${key} rows="2" placeholder="300, 400, 500">${e(ui[key === 'x' ? 'dirtyX' : 'dirtyY'] ? ui[key === 'x' ? 'buildX' : 'buildY'] : axis.headers.map(v => v ?? '').join(', '))}</textarea></label></section>`).join('')}</div><label><span>기준을 바꿀 때 금액 처리</span><select data-build-mode><option value="position" ${(ui.buildMode || (missing ? 'position' : 'identity')) === 'position' ? 'selected' : ''}>현재 칸의 금액 유지 · 기준 이름만 연결 (엑셀 업로드 후)</option><option value="identity" ${(ui.buildMode || (missing ? 'position' : 'identity')) === 'identity' ? 'selected' : ''}>같은 기준값의 금액 유지 · 표 크기 변경 가능</option></select></label><p data-build-status class="pms-help" role="status"></p><div class="pms-actions"><button type="button" data-build-table>기준값 반영 미리보기</button><button type="button" data-build-reset>현재 표의 기준으로 되돌리기</button><button type="button" data-fill-zero>빈 금액만 0원으로 채우기</button></div></details><details class="pm-price-paste" data-price-method-panel="paste"><summary>엑셀 셀 복사 → 붙여넣기</summary><p class="pms-help">기준 포함은 첫 행 X·첫 열 Y를 포함한 표 전체입니다. 금액만 붙여넣으면 행·열 수에 맞춰 표를 만들고 위에서 기준값을 입력합니다.</p><label><span>붙여넣는 데이터</span><select data-paste-mode><option value="amounts">금액만</option><option value="table">X·Y 기준값 포함 (좌측 상단 제목칸 포함)</option></select></label><label><span>복사한 셀</span><textarea data-paste-text rows="3"></textarea></label><button type="button" data-paste-apply>붙여넣은 표 반영</button></details>`;
   };
   M.previewHtml = (term, fields) => {
     const name = (axis) => fields.find((f) => f.key === axis.fieldKey)?.labels?.management || fields.find((f) => f.key === axis.fieldKey)?.labels?.customer || axis.fieldKey;
@@ -207,7 +225,7 @@
       const inputs = [...new Set([start, (start + end) / 2n, end].map(format))];
       return `<small>${missing ? '작성 전 예시 · 기준 400·500' : '현재 표의 기준·개별 경계 설정으로 계산한 예시'}</small><ul>${inputs.map(value => {
         const at = M.index(sample, value);
-        return `<li>입력 <b>${e(value)}</b> → ${at < 0 ? '적용 기준 없음 · 표 범위 밖' : `<b>${e(sample.headers[at])}</b> 기준 가격`}</li>`;
+        return `<li>입력 <b>${e(value)}</b> → ${M.zeroAt(sample,value) ? '첫 기준 이하 무료 0원' : at < 0 ? '적용 기준 없음 · 표 범위 밖' : `<b>${e(sample.headers[at])}</b> 기준 가격`}</li>`;
       }).join('')}</ul><small>입력값 자체를 변경하지 않고, 표시된 기준의 금액을 적용합니다. 아래 ‘입력값으로 교차 금액 확인’에서 원하는 값도 테스트하세요.</small>`;
     } catch (error) { return `<small>기준값을 완성하면 실제 적용 예시를 표시합니다: ${e(error.message)}</small>`; }
   };
@@ -234,7 +252,7 @@
         }
         const c = M.index(term.xAxis, x), r = term.yAxis ? M.index(term.yAxis, y) : 0;
         if (c < 0 || r < 0) throw Error(`${c < 0 ? "X" : "Y"}축의 적용 범위를 벗어났습니다. 큰 기준 방식은 최대값, 작은 기준 방식은 최소값을 확인해 주세요.`);
-        const value = term.values[r]?.[c]; M.money(value, term.role === "FACTOR" ? 6 : 2);
+        const value = M.zeroAt(term.xAxis,x) || term.yAxis && M.zeroAt(term.yAxis,y) ? "0" : term.values[r]?.[c]; M.money(value, term.role === "FACTOR" ? 6 : 2);
         const parts = String(value).split("."), amount = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (parts[1] ? "." + parts[1] : "");
         result.textContent = `X: ${M.range(term.xAxis, c)}${term.yAxis ? " / Y: " + M.range(term.yAxis, r) : ""} → ${amount}${term.role === "FACTOR" ? "배" : "원"}`;
         S.$(`[data-matrix-price="${r}:${c}"]`, body)?.closest("td").classList.add("is-price-hit");

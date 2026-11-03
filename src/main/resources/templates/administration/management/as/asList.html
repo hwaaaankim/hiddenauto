@@ -174,7 +174,8 @@
 											<div class="col-xl-2 col-md-3">
 												<label class="form-label">키워드 구분</label>
 												<select class="form-select" name="keywordType">
-													<option value="all" th:selected="${selectedKeywordType == 'all'}">전체
+													<option value="address" th:selected="${selectedKeywordType == 'address'}">주소</option>
+                                                <option value="all" th:selected="${selectedKeywordType == 'all'}">전체
 													</option>
 													<option value="companyName"
 														th:selected="${selectedKeywordType == 'companyName'}">대리점명
@@ -352,7 +353,7 @@
 													<th>제품명</th>
 													<th>신청인</th>
 													<th>신청인 연락처</th>
-													<th>현장 연락처</th>
+													<th>현장 연락처</th><th>주소</th>
 
 													<th>
 														<div class="as-list-new-added-th-sort">
@@ -609,7 +610,7 @@
 												</tr>
 											</thead>
 
-											<tbody class="list form-check-all">
+											<tbody class="list form-check-all" id="as-keyword-results">
 												<tr th:each="as : ${asPage.content}" style="cursor:pointer;"
 													th:onclick="|window.location.href='@{/management/asDetail/{id}(id=${as.id})}'|">
 
@@ -660,7 +661,8 @@
 														<span th:text="${as.onsiteContactSafe}">-</span>
 													</td>
 
-													<td class="assignedto">
+													<td class="as-address"><span th:text="${as.roadAddress}"></span><br><span th:text="${as.detailAddress}"></span></td>
+                                                <td class="assignedto">
 														<span th:if="${as.assignedHandler != null}"
 															th:text="${as.assignedHandler.name}">사원이름</span>
 														<span class="text-muted"
@@ -886,6 +888,7 @@
 	<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
+<script src="/administration/assets/js/page/asKeywordHighlight.js?v=20261103"></script>
 </body>
 
 </html>

@@ -15,6 +15,7 @@
       ${S.field("새 제품명", "productName", p.productName + " 복사", "text", 'maxlength="160"')}
       <h3>1. 필수 분류 선택</h3><div class="pms-form-grid three">${fixed.map((v, i) => {
         const g = S.group(v.groupId);
+        if (g.role === "SUBCATEGORY") return `<fieldset><legend>중분류 · 여러 개 선택</legend>${g.values.filter(o=>o.active||v.valueIds.includes(o.id)).map(o=>`<label class="pms-check"><input type="checkbox" data-copy-subcategory="${i}" value="${o.id}" ${v.valueIds.includes(o.id)?"checked":""}>${esc(o.labels.management)}</label>`).join("")}</fieldset>`;
         return S.select(g.labels.management, "fixed." + i + ".valueId", String(v.valueId),
           Object.fromEntries(g.values.filter(o => o.active || v.valueIds.includes(o.id)).map(o => [o.id, o.labels.management])));
       }).join("")}</div>
@@ -36,10 +37,11 @@
       { foot: '<button type="button" data-copy class="primary" disabled>검증 중…</button>', onClose: () => { controller?.abort(); S.dirty = originalDirty; } });
     const m = { productName: p.productName + " 복사", fixed };
     S.bind(d, m, path => { if (path.startsWith("fixed.")) refreshPlan(); });
+    S.$$('[data-copy-subcategory]', d).forEach(input => input.onchange=()=>{ const index=Number(input.dataset.copySubcategory); fixed[index].valueIds=S.$$(`[data-copy-subcategory="${index}"]:checked`,d).map(el=>Number(el.value));refreshPlan(); });
     function selectedIds() { return S.$$("[data-copy-include]:checked", d).map(el => Number(el.value)); }
     function payload() {
       return { productName: m.productName, sourceVersion: p.version, includedGroupIds: selectedIds(),
-        fixed: fixed.map(v => ({ groupId: v.groupId, valueIds: [Number(v.valueId)], inputs: {} })),
+        fixed: fixed.map(v => ({ groupId: v.groupId, valueIds: S.group(v.groupId)?.role === "SUBCATEGORY" ? [...v.valueIds] : [Number(v.valueId)], inputs: {} })),
         copyOptions: wanted.options, copyBranches: wanted.options && wanted.branches && !!plan?.branchesAllowed,
         copyPricing: wanted.pricing && !!plan?.pricingAllowed,
         copyTestAnswers: wanted.tests && wanted.pricing && !!plan?.pricingAllowed };
@@ -147,7 +149,7 @@
         }),
         body = S.$(".pms-dialog-body", d);
       function draw() {
-        body.innerHTML = `<div class="pms-form-grid two">${S.field("주제명", "title", m.title, "text", 'maxlength="160"')}${S.field("문의 전화번호", "phone", m.phone || "", "tel", 'maxlength="60"')}<div class="wide">${S.field("별도 문의 링크", "link", m.link || "", "url", 'maxlength="2000"')}</div></div><p class="pms-help"><strong>연결된 제품의 FAQ 버튼에서 제목·내용·이미지가 카드로 표시됩니다.</strong> 예: ‘설치 전 확인사항’ 주제에 배관 위치, 설치 공간, 사용 시 주의사항을 FAQ로 추가합니다. 전화번호와 문의 링크는 선택 항목입니다. 같은 주제를 여러 제품에 연결했다면 내용 수정은 그 제품들에 함께 반영됩니다.</p><div class="pms-actions"><button data-add>+ FAQ 추가</button></div>${m.entries.map((r, i) => `<article class="pms-card pm-faq-entry"><header class="pm-card-heading"><h3>FAQ ${i + 1}</h3><button data-remove="${i}" class="danger">삭제</button></header><div class="pms-form-grid one">${S.field("FAQ 제목", "entries." + i + ".title", r.title, "text", 'maxlength="200"')}<label><span>내용</span><textarea data-path="entries.${i}.content" maxlength="10000" rows="5">${esc(r.content)}</textarea></label></div><div data-faq-files="${i}">${S.files((r.assetIds || []).map((id) => assets.get(id)).filter(Boolean))}</div></article>`).join("")}`;
+        body.innerHTML = `<div class="pms-form-grid two">${S.field("주제명", "title", m.title, "text", 'maxlength="160"')}${S.field("문의 전화번호", "phone", m.phone || "", "tel", 'maxlength="60"')}<div class="wide">${S.field("별도 문의 링크", "link", m.link || "", "url", 'maxlength="2000"')}</div></div><p class="pms-help"><strong>연결된 제품의 FAQ 버튼에서 제목·내용·이미지가 카드로 표시됩니다.</strong> 예: ‘설치 전 확인사항’ 주제에 배관 위치, 설치 공간, 사용 시 주의사항을 FAQ로 추가합니다. 전화번호와 문의 링크는 선택 항목입니다. 같은 주제를 여러 제품에 연결했다면 내용 수정은 그 제품들에 함께 반영됩니다.</p><div class="pms-actions"><button data-add>+ FAQ 추가</button></div>${m.entries.map((r, i) => `<article class="pms-card pm-faq-entry"><header class="pm-card-heading"><h3>FAQ ${i + 1}</h3><button data-remove="${i}" class="danger">삭제</button></header><div class="pms-form-grid one">${S.field("FAQ 제목", "entries." + i + ".title", r.title, "text", 'maxlength="200"')}<label><span>내용</span><textarea data-path="entries.${i}.content" maxlength="10000" rows="5">${esc(r.content)}</textarea></label></div><div data-faq-files="${i}">${S.files((r.assetIds || []).map((id) => assets.get(id)).filter(Boolean),true,{accept:"image/*"})}</div></article>`).join("")}`;
         S.bind(body, m);
         S.$("[data-add]", body).onclick = () => {
           m.entries.push({
@@ -174,8 +176,7 @@
           S.fileEvents(el, fs, () => {
             fs.forEach((a) => assets.set(a.id, a));
             r.assetIds = fs.map((a) => a.id);
-          });
-          S.$("input[type=file]", el)?.setAttribute("accept", "image/*");
+          },undefined,{accept:"image/*"});
         });
         S.$("[data-save]", d).onclick = (e) =>
           S.run(e.currentTarget, async () => {

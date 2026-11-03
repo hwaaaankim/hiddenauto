@@ -42,6 +42,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class ProductAttributeGroup {
+  @Column(name = "help_display", length = 12, nullable = false, columnDefinition = "varchar(12) default 'ALWAYS'")
+  private String helpDisplay = "ALWAYS";
 
   @Column(name = "ask_question", nullable = false, columnDefinition = "boolean default true")
   private boolean askQuestion = true;

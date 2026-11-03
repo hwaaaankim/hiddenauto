@@ -68,6 +68,27 @@ public class Order {
     private String guName;
 
     private String roadAddress;
+
+    @Column(name = "jibun_address", length = 255)
+    private String jibunAddress;
+
+    public void setRoadAddress(String value) {
+        if (!java.util.Objects.equals(this.roadAddress, value)) this.jibunAddress = null;
+        this.roadAddress = value;
+    }
+
+    public void setSiteRoadAddress(String value) {
+        if (!java.util.Objects.equals(this.siteRoadAddress, value)) this.siteJibunAddress = null;
+        this.siteRoadAddress = value;
+    }
+
+    @Column(name = "site_jibun_address", length = 255)
+    private String siteJibunAddress;
+
+    @Transient
+    public String getActualDeliveryJibunAddress() {
+        return hasMeaningfulSiteDeliveryAddress() ? siteJibunAddress : jibunAddress;
+    }
     private String detailAddress;
 
     @Column(name = "site_zip_code", length = 20)

@@ -28,7 +28,8 @@
     flowSequence++;
     answers = {}; completed = []; currentKey = null; attempted.clear(); evaluation = null;
   }
-  function removeFaq() { document.getElementById("pm-faq-button")?.remove(); faq = null; }
+  let faqLoadSequence=0,faqController=null;
+  function removeFaq() { faqLoadSequence++;faqController?.abort();faqController=null;document.getElementById("pm-faq-button")?.remove(); faq = null; }
   async function restart() {
     if (pendingUploads) return S.toast("파일 업로드가 끝난 후 다시 시작해 주세요.");
     productSequence++;
@@ -40,7 +41,7 @@
 
   function historyHtml() {
     return `<div class="pm-base-history">${baseHistory.map((h, i) => `<article class="pms-bubble answer"><div class="pms-chat-head"><strong>${S.e(h.label)}</strong><button type="button" data-base-back="${i}">다시 선택</button></div>
-      <p>${S.e(h.answer)}</p>${h.guide?.trim() ? `<p class="pm-answer-guide">${S.e(h.guide)}</p>` : ""}${h.assets?.length ? `<details class="pm-answer-media"><summary>선택한 ${S.e(h.answer)} 이미지·첨부파일</summary>${S.media(h.assets, h.label + " · " + h.answer)}</details>` : ""}</article>`).join("")}</div>`;
+      <p>${S.e(h.answer)}</p>${S.help(h,h.assets||[],h.label+" · "+h.answer)}</article>`).join("")}</div>`;
   }
   function bindBaseHistory() {
     S.$$("[data-base-back]", content).forEach((b) => { b.onclick = () => guarded(async () => {
@@ -80,8 +81,8 @@
     if (result.next) {
       const q = result.next;
       content.innerHTML += `<article class="pms-bubble pm-discovery-question"><span class="pm-detail-eyebrow">STEP ${baseHistory.length + 1}</span><h2>${S.e(q.question || q.label + "를 선택해 주세요.")}</h2>
-        ${q.guide?.trim() ? `<p class="pm-preserve-lines">${S.e(q.guide)}</p>` : ""}${S.media(q.assets, q.label + " 가이드")}
-        <div class="pm-category-options">${q.options.map((o) => `<section class="pm-category-option"><button type="button" data-base-choice="${S.e(o.key)}"><span>${S.e(o.label)}</span><span aria-hidden="true">→</span></button>${o.guide?.trim() ? `<p class="pm-answer-guide">${S.e(o.guide)}</p>` : ""}${S.media(o.assets, q.label + " · " + o.label)}</section>`).join("")}</div>
+        ${S.help(q,q.assets,q.label+" 가이드")}
+        <div class="pm-category-options">${q.options.map((o) => `<section class="pm-category-option"><button type="button" data-base-choice="${S.e(o.key)}"><span>${S.e(o.label)}</span><span aria-hidden="true">→</span></button>${S.help(o,o.assets,q.label+" · "+o.label)}</section>`).join("")}</div>
         ${!q.options.length ? '<p class="pms-help">선택 가능한 제품이 없습니다. 등록 상태와 기본 분류를 확인해 주세요.</p>' : `<small>현재 선택 가능한 제품 ${result.total.toLocaleString()}개</small>`}</article>`;
       S.$$("[data-base-choice]", content).forEach((b) => {
         const option = q.options.find((o) => o.key === b.dataset.baseChoice);
@@ -89,7 +90,7 @@
           if (b.disabled || content.getAttribute("aria-busy") === "true") return;
           b.disabled = true;
           selections[q.groupId] = option.key;
-          baseHistory.push({ id: q.groupId, label: q.label, answer: option.label, guide: option.guide, assets: option.assets || [] });
+          baseHistory.push({ id: q.groupId, label: q.label, answer: option.label, guide: option.guide, helpDisplay: option.helpDisplay, helpSections: option.helpSections, assets: option.assets || [] });
           filters = {}; page = 0; await browse();
           S.$(".pm-discovery-question,.pm-browse-layout", content)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
         });
@@ -98,8 +99,8 @@
       const selectedCount = Object.values(filters).reduce((n, xs) => n + xs.length, 0);
       content.innerHTML += `<div class="pm-browse-layout ${kind === "custom" ? "is-custom" : ""}">${kind === "standard" ? `<aside class="pm-option-filters"><header><h2>제품 옵션</h2><button type="button" data-filter-reset ${selectedCount ? "" : "disabled"}>초기화</button></header>
         <p>선택한 옵션을 <strong>모두 포함한</strong> 제품을 찾습니다. 같은 그룹 안에서도 복수 선택은 AND 조건입니다.</p>
-        ${result.filters.map((g) => `<fieldset><legend>${S.e(g.label)}</legend>${g.guide?.trim() ? `<p class="pm-filter-guide">${S.e(g.guide)}</p>` : ""}${S.media(g.assets, g.label + " 공통 안내")}
-          ${g.options.map((o) => `<div class="pm-filter-option"><label class="pms-check"><input type="checkbox" data-filter-group="${g.groupId}" data-filter-key="${g.groupId}:${S.e(o.key)}" value="${S.e(o.key)}" ${(filters[g.groupId] || []).includes(o.key) ? "checked" : ""}><span>${S.e(o.label)}</span></label>${o.guide?.trim() ? `<p class="pm-answer-guide">${S.e(o.guide)}</p>` : ""}${S.media(o.assets, g.label + " · " + o.label)}</div>`).join("")}</fieldset>`).join("") || '<p class="pms-help">이 분류에는 추가 옵션이 없습니다.</p>'}</aside>` : ""}
+        ${result.filters.map((g) => `<fieldset><legend>${S.e(g.label)}</legend>${S.help(g,g.assets,g.label + " 공통 안내")}
+          ${g.options.map((o) => `<div class="pm-filter-option"><label class="pms-check"><input type="checkbox" data-filter-group="${g.groupId}" data-filter-key="${g.groupId}:${S.e(o.key)}" value="${S.e(o.key)}" ${(filters[g.groupId] || []).includes(o.key) ? "checked" : ""}><span>${S.e(o.label)}</span></label>${S.help(o,o.assets,g.label + " · " + o.label)}</div>`).join("")}</fieldset>`).join("") || '<p class="pms-help">이 분류에는 추가 옵션이 없습니다.</p>'}</aside>` : ""}
         <section class="pm-catalog-results"><header><div><h2>${kind === "custom" ? "구성할 비규격 제품을 선택해 주세요." : "조건에 맞는 제품"}</h2><p><strong>${result.total.toLocaleString()}</strong>개 제품${selectedCount ? " · " + selectedCount + "개 옵션 선택" : ""}</p></div></header>
           ${seedProduct ? `<p class="pm-seed-note">테스트를 연 제품: <strong>${S.e(seedProduct.productName)}</strong> · 해당 분류와 시리즈를 선택하면 아래 목록에서 찾을 수 있습니다.</p>` : ""}
           <div class="pm-catalog-grid">${result.products.map((p, i) => {
@@ -107,7 +108,7 @@
             return `<button type="button" class="pm-catalog-card ${seed ? "is-seed" : ""}" data-product="${i}">
               <div class="pm-card-image">${image ? `<img src="${S.e(image.url)}" alt="${S.e(p.productName)}" loading="lazy">` : '<span class="pm-card-no-image">HIDDENBATH<small>제품 대표 이미지 미등록</small></span>'}${seed ? '<span class="pm-card-seed">테스트를 연 제품</span>' : ""}</div>
               <div class="pm-card-copy"><span class="pm-card-code mono">${S.e(p.catalogCode)}</span><h3>${S.e(p.productName)}</h3><div class="pm-card-tags">${(p.tags || []).map((t) => S.badge(t)).join("")}</div>
-                <div class="pm-card-meta"><span>생산 ${p.productionHours == null ? "미등록" : S.e(p.productionHours) + "시간"}</span>${!p.nonStandard && p.unitPrice != null ? `<strong>${Number(p.unitPrice).toLocaleString()}원</strong>` : ""}</div>
+                <div class="pm-card-meta"><span>생산 ${p.productionHours == null ? "미등록" : S.e(S.productionTime(p.productionHours))}</span>${!p.nonStandard && p.unitPrice != null ? `<strong>${Number(p.unitPrice).toLocaleString()}원</strong>` : ""}</div>
                 <span class="pm-card-cta">${p.nonStandard ? "옵션 구성 시작" : "제품 상세 보기"} <span aria-hidden="true">→</span></span></div></button>`;
           }).join("")}</div>${!result.total ? '<div class="pms-empty">선택한 옵션을 모두 가진 제품이 없습니다. 옵션을 해제하거나 초기화해 주세요.</div>' : ""}
           ${result.totalPages > 1 ? S.pager(result.page, result.totalPages, "browse-page") : ""}</section></div>`;
@@ -132,28 +133,27 @@
 
   async function loadProduct() {
     const version = ++productSequence, selectedId = activeId, selectedToken = token;
+    removeFaq();
     browseSequence++; browseController?.abort(); content.setAttribute("aria-busy", "true");
     S.$("#pm-kind-picker", root).hidden = true;
-    let loadedProduct, loadedSchema, loadedFaq;
+    let loadedProduct, loadedSchema;
     try {
       if (admin) {
         [loadedProduct, loadedSchema] = await Promise.all([S.request(`/products/${selectedId}`), S.request(`/products/${selectedId}/preview-schema`)]);
-        loadedFaq = (await S.request("/faq")).find((t) => t.id === loadedProduct.faqTopicId) || null;
       } else {
-        [loadedProduct, loadedSchema, loadedFaq] = await Promise.all([
+        [loadedProduct, loadedSchema] = await Promise.all([
           S.api(`/product-spec/studio/${encodeURIComponent(selectedToken)}/detail`),
           S.api(`/product-spec/studio/${encodeURIComponent(selectedToken)}/schema`),
-          S.api(`/product-spec/studio/${encodeURIComponent(selectedToken)}/faq`),
         ]);
       }
     } finally { if (version === productSequence) content.setAttribute("aria-busy", "false"); }
     if (version !== productSequence) return;
     // The customer test uses customer labels for both fixed specifications and custom answers.
     // Management details remain available through their own screen, while this flow follows its schema.
-    schema = loadedSchema; product = { ...loadedProduct, process: schema.process }; faq = loadedFaq;
+    schema = loadedSchema; product = { ...loadedProduct, _isAdminTest: admin, _teamProcess: admin ? loadedProduct.process : null, process: schema.process };
     assetMap = new Map((schema.assets || []).map((a) => [a.id, a]));
     heading.textContent = product.productName;
-    if (product.nonStandard) installFaq();
+    void installFaq();
     if (!product.nonStandard) {
       S.mountProductDetail(content, product, { faq, onBack: () => guarded(async () => { removeFaq(); await browse(); }) });
       root.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -161,8 +161,8 @@
     }
     await evaluate();
   }
-  async function requestEvaluation(values = answers, signal) {
-    return S.api(admin ? `${S.base}/products/${activeId}/customer-evaluate` : `/product-spec/studio/${encodeURIComponent(token)}/evaluate`, "POST", values, signal);
+  async function requestEvaluation(values = answers, signal, options) {
+    return S.api(admin ? `${S.base}/products/${activeId}/customer-evaluate` : `/product-spec/studio/${encodeURIComponent(token)}/evaluate`, "POST", values, signal, options);
   }
   async function evaluate() {
     const version = flowSequence, selectedProduct = productSequence, id = activeId;
@@ -216,17 +216,34 @@
     completed = completed.filter((k) => schema.process.questions.findIndex((q) => q.key === k) < index);
   }
   function currentContext() {
-    const current = S.copy(answers), state = evaluation?.questions.find((s) => s.question.key === currentKey);
+    const current = S.copy({...product.fixedAnswers,...answers}), state = evaluation?.questions.find((s) => s.question.key === currentKey);
+    for(const q of product.process?.questions||[]){
+      if(!q.fixed||current[q.key])continue;
+      const variant=product.variants?.find(v=>v.groupId===q.groupId),group=product.groups?.find(g=>g.id===q.groupId);
+      if(variant)current[q.key]={choices:(group?.values||[]).filter(v=>variant.valueIds?.includes(v.id)).map(v=>v.key),fields:variant.inputs||{}};
+    }
     const box = S.$("#pm-answer-input", content);
     if (box && state) current[currentKey] = S.readAnswer(box, state.question, current[currentKey]);
     return { product: { name: product.productName, code: product.catalogCode }, productionHours: product.productionHours, unitPrice: product.unitPrice, answers: current,
       selections: (evaluation?.questions || []).filter((s) => s.visible || s.question.fixed).map((s) => ({ groupKey: s.question.key, groupName: s.question.labels.customer, answer: current[s.question.key] || s.answer })) };
   }
-  function installFaq() {
-    document.getElementById("pm-faq-button")?.remove();
-    if (!faq) return;
-    const b = document.createElement("button"); b.id = "pm-faq-button"; b.className = "pm-faq-float"; b.textContent = "?";
-    b.type = "button"; b.setAttribute("aria-label", "제품 FAQ 및 별도 문의"); b.onclick = () => S.showProductFaq(faq, currentContext); root.append(b);
+  async function installFaq() {
+    removeFaq();
+    if(!product?.faqTopicId)return;
+    const sequence=faqLoadSequence,version=productSequence,selectedToken=token,topicId=product.faqTopicId;
+    const controller=new AbortController();faqController=controller;const timeout=setTimeout(()=>controller.abort(),40000);
+    const b=document.createElement('button');b.id='pm-faq-button';b.className='pm-faq-float pm-help-icon';b.type='button';b.textContent='FAQ 불러오는 중…';b.disabled=true;root.append(b);
+    const current=()=>sequence===faqLoadSequence&&version===productSequence&&b.isConnected;
+    try{
+      const result=admin?await S.request('/faq','GET',undefined,controller.signal,{quiet:true}):await S.api(`/product-spec/studio/${encodeURIComponent(selectedToken)}/faq`,'GET',undefined,controller.signal,{quiet:true});
+      if(!current())return;
+      faq=admin?(result||[]).find(t=>t.id===topicId):result;
+      if(!faq)throw Error('연결된 FAQ를 찾을 수 없습니다. 제품의 FAQ 연결 설정을 확인해 주세요.');
+      b.disabled=false;b.textContent='ⓘ FAQ · 문의';b.setAttribute('aria-label','제품 FAQ 및 별도 문의');b.onclick=()=>{if(current())S.showProductFaq(faq,currentContext);};
+    }catch(e){
+      if(!current())return;
+      b.disabled=false;b.textContent='ⓘ FAQ 다시 불러오기';b.title=e.name==='AbortError'?'FAQ 응답이 지연되고 있습니다. 다시 불러와 주세요.':e.message;b.onclick=()=>installFaq();
+    }finally{clearTimeout(timeout);if(faqController===controller)faqController=null;}
   }
   function paintProcess() {
     cancelLivePreview();
@@ -243,12 +260,12 @@
     }
     content.innerHTML = `<div class="pm-customer-steps"><span class="done">1 분류 선택</span><span class="done">2 제품 선택</span><span class="active">3 옵션 구성</span></div>${historyHtml()}
       <div class="pm-selected-product"><div><span class="pm-detail-eyebrow">CUSTOM PRODUCT</span><h2>${S.e(product.productName)}</h2><small class="mono">${S.e(product.catalogCode)}</small></div><button type="button" data-change-product>제품 다시 선택</button></div>
-      <div class="pm-question-progress"><span>${completed.length} / ${visible.length} 질문 완료</span><progress max="${Math.max(1, visible.length)}" value="${completed.length}"></progress><span>생산기간 ${product.productionHours == null ? "미등록" : S.e(product.productionHours) + "시간"}</span></div>
+      <div class="pm-question-progress"><span>${completed.length} / ${visible.length} 질문 완료</span><progress max="${Math.max(1, visible.length)}" value="${completed.length}"></progress><span>생산기간 ${product.productionHours == null ? "미등록" : S.e(S.productionTime(product.productionHours))}</span></div>
       <div class="pm-chat-timeline">${completed.map((key) => {
         const state = evaluation.questions.find((s) => s.question.key === key), q = state.question;
         const media = S.answerMedia(q, state.answer, assetMap);
         return `<article class="pms-bubble answer"><div class="pms-chat-head"><strong>${S.e(q.labels.customer)}</strong><button type="button" data-answer-back="${S.e(key)}">수정</button></div>
-          <p>${S.e(S.answerText(q, state.answer, assetMap))}</p>${S.answerGuides(q, state.answer, state).map((t) => `<p class="pm-answer-guide">${S.e(t)}</p>`).join("")}${media ? `<details class="pm-answer-media"><summary>선택·입력한 항목의 이미지·첨부파일</summary>${media}</details>` : ""}</article>`;
+          <p>${S.e(S.answerText(q, state.answer, assetMap))}</p>${S.help(q,(q.assetIds||[]).map(id=>assetMap.get(id)).filter(Boolean),q.labels.customer+" 안내")}${S.answerNotices(q,state.answer,state,product.process).map(t=>S.guideHtml(q,t,product.process)).join("")}${media}</article>`;
       }).join("")}<div id="pm-current-question"></div></div>`;
     bindBaseHistory();
     S.$("[data-change-product]", content).onclick = () => guarded(async () => { if (pendingUploads) throw Error("업로드 완료 후 제품을 변경해 주세요."); resetAnswers(); removeFaq(); await browse(); });
@@ -261,13 +278,14 @@
       return;
     }
     const state = evaluation.questions.find((s) => s.question.key === currentKey);
-    const q = { ...state.question, choices: (state.question.choices || []).filter((c) => (state.allowed || []).includes(c.key)) };
+    const q = { ...state.question, choices: (state.question.choices || []).filter((c) => (state.allowed || []).includes(c.key)), fields: (state.question.fields || []).filter((f) => (state.allowed || []).includes(f.key)) };
     target.innerHTML = `<article class="pms-bubble pm-current-question"><span class="pm-detail-eyebrow">QUESTION ${completed.length + 1}</span><h2 tabindex="-1">${S.e(q.question || q.labels.customer + "를 입력해 주세요.")}</h2>
       <div class="pms-actions">${S.badge(S.controls[q.control].split(" · ")[0], "blue")}${S.badge(state.required ? "필수 답변" : "선택사항")}</div>
-      ${q.guide?.trim() ? `<div class="pm-tutorial"><strong>선택 가이드</strong><p class="pm-preserve-lines">${S.e(q.guide)}</p></div>` : ""}${S.media((q.assetIds || []).map((id) => assetMap.get(id)), q.labels.customer + " 가이드")}
+      ${S.help(q, (q.assetIds || []).map(id=>assetMap.get(id)).filter(Boolean), q.labels.customer + " 가이드")}
       <div id="pm-answer-input">${S.inputAnswer(q, answers[q.key] || state.answer, false, assetMap)}</div><div id="pm-answer-guides" aria-live="polite"></div>
       <div id="pm-answer-errors" role="alert">${attempted.has(q.key) ? state.errors.map((e) => `<p class="pms-error">${S.e(e)}</p>`).join("") : ""}</div>
       <div class="pms-actions"><button type="button" class="primary" id="pm-answer-next">${completed.length + 1 === visible.length ? "구성 완료 · 결과 확인" : "다음 질문"}</button></div></article>`;
+    content.insertAdjacentHTML("beforeend", S.teamPreview(product, evaluation));
     const box = S.$("#pm-answer-input", content);
     const initialAnswer = answers[q.key] || S.copy(state.answer);
     answers[q.key] = initialAnswer;
@@ -275,7 +293,7 @@
     function showGuides(a, effectiveState) {
       const host = S.$("#pm-answer-guides", content);
       if (!host || !box.isConnected) return;
-      host.innerHTML = S.answerGuides(q, a, effectiveState).map((t) => `<div class="pm-answer-guide">${S.e(t)}</div>`).join("");
+      host.innerHTML = S.answerNotices(q,a,effectiveState,product.process).map(t => S.guideHtml(q, t, product.process)).join("");
     }
     function preview(schedule = true) {
       if (!box.isConnected || currentKey !== q.key) return;
@@ -290,22 +308,13 @@
         liveController = new AbortController();
         const controller = liveController;
         try {
-          const result = await requestEvaluation(values, controller.signal);
+          const result = await requestEvaluation(values, controller.signal, {quiet:true});
           if (serial !== liveSequence || version !== flowSequence || selectedProduct !== productSequence || !box.isConnected || currentKey !== q.key) return;
           const fresh = result.questions.find((s) => s.question.key === q.key);
           if (!fresh) return;
           currentState = fresh; showGuides(a, fresh);
           // Updating range descriptions keeps keyboard focus and in-progress text intact.
-          for (const f of fresh.question.fields || []) {
-            const card = S.$$('[data-field-key]', box).find((el) => el.dataset.fieldKey === f.key);
-            const input = card?.querySelector('input[type="number"]'), hint = card?.querySelector('.pm-effective-limit');
-            if (input) {
-              if (f.min != null || !f.allowNegative) input.min = f.min ?? 0; else input.removeAttribute("min");
-              if (f.max != null) input.max = f.max; else input.removeAttribute("max");
-              input.step = f.step ?? 1;
-            }
-            if (hint) hint.innerHTML = `입력 범위 <strong>${S.e(f.min ?? (!f.allowNegative ? 0 : "제한 없음"))} ~ ${S.e(f.max ?? "제한 없음")}</strong> · 간격 ${S.e(f.step ?? 1)}`;
-          }
+          S.updateAnswerLimits(box,fresh.question.fields);
           if (attempted.has(q.key)) S.$("#pm-answer-errors", content).innerHTML = fresh.errors.map((e) => `<p class="pms-error">${S.e(e)}</p>`).join("");
         } catch (e) {
           if (e.name !== "AbortError" && serial === liveSequence && box.isConnected) {
@@ -343,10 +352,11 @@
         const fresh = evaluation.questions.find((s) => s.question.key === q.key);
         if (fresh && !fresh.errors.length && !completed.includes(q.key)) completed.push(q.key);
         merge(); paintProcess();
-        S.$(".pm-current-question h2", content)?.focus({ preventScroll: true });
-        S.$("#pm-current-question", content)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        S.focusQuestion(S.$("#pm-current-question", content));
       } finally { if (b.isConnected) b.disabled = false; }
     });
+    S.bindQuestionNavigation(box, q, () => S.$("#pm-answer-next", content)?.onclick({currentTarget:S.$("#pm-answer-next", content)}));
+    S.focusQuestion(target);
   }
 
   await guarded(async () => {

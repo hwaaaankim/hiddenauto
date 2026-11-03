@@ -223,6 +223,11 @@ public final class DispatchBulkDtos {
         private Long deliveryHandlerId;
         private Integer deliveryCost;
         private boolean dispatchComplete;
+        /** 관리자 일괄변경만 사용. null이면 기존 출고일 유지. */
+        private LocalDate preferredDeliveryDate;
+        private String expectedUpdatedAt;
+        private String jibunAddress;
+        private String siteJibunAddress;
 
         /** True means method/handler/cost/status only: reuse the locked order's actual destination.
          * Null retains compatibility with older dispatch clients. */

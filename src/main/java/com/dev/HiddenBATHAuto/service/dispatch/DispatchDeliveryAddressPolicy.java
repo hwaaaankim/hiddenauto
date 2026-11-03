@@ -8,10 +8,14 @@ final class DispatchDeliveryAddressPolicy {
     private DispatchDeliveryAddressPolicy() {}
 
     record AddressInput(String zipCode, String doName, String siName, String guName,
-                        String roadAddress, String detailAddress) {
+                        String roadAddress, String detailAddress, String jibunAddress) {
+        AddressInput(String zipCode, String doName, String siName, String guName,
+                     String roadAddress, String detailAddress) {
+            this(zipCode, doName, siName, guName, roadAddress, detailAddress, null);
+        }
         AddressInput {
             zipCode = clean(zipCode); doName = clean(doName); siName = clean(siName);
-            guName = clean(guName); roadAddress = clean(roadAddress); detailAddress = clean(detailAddress);
+            guName = clean(guName); roadAddress = clean(roadAddress); detailAddress = clean(detailAddress); jibunAddress = clean(jibunAddress);
         }
         boolean hasDaumAddress() { return zipCode != null && roadAddress != null; }
         boolean hasDestination() { return roadAddress != null || detailAddress != null; }

@@ -34,6 +34,51 @@
     TEXTAREA: "긴 텍스트",
     FILE: "파일 입력",
   };
+  S.desktopQuestionInput = () => matchMedia('(hover:hover) and (pointer:fine) and (min-width:768px)').matches;
+  S.bindQuestionNavigation = (box, q, next) => {
+    if (!box || !S.desktopQuestionInput()) return;
+    let cursor = 0, advancing = false;
+    const radios = () => [...box.querySelectorAll('input[data-answer-choice]:not(:disabled)')];
+    const cards = () => [...box.querySelectorAll('.pm-answer-choice')];
+    const mark = (index, focus = false) => {
+      const inputs = radios(); if (!inputs.length) return;
+      cursor = (index + inputs.length) % inputs.length;
+      cards().forEach(card => card.classList.toggle('pm-keyboard-current', card.contains(inputs[cursor])));
+      if (focus) inputs[cursor].focus({preventScroll:true});
+    };
+    const advance = () => { if (advancing || !box.isConnected) return; advancing=true; Promise.resolve(next()).finally(()=>{advancing=false;}); };
+    const inputs=radios(); if (q.control === 'RADIO') mark(Math.max(0,inputs.findIndex(i=>i.checked)));
+    box.addEventListener('change',event=>{
+      if (q.control==='RADIO' && event.target.matches('input[data-answer-choice]')) {mark(radios().indexOf(event.target));advance();}
+    });
+    box.addEventListener('keydown',event=>{
+      if (event.isComposing || event.keyCode===229 || event.ctrlKey || event.metaKey || event.altKey) return;
+      const target=event.target;
+      if (target.closest('button,a,select,[data-pm-help]')) return;
+      if (q.control==='RADIO' && target.matches('input[data-answer-choice]')) {
+        if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key)) {event.preventDefault();mark(cursor+(['ArrowLeft','ArrowUp'].includes(event.key)?-1:1),true);}
+        else if (event.key==='Enter') {event.preventDefault();const input=radios()[cursor];if(input){input.checked=true;input.dispatchEvent(new Event('input',{bubbles:true}));advance();}}
+        return;
+      }
+      if (event.key==='Enter' && target.matches('input[data-answer-field]:not([type=file])')) {
+        event.preventDefault(); if (!target.reportValidity()) return;
+        const fields=[...box.querySelectorAll('input[data-answer-field]:not(:disabled):not([type=file])')];
+        const nextField=fields[fields.indexOf(target)+1];if(nextField)nextField.focus({preventScroll:true});else advance();
+      }
+    });
+  };
+  S.focusQuestion = (container, header = 20) => {
+    if (!container) return;
+    requestAnimationFrame(()=>{
+      const rect=container.getBoundingClientRect();
+      // Scroll the new question immediately; leave native touch keyboards under user control.
+      if(rect.top < header+12 || rect.bottom > innerHeight-24) window.scrollTo({top:Math.max(0,scrollY+rect.top-header-20),behavior:'instant'});
+      if(S.desktopQuestionInput()) container.querySelector('input[data-answer-field]:not(:disabled),input[data-answer-choice]:not(:disabled)')?.focus({preventScroll:true});
+    });
+  };
+
+  S.helpDisplaySelect = (path, mode) => S.select("이미지·안내 표시 방식", path, mode || "ALWAYS", { ALWAYS: "항시 표시", ICON: "안내 아이콘 · 누르면 크게 보기" });
+  S.productionTime = days => days == null ? "미등록" : Number(Number(days) * 24).toLocaleString("ko-KR", {maximumFractionDigits:3}) + "시간";
   S.isBase = (g) => ["CATEGORY", "SUBCATEGORY", "SERIES"].includes(g.role);
   S.isChoice = (t) => ["RADIO", "CHECKBOX"].includes(t);
   S.group = (id) => S.groups.find((g) => g.id === Number(id));
@@ -88,7 +133,7 @@
       return await fn();
     } finally { done(); }
   };
-  S.api = async (path, method = "GET", body, signal) => {
+  S.api = async (path, method = "GET", body, signal, options = {}) => {
     const headers = { Accept: "application/json" };
     const opts = { method, headers, credentials: "same-origin", signal };
     const token = S.$('meta[name="_csrf"]')?.content,
@@ -101,7 +146,7 @@
         opts.body = JSON.stringify(body);
       }
     }
-    const finish = S.busyStart(body instanceof FormData ? "파일을 업로드하고 있습니다."
+    const finish = options.quiet ? () => {} : S.busyStart(body instanceof FormData ? "파일을 업로드하고 있습니다."
       : /copy-plan$/.test(path) ? "복사할 구성의 의존성을 확인하고 있습니다."
       : /\/copy$/.test(path) ? "제품의 구성과 연결 설정을 복사하고 있습니다."
       : method === "GET" ? "정보를 불러오고 있습니다." : "변경사항을 처리하고 있습니다.");
@@ -130,8 +175,8 @@
     } finally { finish(); }
   };
   // API suffixes begin with '/'; pass them through this scoped helper.
-  S.request = (path, method = "GET", body, signal) =>
-    S.api(S.base + path, method, body, signal);
+  S.request = (path, method = "GET", body, signal, options) =>
+    S.api(S.base + path, method, body, signal, options);
   S.notice = (text, ok = false) => {
     const el = S.$("#pms-notice");
     if (el)
@@ -328,7 +373,7 @@
     fields
       .map(
         (f, i) =>
-          `<details class="pms-list-row pms-editor" ${S.editorAttrs(f.key, i === 0)} data-field-index="${i}"><summary class="pms-row-head"><span class="pms-handle" title="드래그하여 필드 순서를 변경합니다">⠿</span><strong data-editor-title>입력 ${i + 1} · ${S.e(f.labels?.management || "새 필드")}</strong><small class="mono">${S.e(f.key)}</small><button type="button" class="pms-remove" data-remove-field="${i}">×</button></summary><div class="pms-editor-body">${S.labels(f, prefix + "." + i, true, f.namePart)}${S.textarea("입력 시 안내메시지", prefix + "." + i + ".guide", f.guide || "", 2000)}<div class="pms-form-grid four pms-section">${S.checkField("입력 여부", "필수 입력", prefix + "." + i + ".required", f.required)}${control === "NUMBER" ? S.checkField("음수 입력", "음수 허용", prefix + "." + i + ".allowNegative", f.allowNegative) + S.field("단위", prefix + "." + i + ".unit", f.unit, "text", 'maxlength="20"') + S.field("입력 간격", prefix + "." + i + ".step", f.step, "number", 'min="0.001" step="0.001"') + S.field("최소값", prefix + "." + i + ".min", f.min, "number", 'step="0.001"') + S.field("최대값", prefix + "." + i + ".max", f.max, "number", 'step="0.001"') : control === "FILE" ? S.field("최소 개수", prefix + "." + i + ".minFiles", f.minFiles, "number", 'min="0" max="20"') + S.field("최대 개수", prefix + "." + i + ".maxFiles", f.maxFiles, "number", 'min="1" max="20"') + S.field("파일당 최대 MB", prefix + "." + i + ".maxFileMB", f.maxFileMB, "number", 'min="1" max="20"') : `${S.field("최소 글자 수", prefix + "." + i + ".minLength", f.minLength, "number", 'min="0" max="10000"')}${S.field("최대 글자 수", prefix + "." + i + ".maxLength", f.maxLength, "number", 'min="1" max="10000"')}${S.select("형식 검증", prefix + "." + i + ".format", f.format, { ANY: "제한 없음", EMAIL: "이메일", PHONE: "전화번호", ALPHANUMERIC: "영문·숫자" })}`}</div>${control === "FILE" ? `<div class="pms-check-grid" data-validation-path="${prefix}.${i}.extensions">${["jpg", "jpeg", "png", "gif", "webp", "pdf", "txt", "csv", "xlsx", "xls", "docx", "doc", "pptx", "ppt", "zip", "hwp", "hwpx"].map((ext) => `<label class="pms-check"><input type="checkbox" data-field-ext="${i}" value="${ext}" ${f.extensions.includes(ext) ? "checked" : ""}>${ext}</label>`).join("")}</div>` : ""}</div></details>`,
+          `<details class="pms-list-row pms-editor" ${S.editorAttrs(f.key, i === 0)} data-field-index="${i}"><summary class="pms-row-head"><span class="pms-handle" title="드래그하여 필드 순서를 변경합니다">⠿</span><strong data-editor-title>입력 ${i + 1} · ${S.e(f.labels?.management || "새 필드")}</strong><small class="mono">${S.e(f.key)}</small><button type="button" class="pms-remove" data-remove-field="${i}">×</button></summary><div class="pms-editor-body">${S.labels(f, prefix + "." + i, true, f.namePart)}${S.textarea("입력 시 안내메시지", prefix + "." + i + ".guide", f.guide || "", 2000)}${S.helpDisplaySelect(prefix + "." + i + ".helpDisplay", f.helpDisplay)}<div class="pms-form-grid four pms-section">${S.checkField("입력 여부", "필수 입력", prefix + "." + i + ".required", f.required)}${control === "NUMBER" ? S.checkField("음수 입력", "음수 허용", prefix + "." + i + ".allowNegative", f.allowNegative) + S.field("단위", prefix + "." + i + ".unit", f.unit, "text", 'maxlength="20"') + S.field("입력 간격", prefix + "." + i + ".step", f.step, "number", 'min="0.001" step="0.001"') + S.field("최소값", prefix + "." + i + ".min", f.min, "number", 'step="0.001"') + S.field("최대값", prefix + "." + i + ".max", f.max, "number", 'step="0.001"') : control === "FILE" ? S.field("최소 개수", prefix + "." + i + ".minFiles", f.minFiles, "number", 'min="0" max="20"') + S.field("최대 개수", prefix + "." + i + ".maxFiles", f.maxFiles, "number", 'min="1" max="20"') + S.field("파일당 최대 MB", prefix + "." + i + ".maxFileMB", f.maxFileMB, "number", 'min="1" max="20"') : `${S.field("최소 글자 수", prefix + "." + i + ".minLength", f.minLength, "number", 'min="0" max="10000"')}${S.field("최대 글자 수", prefix + "." + i + ".maxLength", f.maxLength, "number", 'min="1" max="10000"')}${S.select("형식 검증", prefix + "." + i + ".format", f.format, { ANY: "제한 없음", EMAIL: "이메일", PHONE: "전화번호", ALPHANUMERIC: "영문·숫자" })}`}</div>${control === "FILE" ? `<div class="pms-check-grid" data-validation-path="${prefix}.${i}.extensions">${["jpg", "jpeg", "png", "gif", "webp", "pdf", "txt", "csv", "xlsx", "xls", "docx", "doc", "pptx", "ppt", "zip", "hwp", "hwpx"].map((ext) => `<label class="pms-check"><input type="checkbox" data-field-ext="${i}" value="${ext}" ${f.extensions.includes(ext) ? "checked" : ""}>${ext}</label>`).join("")}</div>` : ""}</div></details>`,
       )
       .join("");
   S.fieldEvents = (root, fields, rerender, prefix = "fields") => {
@@ -436,6 +481,80 @@
         dialog.close();
       };
     });
+  // File drops use the same upload/import function as the picker. Never synthesize
+  // a FileList: assigning input.files is inconsistent across supported browsers.
+  const fileDropBindings = new WeakMap();
+  S.isFileDrag = event => {
+    const data = event.dataTransfer;
+    return !!data && (Array.from(data.types || []).some(type => type.toLowerCase() === "files")
+      || Array.from(data.items || []).some(item => item.kind === "file") || data.files?.length > 0);
+  };
+  S.acceptsFile = (file, accept = "") => {
+    const rules = accept.toLowerCase().split(",").map(rule => rule.trim()).filter(Boolean);
+    if (!rules.length) return true;
+    const name = file.name.toLowerCase(), extension = name.split(".").pop();
+    const mime = file.type?.toLowerCase() || ({jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",gif:"image/gif",webp:"image/webp",bmp:"image/bmp",svg:"image/svg+xml"})[extension] || "";
+    return rules.some(rule => rule.startsWith(".") ? name.endsWith(rule)
+      : rule.endsWith("/*") ? mime.startsWith(rule.slice(0,-1)) : mime === rule);
+  };
+  S.bindFileDrop = (zone, receive, options = {}) => {
+    if (!zone) return () => {};
+    fileDropBindings.get(zone)?.();
+    zone.dataset.pmsFileDrop = "";
+    let depth = 0;
+    const reset = () => { depth = 0; zone.classList.remove("over"); };
+    const busy = () => options.isBusy?.() || options.input?.disabled || zone.getAttribute("aria-disabled") === "true";
+    const reject = message => (options.onError || S.toast)(message);
+    const owns = event => event.target?.closest?.('[data-pms-file-drop]') === zone;
+    const enter = event => {
+      if (!owns(event) || !S.isFileDrag(event)) return;
+      event.preventDefault();event.stopPropagation();depth++;
+      if (!busy()) zone.classList.add("over");
+    };
+    const over = event => {
+      if (!owns(event) || !S.isFileDrag(event)) return;
+      event.preventDefault();event.stopPropagation();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = busy() ? "none" : "copy";
+      if (!busy()) zone.classList.add("over");else zone.classList.remove("over");
+    };
+    const leave = event => {
+      if (!owns(event)) return;
+      depth = Math.max(0,depth-1);
+      if (!depth && !zone.contains(event.relatedTarget)) reset();
+    };
+    const drop = event => {
+      if (!owns(event) || !S.isFileDrag(event)) return;
+      event.preventDefault();event.stopPropagation();reset();
+      if (busy()) return;
+      const data = event.dataTransfer;
+      const folders = Array.from(data.items || []).some(item => {
+        try { return item.webkitGetAsEntry?.()?.isDirectory; } catch { return false; }
+      });
+      if (folders) return reject("폴더는 등록할 수 없습니다. 폴더 안의 파일을 선택해 끌어 놓아 주세요.");
+      const selected = Array.from(data.files || []);
+      if (!selected.length) return reject("드롭한 파일을 읽지 못했습니다. 파일 선택 버튼으로 다시 선택해 주세요.");
+      if (options.multiple === false && selected.length !== 1) return reject("이 영역에는 파일을 하나씩 등록해 주세요.");
+      Promise.resolve().then(() => { if (zone.isConnected && !busy()) return receive(selected); })
+        .catch(error => reject(error.message || "파일을 등록할 수 없습니다. 다시 선택해 주세요."));
+    };
+    const events = {dragenter:enter,dragover:over,dragleave:leave,drop};
+    Object.entries(events).forEach(([name,handler]) => zone.addEventListener(name,handler));
+    const cleanup = () => {
+      Object.entries(events).forEach(([name,handler]) => zone.removeEventListener(name,handler));
+      reset();delete zone.dataset.pmsFileDrop;fileDropBindings.delete(zone);
+    };
+    fileDropBindings.set(zone,cleanup);return cleanup;
+  };
+  // Dropping a desktop file outside a bound area must not replace the editor page.
+  // Existing drop handlers and internal text/row/sort drags retain their own behavior.
+  document.addEventListener("dragover",event => {
+    if (!event.defaultPrevented && S.isFileDrag(event)) event.preventDefault();
+  });
+  document.addEventListener("drop",event => {
+    if (!event.defaultPrevented && S.isFileDrag(event)) {
+      event.preventDefault();S.toast("파일을 등록할 이미지·파일 영역 위에 끌어 놓아 주세요.");
+    }
+  });
   const fileDrafts = new WeakMap();
   const fileIcon = '<svg viewBox="0 0 24 24" width="32" height="32" aria-hidden="true"><path d="M5 3h9l5 5v13H5zM14 3v6h5M8 13h8M8 17h6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>';
   const fileAccept = ".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt,.csv,.xlsx,.xls,.docx,.doc,.pptx,.ppt,.zip,.hwp,.hwpx";
@@ -443,7 +562,7 @@
     const rows = (files || []).filter(Boolean), images = rows.filter((f) => f.image);
     const title = options.title || (editable ? "이미지·파일 등록" : "등록된 이미지·파일");
     const saveLabel = options.saveLabel || (options.answerField ? "다음 질문을 누를 때 답변으로 반영됩니다." : "해당 저장 버튼을 눌러야 최종 반영됩니다.");
-    return `<section class="pm-upload-area ${editable ? "editable" : "readonly"}" aria-label="${S.e(title)}"><header class="pm-upload-heading"><div>${options.scopeLabel ? `<span class="pm-upload-owner" data-file-scope>${S.e(options.scopeLabel)}</span>` : ""}<strong>${S.e(title)}</strong><small>${rows.length}개 · 이미지를 누르면 확대해서 볼 수 있습니다.</small></div>${editable ? '<button type="button" data-cancel-files hidden>등록 변경 취소</button>' : ""}</header>${options.description ? `<p class="pms-help pm-upload-description">${S.e(options.description)}</p>` : ""}<div class="pms-files" data-pm-gallery="${S.e(JSON.stringify(images))}" data-pm-gallery-title="${S.e(title)}">${rows.map((f, i) => `<article class="pms-file">${f.image && f.url ? `<button type="button" class="pms-file-image" data-pm-image="${images.indexOf(f)}" aria-label="${S.e(f.name)} 미리보기 확대"><img src="${S.e(f.url)}" alt="${S.e(f.name)}" loading="lazy"></button>` : `<div class="pm-file-placeholder">${fileIcon}<span>${S.e((f.name || "파일").split(".").pop().toUpperCase())}</span></div>`}<div class="pm-file-copy">${f.url ? `<a href="${S.e(f.url)}${f.url.includes("?") ? "&" : "?"}download=true" target="_blank" rel="noopener">${S.e(f.name)}</a>` : `<strong>${S.e(f.name || "등록된 파일")}</strong>`}<small>${f.image ? "이미지 미리보기" : "첨부파일"}</small></div>${editable ? `<div class="pm-file-actions"><button type="button" data-replace-file="${i}" aria-label="${S.e(f.name)} 새 파일로 교체">교체</button><button type="button" data-remove-file="${i}" class="danger" aria-label="${S.e(f.name)} 등록 목록에서 삭제">삭제</button></div>` : ""}</article>`).join("")}${!rows.length ? `<div class="pm-upload-empty">${fileIcon}<strong>${editable ? "등록할 이미지나 파일을 추가해 주세요." : "등록된 파일이 없습니다."}</strong>${editable ? "<span>아래 영역을 누르거나 파일을 끌어 놓으세요.</span>" : ""}</div>` : ""}</div>${editable ? `<div class="pms-drop" tabindex="0" role="button" aria-label="이미지·파일 선택"><span class="pm-upload-add" aria-hidden="true">＋</span><span><strong>이미지·파일 선택</strong><small>클릭 또는 드래그하여 추가 · 여러 파일 선택 가능</small></span><input type="file" multiple hidden accept="${S.e(options.accept || fileAccept)}" ${options.answerField ? `data-answer-field="${S.e(options.answerField)}"` : ""}></div><input type="file" data-replace-picker hidden><p class="pms-help pm-upload-help">삭제·교체는 현재 등록 목록에만 적용됩니다. <strong>${S.e(saveLabel)}</strong> ‘등록 변경 취소’로 이 영역의 변경을 되돌릴 수 있습니다.</p><span class="pm-upload-status" role="status" aria-live="polite"></span>` : ""}${options.answerField ? `<small data-answer-files="${S.e(options.answerField)}">${rows.length ? rows.length + "개 파일 등록됨" : ""}</small>` : ""}</section>`;
+    return `<section class="pm-upload-area ${editable ? "editable" : "readonly"}" aria-label="${S.e(title)}"><header class="pm-upload-heading"><div>${options.scopeLabel ? `<span class="pm-upload-owner" data-file-scope>${S.e(options.scopeLabel)}</span>` : ""}<strong>${S.e(title)}</strong><small>${rows.length}개 · 이미지를 누르면 확대해서 볼 수 있습니다.</small></div>${editable ? '<button type="button" data-cancel-files hidden>등록 변경 취소</button>' : ""}</header>${options.description ? `<p class="pms-help pm-upload-description">${S.e(options.description)}</p>` : ""}<div class="pms-files" data-pm-gallery="${S.e(JSON.stringify(images))}" data-pm-gallery-title="${S.e(title)}">${rows.map((f, i) => `<article class="pms-file">${f.image && f.url ? `<button type="button" class="pms-file-image" data-pm-image="${images.indexOf(f)}" aria-label="${S.e(f.name)} 미리보기 확대"><img src="${S.e(f.url)}" alt="${S.e(f.name)}" loading="lazy"></button>` : `<div class="pm-file-placeholder">${fileIcon}<span>${S.e((f.name || "파일").split(".").pop().toUpperCase())}</span></div>`}<div class="pm-file-copy">${f.url ? `<a href="${S.e(f.url)}${f.url.includes("?") ? "&" : "?"}download=true" target="_blank" rel="noopener">${S.e(f.name)}</a>` : `<strong>${S.e(f.name || "등록된 파일")}</strong>`}<small>${f.image ? "이미지 미리보기" : "첨부파일"}</small></div>${editable ? `<div class="pm-file-actions"><button type="button" data-replace-file="${i}" aria-label="${S.e(f.name)} 새 파일로 교체">교체</button><button type="button" data-remove-file="${i}" class="danger" aria-label="${S.e(f.name)} 등록 목록에서 삭제">삭제</button></div>` : ""}</article>`).join("")}${!rows.length ? `<div class="pm-upload-empty" ${editable ? 'tabindex="0" role="button" aria-label="파일 선택 또는 여기에 끌어 놓기"' : ""}>${fileIcon}<strong>${editable ? "등록할 이미지나 파일을 추가해 주세요." : "등록된 파일이 없습니다."}</strong>${editable ? "<span>이 영역을 누르거나 파일을 끌어 놓으세요.</span>" : ""}</div>` : ""}</div>${editable ? `<div class="pms-drop" tabindex="0" role="button" aria-label="이미지·파일 선택"><span class="pm-upload-add" aria-hidden="true">＋</span><span><strong>이미지·파일 선택</strong><small>클릭 또는 이 카드 안에 파일을 끌어 놓아 추가 · 여러 파일 선택 가능</small></span><input type="file" multiple hidden accept="${S.e(options.accept || fileAccept)}" ${options.answerField ? `data-answer-field="${S.e(options.answerField)}"` : ""}></div><input type="file" data-replace-picker hidden><p class="pms-help pm-upload-help">삭제·교체는 현재 등록 목록에만 적용됩니다. <strong>${S.e(saveLabel)}</strong> ‘등록 변경 취소’로 이 영역의 변경을 되돌릴 수 있습니다.</p><span class="pm-upload-status" role="status" aria-live="polite"></span>` : ""}${options.answerField ? `<small data-answer-files="${S.e(options.answerField)}">${rows.length ? rows.length + "개 파일 등록됨" : ""}</small>` : ""}</section>`;
   };
   S.fileEvents = (root, files, updated = () => {}, uploadPath = S.base + "/assets/stage", options = {}) => {
     if (!root) return;
@@ -453,7 +572,7 @@
     state.files = files;
     root._pmsFileState = state;
     root._pmsFileOptions = options;
-    const drop = S.$(".pms-drop", root), input = S.$(".pms-drop input[type=file]", root), replacement = S.$("[data-replace-picker]", root);
+    const area = S.$(".pm-upload-area", root), drop = S.$(".pms-drop", root), input = S.$(".pms-drop input[type=file]", root), replacement = S.$("[data-replace-picker]", root);
     if (!drop || !input) { S.bindMedia?.(root); return; }
     const accept = options.accept || input.accept;
     input.accept = accept;
@@ -464,6 +583,7 @@
       root.setAttribute("aria-busy", String(state.busy));
       S.$$("[data-remove-file],[data-replace-file]", root).forEach((b) => { b.disabled = state.busy; });
       drop.setAttribute("aria-disabled", String(state.busy));
+      area?.setAttribute("aria-disabled", String(state.busy));
       const status = S.$(".pm-upload-status", root);
       if (status) status.textContent = state.busy ? "파일을 업로드하고 있습니다…" : changed() ? "등록 목록이 변경되었습니다. 저장하거나 변경을 취소해 주세요." : "";
     };
@@ -477,10 +597,8 @@
       if (index != null && selected.length !== 1) return S.toast("교체할 파일은 하나만 선택해 주세요.");
       if (options.maxFiles != null && files.length + selected.length - (index == null ? 0 : 1) > options.maxFiles)
         return S.toast(`파일은 최대 ${options.maxFiles}개까지 등록할 수 있습니다. 기존 파일을 삭제한 뒤 추가해 주세요.`);
-      const allowed = accept.split(",").map((ext) => ext.trim().replace(/^\./, "").toLowerCase()).filter(Boolean);
       for (const file of selected) {
-        const extension = file.name.split(".").pop().toLowerCase();
-        if (allowed.length && !allowed.includes(extension)) return S.toast(`${file.name}: 허용된 파일 형식을 선택해 주세요.`);
+        if (!S.acceptsFile(file,input.accept)) return S.toast(`${file.name}: 허용된 파일 형식을 선택해 주세요.`);
         if (file.size > (options.maxFileMB ?? 20) * 1024 * 1024) return S.toast(`${file.name}: 파일당 ${options.maxFileMB ?? 20}MB 이하로 등록해 주세요.`);
       }
       const selectedId = index == null ? null : files[index]?.id, body = new FormData();
@@ -512,9 +630,12 @@
     input.onclick = (e) => e.stopPropagation();
     drop.onkeydown = (e) => { if ((e.key === "Enter" || e.key === " ") && !state.busy) { e.preventDefault(); input.value = ""; input.click(); } };
     input.onchange = () => add([...input.files]);
-    drop.ondragover = (e) => { e.preventDefault(); if (!state.busy) drop.classList.add("over"); };
-    drop.ondragleave = () => drop.classList.remove("over");
-    drop.ondrop = (e) => { e.preventDefault(); e.stopPropagation(); drop.classList.remove("over"); add([...e.dataTransfer.files]); };
+    const empty = S.$(".pm-upload-empty", root);
+    if (empty) {
+      empty.onclick = drop.onclick;
+      empty.onkeydown = drop.onkeydown;
+    }
+    S.bindFileDrop(area, selected => add(selected), { input, isBusy: () => state.busy });
     S.$$("[data-replace-file]", root).forEach((b) => { b.onclick = () => {
       if (state.busy) return;
       replacement.dataset.replaceIndex = b.dataset.replaceFile; replacement.accept = accept; replacement.value = ""; replacement.click();
@@ -548,7 +669,7 @@
       const hasMedia = (q.choices || []).some((c) => (c.assetIds || []).some((id) => resolve(id)));
       return `<div class="pms-check-grid pm-answer-choices ${hasMedia ? "has-media" : ""}">${(q.choices || []).map((c) => {
         const name = c.labels?.customer || c.key;
-        return `<article class="pm-answer-choice" data-choice-key="${S.e(c.key)}"><label class="pms-check"><input type="${q.control === "RADIO" ? "radio" : "checkbox"}" name="q-${S.e(q.key)}" data-answer-choice="${S.e(c.key)}" ${choices.includes(c.key) ? "checked" : ""} ${disabled ? "disabled" : ""}><span>${S.e(name)}</span></label>${S.media ? S.media((c.assetIds || []).map(resolve).filter(Boolean), name + " 참고 이미지·파일") : ""}</article>`;
+        return `<article class="pm-answer-choice" data-choice-key="${S.e(c.key)}"><label class="pms-check"><input type="${q.control === "RADIO" ? "radio" : "checkbox"}" name="q-${S.e(q.key)}" data-answer-choice="${S.e(c.key)}" ${choices.includes(c.key) ? "checked" : ""} ${disabled ? "disabled" : ""}><span>${S.e(name)}</span></label>${S.help ? S.help(c, (c.assetIds || []).map(resolve).filter(Boolean), name + " 안내") : ""}</article>`;
       }).join("")}</div>`;
     }
     function fieldHtml(f) {
@@ -563,7 +684,7 @@
         const number = q.control === "NUMBER";
         input = `<div class="pm-answer-value"><input ${attr} type="${number ? "number" : "text"}" value="${S.e(fields[f.key])}" ${number ? `step="${f.step ?? 1}" ${f.min != null ? `min="${f.min}"` : !f.allowNegative ? 'min="0"' : ""} ${f.max != null ? `max="${f.max}"` : ""}` : `maxlength="${f.maxLength ?? 500}"`}>${f.unit ? `<span class="pm-answer-unit">(${S.e(f.unit)})</span>` : ""}</div>`;
       }
-      return `<div class="pm-answer-field ${q.control === "TEXTAREA" || q.control === "FILE" ? "wide" : ""}" data-field-key="${S.e(f.key)}"><label><span><strong>${S.e(f.labels?.customer || f.key)}</strong>${f.required ? ' <span class="pm-required-mark">필수</span>' : ""}</span>${q.control === "FILE" ? "" : input}</label>${q.control === "FILE" ? input : ""}${q.control === "NUMBER" ? `<small class="pm-effective-limit">입력 범위 <strong>${S.e(f.min ?? (!f.allowNegative ? 0 : "제한 없음"))} ~ ${S.e(f.max ?? "제한 없음")}</strong> · 간격 ${S.e(f.step ?? 1)}</small>` : ""}${f.guide?.trim() ? `<p class="pms-help pm-preserve-lines">${S.e(f.guide)}</p>` : ""}${S.media ? S.media((f.assetIds || []).map(resolve).filter(Boolean), (f.labels?.customer || "입력 항목") + " 안내 이미지·파일") : ""}</div>`;
+      return `<div class="pm-answer-field ${q.control === "TEXTAREA" || q.control === "FILE" ? "wide" : ""}" data-field-key="${S.e(f.key)}"><label><span><strong>${S.e(f.labels?.customer || f.key)}</strong>${f.required ? ' <span class="pm-required-mark">필수</span>' : ""}</span>${q.control === "FILE" ? "" : input}</label>${q.control === "FILE" ? input : ""}${q.control === "NUMBER" ? `<small class="pm-effective-limit">입력 범위 <strong>${S.e(f.min ?? (!f.allowNegative ? 0 : "제한 없음"))} ~ ${S.e(f.max ?? "제한 없음")}</strong> · 간격 ${S.e(f.step ?? 1)}</small>` : ""}${S.help ? S.help(f, (f.assetIds || []).map(resolve).filter(Boolean), (f.labels?.customer || "입력 항목") + " 안내") : ""}</div>`;
     }
     if (q.control !== "NUMBER") return `<div class="pms-form-grid two pm-answer-fields">${(q.fields || []).map(fieldHtml).join("")}</div>`;
     const bundles = new Map();

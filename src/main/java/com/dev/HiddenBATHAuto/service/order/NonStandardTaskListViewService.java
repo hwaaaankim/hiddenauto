@@ -141,6 +141,7 @@ public class NonStandardTaskListViewService {
                 .siName(order.getSiName())
                 .guName(order.getGuName())
                 .roadAddress(order.getRoadAddress())
+                .jibunAddress(order.getJibunAddress())
                 .detailAddress(order.getDetailAddress())
                 .fullAddress(fullAddress.isBlank() ? "-" : fullAddress)
 
@@ -149,6 +150,7 @@ public class NonStandardTaskListViewService {
                 .siteSiName(order.getSiteSiName())
                 .siteGuName(order.getSiteGuName())
                 .siteRoadAddress(order.getSiteRoadAddress())
+                .siteJibunAddress(order.getSiteJibunAddress())
                 .siteDetailAddress(order.getSiteDetailAddress())
                 .siteFullAddress(siteFullAddress.isBlank() ? "-" : siteFullAddress)
                 .siteDelivery(siteDelivery)

@@ -408,6 +408,7 @@ public class ProductOrderAddCommandService {
         order.setSiName(trimToNull(request.getSiName()));
         order.setGuName(trimToNull(request.getGuName()));
         order.setRoadAddress(normalizeRequired(request.getRoadAddress(), "도로명 주소"));
+        order.setJibunAddress(trimToNull(request.getJibunAddress()));
         order.setDetailAddress(trimToNull(request.getDetailAddress()));
     }
 
@@ -417,6 +418,7 @@ public class ProductOrderAddCommandService {
         order.setSiteSiName(trimToNull(request.getSiteSiName()));
         order.setSiteGuName(trimToNull(request.getSiteGuName()));
         order.setSiteRoadAddress(normalizeRequired(request.getSiteRoadAddress(), "현장 도로명 주소"));
+        order.setSiteJibunAddress(trimToNull(request.getSiteJibunAddress()));
         order.setSiteDetailAddress(trimToNull(request.getSiteDetailAddress()));
     }
 

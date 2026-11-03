@@ -49,7 +49,7 @@ public class OrderExcelExternalAddressSearchService {
         this.objectMapper = objectMapper;
     }
 
-    @Value("${juso.confm-key:}")
+    @Value("${JUSO_CONFM_KEY:${juso.confm-key:}}")
     private String jusoConfmKey;
 
     @Value("${juso.first-sort:location}")
@@ -88,25 +88,27 @@ public class OrderExcelExternalAddressSearchService {
         }
 
         List<String> candidates = buildCandidates(keyword);
+        List<String> providerWarnings = new ArrayList<>();
 
         for (String candidate : candidates) {
-            Optional<ResolvedExternalAddress> juso = searchJuso(candidate, keyword);
-            if (juso.isPresent()) {
+            Optional<ResolvedExternalAddress> juso = searchJuso(candidate, keyword, providerWarnings);
+            if (hasPostcode(juso)) {
                 return juso;
             }
+            if (!providerWarnings.isEmpty()) break; // unusable key: retrying every address candidate cannot repair it
         }
 
         for (String candidate : candidates) {
             Optional<ResolvedExternalAddress> kakao = searchKakaoAddress(candidate, keyword);
-            if (kakao.isPresent()) {
-                return kakao;
+            if (hasPostcode(kakao)) {
+                return Optional.of(kakao.get().toBuilder().providerWarnings(List.copyOf(providerWarnings)).build());
             }
         }
 
         for (String candidate : candidates) {
             Optional<ResolvedExternalAddress> kakaoKeyword = searchKakaoKeywordAndResolve(candidate, keyword);
-            if (kakaoKeyword.isPresent()) {
-                return kakaoKeyword;
+            if (hasPostcode(kakaoKeyword)) {
+                return Optional.of(kakaoKeyword.get().toBuilder().providerWarnings(List.copyOf(providerWarnings)).build());
             }
         }
 
@@ -114,7 +116,12 @@ public class OrderExcelExternalAddressSearchService {
         return Optional.empty();
     }
 
-    private Optional<ResolvedExternalAddress> searchJuso(String apiKeyword, String originalKeyword) {
+    private boolean hasPostcode(Optional<ResolvedExternalAddress> result) {
+        return result.isPresent() && result.get().getZipCode() != null
+                && result.get().getZipCode().matches("\\d{5}");
+    }
+
+    private Optional<ResolvedExternalAddress> searchJuso(String apiKeyword, String originalKeyword, List<String> warnings) {
         if (jusoConfmKey == null || jusoConfmKey.isBlank() || apiKeyword == null || apiKeyword.isBlank()) {
             return Optional.empty();
         }
@@ -151,6 +158,9 @@ public class OrderExcelExternalAddressSearchService {
             Map<String, Object> common = asMap(results.get("common"));
             String errorCode = str(common.get("errorCode"));
             if (!errorCode.isBlank() && !"0".equals(errorCode)) {
+                if (List.of("E0001", "E0014").contains(errorCode))
+                    warnings.add("JUSO 주소 API 응답 " + errorCode + ": " + str(common.get("errorMessage"))
+                            + ". 다른 주소 API로 우편번호를 보완했습니다. 관리자 설정의 검색 API 승인키·사용기간을 확인해 주세요.");
                 log.warn("JUSO 주소 검색 오류: code={}, message={}, keyword={}",
                         errorCode,
                         str(common.get("errorMessage")),
@@ -177,13 +187,14 @@ public class OrderExcelExternalAddressSearchService {
                     .guName(region.guName())
                     .roadAddress(firstNonBlank(str(best.get("roadAddrPart1")), str(best.get("roadAddr"))))
                     .jibunAddress(str(best.get("jibunAddr")))
+                    .buildingName(str(best.get("bdNm")))
                     .build());
         } catch (WebClientResponseException e) {
             log.warn("JUSO 주소 검색 HTTP 오류: status={}, apiKeyword={}, originalKeyword={}, body={}",
                     e.getStatusCode().value(), safeKeyword, originalKeyword, abbreviate(e.getResponseBodyAsString(), 300));
             return Optional.empty();
         } catch (Exception e) {
-            log.warn("JUSO 주소 검색 실패: apiKeyword={}, originalKeyword={}, error={}", safeKeyword, originalKeyword, e.getMessage());
+            log.warn("JUSO 주소 검색 실패: apiKeyword={}, originalKeyword={}, error={}", safeKeyword, originalKeyword, e.getClass().getSimpleName());
             return Optional.empty();
         }
     }
@@ -279,7 +290,7 @@ public class OrderExcelExternalAddressSearchService {
             String roadAddress = str(best.get("road_address_name"));
             if (!roadAddress.isBlank()) {
                 Optional<ResolvedExternalAddress> byRoad = searchKakaoAddress(roadAddress, originalKeyword);
-                if (byRoad.isPresent()) {
+                if (hasPostcode(byRoad)) {
                     return byRoad;
                 }
             }
@@ -379,6 +390,7 @@ public class OrderExcelExternalAddressSearchService {
                 .guName(region.guName())
                 .roadAddress(roadAddress)
                 .jibunAddress(str(address.get("address_name")))
+                .buildingName(str(road.get("building_name")))
                 .build());
     }
 

@@ -1,6 +1,19 @@
 document.addEventListener("DOMContentLoaded", function() {
 	'use strict';
 
+    function asAddressDetail(input, data) {
+        if (!input) return;
+        const old = input.dataset.asAddressExtra || '';
+        let detail = input.value || '';
+        if (old && detail.includes(old)) detail = detail.replace(old, '').trim();
+        const name = String(data.buildingName || '').trim();
+        const extra = name ? '(' + name + ')' : '';
+        if (extra && !detail.includes(name)) detail = [detail, extra].filter(Boolean).join(' ');
+        input.value = detail;
+        input.dataset.asAddressExtra = extra;
+    }
+
+
 	const modalEl = document.getElementById("client-as-update-first-modal");
 	const form = document.getElementById("client-as-update-first-form");
 	if (!modalEl || !form || typeof bootstrap === "undefined") return;
@@ -594,6 +607,7 @@ document.addEventListener("DOMContentLoaded", function() {
 				doNameInput.value = doName;
 				siNameInput.value = siName;
 				guNameInput.value = guName;
+                asAddressDetail(detailAddressInput, data);
 
 				updateSubmitState();
 			}

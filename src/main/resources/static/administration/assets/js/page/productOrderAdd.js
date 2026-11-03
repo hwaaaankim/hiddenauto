@@ -917,6 +917,7 @@
 			siName: state.company.siName || '',
 			guName: state.company.guName || '',
 			roadAddress: state.company.roadAddress || '',
+            jibunAddress: state.company.jibunAddress || '',
 			detailAddress: state.company.detailAddress || ''
 		}, 'COMPANY');
 	}
@@ -939,6 +940,7 @@
 			siName: (address.siName || '').trim(),
 			guName: (address.guName || '').trim(),
 			roadAddress: (address.roadAddress || '').trim(),
+            jibunAddress: (address.jibunAddress || '').trim(),
 			detailAddress: (address.detailAddress || '').trim()
 		};
 
@@ -1024,6 +1026,7 @@
 				siName: state.company.siName || '',
 				guName: state.company.guName || '',
 				roadAddress: state.company.roadAddress || '',
+            jibunAddress: state.company.jibunAddress || '',
 				detailAddress: state.company.detailAddress || '',
 				address: [state.company.roadAddress, state.company.detailAddress]
 					.filter(Boolean)
@@ -1168,6 +1171,7 @@
 			siName: state.address.siName || '',
 			guName: state.address.guName || '',
 			roadAddress: state.address.roadAddress || '',
+            jibunAddress: state.address.jibunAddress || '',
 			detailAddress: state.address.detailAddress || ''
 		}, 'COMMON', true);
 	}
@@ -1190,6 +1194,7 @@
 			siName: (address.siName || '').trim(),
 			guName: (address.guName || '').trim(),
 			roadAddress: (address.roadAddress || '').trim(),
+            jibunAddress: (address.jibunAddress || '').trim(),
 			detailAddress: (address.detailAddress || '').trim()
 		};
 
@@ -1507,6 +1512,7 @@
 						siName: parsed.siName,
 						guName: parsed.guName,
 						roadAddress: parsed.roadAddress,
+                        jibunAddress: parsed.jibunAddress,
 						detailAddress: state.siteAddress.detailAddress || ''
 					}, 'MANUAL');
 
@@ -1531,6 +1537,7 @@
 					siName: parsed.siName,
 					guName: parsed.guName,
 					roadAddress: parsed.roadAddress,
+                        jibunAddress: parsed.jibunAddress,
 					detailAddress: state.address.detailAddress || ''
 				}, 'MANUAL');
 
@@ -1549,7 +1556,8 @@
 			doName: normalizeProvinceName(data.sido),
 			siName: sigunguParts.siName,
 			guName: sigunguParts.guName,
-			roadAddress: ((data.roadAddress || data.jibunAddress || '')).trim()
+			roadAddress: ((data.roadAddress || data.autoRoadAddress || '')).trim(),
+            jibunAddress: (data.jibunAddress || data.autoJibunAddress || '').trim()
 		};
 	}
 
@@ -3883,6 +3891,7 @@
 				siName: (state.address.siName || '').trim(),
 				guName: (state.address.guName || '').trim(),
 				roadAddress: (state.address.roadAddress || '').trim(),
+                jibunAddress: state.address.jibunAddress || '',
 				detailAddress: (state.address.detailAddress || '').trim(),
 
 				siteZipCode: isSiteDeliverySelected() ? (state.siteAddress.zipCode || '').trim() : null,
@@ -3890,6 +3899,7 @@
 				siteSiName: isSiteDeliverySelected() ? (state.siteAddress.siName || '').trim() : null,
 				siteGuName: isSiteDeliverySelected() ? (state.siteAddress.guName || '').trim() : null,
 				siteRoadAddress: isSiteDeliverySelected() ? (state.siteAddress.roadAddress || '').trim() : null,
+                siteJibunAddress: isSiteDeliverySelected() ? state.siteAddress.jibunAddress || '' : null,
 				siteDetailAddress: isSiteDeliverySelected() ? (state.siteAddress.detailAddress || '').trim() : null,
 
 				orders: state.orders.map(order => ({

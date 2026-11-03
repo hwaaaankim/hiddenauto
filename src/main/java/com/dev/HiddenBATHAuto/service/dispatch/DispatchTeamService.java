@@ -351,10 +351,24 @@ public class DispatchTeamService {
             Member loginMember
     ) {
         validateDispatchTeamMember(loginMember);
+        return orderManagementPreview(orderIds, false);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DispatchOrderRowDto> getAdminOrderManagementPreview(List<Long> orderIds, Member actor) {
+        validateAdmin(actor);
+        return orderManagementPreview(orderIds, true);
+    }
+
+    private void validateAdmin(Member actor) {
+        if (actor == null || actor.getRole() != com.dev.HiddenBATHAuto.model.auth.MemberRole.ADMIN)
+            throw new AccessDeniedException("관리자만 접근할 수 있습니다.");
+    }
+
+    private List<DispatchOrderRowDto> orderManagementPreview(List<Long> orderIds, boolean admin) {
         List<Long> normalizedIds = normalizeIds(orderIds);
-        if (normalizedIds.isEmpty()) {
-            throw new IllegalArgumentException("발주관리할 주문을 1건 이상 선택해 주세요.");
-        }
+        if (normalizedIds.isEmpty() || normalizedIds.size() > 500)
+            throw new IllegalArgumentException("발주관리할 주문을 1~500건 선택해 주세요.");
 
         Map<Long, Order> orderMap = findOrderMap(normalizedIds);
         List<DispatchOrderRowDto> rows = new ArrayList<>();
@@ -363,7 +377,7 @@ public class DispatchTeamService {
             if (order == null) {
                 throw new IllegalArgumentException("주문을 찾을 수 없습니다. orderId=" + orderId);
             }
-            validateBulkTargetOrder(order);
+            if (!admin) validateBulkTargetOrder(order);
             rows.add(toDispatchOrderRowDto(order));
         }
         return rows;
@@ -381,10 +395,22 @@ public class DispatchTeamService {
             Member loginMember
     ) {
         validateDispatchTeamMember(loginMember);
+        return saveOrderManagementInternal(request, loginMember, false);
+    }
+
+    @Transactional
+    public OrderManagementSaveResponse saveAdminOrderManagement(OrderManagementSaveRequest request, Member actor) {
+        validateAdmin(actor);
+        return saveOrderManagementInternal(request, actor, true);
+    }
+
+    private OrderManagementSaveResponse saveOrderManagementInternal(
+            OrderManagementSaveRequest request, Member loginMember, boolean admin) {
         if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
             throw new IllegalArgumentException("저장할 발주관리 내용이 없습니다.");
         }
 
+        if (request.getItems().size() > 500) throw new IllegalArgumentException("한 번에 최대 500건까지 변경할 수 있습니다.");
         LinkedHashMap<Long, OrderManagementItemDto> requestedByOrderId = new LinkedHashMap<>();
         for (OrderManagementItemDto item : request.getItems()) {
             if (item == null || item.getOrderId() == null || item.getOrderId() <= 0) {
@@ -409,7 +435,11 @@ public class DispatchTeamService {
             if (order == null) {
                 throw new IllegalArgumentException("주문을 찾을 수 없습니다. orderId=" + orderId);
             }
-            validateBulkTargetOrder(order);
+            if (!admin) validateBulkTargetOrder(order);
+            if (admin && !java.util.Objects.equals(item.getExpectedUpdatedAt(), String.valueOf(order.getUpdatedAt())))
+                throw new IllegalStateException("다른 화면에서 변경된 발주입니다. 일괄변경 창을 다시 열어 최신 내용을 확인해 주세요. orderId=" + orderId);
+            if (admin && item.isDispatchComplete()) throw new IllegalArgumentException("관리자 일괄변경에서는 상태를 변경할 수 없습니다.");
+            if (!admin && item.getPreferredDeliveryDate() != null) throw new IllegalArgumentException("출고일 일괄변경은 관리자 기능입니다.");
 
             if (item.getDeliveryMethodId() == null) {
                 throw new IllegalArgumentException("배송수단을 선택해 주세요. orderId=" + orderId);
@@ -428,11 +458,12 @@ public class DispatchTeamService {
                 handlerIdsToLock.add(beforeHandler.getId());
             }
 
-            boolean handlerRequired = DeliveryMethodAssignmentPolicy.requiresHandler(targetMethod);
+            boolean handlerRequired = DeliveryMethodAssignmentPolicy.requiresHandler(targetMethod)
+                    && (!admin || deliveryOrderIndexService.isDeliveryAssignmentAllowedStatus(order.getStatus()));
             Member targetHandler = null;
             if (handlerRequired) {
                 targetHandler = getValidatedDeliveryHandler(item.getDeliveryHandlerId(), handlerCache);
-                requireDeliveryDate(order);
+                if (item.getPreferredDeliveryDate() == null) requireDeliveryDate(order);
                 handlerIdsToLock.add(targetHandler.getId());
             }
 
@@ -486,7 +517,9 @@ public class DispatchTeamService {
                     order.getDeliveryCost(),
                     cleanInput(order.getOrdererName()),
                     cleanInput(order.getOrdererPhone()),
-                    order.getStatus()
+                    order.getStatus(),
+                    order.getPreferredDeliveryDate(),
+                    item.getPreferredDeliveryDate() != null ? item.getPreferredDeliveryDate().atTime(order.getPreferredDeliveryDate() != null ? order.getPreferredDeliveryDate().toLocalTime() : java.time.LocalTime.MIDNIGHT) : order.getPreferredDeliveryDate()
             ));
         }
 
@@ -498,6 +531,7 @@ public class DispatchTeamService {
         LocalDateTime now = LocalDateTime.now();
         for (OrderManagementPlan plan : plans) {
             Order order = plan.order();
+            order.setPreferredDeliveryDate(plan.deliveryDate());
             order.setDeliveryMethod(plan.targetMethod());
             order.setAssignedDeliveryHandler(plan.targetHandler());
             order.setAssignedDeliveryTeam(plan.targetHandler() != null
@@ -535,24 +569,25 @@ public class DispatchTeamService {
 
         for (OrderManagementPlan plan : plans) {
             Order order = plan.order();
-            String managementPath = "/team/dispatchList/api/orders/order-management";
+            String managementPath = admin ? "/admin/order-management" : "/team/dispatchList/api/orders/order-management";
+            OrderChangeSourceArea source = admin ? OrderChangeSourceArea.MANAGEMENT : OrderChangeSourceArea.DISPATCH;
             OrderFieldChangeCommand methodChange = OrderFieldChangeCommand.of(
                     "deliveryMethod", "배송수단",
                     plan.beforeMethodLabel(), deliveryMethodLabel(plan.targetMethod()),
-                    OrderWorkArea.DISPATCH, OrderWorkArea.DELIVERY);
+                    admin ? OrderWorkArea.PRODUCTION : null, OrderWorkArea.DISPATCH, OrderWorkArea.DELIVERY);
             OrderFieldChangeCommand handlerChange = OrderFieldChangeCommand.of(
                     "assignedDeliveryHandler", "배송담당자",
                     plan.beforeHandlerLabel(), memberLabel(plan.targetHandler()),
-                    OrderWorkArea.DISPATCH, OrderWorkArea.DELIVERY);
+                    admin ? OrderWorkArea.PRODUCTION : null, OrderWorkArea.DISPATCH, OrderWorkArea.DELIVERY);
 
             if (methodChange.isActuallyChanged() || handlerChange.isActuallyChanged()) {
                 boolean methodChanged = methodChange.isActuallyChanged();
                 changeRecorder.recordChangesWithAdditionalRecipients(
                         order,
-                        OrderChangeSourceArea.DISPATCH,
+                        source,
                         loginMember,
                         methodChanged ? "DISPATCH_DELIVERY_METHOD_CHANGE" : "DISPATCH_HANDLER_CHANGE",
-                        methodChanged ? "출고팀 배송수단/담당자 변경" : "출고팀 배송담당자 변경",
+                        admin ? "관리자 배송수단/담당자 변경" : methodChanged ? "출고팀 배송수단/담당자 변경" : "출고팀 배송담당자 변경",
                         managementPath,
                         plan.beforeHandlerId() != null ? List.of(plan.beforeHandlerId()) : List.of(),
                         customerSearchBefore.get(order.getId()),
@@ -565,24 +600,24 @@ public class DispatchTeamService {
             addressChanges.add(OrderFieldChangeCommand.of(
                     "deliveryAddress", plan.siteDelivery() ? "현장주소" : "배송주소",
                     plan.beforeAddress(), plan.address().display(),
-                    OrderWorkArea.DISPATCH, OrderWorkArea.DELIVERY));
+                    admin ? OrderWorkArea.PRODUCTION : null, OrderWorkArea.DISPATCH, OrderWorkArea.DELIVERY));
             if (plan.siteDelivery()) {
                 addressChanges.add(OrderFieldChangeCommand.of(
                         "ordererName", "현장배송 수령자",
                         plan.beforeOrdererName(), plan.ordererName(),
-                        OrderWorkArea.DISPATCH, OrderWorkArea.DELIVERY));
+                        admin ? OrderWorkArea.PRODUCTION : null, OrderWorkArea.DISPATCH, OrderWorkArea.DELIVERY));
                 addressChanges.add(OrderFieldChangeCommand.of(
                         "ordererPhone", "현장배송 수령자 연락처",
                         plan.beforeOrdererPhone(), plan.ordererPhone(),
-                        OrderWorkArea.DISPATCH, OrderWorkArea.DELIVERY));
+                        admin ? OrderWorkArea.PRODUCTION : null, OrderWorkArea.DISPATCH, OrderWorkArea.DELIVERY));
             }
 
             changeRecorder.recordChanges(
                     order,
-                    OrderChangeSourceArea.DISPATCH,
+                    source,
                     loginMember,
-                    "DISPATCH_DELIVERY_ADDRESS_CHANGE",
-                    "출고팀 배송지 정보 변경",
+                    admin ? "MANAGEMENT_ORDER_UPDATE" : "DISPATCH_DELIVERY_ADDRESS_CHANGE",
+                    admin ? "관리자 배송지 정보 변경" : "출고팀 배송지 정보 변경",
                     managementPath,
                     customerSearchBefore.get(order.getId()),
                     addressChanges.toArray(OrderFieldChangeCommand[]::new)
@@ -590,10 +625,10 @@ public class DispatchTeamService {
 
             changeRecorder.recordChanges(
                     order,
-                    OrderChangeSourceArea.DISPATCH,
+                    source,
                     loginMember,
                     "DISPATCH_DELIVERY_COST_CHANGE",
-                    "출고팀 배송비 변경",
+                    admin ? "관리자 배송비 변경" : "출고팀 배송비 변경",
                     managementPath,
                     OrderFieldChangeCommand.of(
                             "deliveryCost", "배송비",
@@ -601,10 +636,16 @@ public class DispatchTeamService {
                             OrderWorkArea.DISPATCH)
             );
 
+            if (!java.util.Objects.equals(plan.beforeDeliveryDate(), plan.deliveryDate())) {
+                changeRecorder.recordChanges(order, source, loginMember, "MANAGEMENT_DELIVERY_DATE_CHANGE",
+                        "관리자 출고일 변경", managementPath, customerSearchBefore.get(order.getId()),
+                        OrderFieldChangeCommand.of("preferredDeliveryDate", "출고일", plan.beforeDeliveryDate(), plan.deliveryDate(),
+                                OrderWorkArea.PRODUCTION, OrderWorkArea.DISPATCH, OrderWorkArea.DELIVERY));
+            }
             if (plan.dispatchComplete()) {
                 changeRecorder.recordStatusChange(
                         order,
-                        OrderChangeSourceArea.DISPATCH,
+                        source,
                         loginMember,
                         plan.beforeStatus(),
                         OrderStatus.DISPATCH_DONE,
@@ -1557,7 +1598,9 @@ public class DispatchTeamService {
             int beforeDeliveryCost,
             String beforeOrdererName,
             String beforeOrdererPhone,
-            OrderStatus beforeStatus
+            OrderStatus beforeStatus,
+            LocalDateTime beforeDeliveryDate,
+            LocalDateTime deliveryDate
     ) {
     }
 
@@ -1568,7 +1611,8 @@ public class DispatchTeamService {
                 cleanInput(item.getSiName()),
                 cleanInput(item.getGuName()),
                 cleanInput(item.getRoadAddress()),
-                cleanInput(item.getDetailAddress())
+                cleanInput(item.getDetailAddress()),
+                cleanInput(item.getJibunAddress())
         );
     }
 
@@ -1579,7 +1623,8 @@ public class DispatchTeamService {
                 cleanInput(item.getSiteSiName()),
                 cleanInput(item.getSiteGuName()),
                 cleanInput(item.getSiteRoadAddress()),
-                cleanInput(item.getSiteDetailAddress())
+                cleanInput(item.getSiteDetailAddress()),
+                cleanInput(item.getSiteJibunAddress())
         );
     }
 
@@ -1590,7 +1635,8 @@ public class DispatchTeamService {
                 cleanInput(order.getSiName()),
                 cleanInput(order.getGuName()),
                 cleanInput(order.getRoadAddress()),
-                cleanInput(order.getDetailAddress())
+                cleanInput(order.getDetailAddress()),
+                cleanInput(order.getJibunAddress())
         );
     }
 
@@ -1601,7 +1647,8 @@ public class DispatchTeamService {
                 cleanInput(order.getSiteSiName()),
                 cleanInput(order.getSiteGuName()),
                 cleanInput(order.getSiteRoadAddress()),
-                cleanInput(order.getSiteDetailAddress())
+                cleanInput(order.getSiteDetailAddress()),
+                cleanInput(order.getSiteJibunAddress())
         );
     }
 
@@ -1623,6 +1670,7 @@ public class DispatchTeamService {
         order.setSiName(address.siName());
         order.setGuName(address.guName());
         order.setRoadAddress(address.roadAddress());
+        order.setJibunAddress(address.jibunAddress());
         order.setDetailAddress(address.detailAddress());
     }
 
@@ -1632,6 +1680,7 @@ public class DispatchTeamService {
         order.setSiteSiName(address.siName());
         order.setSiteGuName(address.guName());
         order.setSiteRoadAddress(address.roadAddress());
+        order.setSiteJibunAddress(address.jibunAddress());
         order.setSiteDetailAddress(address.detailAddress());
     }
 
@@ -1641,6 +1690,7 @@ public class DispatchTeamService {
         order.setSiteSiName(null);
         order.setSiteGuName(null);
         order.setSiteRoadAddress(null);
+        order.setSiteJibunAddress(null);
         order.setSiteDetailAddress(null);
     }
 
@@ -2092,6 +2142,7 @@ public class DispatchTeamService {
 
         return DispatchOrderRowDto.builder()
                 .orderId(order.getId())
+                .updatedAtToken(String.valueOf(order.getUpdatedAt()))
                 .status(status != null ? status.name() : "")
                 .statusLabel(status != null ? status.getLabel() : "-")
                 .statusSort(statusSort(status))
@@ -2120,13 +2171,16 @@ public class DispatchTeamService {
                 .siName(safeText(order.getSiName()))
                 .guName(safeText(order.getGuName()))
                 .roadAddress(safeText(order.getRoadAddress()))
+                .jibunAddress(safeText(order.getJibunAddress()))
                 .detailAddress(safeText(order.getDetailAddress()))
                 .fullAddress(buildFullAddress(order))
+                .actualJibunAddress(safeText(order.getActualDeliveryJibunAddress()))
                 .siteZipCode(safeText(order.getSiteZipCode()))
                 .siteDoName(safeText(order.getSiteDoName()))
                 .siteSiName(safeText(order.getSiteSiName()))
                 .siteGuName(safeText(order.getSiteGuName()))
                 .siteRoadAddress(safeText(order.getSiteRoadAddress()))
+                .siteJibunAddress(safeText(order.getSiteJibunAddress()))
                 .siteDetailAddress(safeText(order.getSiteDetailAddress()))
                 .siteFullAddress(buildSiteAddress(order))
                 .ordererName(safeText(order.getOrdererName()))

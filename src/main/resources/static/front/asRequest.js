@@ -1,6 +1,19 @@
 (function () {
     'use strict';
 
+    function asAddressDetail(input, data) {
+        if (!input) return;
+        const old = input.dataset.asAddressExtra || '';
+        let detail = input.value || '';
+        if (old && detail.includes(old)) detail = detail.replace(old, '').trim();
+        const name = String(data.buildingName || '').trim();
+        const extra = name ? '(' + name + ')' : '';
+        if (extra && !detail.includes(name)) detail = [detail, extra].filter(Boolean).join(' ');
+        input.value = detail;
+        input.dataset.asAddressExtra = extra;
+    }
+
+
     const SUBJECT_MAP = {
         '상부장': [
             '도어 파손', '도어 스크레치', '도어 휘어짐', '도어 변색', '도어 단차 불량',
@@ -575,6 +588,7 @@
                 ctx.doName.value = sido || (fullRoadAddr.split(' ')[0] || '');
                 ctx.siName.value = siName;
                 ctx.guName.value = guName;
+                asAddressDetail(ctx.detailAddress, data);
                 ctx.detailAddress.focus();
                 clearFieldError(ctx.roadAddress);
                 refreshAll(ctx);

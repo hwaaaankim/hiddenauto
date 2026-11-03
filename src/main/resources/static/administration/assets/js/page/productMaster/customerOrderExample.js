@@ -4,13 +4,13 @@
   const errorBox = document.getElementById('hb-error');
   const ROOT = '/admin/customer-order-example';
   const originalApi = S.api;
-  S.api = async (path, method = 'GET', body, signal) => {
+  S.api = async (path, method = 'GET', body, signal, options) => {
     const controller = new AbortController();
     const cancel = () => controller.abort();
     if (signal?.aborted) cancel(); else signal?.addEventListener('abort', cancel, { once: true });
     let timedOut = false;
     const timer = setTimeout(() => { timedOut = true; cancel(); }, body instanceof FormData ? 120000 : 40000);
-    try { return await originalApi(path, method, body, controller.signal); }
+    try { return await originalApi(path, method, body, controller.signal, options); }
     catch (err) { if (timedOut) throw Error('서버 응답 시간이 초과되었습니다. 연결 상태를 확인하고 다시 시도해 주세요.'); throw err; }
     finally { clearTimeout(timer); signal?.removeEventListener('abort', cancel); }
   };
@@ -95,13 +95,13 @@
     }
   }
   // Every request has a bounded lifetime so a disconnected server cannot leave the overlay open.
-  async function api(path, method = 'GET', body) {
+  async function api(path, method = 'GET', body, options) {
     const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 40000);
-    try { const result = await S.api(path, method, body, controller.signal); progress(Math.min(86, loadingProgress + 24)); return result; }
+    try { const result = await S.api(path, method, body, controller.signal, options); progress(Math.min(86, loadingProgress + 24)); return result; }
     catch (err) { if (err.name === 'AbortError') throw Error('서버 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.'); throw err; }
     finally { clearTimeout(timer); }
   }
-  const request = (path, method = 'GET', body) => api(S.base + path, method, body);
+  const request = (path, method = 'GET', body, options) => api(S.base + path, method, body, options);
   function safeUrl(url) {
     if (typeof url !== 'string' || !url.trim()) return '';
     try { const u = new URL(url, location.origin); return ['http:', 'https:'].includes(u.protocol) ? u.href : ''; } catch { return ''; }
@@ -141,6 +141,7 @@
     if (invalidCatalogFilters()) result = await request(catalogPath());
     if (pendingRoute || epoch !== catalogEpoch) return;
     sections = list(result.sections); catalogPage = result;
+    removeFaq();
     product = null; currentQuestion = null; answers = {}; completed = []; evaluation = null;
     document.body.classList.remove('hb-detail-page');
     saveRoute(null, replace); paintCatalog();
@@ -343,8 +344,9 @@
     if (pendingRoute) return;
     if (next.status === 'DISCONTINUED') throw Error('단종된 제품은 이 예시 화면에서 선택할 수 없습니다.');
     gallerySequence++; galleryAnimation?.cancel();
-    product = next; kind = next.nonStandard; answers = {}; completed = []; evaluation = null;
-    assets = new Map([...list(product.processAssets), ...list(product.assets)].map(a => [a.id, a]));
+    removeFaq();
+    product = next; product._isAdminTest = true; kind = next.nonStandard; answers = {}; completed = []; evaluation = null;
+    assets = new Map([...list(product.processAssets), ...list(product.assets), ...list(product.groups).flatMap(g=>[...list(g.assets),...list(g.values).flatMap(v=>list(v.assets))])].map(a => [a.id, a]));
     const registered = list(product.assets).filter(a => a.image && safeUrl(a.url));
     // Repeated pictures are intentional and visibly marked, solely for slider inspection.
     album = registered.length ? [...registered] : [{ url: sample(id), name: '공간 채우기용 예시 이미지', sample: true }];
@@ -355,6 +357,7 @@
     document.body.classList.add('hb-detail-page');
     saveRoute(id, replace); paintDetail(); window.scrollTo({ top: 0, behavior: 'instant' });
     if (kind) await paintProcess();
+    void installFaq();
     await waitImage(document.querySelector('.hb-gallery-slide img'));
   }
   function waitImage(img) {
@@ -368,7 +371,7 @@
     main.querySelector('.hb-series-nav')?._hbSizeObserver?.disconnect();
     main.innerHTML = `<div class="hb-breadcrumb"><a href="${e(routeUrl())}" id="hb-back">컬렉션</a><span>/</span><span>${kind ? '비규격제품' : '규격제품'}</span><span>/</span><span>${e(product.catalogCode)}</span></div>
       <section class="hb-detail"><div class="hb-gallery"><div class="hb-gallery-stage" role="region" aria-label="제품 이미지 슬라이드" tabindex="0"><div class="hb-gallery-track">${album.map((a, i) => `<div class="hb-gallery-slide" aria-hidden="${i !== 0}"><img src="${e(safeUrl(a.url))}" alt="${e(product.productName)} · ${e(a.name)}${a.repeated ? ' · 슬라이드 확인용 중복' : ''}" data-fallback="${e(sample(product.id))}"></div>`).join('')}</div><div class="hb-image-loading" role="status" hidden>이미지를 불러오는 중입니다.</div><div class="hb-gallery-tools"><button id="hb-prev" aria-label="이전 이미지">‹</button><span class="hb-gallery-count" aria-live="polite"></span><button id="hb-next" aria-label="다음 이미지">›</button></div></div><div class="hb-gallery-thumbs">${album.map((a, i) => `<button data-slide="${i}" aria-label="${i + 1}번 이미지" aria-pressed="${i === 0}"><img src="${e(safeUrl(a.url))}" alt="" data-fallback="${e(sample(product.id))}"></button>`).join('')}</div><p class="hb-gallery-caption"></p></div>
-      <div class="hb-info pms"><span class="hb-eyebrow">${kind ? 'MADE TO ORDER' : 'STANDARD COLLECTION'}</span><h1>${e(product.productName)}</h1>${product.description ? `<p class="hb-info-description">${e(product.description)}</p>` : '<p class="hb-info-description hb-sample-text">공간의 분위기를 완성하는 간결한 형태와 섬세한 디테일. 일상에 자연스럽게 스며드는 욕실 가구를 만나보세요. · 디자인 확인용 예시 설명</p>'}<dl class="hb-meta"><dt>제품코드</dt><dd>${e(product.catalogCode || '미등록')}</dd><dt>제품 구분</dt><dd>${kind ? '비규격 · 맞춤 구성' : '규격제품'}</dd><dt>생산기간</dt><dd>${product.productionHours == null ? '미등록' : e(product.productionHours) + '시간'}</dd><dt>등록 상태</dt><dd>${e(S.status[product.status] || product.status)}</dd>${!kind ? `<dt>등록 단가</dt><dd>${e(money(product.unitPrice))}</dd>` : ''}</dl><div id="hb-config"></div><div id="hb-price" aria-live="polite"></div></div></section>`;
+      <div class="hb-info pms"><span class="hb-eyebrow">${kind ? 'MADE TO ORDER' : 'STANDARD COLLECTION'}</span><h1>${e(product.productName)}</h1>${product.description ? `<p class="hb-info-description">${e(product.description)}</p>` : '<p class="hb-info-description hb-sample-text">공간의 분위기를 완성하는 간결한 형태와 섬세한 디테일. 일상에 자연스럽게 스며드는 욕실 가구를 만나보세요. · 디자인 확인용 예시 설명</p>'}<dl class="hb-meta"><dt>제품코드</dt><dd>${e(product.catalogCode || '미등록')}</dd><dt>제품 구분</dt><dd>${kind ? '비규격 · 맞춤 구성' : '규격제품'}</dd><dt>생산기간</dt><dd>${product.productionHours == null ? '미등록' : e(S.productionTime(product.productionHours))}</dd><dt>등록 상태</dt><dd>${e(S.status[product.status] || product.status)}</dd>${!kind ? `<dt>등록 단가</dt><dd>${e(money(product.unitPrice))}</dd>` : ''}</dl>${S.media(list(product.assets).filter(a=>!a.image),'제품 공통 첨부파일')}<div id="hb-config"></div><div id="hb-price" aria-live="polite"></div></div></section>`;
     document.getElementById('hb-back').onclick = ev => { ev.preventDefault(); run(() => catalog(true), '컬렉션으로 돌아갑니다.'); };
     S.bindMedia(main); updateSlide();
     const changeSlide = async i => {
@@ -402,19 +405,51 @@
     stage.addEventListener('touchstart', ev => { touchStart = ev.touches[0].clientX; }, { passive: true });
     stage.addEventListener('touchend', ev => { const dx = ev.changedTouches[0].clientX - touchStart; if (touchStart != null && Math.abs(dx) > 45) changeSlide(galleryRequested + (dx < 0 ? 1 : -1)); touchStart = null; }, { passive: true });
     if (!kind) {
-      document.getElementById('hb-config').innerHTML = `<span class="hb-eyebrow">PRODUCT DETAILS</span><h2 style="font-size:20px;font-weight:500">등록된 제품 사양</h2>${standardSpecs()}`;
+      document.getElementById('hb-config').innerHTML = `<span class="hb-eyebrow">PRODUCT DETAILS</span><h2 style="font-size:20px;font-weight:500">등록된 제품 사양</h2>${standardSpecs()}${S.teamPreview(product)}`;
       document.getElementById('hb-price').innerHTML = `<section class="hb-quote"><h2>제품 가격</h2><div class="hb-total">${e(money(product.unitPrice))}</div><p class="hb-result-note">등록 단가 기준입니다. 배송비·할인·결제금액은 연결 전이며 주문은 저장되지 않습니다.</p></section>`;
+    }
+  }
+  let faqSequence=0;
+  function removeFaq(){faqSequence++;document.getElementById('hb-faq-button')?.remove();}
+  function faqContext(){
+    const current={...(product.fixedAnswers||{}),...S.copy(answers)};
+    const state=evaluation?.questions.find(s=>s.question.key===currentQuestion),box=document.getElementById('hb-input');
+    if(state&&box)current[currentQuestion]=S.readAnswer(box,{...state.question,fields:list(state.question.fields).filter(f=>state.allowed.includes(f.key))},current[currentQuestion]);
+    if(!product.nonStandard)for(const q of product.process?.questions||[]){
+      if(current[q.key])continue;
+      const variant=product.variants?.find(v=>v.groupId===q.groupId),group=product.groups?.find(g=>g.id===q.groupId);
+      if(variant)current[q.key]={choices:list(group?.values).filter(v=>variant.valueIds?.includes(v.id)).map(v=>v.key),fields:variant.inputs||{}};
+    }
+    return {product:{name:product.productName,code:product.catalogCode},answers:current};
+  }
+  async function installFaq() {
+    removeFaq();
+    if(!product?.faqTopicId)return;
+    const id=product.id,topicId=product.faqTopicId,serial=faqSequence;
+    const button=document.createElement('button');button.id='hb-faq-button';button.className='pm-faq-float pm-help-icon';button.type='button';button.textContent='FAQ 불러오는 중…';button.disabled=true;document.body.append(button);
+    const current=()=>product?.id===id&&serial===faqSequence&&button.isConnected;
+    try{
+      const topics=await request('/faq','GET',undefined,{quiet:true});
+      if(!current())return;
+      const topic=list(topics).find(f=>f.id===topicId);
+      if(!topic)throw Error('연결된 FAQ를 찾을 수 없습니다. 제품의 FAQ 연결 설정을 확인해 주세요.');
+      button.disabled=false;button.textContent='ⓘ FAQ · 문의';
+      button.onclick=()=>{if(current())S.showProductFaq(topic,faqContext);};
+    }catch(err){
+      if(!current())return;
+      button.disabled=false;button.textContent='ⓘ FAQ 다시 불러오기';button.title=err.message;
+      button.onclick=()=>installFaq();
     }
   }
   function standardSpecs() {
     return list(product.variants).map(v => {
-      const g = list(product.groups).find(x => x.id === v.groupId); if (!g) return '';
+      const g = list(product.groups).find(x => x.id === v.groupId); if (!g || g.role==='SUBCATEGORY') return '';
       const selected = list(g.values).filter(x => list(v.valueIds).includes(x.id));
       const fields = Object.entries(v.inputs || {}).map(([key, value]) => {
         const f = list(g.fields).find(x => x.key === key);
         return `${f?.labels?.customer || key}: ${Array.isArray(value) ? value.map(id => assets.get(id)?.name || '등록 첨부파일').join(', ') : value}${f?.unit ? ' ' + f.unit : ''}`;
       });
-      return `<div class="hb-answer"><header><strong>${e(g.labels.customer)}</strong></header><p>${e([...selected.map(x => x.labels.customer), ...fields].join(' / '))}</p>${g.guide ? `<p class="hb-guide">${e(g.guide)}</p>` : ''}${S.media([...list(g.assets), ...selected.flatMap(x => list(x.assets)), ...list(g.fields).flatMap(f => list(f.assetIds).map(id => assets.get(id))).filter(Boolean)], '선택 사양 참고자료')}</div>`;
+      return `<div class="hb-answer"><header><strong>${e(g.labels.customer)}</strong></header><p>${e([...selected.map(x => x.labels.customer), ...fields].join(' / '))}</p>${S.help(g,S.questionAssets(g),'질문 안내')}${selected.map(x=>S.help(x,list(x.assets),'선택 사양 안내')).join('')}${list(g.fields).filter(f=>Object.hasOwn(v.inputs||{},f.key)).map(f=>S.help(f,list(f.assetIds).map(id=>assets.get(id)).filter(Boolean),'입력 사양 안내')).join('')}</div>`;
     }).join('');
   }
   function updateSlide() {
@@ -462,7 +497,7 @@
     const animation = node.animate([
       { height: oldHeight + 'px', opacity: oldHeight ? 1 : 0, transform: oldHeight ? 'translateY(0)' : 'translateY(14px)' },
       { height: height + 'px', opacity: 1, transform: 'translateY(0)' }
-    ], { duration: duration(420), easing: 'cubic-bezier(.22,.61,.36,1)' });
+    ], { duration: duration(100), easing: 'cubic-bezier(.22,.61,.36,1)' });
     try { await animation.finished; } catch (_) { /* Navigation may remove the thread. */ }
     if (node.isConnected) node.style.overflow = '';
   }
@@ -472,7 +507,7 @@
     const animation = node.animate([
       { height: node.getBoundingClientRect().height + 'px', opacity: 1 },
       { height: '0px', opacity: 0 }
-    ], { duration: duration(240), easing: 'ease-in-out' });
+    ], { duration: duration(80), easing: 'ease-in-out' });
     try { await animation.finished; } catch (_) { /* Safe during route changes. */ }
     node.remove();
   }
@@ -503,17 +538,17 @@
     const key = state.question.key;
     node.querySelector('.hb-question-state').innerHTML = `<span>선택 완료</span><button type="button" data-edit="${e(key)}" aria-label="${e(state.question.labels.customer)} 이 질문부터 초기화">이 질문부터 초기화</button>`;
     node.querySelector('h2').textContent = state.question.question || state.question.labels.customer;
-    node.querySelector('.hb-question-body').innerHTML = `<div class="hb-response"><span class="hb-response-label">선택하신 내용</span><p>${e(S.answerText(state.question, state.answer, assets)) || '선택하지 않음'}</p>${S.answerGuides(state.question, state.answer, state).map(t => `<p class="hb-response-guide">${e(t)}</p>`).join('')}${S.answerMedia(state.question, state.answer, assets)}</div>`;
+    node.querySelector('.hb-question-body').innerHTML = `<div class="hb-response"><span class="hb-response-label">선택하신 내용</span><p>${e(S.answerText(state.question, state.answer, assets)) || '선택하지 않음'}</p>${S.help(state.question,list(state.question.assetIds).map(id=>assets.get(id)).filter(Boolean),'질문 참고자료')}${S.answerNotices(state.question, state.answer, state, product.process).map(t => S.guideHtml(state.question,t,product.process)).join('')}${S.answerMedia(state.question, state.answer, assets)}</div>`;
     node.querySelector('[data-edit]').onclick = () => resetQuestion(key);
     return reveal(node, height);
   }
   function mountCurrent(node, state, index, attemptedKey) {
-    const q = { ...state.question, choices: list(state.question.choices).filter(c => state.allowed.includes(c.key)) };
+    const q = { ...state.question, choices: list(state.question.choices).filter(c => state.allowed.includes(c.key)), fields: list(state.question.fields).filter(f => state.allowed.includes(f.key)) };
     node._hbComplete = null; node.classList.remove('is-complete'); node.classList.add('is-current', 'hb-current'); node.id = 'hb-current';
     node.querySelector('h2').textContent = q.question || q.labels.customer;
     node.querySelector('.hb-question-state').textContent = '선택 중';
     answers[q.key] = answers[q.key] || S.copy(state.answer);
-    node.querySelector('.hb-question-body').innerHTML = `${q.guide ? `<div class="hb-guide">${e(q.guide)}</div>` : ''}${S.media(list(q.assetIds).map(id => assets.get(id)).filter(Boolean), '질문 참고자료')}<div id="hb-input" data-control="${e(q.control)}">${S.inputAnswer(q, answers[q.key], false, assets)}</div><div id="hb-guides"></div><div id="hb-question-errors" class="hb-question-errors" role="alert">${attemptedKey === q.key ? state.errors.map(e).join('<br>') : ''}</div><button type="button" class="hb-next" id="hb-answer-next">선택 완료 · 다음으로</button>`;
+    node.querySelector('.hb-question-body').innerHTML = `${S.help(q, list(q.assetIds).map(id => assets.get(id)).filter(Boolean), "질문 참고자료")}<div id="hb-input" data-control="${e(q.control)}">${S.inputAnswer(q, answers[q.key], false, assets)}</div><div id="hb-guides"></div><div id="hb-question-errors" class="hb-question-errors" role="alert">${attemptedKey === q.key ? state.errors.map(e).join('<br>') : ''}</div><button type="button" class="hb-next" id="hb-answer-next">선택 완료 · 다음으로</button>`;
     const box = node.querySelector('#hb-input');
     // Choice and dimension counts are based on the registered question, not label guesses.
     const grid = box.querySelector('.pm-answer-choices');
@@ -529,9 +564,23 @@
     const showGuides = () => {
       if (!box.isConnected) return;
       const value = S.readAnswer(box, q, answers[q.key]);
-      node.querySelector('#hb-guides').innerHTML = S.answerGuides(q, value, state).map(t => `<div class="hb-guide">${e(t)}</div>`).join('');
+      node.querySelector('#hb-guides').innerHTML = S.answerNotices(q, value, state, product.process).map(t => S.guideHtml(q, t, product.process)).join('');
     };
-    box.addEventListener('input', showGuides); box.addEventListener('change', showGuides); showGuides();
+    let guideSequence=0, guideTimer;
+    const updateGuidance=()=>{
+      showGuides();clearTimeout(guideTimer);const seq=++guideSequence, id=product.id;
+      guideTimer=setTimeout(async()=>{
+        try {
+          const values={...answers,[q.key]:S.readAnswer(box,q,answers[q.key])};
+          const result=await request(`/products/${id}/customer-evaluate`,'POST',values,{quiet:true});
+          if(!box.isConnected||seq!==guideSequence||product?.id!==id)return;
+          const fresh=result.questions.find(s=>s.question.key===q.key);if(!fresh)return;
+          S.updateAnswerLimits(box,fresh.question.fields);
+          node.querySelector('#hb-guides').innerHTML=S.answerNotices(q,values[q.key],fresh,product.process).map(t=>S.guideHtml(q,t,product.process)).join('');
+        }catch { /* The explicit Next action still validates, and displays any request error. */ }
+      },160);
+    };
+    box.addEventListener('input', updateGuidance); box.addEventListener('change', updateGuidance); showGuides();
     S.answerFileEvents(box, q, answers[q.key], assets, {
       uploadPath: S.base + '/assets/stage', isCurrent: () => box.isConnected && currentQuestion === q.key,
       onChange: value => { S.dirty = false; answers[q.key] = value; showGuides(); },
@@ -553,6 +602,7 @@
       const status = document.getElementById('hb-inline-status'); if (status) status.hidden = true;
       await paintProcess(q.key); focusQuestion();
     }, '선택한 내용에 맞는 다음 질문을 확인하고 있습니다.', 'question');
+    S.bindQuestionNavigation(box, q, () => node.querySelector('#hb-answer-next').onclick());
   }
   async function paintProcess(attemptedKey) {
     const visible = mergeAnswers(), active = visible.find(s => !completed.includes(s.question.key));
@@ -560,8 +610,8 @@
     const config = document.getElementById('hb-config');
     let thread = config.querySelector('#hb-thread');
     if (!thread) {
-      const fixed = list(evaluation.questions).filter(s => s.question.fixed);
-      config.innerHTML = `<div class="hb-process-header"><span>나만의 제품 구성</span><span id="hb-step-count"></span></div><div class="hb-progress"><i></i></div>${fixed.length ? `<details class="hb-fixed-specs"><summary>기본 사양 보기</summary>${fixed.map(s => `<div class="hb-answer"><strong>${e(s.question.labels.customer)}</strong><p>${e(S.answerText(s.question, s.answer, assets))}</p>${S.answerMedia(s.question, s.answer, assets)}</div>`).join('')}</details>` : ''}<div id="hb-thread" aria-label="제품 구성 질문과 답변"></div><div id="hb-flow-error" class="hb-question-errors" role="alert" hidden></div><div id="hb-inline-status" class="hb-inline-status" role="status" aria-live="polite" hidden></div>`;
+      const fixed = list(evaluation.questions).filter(s => s.question.fixed && product.groups?.find(g=>g.id===s.question.groupId)?.role!=='SUBCATEGORY');
+      config.innerHTML = `<div class="hb-process-header"><span>나만의 제품 구성</span><span id="hb-step-count"></span></div><div class="hb-progress"><i></i></div>${fixed.length ? `<details class="hb-fixed-specs"><summary>기본 사양 보기</summary>${fixed.map(s => `<div class="hb-answer"><strong>${e(s.question.labels.customer)}</strong><p>${e(S.answerText(s.question, s.answer, assets))}</p>${S.help(s.question,list(s.question.assetIds).map(id=>assets.get(id)).filter(Boolean),'기본 사양 안내')}${S.answerMedia(s.question, s.answer, assets)}</div>`).join('')}</details>` : ''}<div id="hb-thread" aria-label="제품 구성 질문과 답변"></div><div id="hb-flow-error" class="hb-question-errors" role="alert" hidden></div><div id="hb-inline-status" class="hb-inline-status" role="status" aria-live="polite" hidden></div>`;
       thread = config.querySelector('#hb-thread');
     }
     document.getElementById('hb-step-count').textContent = `${completed.length} / ${visible.length} 단계`;
@@ -583,6 +633,8 @@
       }
     }
     await Promise.all(motions);
+    document.getElementById('hb-team-preview')?.remove();
+    const team=document.createElement('div');team.id='hb-team-preview';team.innerHTML=S.teamPreview(product,evaluation);config.append(team);
     if (!active) {
       if (evaluation.complete) await calculate();
       else {
@@ -594,19 +646,8 @@
   }
   let focusMotion = null;
   function focusQuestion() {
-    const target = document.querySelector('.hb-question.is-current h2') || document.querySelector('.hb-quote h2');
-    if (!target) return;
-    target.tabIndex = -1; target.focus({ preventScroll: true });
-    const rect = target.getBoundingClientRect(), header = document.querySelector('.hb-header').getBoundingClientRect().height;
-    if (rect.top >= header + 24 && rect.top < innerHeight - 190) return;
-    if (focusMotion) cancelAnimationFrame(focusMotion);
-    const from = window.scrollY, to = Math.max(0, from + rect.top - header - 36), start = performance.now(), ms = duration(460);
-    const tick = now => {
-      const t = ms ? Math.min(1, (now - start) / ms) : 1;
-      window.scrollTo({ top: from + (to - from) * (1 - Math.pow(1 - t, 3)), behavior: 'instant' });
-      if (t < 1) focusMotion = requestAnimationFrame(tick); else focusMotion = null;
-    };
-    focusMotion = requestAnimationFrame(tick);
+    const card = document.querySelector('.hb-question.is-current') || document.querySelector('.hb-quote');
+    S.focusQuestion(card, document.querySelector('.hb-header')?.getBoundingClientRect().height || 20);
   }
   window.addEventListener('wheel', () => { if (focusMotion) cancelAnimationFrame(focusMotion); focusMotion = null; }, { passive: true });
   window.addEventListener('touchstart', () => { if (focusMotion) cancelAnimationFrame(focusMotion); focusMotion = null; }, { passive: true });

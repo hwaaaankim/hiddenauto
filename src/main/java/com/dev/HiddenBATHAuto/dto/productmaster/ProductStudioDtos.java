@@ -59,7 +59,30 @@ public final class ProductStudioDtos {
       Integer maxFileMB,
       String guide,
       String bundleKey,
+      List<String> assetIds, String helpDisplay) {
+    public Field(
+      String key,
+      Labels labels,
+      String namePart,
+      boolean required,
+      boolean allowNegative,
+      BigDecimal min,
+      BigDecimal max,
+      BigDecimal step,
+      Integer minLength,
+      Integer maxLength,
+      String format,
+      String unit,
+      List<String> extensions,
+      Integer minFiles,
+      Integer maxFiles,
+      Integer maxFileMB,
+      String guide,
+      String bundleKey,
       List<String> assetIds) {
+      this(key, labels, namePart, required, allowNegative, min, max, step, minLength, maxLength, format, unit, extensions, minFiles, maxFiles, maxFileMB, guide, bundleKey, assetIds, "ALWAYS");
+    }
+
     public Field(
         String key, Labels labels, String namePart, boolean required, boolean allowNegative,
         BigDecimal min, BigDecimal max, BigDecimal step, Integer minLength, Integer maxLength,
@@ -108,7 +131,12 @@ public final class ProductStudioDtos {
   }
 
   public record Choice(
+      String key, Labels labels, String namePart, List<String> assetIds, String guide, String helpDisplay) {
+    public Choice(
       String key, Labels labels, String namePart, List<String> assetIds, String guide) {
+      this(key, labels, namePart, assetIds, guide, "ALWAYS");
+    }
+
     public Choice(String key, Labels labels, String namePart, List<String> assetIds) {
       this(key, labels, namePart, assetIds, null);
     }
@@ -127,7 +155,24 @@ public final class ProductStudioDtos {
       String guide,
       List<Field> fields,
       Boolean askQuestion,
+      boolean priceImpact, String helpDisplay) {
+    public GroupEdit(
+      Long id,
+      Long version,
+      Labels labels,
+      String role,
+      Control control,
+      boolean nonStandard,
+      boolean includeInName,
+      boolean active,
+      String question,
+      String guide,
+      List<Field> fields,
+      Boolean askQuestion,
       boolean priceImpact) {
+      this(id, version, labels, role, control, nonStandard, includeInName, active, question, guide, fields, askQuestion, priceImpact, "ALWAYS");
+    }
+
     public GroupEdit(
         Long id,
         Long version,
@@ -158,7 +203,12 @@ public final class ProductStudioDtos {
   }
 
   public record ValueEdit(
+      Long id, Long version, Labels labels, String namePart, boolean active, String guide, String helpDisplay) {
+    public ValueEdit(
       Long id, Long version, Labels labels, String namePart, boolean active, String guide) {
+      this(id, version, labels, namePart, active, guide, "ALWAYS");
+    }
+
     public ValueEdit(Long id, Long version, Labels labels, String namePart, boolean active) {
       this(id, version, labels, namePart, active, null);
     }
@@ -172,7 +222,19 @@ public final class ProductStudioDtos {
       String namePart,
       boolean active,
       List<AssetView> assets,
+      String guide, String helpDisplay) {
+    public ValueView(
+      Long id,
+      long version,
+      String key,
+      Labels labels,
+      String namePart,
+      boolean active,
+      List<AssetView> assets,
       String guide) {
+      this(id, version, key, labels, namePart, active, assets, guide, "ALWAYS");
+    }
+
     public ValueView(
         Long id,
         long version,
@@ -202,7 +264,28 @@ public final class ProductStudioDtos {
       List<AssetView> assets,
       boolean askQuestion,
       boolean priceImpact,
+      boolean definitionLocked, String helpDisplay) {
+    public GroupView(
+      Long id,
+      long version,
+      String key,
+      Labels labels,
+      String role,
+      Control control,
+      boolean nonStandard,
+      boolean includeInName,
+      boolean active,
+      String question,
+      String guide,
+      List<Field> fields,
+      List<ValueView> values,
+      List<AssetView> assets,
+      boolean askQuestion,
+      boolean priceImpact,
       boolean definitionLocked) {
+      this(id, version, key, labels, role, control, nonStandard, includeInName, active, question, guide, fields, values, assets, askQuestion, priceImpact, definitionLocked, "ALWAYS");
+    }
+
     public GroupView(
         Long id, long version, String key, Labels labels, String role, Control control,
         boolean nonStandard, boolean includeInName, boolean active, String question, String guide,
@@ -329,7 +412,9 @@ public final class ProductStudioDtos {
     }
   }
 
-  public record NumberCase(String key, String name, List<Condition> conditions, String guide) {}
+  public record NumberCase(String key, String name, List<Condition> conditions, String guide, String helpDisplay) {
+    public NumberCase(String key, String name, List<Condition> conditions, String guide) {this(key,name,conditions,guide,"ALWAYS");}
+  }
 
   public record Condition(
       String groupKey,
@@ -367,7 +452,26 @@ public final class ProductStudioDtos {
       List<Field> fields,
       List<String> assetIds,
       List<NumberCase> numberCases,
+      Answer preset, String helpDisplay) {
+    public Question(
+      String key,
+      Long groupId,
+      Labels labels,
+      Control control,
+      boolean fixed,
+      boolean visible,
+      boolean required,
+      boolean requireRule,
+      String question,
+      String guide,
+      List<Choice> choices,
+      List<Field> fields,
+      List<String> assetIds,
+      List<NumberCase> numberCases,
       Answer preset) {
+      this(key, groupId, labels, control, fixed, visible, required, requireRule, question, guide, choices, fields, assetIds, numberCases, preset, "ALWAYS");
+    }
+
     public Question(
         String key,
         Long groupId,
@@ -443,7 +547,11 @@ public final class ProductStudioDtos {
 
   public record InputNotice(
       String key, String targetKey, String fieldKey, String message, String mode,
-      List<Condition> conditions) {}
+      List<Condition> conditions, String helpDisplay) {
+    public InputNotice(String key, String targetKey, String fieldKey, String message, String mode, List<Condition> conditions) {
+      this(key,targetKey,fieldKey,message,mode,conditions,"ALWAYS");
+    }
+  }
 
   public record Process(
       int schemaVersion, List<Question> questions, List<Rule> rules,
@@ -610,7 +718,10 @@ public final class ProductStudioDtos {
     }
   }
 
-  public record CatalogOption(String key, String label, List<AssetView> assets, String guide) {
+  public record CatalogHelp(String label, String guide, List<AssetView> assets, String helpDisplay) {}
+  public record CatalogOption(String key, String label, List<AssetView> assets, String guide, String helpDisplay, List<CatalogHelp> helpSections) {
+    public CatalogOption(String key, String label, List<AssetView> assets, String guide, String helpDisplay) {this(key,label,assets,guide,helpDisplay,List.of());}
+    public CatalogOption(String key, String label, List<AssetView> assets, String guide) {this(key,label,assets,guide,"ALWAYS");}
     public CatalogOption(String key, String label, List<AssetView> assets) {
       this(key, label, assets, null);
     }

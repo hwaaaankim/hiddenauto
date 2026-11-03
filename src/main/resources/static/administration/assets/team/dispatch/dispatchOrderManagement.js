@@ -194,6 +194,7 @@
 			siName: field('siName'),
 			guName: field('guName'),
 			roadAddress: field('roadAddress'),
+            jibunAddress: field('jibunAddress'),
 			detailAddress: field('detailAddress')
 		};
 	}
@@ -243,6 +244,7 @@
 				'<i class="ri-map-pin-search-line me-1"></i>Daum 주소검색</button></div>' +
 				'<div class="text-muted small mt-2">[' + escapeHtml(address.zipCode || '-') + '] ' + escapeHtml(address.roadAddress || '주소를 검색해 주세요.') +
 				(address.detailAddress ? ' ' + escapeHtml(address.detailAddress) : '') + '</div>' +
+                (address.jibunAddress ? '<div class="text-muted small">지번주소: ' + escapeHtml(address.jibunAddress) + '</div>' : '') +
                 '<div class="text-muted small mt-1">배송수단만 변경하면 현재 배송지는 유지됩니다. 다른 배송지로 바꿀 때만 주소검색을 이용하세요.</div>' +
                 buildAddressStateHtml(draft, row) +
 				(site ? '<div class="row g-2 mt-1"><div class="col-md-6 ' +
@@ -485,6 +487,7 @@
 					siName: region.siName,
 					guName: region.guName,
 					roadAddress: data.roadAddress || data.address || '',
+                    jibunAddress: data.jibunAddress || data.autoJibunAddress || '',
 					detailAddress: ''
 				};
 				draft[role + 'AddressSearched'] = true;
@@ -730,6 +733,7 @@
 			siName: draft.general.siName,
 			guName: draft.general.guName,
 			roadAddress: draft.general.roadAddress,
+            jibunAddress: draft.general.jibunAddress,
 			detailAddress: draft.general.detailAddress,
 			generalAddressSearched: draft.generalAddressSearched,
 			siteZipCode: draft.site.zipCode,
@@ -737,6 +741,7 @@
 			siteSiName: draft.site.siName,
 			siteGuName: draft.site.guName,
 			siteRoadAddress: draft.site.roadAddress,
+            siteJibunAddress: draft.site.jibunAddress,
 			siteDetailAddress: draft.site.detailAddress,
 			siteAddressSearched: draft.siteAddressSearched,
 			ordererName: draft.ordererName,

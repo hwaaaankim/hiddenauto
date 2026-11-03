@@ -90,7 +90,7 @@ public class ProductStudioCustomerService {
     for (String role : List.of("CATEGORY", "SUBCATEGORY", "SERIES")) {
       List<GroupView> matching = catalog.stream().filter(g -> role.equals(g.role())).toList();
       if (matching.size() != 1) throw new IllegalStateException("필수 분류 그룹을 확인해 주세요: " + role);
-      if (!"SUBCATEGORY".equals(role) || matching.get(0).askQuestion()) basics.add(matching.get(0));
+      if (!"SUBCATEGORY".equals(role)) basics.add(matching.get(0));
     }
     List<ProductMaster> candidates = products.findAll((Specification<ProductMaster>) (r, q, b) -> b.and(
         b.equal(r.get("nonStandard"), nonStandard),
@@ -105,6 +105,7 @@ public class ProductStudioCustomerService {
       if (!available(variants, byGroup)) continue;
       Map<Long, String> path = new LinkedHashMap<>();
       Map<String, String> labels = new HashMap<>();
+      labels.put("SUBCATEGORY", "");
       for (GroupView g : basics) {
         Variant v = variant(variants, g.id());
         Long value = v.valueIds().get(0);
@@ -154,7 +155,7 @@ public class ProductStudioCustomerService {
       if (matching.size() != 1)
         throw new IllegalStateException("필수 분류 그룹을 확인해 주세요: " + role);
       GroupView g = matching.get(0);
-      if (!"SUBCATEGORY".equals(role) || g.askQuestion()) basics.add(g);
+      if (!"SUBCATEGORY".equals(role)) basics.add(g);
     }
     Set<Long> basicIds = basics.stream().map(GroupView::id).collect(Collectors.toSet());
     if (selected.keySet().stream().anyMatch(id -> !basicIds.contains(id)))
@@ -239,7 +240,7 @@ public class ProductStudioCustomerService {
   private boolean available(List<Variant> variants, Map<Long, GroupView> groups) {
     for (String role : ProductStudioAttributeService.BASE) {
       long count = variants.stream().filter(v -> groups.containsKey(v.groupId())
-          && role.equals(groups.get(v.groupId()).role()) && list(v.valueIds()).size() == 1).count();
+          && role.equals(groups.get(v.groupId()).role()) && ("SUBCATEGORY".equals(role) ? !list(v.valueIds()).isEmpty() : list(v.valueIds()).size() == 1)).count();
       if (count != 1) return false;
     }
     for (Variant v : variants) {
@@ -299,7 +300,7 @@ public class ProductStudioCustomerService {
       for (ValueView v : g.values()) if (v.active() && used.contains(v.id().toString())) {
         String token = owners.get(v.id().toString()).getQrPublicToken();
         options.add(new CatalogOption(v.id().toString(), v.labels().customer(),
-            admin ? v.assets() : assets.publicViews(v.assets(), token), v.guide()));
+            admin ? v.assets() : assets.publicViews(v.assets(), token), v.guide(), v.helpDisplay()));
       }
     } else {
       for (String key : used) {
@@ -310,18 +311,20 @@ public class ProductStudioCustomerService {
                 ? ((List<?>) v.inputs().get(f.key())).size() + "개 파일"
                 : display(v.inputs().get(f.key())) + (text(f.unit()).isBlank() ? "" : " " + f.unit())))
             .collect(Collectors.joining(" / "));
-        String guide = g.fields().stream().filter(f -> map(v.inputs()).containsKey(f.key()))
-            .map(Field::guide).filter(x -> x != null && !x.isBlank()).collect(Collectors.joining("\n"));
-        List<AssetView> inputMedia = ProductStudioMedia.inputAssets(g, v.inputs());
-        options.add(new CatalogOption(key, label,
-            admin ? inputMedia : assets.publicViews(inputMedia, p.getQrPublicToken()), guide));
+        List<CatalogHelp> helpSections = g.fields().stream().filter(f -> map(v.inputs()).containsKey(f.key()))
+            .map(f -> {
+              List<AssetView> mediaForField = g.assets().stream().filter(a -> list(f.assetIds()).contains(a.id())).toList();
+              return new CatalogHelp(f.labels().customer(), f.guide(),
+                  admin ? mediaForField : assets.publicViews(mediaForField, p.getQrPublicToken()), f.helpDisplay());
+            }).toList();
+        options.add(new CatalogOption(key, label, List.of(), null, "ALWAYS", helpSections));
       }
     }
     List<AssetView> questionMedia = ProductStudioMedia.questionAssets(g);
     List<AssetView> media = scope.isEmpty() ? List.of() : admin ? questionMedia
         : assets.publicViews(questionMedia, scope.get(0).getQrPublicToken());
     return new BrowseGroup(g.id(), g.key(), g.role(), g.labels().customer(), g.question(),
-        g.guide(), g.control().name(), options, media);
+        g.guide(), g.control().name(), options, media, g.helpDisplay());
   }
 
   private ProductCard card(ProductMaster p, List<Variant> variants,

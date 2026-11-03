@@ -10,6 +10,8 @@ public class OrderRequestItemDTO {
 	private Long cartId;
     private int deliveryPrice;
     private String mainAddress;
+    private String jibunAddress;
+    private String siteJibunAddress;
     private String detailAddress;
     private String zipCode;
     private String doName;

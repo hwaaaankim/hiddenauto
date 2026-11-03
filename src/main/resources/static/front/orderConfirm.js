@@ -100,6 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
 			id: "member",
 			label: "회원 주소",
 			roadAddress: (companyAddress && companyAddress.main) ? companyAddress.main : "",
+            jibunAddress: companyAddress?.jibunAddress || "",
 			detailAddress: (companyAddress && companyAddress.detail) ? companyAddress.detail : "",
 			zipCode: (companyAddress && companyAddress.zipCode) ? companyAddress.zipCode : "",
 			doName: (companyAddress && companyAddress.doName) ? companyAddress.doName : "",
@@ -334,6 +335,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	function applyAddressToInputs(addr, target = "main") {
 		if (target === "site") {
 			siteAddr.value = addr.roadAddress || "";
+            siteAddr.dataset.jibunAddress = addr.jibunAddress || "";
 			siteDetailAddr.value = addr.detailAddress || "";
 			siteZipInput.value = addr.zipCode || "";
 			siteDoInput.value = addr.doName || "";
@@ -343,6 +345,7 @@ document.addEventListener("DOMContentLoaded", () => {
 		}
 
 		mainAddr.value = addr.roadAddress || "";
+        mainAddr.dataset.jibunAddress = addr.jibunAddress || "";
 		detailAddr.value = addr.detailAddress || "";
 		zipInput.value = addr.zipCode || "";
 		doInput.value = addr.doName || "";
@@ -352,7 +355,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 	function clearSiteAddressInputs() {
 		if (siteSameAsMemberCheck) siteSameAsMemberCheck.checked = false;
-		if (siteAddr) siteAddr.value = "";
+		if (siteAddr) {siteAddr.value = "";siteAddr.dataset.jibunAddress = "";}
 		if (siteDetailAddr) siteDetailAddr.value = "";
 		if (siteZipInput) siteZipInput.value = "";
 		if (siteDoInput) siteDoInput.value = "";
@@ -456,6 +459,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 				applyAddressToInputs({
 					roadAddress: road,
+                    jibunAddress: data.jibunAddress || data.autoJibunAddress || "",
 					detailAddress: "",
 					doName: data.sido || "",
 					siName: data.sigungu || "",
@@ -717,6 +721,8 @@ document.addEventListener("DOMContentLoaded", () => {
 			preferredDeliveryDate: deliveryDate.value || "",
 
 			mainAddress: mainAddr.value || "",
+            jibunAddress: mainAddr.dataset.jibunAddress || "",
+            siteJibunAddress: siteDelivery ? siteAddr.dataset.jibunAddress || "" : "",
 			detailAddress: detailAddr.value || "",
 			zipCode: zipInput.value || "",
 			doName: doInput.value || "",

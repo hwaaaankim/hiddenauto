@@ -40,7 +40,7 @@ public class ClientBulkImportAddressService {
             .connectTimeout(Duration.ofSeconds(5))
             .build();
 
-    @Value("${juso.confm-key:}")
+    @Value("${JUSO_CONFM_KEY:${juso.confm-key:}}")
     private String jusoConfmKey;
 
     @Value("${juso.base-url:https://business.juso.go.kr}")

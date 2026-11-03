@@ -644,6 +644,7 @@
 			'<td>',
 			'  <span class="dispatch-list-cell-main" title="' + escapeAttr(row.companyName) + '">' + escapeHtml(row.companyName) + '</span>',
 			'  <span class="dispatch-list-cell-sub" title="' + escapeAttr(buildMemberTooltip(row)) + '">' + escapeHtml(row.memberName) + ' / ' + escapeHtml(row.memberUsername) + '</span>',
+            '  <span class="dispatch-list-cell-sub fw-bold text-dark">' + escapeHtml(row.ordererPhone || row.memberPhone || '-') + '</span>',
 			'</td>',
 
 			'<td>',
@@ -657,7 +658,8 @@
 
 			'<td>',
 			'  <span class="dispatch-list-cell-main" title="' + escapeAttr(row.sizeText) + '">' + escapeHtml(row.sizeText) + '</span>',
-			'  <span class="dispatch-list-cell-sub" title="' + escapeAttr(row.fullAddress) + '">' + escapeHtml(row.fullAddress) + '</span>',
+			'  <span class="dispatch-list-cell-sub fw-bold text-dark" title="' + escapeAttr(row.fullAddress) + '">' + escapeHtml(row.fullAddress) + '</span>',
+            '  <span class="dispatch-list-cell-sub">지번: ' + escapeHtml(row.actualJibunAddress || '-') + '</span>',
 			'</td>',
 
 			'<td class="text-center">',

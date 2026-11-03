@@ -33,7 +33,7 @@ public class JusoAddressClient {
     private final ObjectMapper objectMapper = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-    @Value("${juso.confm-key}")
+    @Value("${JUSO_CONFM_KEY:${juso.confm-key:}}")
     private String confmKey;
 
     @Value("${juso.throttle-ms:0}")

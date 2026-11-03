@@ -405,7 +405,7 @@ public class ProductPricingService {
     return text(p.getStudioPriceJson()).isBlank() ? null : json.read(p.getStudioPriceJson(), Definition.class);
   }
   private Set<Long> impactGroups(ProductMaster p) {
-    return p.getComponents().stream().map(ProductComponent::getGroup).filter(ProductAttributeGroup::isPriceImpact)
+    return p.getComponents().stream().map(ProductComponent::getGroup).filter(g -> g.getSystemRole() != com.dev.HiddenBATHAuto.enums.productmaster.ProductAttributeRole.SUBCATEGORY && g.isPriceImpact())
         .map(ProductAttributeGroup::getId).collect(Collectors.toSet());
   }
   private List<PricingGroup> pricingGroups(ProductMaster p, Process process) {

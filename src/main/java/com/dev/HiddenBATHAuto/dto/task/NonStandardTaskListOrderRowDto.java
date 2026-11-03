@@ -70,6 +70,7 @@ public class NonStandardTaskListOrderRowDto {
     private String siName;
     private String guName;
     private String roadAddress;
+    private String jibunAddress;
     private String detailAddress;
     private String fullAddress;
 
@@ -78,6 +79,7 @@ public class NonStandardTaskListOrderRowDto {
     private String siteSiName;
     private String siteGuName;
     private String siteRoadAddress;
+    private String siteJibunAddress;
     private String siteDetailAddress;
     private String siteFullAddress;
     private boolean siteDelivery;
