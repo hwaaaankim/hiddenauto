@@ -16,6 +16,24 @@ import com.dev.HiddenBATHAuto.model.notification.OrderNotification;
 
 public interface OrderNotificationRepository extends JpaRepository<OrderNotification, Long> {
 
+    /** List badge only: recipient-specific, unread/unconfirmed changes by another actor. */
+    @Query("""
+        select distinct n.order.id from OrderNotification n
+        where n.order.id in :orderIds and n.recipient.id = :recipientId
+          and (n.webEnabled = true or n.importantEnabled = true)
+          and n.readAt is null and n.importantConfirmedAt is null
+          and not exists (select seen.id from OrderNotification seen
+              where seen.event = n.event and seen.recipient.id = :recipientId
+                and (seen.readAt is not null or seen.importantConfirmedAt is not null))
+          and n.action not in :excludedActions
+          and (n.event.actorMemberId is null or n.event.actorMemberId <> :recipientId)
+          and (n.event.actorUsername is null or lower(n.event.actorUsername) <> lower(:username))
+        """)
+    java.util.Set<Long> findPendingViewerChangeOrderIds(
+            @Param("orderIds") Collection<Long> orderIds, @Param("recipientId") Long recipientId,
+            @Param("username") String username,
+            @Param("excludedActions") Collection<com.dev.HiddenBATHAuto.enums.notification.OrderNotificationAction> excludedActions);
+
     @Query("""
             select count(n)
               from OrderNotification n

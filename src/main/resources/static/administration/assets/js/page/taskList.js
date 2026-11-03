@@ -274,6 +274,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			"orderIdTo",
 			"orderId",
 			"productName",
+            "keywordFields", "keywordMatch", "dateMode",
 			"dateCriteria",
 			"startDate",
 			"endDate",
@@ -293,6 +294,7 @@ document.addEventListener("DOMContentLoaded", function() {
 	}
 
 	function highlightProductNameMatches(root) {
+        window.HiddenBathOrderListUi?.highlight(root || document);
 		const keyword = productNameHighlightKeyword;
 		if (!keyword) {
 			return;
@@ -392,26 +394,34 @@ document.addEventListener("DOMContentLoaded", function() {
 		return getSelectedOrderItems().map(item => item.orderId);
 	}
 
-	function updateDateInputs() {
-		if (!dateCriteriaSelect || !startDateInput || !endDateInput) {
-			return;
-		}
-
-		const selectedValue = dateCriteriaSelect.value;
-		const shouldEnable = selectedValue === "order" || selectedValue === "delivery";
-
-		startDateInput.disabled = !shouldEnable;
-		endDateInput.disabled = !shouldEnable;
-		if (singleDateInput) singleDateInput.disabled = !shouldEnable;
-		dateStepButtons.forEach(button => { button.disabled = !shouldEnable; });
-		if (rangeToggleBtn) rangeToggleBtn.disabled = !shouldEnable;
-
-		if (!shouldEnable) {
-			rangeFields?.classList.add("d-none");
-			rangeToggleBtn?.setAttribute("aria-expanded", "false");
-			rangeToggleBtn?.classList.remove("is-active");
-		}
-	}
+	const dateModeInput = document.getElementById("task-list-date-mode");
+    let rangeDraft = { from: startDateInput?.value || "", to: endDateInput?.value || "" };
+    function syncDateModeUi(animate = false) {
+        const enabled = dateCriteriaSelect?.value !== "all", range = dateModeInput?.value === "range";
+        const single = document.querySelector(".task-list-date-single-control"), unlimited = document.querySelector(".order-date-unlimited");
+        if (single) single.hidden = !enabled || range;
+        rangeFields?.classList.toggle("d-none", !enabled || !range);
+        if (unlimited) unlimited.hidden = enabled;
+        if (rangeToggleBtn) {
+            rangeToggleBtn.disabled = !enabled;
+            rangeToggleBtn.setAttribute("aria-expanded", String(enabled && range));
+            rangeToggleBtn.setAttribute("aria-pressed", String(range));
+            rangeToggleBtn.classList.toggle("is-active", range);
+            const label = rangeToggleBtn.querySelector("[data-date-mode-label]");
+            if (label) label.textContent = range ? "범위검색" : "날짜별검색";
+            rangeToggleBtn.title = range ? "날짜별검색으로 전환" : "범위검색으로 전환";
+        }
+        if (singleDateInput) singleDateInput.disabled = !enabled || range;
+        dateStepButtons.forEach(button => button.disabled = !enabled || range);
+        if (startDateInput) startDateInput.disabled = !enabled;
+        if (endDateInput) endDateInput.disabled = !enabled;
+        if (animate) {
+            const panels = document.getElementById("task-list-date-panels");
+            panels?.classList.remove("order-date-flip");
+            if (panels) { void panels.offsetWidth; panels.classList.add("order-date-flip"); }
+        }
+    }
+    function updateDateInputs() { syncDateModeUi(); }
 
 	function formatLocalDate(date) {
 		const year = date.getFullYear();
@@ -437,18 +447,11 @@ document.addEventListener("DOMContentLoaded", function() {
 	}
 
 	function applySingleDate(dateValue) {
-		if (!filterForm || !startDateInput || !endDateInput || !dateValue) {
-			return;
-		}
-		if (!canUseSelectedDateCriteria()) return;
-		if (singleDateInput) singleDateInput.value = dateValue;
-		startDateInput.value = dateValue;
-		endDateInput.value = dateValue;
-		rangeFields?.classList.add("d-none");
-		rangeToggleBtn?.setAttribute("aria-expanded", "false");
-		rangeToggleBtn?.classList.remove("is-active");
-		filterForm.requestSubmit();
-	}
+        if (!filterForm || !dateValue || !canUseSelectedDateCriteria()) return;
+        if (dateModeInput) dateModeInput.value = "single";
+        singleDateInput.value = dateValue; startDateInput.value = dateValue; endDateInput.value = dateValue;
+        syncDateModeUi(); filterForm.requestSubmit();
+    }
 
 	function submitDateStep(rawStep) {
 		if (!canUseSelectedDateCriteria()) return;
@@ -462,24 +465,29 @@ document.addEventListener("DOMContentLoaded", function() {
 	}
 
 	function toggleRangeSearch() {
-		if (!rangeFields || !rangeToggleBtn) {
-			return;
-		}
-
-		if (!canUseSelectedDateCriteria()) return;
-		const willOpen = rangeFields.classList.contains("d-none");
-		rangeFields.classList.toggle("d-none", !willOpen);
-		rangeToggleBtn.setAttribute("aria-expanded", willOpen ? "true" : "false");
-		rangeToggleBtn.classList.toggle("is-active", willOpen);
-		if (willOpen) {
-			const fallbackDate = singleDateInput?.value || formatLocalDate(new Date());
-			if (!startDateInput.value) startDateInput.value = fallbackDate;
-			if (!endDateInput.value) endDateInput.value = fallbackDate;
-			window.requestAnimationFrame(function() {
-				startDateInput?.focus({ preventScroll: true });
-			});
-		}
-	}
+        if (!dateModeInput || !canUseSelectedDateCriteria()) return;
+        const range = dateModeInput.value !== "range";
+        if (range) {
+            const fallback = singleDateInput?.value || formatLocalDate(new Date());
+            startDateInput.value = rangeDraft.from || fallback; endDateInput.value = rangeDraft.to || fallback;
+        } else {
+            rangeDraft = {from: startDateInput.value, to: endDateInput.value};
+            singleDateInput.value = startDateInput.value || endDateInput.value || formatLocalDate(new Date());
+        }
+        dateModeInput.value = range ? "range" : "single"; syncDateModeUi(true);
+        (range ? startDateInput : singleDateInput)?.focus({preventScroll:true});
+    }
+    function validateDateMode() {
+        if (!dateModeInput || dateCriteriaSelect?.value === "all") return true;
+        if (dateModeInput.value === "single") {
+            if (!singleDateInput.value) { alert("조회할 날짜를 선택해 주세요."); singleDateInput.focus(); return false; }
+            startDateInput.value = singleDateInput.value; endDateInput.value = singleDateInput.value;
+        } else {
+            if (!startDateInput.value && !endDateInput.value) { alert("시작일 또는 종료일을 입력해 주세요."); startDateInput.focus(); return false; }
+            if (startDateInput.value && endDateInput.value && startDateInput.value > endDateInput.value) { alert("시작일은 종료일보다 늦을 수 없습니다."); endDateInput.focus(); return false; }
+        }
+        return true;
+    }
 
 	function updateReadonlyGallery(gallery, requestedIndex) {
 		if (!gallery) return;
@@ -1544,7 +1552,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
 		if (filterForm) {
 			filterForm.addEventListener("submit", function(event) {
-				if (!validateOrderIdRange()) {
+				if (!validateOrderIdRange() || !validateDateMode()) {
 					event.preventDefault();
 					event.stopImmediatePropagation();
 				}

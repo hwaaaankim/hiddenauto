@@ -73,6 +73,7 @@ public class NonStandardTaskListOrderRowDto {
     private String jibunAddress;
     private String detailAddress;
     private String fullAddress;
+    private String deliveryAddressSearchText;
 
     private String siteZipCode;
     private String siteDoName;
