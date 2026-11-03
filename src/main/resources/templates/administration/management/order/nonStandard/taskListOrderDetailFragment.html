@@ -529,6 +529,7 @@
 												placeholder="도로명주소"
 												readonly
 												th:value="${row.roadAddress}">
+                                                <small class="d-block">지번주소: <span th:text="${row.jibunAddress}"></span></small>
 										</div>
 										<div class="col-lg-4 col-md-12">
 											<input type="text"
@@ -606,6 +607,7 @@
 												placeholder="현장 도로명주소"
 												readonly
 												th:value="${row.siteRoadAddress}">
+                                                <small class="d-block">현장 지번주소: <span th:text="${row.siteJibunAddress}"></span></small>
 										</div>
 										<div class="col-lg-4 col-md-12">
 											<input type="text"

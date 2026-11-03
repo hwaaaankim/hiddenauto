@@ -175,7 +175,7 @@ final class ProductPricingValidationPlan {
       List<Question> projectedQuestions = process.questions().stream().filter(q -> needed.contains(q.key()))
           .map(q -> new Question(q.key(), q.groupId(), q.labels(), q.control(), q.fixed(), q.visible(),
               q.required(), q.requireRule(), q.question(), q.guide(), q.choices(), q.fields(),
-              q.assetIds(), List.of(), q.preset())).toList();
+              q.assetIds(), List.of(), q.preset(), q.helpDisplay())).toList();
       List<Rule> rules = list(process.rules()).stream()
           .filter(r -> list(r.actions()).stream().anyMatch(a -> needed.contains(a.targetKey())))
           .map(r -> new Rule(r.key(), r.name(), r.match(), r.conditions(),

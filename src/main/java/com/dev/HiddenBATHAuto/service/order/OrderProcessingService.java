@@ -141,6 +141,7 @@ public class OrderProcessingService {
 
 			order.setZipCode(dto.getZipCode());
 			order.setRoadAddress(dto.getMainAddress());
+            order.setJibunAddress(dto.getJibunAddress());
 			order.setDetailAddress(dto.getDetailAddress());
 			order.setPreferredDeliveryDate(dto.getPreferredDeliveryDate().atStartOfDay());
 			order.setOrderComment(cart.getAdditionalInfo());
@@ -340,6 +341,7 @@ public class OrderProcessingService {
 	private void applySiteAddressFromDto(Order order, OrderRequestItemDTO dto) {
 	    order.setSiteZipCode(normalizeRequiredText(dto.getSiteZipCode(), "현장주소 우편번호"));
 	    order.setSiteRoadAddress(normalizeRequiredText(dto.getSiteAddress(), "현장주소"));
+        order.setSiteJibunAddress(dto.getSiteJibunAddress());
 	    order.setSiteDetailAddress(normalizeRequiredText(dto.getSiteDetailAddress(), "현장 상세주소"));
 
 	    order.setSiteDoName(trimToEmpty(dto.getSiteDoName()));

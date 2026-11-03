@@ -115,11 +115,18 @@ public class ProductStudioAttributeService {
     return groups.findById(id).orElseThrow(() -> new NoSuchElementException("그룹을 찾을 수 없습니다."));
   }
 
+  private String helpDisplay(String mode) {
+    if (mode == null || mode.isBlank()) return "ALWAYS";
+    if (!Set.of("ALWAYS", "ICON").contains(mode)) throw new IllegalArgumentException("안내 표시 방식은 항시 표시 또는 아이콘으로 선택해 주세요.");
+    return mode;
+  }
+
   public Control control(ProductAttributeGroup g) {
     return Control.valueOf(g.getStudioControl());
   }
 
   public boolean asksQuestion(ProductAttributeGroup g) {
+    if (g.getSystemRole() == ProductAttributeRole.SUBCATEGORY) return false;
     return g.getSystemRole() == ProductAttributeRole.CATEGORY
         || g.getSystemRole() == ProductAttributeRole.SERIES
         || g.isAskQuestion();
@@ -166,8 +173,8 @@ public class ProductStudioAttributeService {
         options,
         groupAssets,
         asksQuestion(g),
-        g.isPriceImpact(),
-        g.isNonStandard() && components.existsByGroupId(g.getId()));
+        g.getSystemRole() != ProductAttributeRole.SUBCATEGORY && g.isPriceImpact(),
+        g.isNonStandard() && components.existsByGroupId(g.getId()), g.getHelpDisplay());
   }
 
   public ValueView view(ProductAttributeValue v) {
@@ -180,7 +187,7 @@ public class ProductStudioAttributeService {
         namePart(v),
         v.isActive(),
         files,
-        v.getAnswerGuide());
+        v.getAnswerGuide(), v.getHelpDisplay());
   }
 
   @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -276,14 +283,15 @@ public class ProductStudioAttributeService {
             ? role != ProductAttributeRole.SUBCATEGORY
             : request.askQuestion();
     boolean questionModeChanged = request.id() != null && g.isAskQuestion() != ask;
-    g.setAskQuestion(ask);
+    g.setAskQuestion(role != ProductAttributeRole.SUBCATEGORY && ask);
     if (request.priceImpact() && !request.nonStandard())
       throw new IllegalArgumentException("제품 단가 영향은 비규격 그룹에서만 설정할 수 있습니다.");
-    g.setPriceImpact(request.priceImpact());
+    g.setPriceImpact(role != ProductAttributeRole.SUBCATEGORY && request.priceImpact());
     g.setIncludeInName(request.includeInName());
     g.setStudioFieldsJson(json.write(request.nonStandard() ? List.of() : list(request.fields())));
     g.setQuestionText(text(request.question()));
     g.setCustomerGuide(text(request.guide()));
+    g.setHelpDisplay(helpDisplay(request.helpDisplay()));
     g.setActive(request.active());
     g.setUpdatedBy(actor);
     g.setUpdatedAt(LocalDateTime.now());
@@ -315,6 +323,8 @@ public class ProductStudioAttributeService {
   @Transactional
   public List<ValueView> saveValues(Long groupId, List<ValueEdit> requests, String actor) {
     ProductAttributeGroup g = require(groupId);
+    if (g.getSystemRole() == ProductAttributeRole.SUBCATEGORY)
+      throw new IllegalArgumentException("중분류는 개발자 관리 속성입니다. 일반 화면에서 옵션을 추가·수정할 수 없습니다.");
     noActuals(groupId);
     if (!choice(control(g)) || g.isNonStandard())
       throw new IllegalArgumentException("비규격 보기는 해당 제품의 프로세스에서 등록해 주세요. 입력형에는 보기를 등록할 수 없습니다.");
@@ -428,6 +438,7 @@ public class ProductStudioAttributeService {
       if (text(request.guide()).length() > 2000)
         throw new IllegalArgumentException("안내메시지는 2,000자 이하입니다.");
       v.setAnswerGuide(text(request.guide()));
+      v.setHelpDisplay(helpDisplay(request.helpDisplay()));
       v.setActive(request.active());
       v.setUpdatedBy(actor);
       v.setUpdatedAt(LocalDateTime.now());
@@ -459,6 +470,8 @@ public class ProductStudioAttributeService {
         values
             .findWithGroupById(id)
             .orElseThrow(() -> new NoSuchElementException("보기를 찾을 수 없습니다."));
+    if (value.getGroup().getSystemRole() == ProductAttributeRole.SUBCATEGORY)
+      throw new IllegalArgumentException("중분류 옵션은 개발자 관리 속성으로 삭제할 수 없습니다.");
     if (components.existsByValueId(id))
       throw new IllegalStateException("제품에서 사용하는 보기는 삭제할 수 없습니다. 비활성화를 사용해 주세요.");
     assets.attach("VALUE", id, List.of(), actor);

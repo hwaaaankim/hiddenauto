@@ -50,14 +50,16 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
 	                        OR LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
-	                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(CONCAT(COALESCE(a.roadAddress, ''), ' ', COALESCE(a.detailAddress, ''))) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
 	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
 	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
 	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
 	                    )
 	                )
-	                OR (:keywordType = 'companyName'
+	                OR (:keywordType = 'address' AND LOWER(CONCAT(COALESCE(a.roadAddress, ''), ' ', COALESCE(a.detailAddress, ''))) LIKE LOWER(CONCAT('%', :keyword, '%')))
+                OR (:keywordType = 'companyName'
 	                    AND LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
 	                OR (:keywordType = 'requesterName'
 	                    AND LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
@@ -102,14 +104,16 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
 	                        OR LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
-	                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(CONCAT(COALESCE(a.roadAddress, ''), ' ', COALESCE(a.detailAddress, ''))) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
 	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
 	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
 	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
 	                    )
 	                )
-	                OR (:keywordType = 'companyName'
+	                OR (:keywordType = 'address' AND LOWER(CONCAT(COALESCE(a.roadAddress, ''), ' ', COALESCE(a.detailAddress, ''))) LIKE LOWER(CONCAT('%', :keyword, '%')))
+                OR (:keywordType = 'companyName'
 	                    AND LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
 	                OR (:keywordType = 'requesterName'
 	                    AND LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
@@ -170,14 +174,16 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
 	                        OR LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
-	                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(CONCAT(COALESCE(a.roadAddress, ''), ' ', COALESCE(a.detailAddress, ''))) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
 	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
 	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
 	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
 	                    )
 	                )
-	                OR (:keywordType = 'companyName'
+	                OR (:keywordType = 'address' AND LOWER(CONCAT(COALESCE(a.roadAddress, ''), ' ', COALESCE(a.detailAddress, ''))) LIKE LOWER(CONCAT('%', :keyword, '%')))
+                OR (:keywordType = 'companyName'
 	                    AND LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
 	                OR (:keywordType = 'requesterName'
 	                    AND LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
@@ -222,14 +228,16 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
 	                        OR LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
-	                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(CONCAT(COALESCE(a.roadAddress, ''), ' ', COALESCE(a.detailAddress, ''))) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
 	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
 	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
 	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
 	                    )
 	                )
-	                OR (:keywordType = 'companyName'
+	                OR (:keywordType = 'address' AND LOWER(CONCAT(COALESCE(a.roadAddress, ''), ' ', COALESCE(a.detailAddress, ''))) LIKE LOWER(CONCAT('%', :keyword, '%')))
+                OR (:keywordType = 'companyName'
 	                    AND LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
 	                OR (:keywordType = 'requesterName'
 	                    AND LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
@@ -289,14 +297,16 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
 	                        OR LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
-	                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(CONCAT(COALESCE(a.roadAddress, ''), ' ', COALESCE(a.detailAddress, ''))) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
 	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
 	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
 	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
 	                    )
 	                )
-	                OR (:keywordType = 'companyName'
+	                OR (:keywordType = 'address' AND LOWER(CONCAT(COALESCE(a.roadAddress, ''), ' ', COALESCE(a.detailAddress, ''))) LIKE LOWER(CONCAT('%', :keyword, '%')))
+                OR (:keywordType = 'companyName'
 	                    AND LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
 	                OR (:keywordType = 'requesterName'
 	                    AND LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
@@ -355,14 +365,16 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
 	                        OR LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
-	                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(CONCAT(COALESCE(a.roadAddress, ''), ' ', COALESCE(a.detailAddress, ''))) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
 	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
 	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
 	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
 	                    )
 	                )
-	                OR (:keywordType = 'companyName'
+	                OR (:keywordType = 'address' AND LOWER(CONCAT(COALESCE(a.roadAddress, ''), ' ', COALESCE(a.detailAddress, ''))) LIKE LOWER(CONCAT('%', :keyword, '%')))
+                OR (:keywordType = 'companyName'
 	                    AND LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
 	                OR (:keywordType = 'requesterName'
 	                    AND LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
@@ -1294,14 +1306,16 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
 	                        OR LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
-	                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(CONCAT(COALESCE(a.roadAddress, ''), ' ', COALESCE(a.detailAddress, ''))) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
 	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
 	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
 	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
 	                    )
 	                )
-	                OR (:keywordType = 'companyName'
+	                OR (:keywordType = 'address' AND LOWER(CONCAT(COALESCE(a.roadAddress, ''), ' ', COALESCE(a.detailAddress, ''))) LIKE LOWER(CONCAT('%', :keyword, '%')))
+                OR (:keywordType = 'companyName'
 	                    AND LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
 	                OR (:keywordType = 'requesterName'
 	                    AND LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
@@ -1390,14 +1404,16 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
 	                        OR LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
-	                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(CONCAT(COALESCE(a.roadAddress, ''), ' ', COALESCE(a.detailAddress, ''))) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
 	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
 	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
 	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
 	                    )
 	                )
-	                OR (:keywordType = 'companyName'
+	                OR (:keywordType = 'address' AND LOWER(CONCAT(COALESCE(a.roadAddress, ''), ' ', COALESCE(a.detailAddress, ''))) LIKE LOWER(CONCAT('%', :keyword, '%')))
+                OR (:keywordType = 'companyName'
 	                    AND LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
 	                OR (:keywordType = 'requesterName'
 	                    AND LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
@@ -1464,14 +1480,16 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
 	                        OR LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
-	                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(CONCAT(COALESCE(a.roadAddress, ''), ' ', COALESCE(a.detailAddress, ''))) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
 	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
 	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
 	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
 	                    )
 	                )
-	                OR (:keywordType = 'companyName'
+	                OR (:keywordType = 'address' AND LOWER(CONCAT(COALESCE(a.roadAddress, ''), ' ', COALESCE(a.detailAddress, ''))) LIKE LOWER(CONCAT('%', :keyword, '%')))
+                OR (:keywordType = 'companyName'
 	                    AND LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
 	                OR (:keywordType = 'requesterName'
 	                    AND LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
@@ -1560,14 +1578,16 @@ public interface AsTaskRepository extends JpaRepository<AsTask, Long>, AsTaskRep
 	                        OR LOWER(COALESCE(a.customerName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(COALESCE(a.subject, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(COALESCE(a.productName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
-	                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+	                        OR LOWER(CONCAT(COALESCE(a.roadAddress, ''), ' ', COALESCE(a.detailAddress, ''))) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                        OR LOWER(COALESCE(a.applicantName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
 	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.applicantPhone, ''), '-', ''), ' ', ''))
 	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
 	                        OR LOWER(FUNCTION('replace', FUNCTION('replace', COALESCE(a.onsiteContact, ''), '-', ''), ' ', ''))
 	                           LIKE LOWER(CONCAT('%', FUNCTION('replace', FUNCTION('replace', :keyword, '-', ''), ' ', ''), '%'))
 	                    )
 	                )
-	                OR (:keywordType = 'companyName'
+	                OR (:keywordType = 'address' AND LOWER(CONCAT(COALESCE(a.roadAddress, ''), ' ', COALESCE(a.detailAddress, ''))) LIKE LOWER(CONCAT('%', :keyword, '%')))
+                OR (:keywordType = 'companyName'
 	                    AND LOWER(COALESCE(c.companyName, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
 	                OR (:keywordType = 'requesterName'
 	                    AND LOWER(COALESCE(rb.name, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))

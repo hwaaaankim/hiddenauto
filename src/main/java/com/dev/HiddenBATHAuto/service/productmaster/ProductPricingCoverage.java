@@ -24,7 +24,7 @@ public final class ProductPricingCoverage {
     // Editing a formula is not publishing it. Monetary witnesses must remain visible,
     // but they must not prevent adding the next independent term or its conditions.
     List<Issue> issues = coverage.issues().stream().map(issue -> draft
-        && ("PRICE_TERM_MONEY_LIMIT".equals(issue.code()) || "PRICE_TOTAL_MONEY_LIMIT".equals(issue.code()))
+        && Set.of("PRICE_TERM_MONEY_LIMIT", "PRICE_TOTAL_MONEY_LIMIT", "PRICE_TABLE_GAP", "PRICE_BRANCH_GAP", "PRICE_AXIS_RANGE").contains(issue.code())
         ? new Issue("WARNING", issue.code(), issue.location(),
             "작성 중 안내: 이 항은 초안에 반영할 수 있습니다. 최종 저장 전 아래 범위·단가·조건을 확인해야 합니다. "
                 + issue.message(), issue.target()) : issue).collect(Collectors.toCollection(ArrayList::new));
@@ -372,7 +372,7 @@ public final class ProductPricingCoverage {
       }
       if (!calculation.complete()) { for (String error : calculation.errors()) if (!explained.contains(error)
           && !(diagnosedMoney && ProductPricingMoneyDiagnostics.monetary(error))) add(issues,
-          error.startsWith("가격표 중복:") ? "PRICE_TABLE_OVERLAP" : error.startsWith("가격표 범위 누락:") ? "PRICE_TABLE_GAP" : "PRICE_PATH",
+          error.startsWith("조건별 계산 누락:") ? "PRICE_BRANCH_GAP" : error.startsWith("조건별 계산 중복:") ? "PRICE_BRANCH_OVERLAP" : error.startsWith("가격표 중복:") ? "PRICE_TABLE_OVERLAP" : error.startsWith("가격표 범위 누락:") ? "PRICE_TABLE_GAP" : "PRICE_PATH",
           "가격계산", error + " 예시: " + example(answers));
       } else checkScopes(calculation);
     }

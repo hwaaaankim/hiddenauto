@@ -58,7 +58,7 @@ public final class ProductPricingCompatibility {
       Map<String, Object> result = new TreeMap<>();
       try {
         for (java.lang.reflect.RecordComponent component : value.getClass().getRecordComponents())
-          result.put(component.getName(), canonical(component.getAccessor().invoke(value)));
+          if (!"helpDisplay".equals(component.getName())) result.put(component.getName(), canonical(component.getAccessor().invoke(value)));
       } catch (ReflectiveOperationException ex) {
         throw new IllegalStateException("가격 설정의 구조를 읽을 수 없습니다.", ex);
       }
@@ -224,7 +224,7 @@ public final class ProductPricingCompatibility {
     return value == null ? null : new AdjustmentValue(value.operation(), value.value(), value.useInput());
   }
   private static Axis copyAxis(Axis axis, String fieldKey) {
-    return new Axis(fieldKey, axis.operator(), copyList(axis.headers()), copyList(axis.operators()), axis.outsidePolicy());
+    return new Axis(fieldKey, axis.operator(), copyList(axis.headers()), copyList(axis.operators()), axis.outsidePolicy(), axis.zeroThrough());
   }
   private static <T> List<T> copyList(List<T> values) {
     return values == null ? null : new ArrayList<>(values);

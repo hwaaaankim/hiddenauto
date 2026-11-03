@@ -88,6 +88,7 @@ public class ProductOrderAddQueryService {
                     .siName(trimToEmpty(company.getSiName()))
                     .guName(trimToEmpty(company.getGuName()))
                     .roadAddress(trimToEmpty(company.getRoadAddress()))
+                    .jibunAddress(trimToEmpty(company.getJibunAddress()))
                     .detailAddress(trimToEmpty(company.getDetailAddress()))
                     .build());
         }

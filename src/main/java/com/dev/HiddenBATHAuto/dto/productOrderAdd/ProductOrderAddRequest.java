@@ -42,6 +42,8 @@ public class ProductOrderAddRequest {
     private String siName;
     private String guName;
     private String roadAddress;
+    private String jibunAddress;
+    private String siteJibunAddress;
     private String detailAddress;
 
     // 현장 배송지: 현장배송 자동배정 기준 주소

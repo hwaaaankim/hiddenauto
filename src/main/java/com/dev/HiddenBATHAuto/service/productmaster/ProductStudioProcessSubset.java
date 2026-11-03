@@ -20,7 +20,7 @@ public final class ProductStudioProcessSubset {
         .filter(q -> groupIds.contains(q.groupId()))
         .map(q -> new Question(q.key(), q.groupId(), q.labels(), q.control(), q.fixed(), q.visible(),
             q.required(), q.requireRule(), q.question(), q.guide(), q.choices(), q.fields(), q.assetIds(),
-            list(q.numberCases()).stream().filter(c -> conditionsPresent(c.conditions(), keys)).toList(), q.preset()))
+            list(q.numberCases()).stream().filter(c -> conditionsPresent(c.conditions(), keys)).toList(), q.preset(), q.helpDisplay()))
         .toList();
     // A mixed rule is omitted in full if any condition OR action refers to a removed question.
     List<Rule> rules = list(source.rules()).stream()

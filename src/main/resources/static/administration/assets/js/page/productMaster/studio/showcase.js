@@ -22,6 +22,23 @@
   };
   let detailSequence = 0;
 
+  S.help = function(owner = {}, files = [], title = "안내") {
+    if (owner.helpSections?.length) return owner.helpSections.map(section => S.help(section, section.assets || [], section.label || title)).join("");
+    const guide = String(owner.guide || "").trim();
+    const content = (guide ? `<p class="pm-preserve-lines">${S.e(guide)}</p>` : "") + S.media(files, title);
+    if (!content) return "";
+    return owner.helpDisplay === "ICON"
+      ? `<button type="button" class="pm-help-icon" data-pm-help="${S.e(JSON.stringify({title, guide, files}))}" aria-label="${S.e(title)} 크게 보기">ⓘ 안내 보기</button>`
+      : `<div class="pm-help-content">${content}</div>`;
+  };
+  S.guideHtml = (owner, text, process) => {
+    const rule=(process?.notices||[]).find(n=>n.targetKey===owner?.key&&n.message===text);
+    const range=(owner?.numberCases||[]).find(n=>n.guide===text);
+    const child=[...(owner?.choices||[]),...(owner?.fields||[])].find(x=>x.guide===text);
+    const source=rule||range||child||owner;
+    return S.help({helpDisplay: source?.helpDisplay || "ALWAYS", guide:text}, [], "선택·입력 안내");
+  };
+
   S.media = function (files, title = "이미지·첨부파일", hero = false) {
     const items = unique(files).filter((a) => safeUrl(a.url));
     const images = items.filter((a) => a.image), docs = items.filter((a) => !a.image);
@@ -46,6 +63,13 @@
     }, true);
     root.addEventListener("click", (event) => {
       if (event._pmMediaHandled) return;
+      const help = event.target.closest('[data-pm-help]');
+      if (help) {
+        event.preventDefault(); event.stopPropagation(); event._pmMediaHandled = true;
+        const data = JSON.parse(help.dataset.pmHelp);
+        const dialog = S.dialog(data.title, S.help({guide:data.guide}, data.files, data.title));
+        S.bindMedia(dialog); return;
+      }
       const button = event.target.closest("[data-pm-image]");
       if (!button || !root.contains(button)) return;
       event._pmMediaHandled = true;
@@ -106,10 +130,11 @@
 
   S.answerGuides = function (q, answer = {}, stateOrNotices) {
     const texts = [];
+    const iconTexts = new Set([...(q.choices||[]),...(q.fields||[])].filter(x=>x.helpDisplay==="ICON").map(x=>x.guide));
     for (const c of q.choices || [])
-      if (answer.choices?.includes(c.key) && c.guide?.trim()) texts.push(c.guide);
+      if (answer.choices?.includes(c.key) && c.guide?.trim() && c.helpDisplay !== "ICON") texts.push(c.guide);
     if (stateOrNotices !== undefined) {
-      texts.push(...(Array.isArray(stateOrNotices) ? stateOrNotices : stateOrNotices?.notices || []).filter((text) => typeof text === "string" && text.trim()));
+      texts.push(...(Array.isArray(stateOrNotices) ? stateOrNotices : stateOrNotices?.notices || []).filter((text) => typeof text === "string" && text.trim() && !iconTexts.has(text)));
       return [...new Set(texts)];
     }
     for (const r of q.numberCases || []) {
@@ -130,6 +155,14 @@
     return [...new Set(texts)];
   };
 
+  // Choice/field cards already render their own guidance and display mode. Only
+  // additional evaluated notices belong below the input or completed answer.
+  S.answerNotices = (q, answer = {}, state, process) => {
+    const owned = new Set([...(q.choices||[]),...(q.fields||[])].map(x=>x.guide).filter(Boolean));
+    const extra = new Set([...(q.numberCases||[]).map(x=>x.guide),...(process?.notices||[]).filter(x=>x.targetKey===q.key).map(x=>x.message)].filter(Boolean));
+    const messages = state !== undefined ? (Array.isArray(state)?state:state?.notices||[]) : S.answerGuides(q,answer);
+    return [...new Set(messages.filter(text=>typeof text==='string'&&text.trim()&&(!owned.has(text)||extra.has(text))))];
+  };
   S.processActionText = function (process, action) {
     const target = (process?.questions || []).find((q) => q.key === action.targetKey);
     if (action.effect === "ALLOW") {
@@ -171,35 +204,87 @@
     return notices.length ? `<details class="pm-input-notice-summary"><summary><strong>조건부 안내메시지 ${notices.length}개</strong></summary>${notices.map((r) => `<article class="pm-spec-option"><strong>${S.e({ ALWAYS: "이 질문을 표시할 때 항상 안내", ABSENT: "지정한 항목을 입력하지 않았을 때 안내", PRESENT: "지정한 항목을 입력했을 때 안내", CONDITIONAL: "숫자 조건을 충족할 때 안내" }[r.mode] || r.mode)}</strong>${r.fieldKey ? `<p>항목: ${S.e(label(q.fields?.find((f) => f.key === r.fieldKey)) || r.fieldKey)}</p>` : ""}${r.conditions?.length ? `<p>${S.e(r.conditions.map((c) => S.conditionText((process.questions || []).find((x) => x.key === c.groupKey) || q, c)).join(" 그리고 "))}</p>` : ""}<p class="pm-preserve-lines">${S.e(r.message)}</p></article>`).join("")}</details>` : "";
   };
 
-  S.answerText = function (q, answer = {}, assets = new Map()) {
+  S.answerText = function (q, answer = {}, assets = new Map(), audience = 'customer') {
+    const audienceLabel = x => x?.labels?.[audience] || x?.labels?.customer || x?.key || '';
     if (S.isChoice(q.control))
-      return (answer.choices || []).map((key) => label(q.choices?.find((c) => c.key === key)) || key).join(", ") || "선택 안 함";
+      return (answer.choices || []).map((key) => audienceLabel(q.choices?.find((c) => c.key === key)) || key).join(", ") || "선택 안 함";
     return (q.fields || []).filter((f) => present(answer.fields?.[f.key])).map((f) => {
       const value = answer.fields[f.key];
       const text = Array.isArray(value)
         ? value.map((id) => assets.get(id)?.name).filter(Boolean).join(", ") || `${value.length}개 파일`
         : String(value) + (f.unit ? " " + f.unit : "");
-      return `${label(f)}: ${text}`;
+      return `${audienceLabel(f)}: ${text}`;
     }).join(" / ") || "입력 안 함";
   };
 
+  S.updateAnswerLimits = (box, fields = []) => {
+    for (const f of fields) {
+      const card = S.$$('[data-field-key]',box).find(el=>el.dataset.fieldKey===f.key);
+      const input=card?.querySelector('input[type="number"]'),hint=card?.querySelector('.pm-effective-limit');
+      if(input){
+        if(f.min!=null||!f.allowNegative)input.min=f.min??0;else input.removeAttribute('min');
+        if(f.max!=null)input.max=f.max;else input.removeAttribute('max');
+        input.step=f.step??1;
+      }
+      if(hint)hint.innerHTML=`입력 범위 <strong>${S.e(f.min??(!f.allowNegative?0:'제한 없음'))} ~ ${S.e(f.max??'제한 없음')}</strong> · 간격 ${S.e(f.step??1)}`;
+    }
+  };
+  S.teamPreview = (product, evaluation = null) => {
+    if (!product?._isAdminTest) return '';
+    const raw = product._teamProcess || product.process || {questions:[]};
+    const assets = new Map([...(product.assets||[]),...(product.processAssets||[]),...(product.groups||[]).flatMap(g=>[...(g.assets||[]),...(g.values||[]).flatMap(v=>v.assets||[])])].map(a=>[a.id,a]));
+    const states=evaluation?.questions || (product.process?.questions||[]).map(question=>{
+      const variant=product.variants?.find(v=>v.groupId===question.groupId),group=product.groups?.find(g=>g.id===question.groupId);
+      const answer=product.fixedAnswers?.[question.key]||question.preset||(question.fixed&&variant?{choices:(group?.values||[]).filter(v=>variant.valueIds?.includes(v.id)).map(v=>v.key),fields:variant.inputs||{}}:null);
+      return {question,visible:question.visible,answer,allowed:[...(question.fields||[]).map(f=>f.key)]};
+    });
+    const rows=states.filter(s=>(s.visible||s.question.fixed)&&s.answer&&(s.answer.choices?.length||Object.keys(s.answer.fields||{}).length)&&product.groups?.find(g=>g.id===s.question.groupId)?.role!=='SUBCATEGORY');
+    const value=(state,role)=>{
+      const original=raw.questions.find(q=>q.key===state.question.key)||state.question;
+      const q={...state.question,choices:(state.question.choices||[]).map(c=>({...c,labels:original.choices?.find(x=>x.key===c.key)?.labels||c.labels})),fields:(state.question.fields||[]).map(f=>({...f,labels:original.fields?.find(x=>x.key===f.key)?.labels||f.labels}))};
+      return S.answerText(q,state.answer,assets,role);
+    };
+    return `<section class="pm-team-preview"><h3>팀별 표시 확인</h3><p>같은 선택·입력값을 등록된 고객용·관리팀용·생산팀용 명칭으로 비교합니다.</p><div class="pms-table-scroll"><table><thead><tr><th>질문</th><th>고객 화면</th><th>관리팀 화면</th><th>생산팀 화면</th></tr></thead><tbody>${rows.map(s=>`<tr><th>${S.e(s.question.labels?.customer||s.question.key)}</th><td>${S.e(value(s,'customer'))}</td><td>${S.e(value(s,'management'))}</td><td>${S.e(value(s,'production'))}</td></tr>`).join('')||'<tr><td colspan="4">답변을 선택하거나 입력하면 여기에 표시됩니다.</td></tr>'}</tbody></table></div></section>`;
+  };
+
+  let faqDialogSequence=0;
   S.showProductFaq = function (faq, context) {
     if (!faq) return;
+    const contextValue = S.copy((typeof context === "function" ? context() : context) || {});
     const assets = new Map((faq.assets || []).map((a) => [a.id, a]));
-    const d = S.dialog(faq.title, `<div class="pm-faq-cards">${(faq.entries || []).map((f, i) => `
-      <article class="pm-faq-card"><span class="pm-detail-eyebrow">FAQ ${String(i + 1).padStart(2, "0")}</span>
-        <h3>${S.e(f.title)}</h3>${f.content?.trim() ? `<p class="pm-preserve-lines">${S.e(f.content)}</p>` : ""}
-        ${S.media((f.assetIds || []).map((id) => assets.get(id)), f.title + " 이미지")}</article>`).join("") || '<p class="pms-help">등록된 FAQ가 없습니다. 아래 연락처로 문의해 주세요.</p>'}</div>`, {
-      foot: `${faq.phone ? `<a class="pms-button" href="tel:${S.e(faq.phone.replace(/[^+0-9]/g, ""))}">전화 ${S.e(faq.phone)}</a>` : ""}
-        ${safeUrl(faq.link) && faq.link ? '<button type="button" data-inquiry class="primary">별도 문의하기</button>' : ""}`,
+    const prefix='pm-faq-'+(++faqDialogSequence),trigger=document.activeElement;
+    const d = S.dialog(faq.title, `<div class="pm-faq-overview"><span class="pm-detail-eyebrow">PRODUCT SUPPORT</span><p>${contextValue.product?.name?`<strong>${S.e(contextValue.product.name)}</strong>의 `:''}궁금한 항목을 눌러 안내를 확인해 주세요. 다른 항목을 열면 이전 항목은 닫힙니다.</p></div><div class="pm-faq-cards">${(faq.entries || []).map((f, i) => `
+      <article class="pm-faq-card ${i===0?'is-open':''}"><h3><button type="button" data-faq-toggle="${i}" id="${prefix}-question-${i}" aria-controls="${prefix}-panel-${i}" aria-expanded="${i===0}"><span class="pm-faq-number">${String(i+1).padStart(2,'0')}</span><span>${S.e(f.title)}</span><span class="pm-faq-chevron" aria-hidden="true">⌄</span></button></h3>
+        <div class="pm-faq-panel" id="${prefix}-panel-${i}" role="region" aria-labelledby="${prefix}-question-${i}" aria-hidden="${i!==0}" ${i===0?'':'inert'}><div class="pm-faq-panel-clip"><div class="pm-faq-panel-content">${f.content?.trim() ? `<p class="pm-preserve-lines">${S.e(f.content)}</p>` : ''}${S.media((f.assetIds || []).map(id=>assets.get(id)),f.title+' 이미지')}</div></div></div></article>`).join('') || '<p class="pms-help">등록된 FAQ가 없습니다. 아래 연락처로 문의해 주세요.</p>'}</div>`, {
+      foot: `${faq.phone ? `<a class="pms-button" href="tel:${S.e(faq.phone.replace(/[^+0-9]/g, ''))}">전화 ${S.e(faq.phone)}</a>` : ''}${safeUrl(faq.link)&&faq.link?'<button type="button" data-inquiry class="primary">별도 문의하기</button>':''}<button type="button" data-faq-dismiss>닫기</button>`,
     });
+    d.classList.add('pm-faq-dialog');
+    const toggles=S.$$('[data-faq-toggle]',d);
+    toggles.forEach(button=>button.onclick=()=>{
+      const open=button.getAttribute('aria-expanded')!=='true';
+      toggles.forEach(other=>{
+        const expanded=other===button&&open,panel=document.getElementById(other.getAttribute('aria-controls'));
+        other.setAttribute('aria-expanded',String(expanded));other.closest('.pm-faq-card').classList.toggle('is-open',expanded);
+        panel.setAttribute('aria-hidden',String(!expanded));panel.inert=!expanded;
+      });
+    });
+    let closing=false;
+    const close=()=>{
+      if(closing||!d.open)return;closing=true;
+      if(matchMedia('(prefers-reduced-motion: reduce)').matches){d.close();return;}
+      d.classList.add('pm-faq-closing');setTimeout(()=>{if(d.open)d.close();},160);
+    };
+    S.$('[data-close]',d).onclick=close;S.$('[data-faq-dismiss]',d).onclick=close;
+    d.addEventListener('cancel',event=>{event.preventDefault();close();});
+    d.addEventListener('close',()=>{if(trigger?.isConnected)trigger.focus({preventScroll:true});});
     S.bindMedia(d);
     S.$("[data-inquiry]", d)?.addEventListener("click", () => {
-      const value = typeof context === "function" ? context() : context || {};
+      const value = contextValue;
       window.productInquiryPayload = { ...value, topic: { id: faq.id, title: faq.title }, createdAt: new Date().toISOString() };
       console.log("[ProductMaster 별도 문의]", window.productInquiryPayload);
       window.open(safeUrl(faq.link), "_blank", "noopener,noreferrer");
     });
+    return d;
   };
 
   const groupQuestionAssets = (g = {}) => {
@@ -207,14 +292,16 @@
     return (g.assets || []).filter((a) => !fieldIds.has(a.id));
   };
 
+  S.questionAssets = groupQuestionAssets;
+
   // Used for the completed-answer timeline as well as customer confirmation.
   S.answerMedia = function (q, answer = {}, assets = new Map()) {
     const fs = (ids) => (ids || []).map((id) => assets instanceof Map ? assets.get(id) : assets?.[id]).filter(Boolean);
     if (S.isChoice(q.control))
       return (q.choices || []).filter((c) => (answer.choices || []).includes(c.key))
-        .map((c) => S.media(fs(c.assetIds), label(q) + " · " + label(c))).join("");
+        .map((c) => S.help(c, fs(c.assetIds), label(q) + " · " + label(c))).join("");
     return (q.fields || []).filter((f) => present(answer.fields?.[f.key])).map((f) =>
-      S.media(fs(f.assetIds), label(q) + " · " + label(f) + " 안내") +
+      S.help(f, fs(f.assetIds), label(q) + " · " + label(f) + " 안내") +
       (q.control === "FILE" && Array.isArray(answer.fields[f.key])
         ? S.media(fs(answer.fields[f.key]), label(f) + " · 고객 첨부파일") : "")).join("");
   };
@@ -247,8 +334,8 @@
     const amap = new Map(files.map((a) => [a.id, a]));
     const fs = (ids) => (ids || []).map((id) => amap.get(id)).filter(Boolean);
     const questions = summary
-      ? summary.questions.filter((s) => s.visible || s.question.fixed).map((s) => s.question)
-      : p.process?.questions || [];
+      ? summary.questions.filter((s) => (s.visible || s.question.fixed) && groups.get(s.question.groupId)?.role!=="SUBCATEGORY").map((s) => s.question)
+      : (p.process?.questions || []).filter(q=>groups.get(q.groupId)?.role!=="SUBCATEGORY");
     const isBase = (q) => S.isBase(groups.get(q.groupId) || {});
     const basics = questions.filter(isBase).sort((a, b) =>
       ["CATEGORY", "SUBCATEGORY", "SERIES"].indexOf(groups.get(a.groupId).role) - ["CATEGORY", "SUBCATEGORY", "SERIES"].indexOf(groups.get(b.groupId).role));
@@ -263,7 +350,7 @@
     }
     const basicChips = basics.map((q) => `<div><span>${S.e(label(q))}</span><strong>${S.e(S.answerText(q, answer(q) || {}, amap))}</strong></div>`).join("");
     const currency = p.unitPrice == null ? "가격 문의" : Number(p.unitPrice).toLocaleString("ko-KR") + "원";
-    const metrics = `<div class="pm-product-metrics"><div><span>생산기간</span><strong>${p.productionHours == null ? "미등록" : S.e(p.productionHours) + '<small>시간</small>'}</strong></div>
+    const metrics = `<div class="pm-product-metrics"><div><span>생산기간</span><strong>${p.productionHours == null ? "미등록" : S.e(S.productionTime(p.productionHours))}</strong></div>
       ${!p.nonStandard ? `<div><span>제품 단가</span><strong>${currency}</strong></div>` : ""}<div><span>총 재고</span><strong>${Number(p.stock || 0).toLocaleString()}<small>개</small></strong></div>
       ${admin && p.nonStandard ? `<div><span>실 제품 종류</span><strong>${p.actualCount || 0}<small>종</small></strong></div>` : ""}</div>`;
     // Product media has its own owner. A question or option image is never a product cover.
@@ -288,32 +375,32 @@
     function questionCard(q, i) {
       const g = groups.get(q.groupId) || {}, a = answer(q), chosen = a != null;
       const choices = (q.choices || []).filter((c) => !chosen || a.choices?.includes(c.key));
+      const state=summary?.questions.find(s=>s.question.key===q.key);
+      const shownFields=(q.fields||[]).filter(f=>!chosen||(state?state.allowed?.includes(f.key):!q.fixed||Object.hasOwn(a.fields||{},f.key)));
       const media = unique([...fs(q.assetIds), ...groupQuestionAssets(g)]);
       return `<article class="pm-spec-card" id="${prefix}-${isBase(q) ? "base" : "q"}-${i}"><header class="pm-spec-head">
         <span class="pm-question-number">${String(i + 1).padStart(2, "0")}</span><div><div class="pm-spec-tags">${S.badge(controls[q.control])}
           ${S.badge(chosen ? "확정 사양" : q.visible ? "고객 질문" : "조건에 따라 표시", chosen ? "" : "blue")}
           ${!chosen && q.required ? S.badge("필수 답변") : ""}${g.priceImpact ? S.badge("단가 영향", "amber") : ""}</div>
           <h3>${S.e(label(q))}</h3>${!chosen ? `<p>${S.e(q.question || label(q) + "를 입력해 주세요.")}</p>` : ""}</div></header>
-        ${q.guide?.trim() ? `<div class="pm-tutorial"><strong>선택 가이드</strong><p class="pm-preserve-lines">${S.e(q.guide)}</p></div>` : ""}
-        ${S.media(media, label(q) + " 질문 공통 안내")}
+        ${S.help(q, media, label(q) + " 질문 공통 안내")}
         ${choices.length ? `<div class="pm-spec-options">${choices.map((c) => {
           const global = g.values?.find((v) => v.key === c.key);
           const media = unique([...fs(c.assetIds), ...(global?.assets || [])]);
-          return `<section class="pm-spec-option" ${admin ? `title="${S.e(S.branchSummary(p.process, q, c.key))}" tabindex="0"` : ""}><strong>${S.e(label(c))}</strong>${c.guide?.trim() ? `<p class="pm-preserve-lines">${S.e(c.guide)}</p>` : ""}
-            ${S.media(media, label(q) + " · " + label(c))}${technical(c)}</section>`;
+          return `<section class="pm-spec-option" ${admin ? `title="${S.e(S.branchSummary(p.process, q, c.key))}" tabindex="0"` : ""}><strong>${S.e(label(c))}</strong>${S.help(c, media, label(q) + " · " + label(c))}${technical(c)}</section>`;
         }).join("")}</div>` : ""}
         ${!chosen && S.isChoice(q.control) && !choices.length ? '<p class="pms-help">선택 가능한 답변이 아직 등록되지 않았습니다.</p>' : ""}
-        ${(q.fields || []).length ? `<div class="pm-spec-options">${q.fields.map((f) => {
+        ${shownFields.length ? `<div class="pm-spec-options">${shownFields.map((f) => {
           const raw = a?.fields?.[f.key];
           const value = Array.isArray(raw) ? `${raw.length}개 파일` : present(raw) ? String(raw) + (f.unit ? " " + f.unit : "") : "입력 안 함";
           return `<section class="pm-spec-option" ${admin ? `title="${S.e(S.branchSummary(p.process, q, f.key, true))}" tabindex="0"` : ""}><div class="pm-field-heading"><strong>${S.e(label(f))}</strong>${!chosen && f.required ? S.badge("필수") : ""}</div>
             ${chosen ? `<p class="pm-chosen-value">${S.e(value)}</p>` : ""}<p class="pm-field-limit">${S.e(fieldLimits(q, f))}</p>
             ${!chosen && q.control === "NUMBER" ? `<p class="pm-field-bundle"><strong>입력 묶음:</strong> ${S.e(S.numberBundleCaption(q, f))}</p>` : ""}
-            ${S.media(fs(f.assetIds), label(f) + " 입력 항목 안내")}${Array.isArray(raw) ? S.media(fs(raw), label(f) + " 첨부파일") : ""}${technical(f)}</section>`;
+            ${S.help(f, fs(f.assetIds), label(f) + " 입력 항목 안내")}${Array.isArray(raw) ? S.media(fs(raw), label(f) + " 첨부파일") : ""}${technical(f)}</section>`;
         }).join("")}</div>` : ""}
         ${!chosen && q.numberCases?.length ? `<div class="pm-number-cases"><h4>입력값에 따른 범위 조건</h4>${q.numberCases.map((c) => `<article><strong>${S.e(c.name)}</strong>
-          <p>${S.e((c.conditions || []).map((x) => S.conditionText(q, x)).join(" 그리고 "))}</p>${c.guide?.trim() ? `<p class="pm-preserve-lines">${S.e(c.guide)}</p>` : ""}${admin ? `<small class="mono">value: ${S.e(c.key)}</small>` : ""}</article>`).join("")}</div>` : ""}
-        ${chosen ? S.answerGuides({ ...q, choices: [] }, a, summary?.questions.find((s) => s.question.key === q.key)).map((t) => `<div class="pm-tutorial"><p class="pm-preserve-lines">${S.e(t)}</p></div>`).join("") : ""}
+          <p>${S.e((c.conditions || []).map((x) => S.conditionText(q, x)).join(" 그리고 "))}</p>${S.help(c,[],"입력 구간 안내")}${admin ? `<small class="mono">value: ${S.e(c.key)}</small>` : ""}</article>`).join("")}</div>` : ""}
+        ${chosen ? S.answerNotices(q,a,summary?.questions.find(s=>s.question.key===q.key),p.process).map(t=>S.guideHtml(q,t,p.process)).join("") : ""}
         ${admin ? `${S.inputLimitSummary(p.process, q)}${S.inputNoticeSummary(p.process, q)}<div class="pms-actions pm-spec-edit-links">${p.actualCount > 0 ? '<button type="button" disabled title="등록된 실 제품이 있어 공통 설정과 제품 설정을 수정할 수 없습니다.">공통 그룹·옵션 설정 수정</button>' : `<a class="pms-button" href="/admin/product-master/groups?groupId=${q.groupId}" target="_blank" rel="noopener">공통 그룹·옵션 설정 수정</a>`}${p.nonStandard && !isBase(q) ? `${p.actualCount > 0 ? '<button type="button" disabled>이 제품의 질문·답변 수정</button>' : `<a class="pms-button" href="/admin/product-master/products/${p.id}/process?question=${encodeURIComponent(q.key)}">이 제품의 질문·답변 수정</a>`}<a class="pms-button" href="/admin/product-master/products/${p.id}/process?mode=view&question=${encodeURIComponent(q.key)}">등록된 질문·분기 조회</a>` : ""}</div>` : ""}
         ${technical(q, g.key ? `<div><dt>그룹 value</dt><dd class="mono">${S.e(g.key)}</dd></div><div><dt>그룹 질문 설정</dt><dd>${g.askQuestion ? "고객 질문 포함" : "질문 제외 · 고정 사양"}</dd></div>
           <div><dt>제품 질문 기본 표시</dt><dd>${q.fixed ? "고정 사양" : q.visible ? "표시" : "조건에 따라 표시"}</dd></div><div><dt>조건 연결 필수</dt><dd>${q.requireRule ? "모든 입력 경로에 연결 필요" : "기본 흐름 허용"}</dd></div>
@@ -355,13 +442,13 @@
           ${p.nonStandard && !summary ? `<p class="pm-custom-intro">${custom.filter((q) => !q.fixed).length}개 커스텀 항목 · 선택지와 입력 범위를 아래에서 확인하세요.</p>` : ""}
           <div class="pms-actions pm-detail-actions">${topicButton}${actions}</div></div></section>
       <nav class="pm-product-tabs" aria-label="상세 정보 영역">${summary ? `<a href="#${prefix}-selection">내 선택 내용</a>` : ""}<a href="#${prefix}-spec">${p.nonStandard && !summary ? "질문·선택 범위" : "구성 사양·가이드"}</a>
-        ${rules ? `<a href="#${prefix}-rules">연관관계</a>` : ""}${faq ? '<button type="button" data-pm-faq>FAQ 보기</button>' : ""}</nav>${summarySection}
+        ${rules ? `<a href="#${prefix}-rules">연관관계</a>` : ""}${faq ? '<button type="button" data-pm-faq>FAQ 보기</button>' : ""}</nav>${S.teamPreview(p, summary)}${summarySection}
       <section id="${prefix}-spec" class="pm-product-section"><header><span class="pm-detail-eyebrow">${p.nonStandard && !summary ? "CUSTOMIZATION GUIDE" : "PRODUCT SPECIFICATION"}</span>
         <h2>${p.nonStandard && !summary ? "어떤 질문이 나올까요?" : "제품 사양과 사용 가이드"}</h2>${p.nonStandard && !summary ? '<p>번호 순서로 질문이 진행됩니다. 답변에 따라 뒤의 질문이나 선택지가 달라질 수 있습니다.</p>' : ""}</header>
         ${custom.length ? `<div class="pm-question-index">${custom.map((q, i) => `<a href="#${prefix}-q-${i}">${String(i + 1).padStart(2, "0")} ${S.e(label(q))}</a>`).join("")}</div>
           <div class="pm-spec-cards">${custom.map(questionCard).join("")}</div>` : '<p class="pms-help">추가 옵션 없이 위 기본 분류로 구성된 제품입니다.</p>'}
         ${admin || basics.some((q) => q.guide?.trim() || (q.choices || []).some((c) => c.guide?.trim() || fs(c.assetIds).length || groups.get(q.groupId)?.values?.find((v) => v.key === c.key)?.assets?.length) || fs(q.assetIds).length || groupQuestionAssets(groups.get(q.groupId)).length)
-          ? `<details class="pm-base-guides"><summary>${admin ? "기본 분류의 등록 내용·value·이미지·안내 보기" : "기본 분류의 이미지·안내 보기"}</summary>${basics.map(questionCard).join("")}</details>` : ""}</section>${rules}
+          ? `<details class="pm-base-guides" open><summary>${admin ? "기본 분류의 등록 내용·value·이미지·안내 보기" : "기본 분류의 이미지·안내 보기"}</summary>${basics.map(questionCard).join("")}</details>` : ""}</section>${rules}
       ${admin ? `<details class="pm-product-identity"><summary>제품 코드·관리 정보·제품명 생성 규칙</summary><dl><div><dt>제품 ID</dt><dd>${p.id}</dd></div><div><dt>제품 코드</dt><dd class="mono">${S.e(p.productCode)}</dd></div><div><dt>카탈로그 코드</dt><dd class="mono">${S.e(p.catalogCode)}</dd></div><div><dt>등록 상태</dt><dd>${S.e(p.registrationStatus)}</dd></div>
         ${(p.nameTokens || []).map((t, i) => `<div><dt>제품명 규칙 ${i + 1}</dt><dd>${S.e(groups.get(t.groupId)?.labels?.management || t.groupId)} · 구분자 ${S.e(JSON.stringify(t.before || ""))} · 앞 문자 ${S.e(JSON.stringify(t.prefix || ""))} · 뒤 문자 ${S.e(JSON.stringify(t.suffix || ""))}</dd></div>`).join("")}</dl></details>` : ""}
     </div>`;

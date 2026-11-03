@@ -173,6 +173,9 @@ public final class ProductPricingEngine {
     for (int i = 0; i < axis.headers().size(); i++)
       require(lowerAxis(axis) == (axis.operatorAt(i) == Threshold.GE || axis.operatorAt(i) == Threshold.GT),
           name + "의 작은 기준/큰 기준 방식을 한 축에서 섞을 수 없습니다.");
+    require(axis.zeroThrough() == null || axis.zeroThrough().signum() >= 0
+        && axis.zeroThrough().compareTo(axis.headers().get(0)) == 0,
+        name + " 무료 구간은 첫 기준값 이하로만 지정할 수 있습니다.");
     BigDecimal previous = null;
     for (BigDecimal header : axis.headers()) {
       require(header != null && header.signum() >= 0 && header.precision() <= 24 && (long) header.precision() - header.scale() <= 24 && Math.max(0, header.scale()) <= 6,
@@ -310,7 +313,7 @@ public final class ProductPricingEngine {
     }
     record TableScope(String groupKey, String fieldKey, OptionTarget target) {}
     Map<TableScope, List<Term>> scopes = new LinkedHashMap<>();
-    for (Term term : definition.terms()) if (role(term) == TermRole.PRICE && matrix(term)) for (String field : term.fieldKeys())
+    for (Term term : definition.terms()) if (role(term) == TermRole.PRICE && matrix(term) && term.branchScope() == null) for (String field : term.fieldKeys())
       scopes.computeIfAbsent(new TableScope(term.groupKey(), field, term.optionTarget()), k -> new ArrayList<>()).add(term);
     for (Map.Entry<TableScope, List<Term>> entry : scopes.entrySet()) {
       TableScope scope = entry.getKey(); QuestionState state = states.get(scope.groupKey());
@@ -326,6 +329,19 @@ public final class ProductPricingEngine {
           "가격표 범위 누락: " + fieldLabel(state.question(), scope.fieldKey()) + "=" + answer.fields().get(scope.fieldKey())
               + "에서 적용되는 가격표가 없습니다: " + entry.getValue().stream().map(Term::name).collect(Collectors.joining(" / "))
               + ". 허용 입력 범위를 빠짐없이 나누세요. 예: 600 이하 / 600 초과. 무료 구간은 0원 가격표로 명시하세요.");
+    }
+    Map<String, List<Term>> branchFamilies = new LinkedHashMap<>();
+    for (Term term : definition.terms()) if (term.branchScope() != null)
+      branchFamilies.computeIfAbsent(term.branchScope().ownerKey(), k -> new ArrayList<>()).add(term);
+    for (List<Term> family : branchFamilies.values()) {
+      Term first = family.get(0); QuestionState state = states.get(first.groupKey());
+      if (state == null || !state.visible() && !state.question().fixed() || !state.errors().isEmpty()
+          || !state.allowed().containsAll(first.fieldKeys()) || first.fieldKeys().stream()
+              .anyMatch(k -> !map(state.answer().fields()).containsKey(k))) continue;
+      if (!list(first.branchScope().conditions()).stream().allMatch(c -> conditionMatches(c, evaluated, states))) continue;
+      long count = family.stream().filter(t -> applied.contains(t.key())).count();
+      if (count != 1) errors.add((count == 0 ? "조건별 계산 누락: " : "조건별 계산 중복: ")
+          + first.name() + " · 현재 선택에는 정확히 한 조건의 계산이 연결되어야 합니다.");
     }
     if (total.compareTo(MAX_MONEY) > 0) errors.add("최종가격이 허용 범위를 벗어났습니다. 계산 합계: "
         + total.toPlainString() + "원 / 허용 한도: " + MAX_MONEY.toPlainString() + "원. 각 항의 입력 수량·단가와 동시 적용 조건을 확인해 주세요.");
@@ -374,17 +390,20 @@ public final class ProductPricingEngine {
           }
           default -> {
             BigDecimal x = input(evaluated.answers(), term.groupKey(), term.xAxis().fieldKey());
-            int column = index(term.xAxis(), x);
+            int column = term.xAxis().zeroAt(x) ? 0 : index(term.xAxis(), x);
+            boolean free = term.xAxis().zeroAt(x);
             int row = 0;
             explanation = fieldLabel(state.question(), term.xAxis().fieldKey()) + " " + x.toPlainString()
                 + " → " + appliedLabel(term.xAxis(), x, column);
             if (term.type() == TermType.MATRIX_2D) {
               BigDecimal y = input(evaluated.answers(), term.groupKey(), term.yAxis().fieldKey());
-              row = index(term.yAxis(), y);
+              row = term.yAxis().zeroAt(y) ? 0 : index(term.yAxis(), y);
+              free = free || term.yAxis().zeroAt(y);
               explanation += ", " + fieldLabel(state.question(), term.yAxis().fieldKey()) + " " + y.toPlainString()
                   + " → " + appliedLabel(term.yAxis(), y, row);
             }
-            amount = term.values().get(row).get(column);
+            amount = free ? BigDecimal.ZERO : term.values().get(row).get(column);
+            if (free) explanation += " · 첫 기준값 이하 무료 구간 0원";
           }
         }
         require(amount.signum() >= 0 && amount.compareTo(MAX_MONEY) <= 0, (role(term) == TermRole.FACTOR ? "계산한 배율이 허용 범위를 벗어났습니다." : "계산한 항 금액이 허용 범위를 벗어났습니다.") + " 계산값: " + amount.toPlainString());
@@ -448,6 +467,14 @@ public final class ProductPricingEngine {
     return applied ? null : "추가 적용 조건이 충족되지 않았습니다 ("
         + ("ANY".equals(term.match()) ? "하나 이상 일치 필요" : "모두 일치 필요")
         + "). 조건의 질문·옵션이 현재 분기에 표시되는지도 확인해 주세요.";
+  }
+
+  private static boolean conditionMatches(Condition condition, Evaluation evaluation, Map<String, QuestionState> states) {
+    QuestionState state = states.get(condition.groupKey());
+    return state != null && (state.visible() || state.question().fixed()) && state.errors().isEmpty()
+        && evaluation.answers().containsKey(condition.groupKey())
+        && (text(condition.fieldKey()).isBlank() || state.allowed().contains(condition.fieldKey()))
+        && ProductStudioEngine.matches(condition, evaluation.answers().get(condition.groupKey()));
   }
 
   private static String fieldLabel(Question question, String key) {

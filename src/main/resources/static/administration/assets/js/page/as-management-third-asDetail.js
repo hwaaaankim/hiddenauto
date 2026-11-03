@@ -1,6 +1,19 @@
 document.addEventListener("DOMContentLoaded", function() {
 	'use strict';
 
+    function asAddressDetail(input, data) {
+        if (!input) return;
+        const old = input.dataset.asAddressExtra || '';
+        let detail = input.value || '';
+        if (old && detail.includes(old)) detail = detail.replace(old, '').trim();
+        const name = String(data.buildingName || '').trim();
+        const extra = name ? '(' + name + ')' : '';
+        if (extra && !detail.includes(name)) detail = [detail, extra].filter(Boolean).join(' ');
+        input.value = detail;
+        input.dataset.asAddressExtra = extra;
+    }
+
+
 	const form = document.getElementById("as-management-third-form");
 	if (!form) return;
 
@@ -631,6 +644,7 @@ document.addEventListener("DOMContentLoaded", function() {
 					if (modalSi) modalSi.value = siName;
 					if (modalGu) modalGu.value = guName;
 					if (modalRoad) modalRoad.value = fullRoadAddr;
+                    asAddressDetail(modalDetail, data);
 				}
 			}).open();
 		});

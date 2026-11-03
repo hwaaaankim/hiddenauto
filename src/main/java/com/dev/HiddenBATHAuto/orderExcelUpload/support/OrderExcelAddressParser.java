@@ -136,6 +136,7 @@ public class OrderExcelAddressParser {
 
         if (resolved.isPresent()) {
             ResolvedExternalAddress external = resolved.get();
+            if (external.getProviderWarnings() != null) result.getWarnings().addAll(external.getProviderWarnings());
             String roadAddress = firstNonBlank(external.getRoadAddress(), parts.core(), addressPart);
             String detailAddress = firstNonBlank(existingDetailAddress, extractDetail(addressPart, roadAddress), parts.detail());
 
@@ -152,6 +153,8 @@ public class OrderExcelAddressParser {
                 detailAddress = originalFullAddress;
             }
 
+            String building = external.getBuildingName();
+            if (building != null && !building.isBlank() && !detailAddress.contains(building)) detailAddress = joinDetails(detailAddress, "(" + building + ")");
             detailAddress = normalizeDetailAddress(roadAddress, detailAddress);
 
             result.setExternalResolved(true);
@@ -444,6 +447,8 @@ public class OrderExcelAddressParser {
             return new RoadAddressParts(core, detail);
         }
 
+        Matcher jibun = Pattern.compile("^(.+?(?:동|읍|면|리)\\s+산?\\d+(?:-\\d+)?)(.*)$").matcher(source);
+        if (jibun.matches()) return new RoadAddressParts(normalize(jibun.group(1)), trimLeadingAddressSeparators(normalize(jibun.group(2))));
         return new RoadAddressParts(source, "");
     }
 

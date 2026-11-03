@@ -415,7 +415,7 @@ public final class ProductStudioEngine {
           .map(Action::questionText).findFirst().orElse(q.question());
       Question shown = new Question(q.key(), q.groupId(), q.labels(), q.control(), q.fixed(),
           q.visible(), q.required(), q.requireRule(), renamed, q.guide(), q.choices(),
-          projection.fields(), q.assetIds(), q.numberCases(), q.preset());
+          projection.fields(), q.assetIds(), q.numberCases(), q.preset(), q.helpDisplay());
       Answer clean = empty();
       if (visible || q.fixed()) {
         if (choice(q.control()) && allowed.isEmpty()) errors.add("선택 가능한 보기가 없습니다.");

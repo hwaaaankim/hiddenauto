@@ -33,18 +33,18 @@ public final class ProductPricingBranches {
       if(safe(owner.branches()).isEmpty()) { terms.add(owner);continue; }
       require(owner.key()!=null && owner.key().matches("[A-Za-z0-9_-]{1,80}") && owner.name()!=null && !owner.name().isBlank() && owner.name().length()<=120,"조건표를 소유한 항의 이름·식별자를 확인하세요.");
       require(owner.role()!=TermRole.FACTOR && "ALL".equals(owner.match()),"조건별 가격표는 금액 항에 연결하고 항의 적용 조건은 모두 일치로 설정하세요.");
-      require(owner.type()==TermType.MATRIX_1D || owner.type()==TermType.MATRIX_2D,"조건별 가격표의 기본 항은 숫자 가격표여야 합니다.");
+      require(owner.bundleKey()!=null && !safe(owner.fieldKeys()).isEmpty(),"조건별 계산은 숫자 입력묶음과 연결하세요.");
       require(owner.branches().size()<=30,"한 항의 조건별 가격표는 최대 30개입니다.");
       Set<String> keys=new HashSet<>();
       for(Term branch:owner.branches()) {
         require(branch!=null && branch.key()!=null && branch.key().matches("[A-Za-z0-9_-]{1,80}") && branch.name()!=null && !branch.name().isBlank() && branch.name().length()<=120 && keys.add(branch.key()),"조건별 가격표 식별자가 없거나 중복됩니다.");
         require(safe(branch.branches()).isEmpty(),"조건별 가격표 안에 다시 조건별 가격표를 넣을 수 없습니다.");
         require(branch.role()!=TermRole.FACTOR && "ALL".equals(branch.match()) && !safe(branch.conditions()).isEmpty(),"각 가격표에 모두 일치 방식의 적용 조건을 지정하세요.");
-        require(Objects.equals(owner.groupKey(),branch.groupKey()) && Objects.equals(owner.bundleKey(),branch.bundleKey()) && Objects.equals(owner.fieldKeys(),branch.fieldKeys()) && owner.type()==branch.type(),"조건별 가격표는 같은 질문·입력묶음·가격표 축을 사용해야 합니다.");
+        require(Objects.equals(owner.groupKey(),branch.groupKey()) && Objects.equals(owner.bundleKey(),branch.bundleKey()) && Objects.equals(owner.fieldKeys(),branch.fieldKeys()),"조건별 계산은 같은 질문·입력묶음·숫자 항목을 사용해야 합니다. 각 조건에서 고정·곱셈·가격표를 다르게 지정할 수 있습니다.");
         require(safe(branch.multipliers()).isEmpty() && safe(branch.adjustments()).isEmpty() && branch.optionTarget()==null && branch.optionPricing()==null,"연관식과 배율은 각 조건표가 아닌 기본 항에 연결하세요.");
         List<Condition> conditions=new ArrayList<>(safe(owner.conditions()));conditions.addAll(branch.conditions());
         List<MultiplierLink> links=safe(owner.multipliers()).stream().map(link->new MultiplierLink(id(owner.key()+":"+branch.key()+":"+link.key()),link.name(),link.termKeys(),link.aggregation())).toList();
-        terms.add(new Term(id(owner.key()+":"+branch.key()),owner.name()+" · "+branch.name(),owner.groupKey(),owner.bundleKey(),owner.fieldKeys(),branch.type(),branch.amount(),branch.rates(),branch.xAxis(),branch.yAxis(),branch.values(),"ALL",conditions,owner.choiceKeys(),null,owner.optionTarget(),TermRole.PRICE,links,owner.adjustments()));
+        terms.add(new Term(id(owner.key()+":"+branch.key()),owner.name()+" · "+branch.name(),owner.groupKey(),owner.bundleKey(),owner.fieldKeys(),branch.type(),branch.amount(),branch.rates(),branch.xAxis(),branch.yAxis(),branch.values(),"ALL",conditions,owner.choiceKeys(),null,owner.optionTarget(),TermRole.PRICE,links,owner.adjustments(),List.of(),new BranchScope(owner.key(),safe(owner.conditions()))));
       }
     }
     require(terms.size()<=100,"조건별 표와 연결 항을 합쳐 최대 100개까지 검증할 수 있습니다.");

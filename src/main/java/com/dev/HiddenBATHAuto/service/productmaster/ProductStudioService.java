@@ -114,8 +114,9 @@ public class ProductStudioService {
           if (!map(s.inputs()).isEmpty())
             throw new IllegalArgumentException("선택형에는 입력값을 섞을 수 없습니다.");
           Map<String, Object> input = Map.of();
-          axis.add(new Variant(g.getId(), List.of(id), input));
+          if (g.getSystemRole() != ProductAttributeRole.SUBCATEGORY) axis.add(new Variant(g.getId(), List.of(id), input));
         }
+        if (g.getSystemRole() == ProductAttributeRole.SUBCATEGORY) axis.add(new Variant(g.getId(), List.copyOf(selected), Map.of()));
       } else {
         if (!list(s.valueIds()).isEmpty())
           throw new IllegalArgumentException("입력형 그룹은 선택 보기를 사용할 수 없습니다.");
@@ -443,7 +444,7 @@ public class ProductStudioService {
         || hours.signum() < 0
         || hours.scale() > 3
         || hours.compareTo(new BigDecimal("1000000")) > 0)
-      throw new IllegalArgumentException("생산기간은 0~1,000,000 시간, 소수 3자리까지 입력해주세요.");
+      throw new IllegalArgumentException("생산기간은 0~1,000,000일, 소수 3자리까지 입력해 주세요. 예: 1.5일은 고객 테스트에 36시간으로 표시됩니다.");
     if (!custom) validateUnitPrice(price);
     if (faq != null && !faqTopics.existsById(faq))
       throw new IllegalArgumentException("FAQ 주제를 다시 선택해주세요.");
@@ -505,7 +506,7 @@ public class ProductStudioService {
                 v -> v == null || v.groupId() == null
                     || !ProductStudioAttributeService.BASE.contains(
                         attributes.require(v.groupId()).getSystemRole().name())))
-      throw new IllegalArgumentException("필수 세 그룹만 각각 한 개씩 선택해주세요.");
+      throw new IllegalArgumentException("대분류·시리즈는 각각 하나, 중분류는 해당 항목을 하나 이상 선택해 주세요.");
     Map<Long, Variant> fixedByGroup = new LinkedHashMap<>();
     for (Variant replacement : fixed)
       if (fixedByGroup.putIfAbsent(replacement.groupId(), replacement) != null)
@@ -657,7 +658,7 @@ public class ProductStudioService {
     List<Question> questions = copied.questions().stream().map(q -> new Question(q.key(), q.groupId(), q.labels(),
         q.control(), q.fixed(), q.visible(), q.required(), q.requireRule(), q.question(), q.guide(), q.choices(),
         q.fields(), q.assetIds(), list(q.numberCases()).stream().map(n -> new NumberCase(n.key(), n.name(),
-            list(n.conditions()).stream().map(c -> remapFixedCondition(c, oldFixed, newFixed)).toList(), n.guide())).toList(), q.preset())).toList();
+            list(n.conditions()).stream().map(c -> remapFixedCondition(c, oldFixed, newFixed)).toList(), n.guide(), n.helpDisplay())).toList(), q.preset(), q.helpDisplay())).toList();
     return new Process(copied.schemaVersion(), questions, list(copied.rules()).stream()
         .map(r -> new Rule(r.key(), r.name(), r.match(), list(r.conditions()).stream()
             .map(c -> remapFixedCondition(c, oldFixed, newFixed)).toList(), r.actions())).toList(),
@@ -666,7 +667,7 @@ public class ProductStudioService {
                 .map(c -> new LimitCase(c.key(), c.name(), list(c.conditions()).stream()
                     .map(v -> remapFixedCondition(v, oldFixed, newFixed)).toList(), c.min(), c.max())).toList())).toList(),
         list(copied.notices()).stream().map(n -> new InputNotice(n.key(), n.targetKey(), n.fieldKey(), n.message(), n.mode(),
-            list(n.conditions()).stream().map(c -> remapFixedCondition(c, oldFixed, newFixed)).toList())).toList());
+            list(n.conditions()).stream().map(c -> remapFixedCondition(c, oldFixed, newFixed)).toList(), n.helpDisplay())).toList());
   }
 
   private Condition remapFixedCondition(
@@ -1051,10 +1052,10 @@ public class ProductStudioService {
     for (Variant v : selected) {
       if (v == null || !seen.add(v.groupId())) throw new IllegalArgumentException("중복된 그룹입니다.");
       ProductAttributeGroup g = attributes.require(v.groupId());
-      if (list(v.valueIds()).size() > 1 && attributes.control(g) != Control.CHECKBOX)
+      if (list(v.valueIds()).size() > 1 && attributes.control(g) != Control.CHECKBOX && g.getSystemRole() != ProductAttributeRole.SUBCATEGORY)
         throw new IllegalArgumentException("하나선택형은 옵션을 하나만 선택합니다.");
       if (ProductStudioAttributeService.BASE.contains(g.getSystemRole().name())
-          && list(v.valueIds()).size() != 1)
+          && (g.getSystemRole() == ProductAttributeRole.SUBCATEGORY ? list(v.valueIds()).isEmpty() : list(v.valueIds()).size() != 1))
         throw new IllegalArgumentException("기본그룹은 옵션을 하나씩 선택합니다.");
       singles.add(new GroupSelection(v.groupId(), v.valueIds(), v.inputs()));
     }
@@ -1075,7 +1076,7 @@ public class ProductStudioService {
     List<Question> questions = new ArrayList<>();
     for (Variant v : selected) {
       ProductAttributeGroup g = attributes.require(v.groupId());
-      Control control = attributes.control(g);
+      Control control = g.getSystemRole() == ProductAttributeRole.SUBCATEGORY ? Control.CHECKBOX : attributes.control(g);
       boolean fixed = !g.isNonStandard();
       List<Choice> choices =
           fixed && choice(control)
@@ -1088,7 +1089,7 @@ public class ProductStudioService {
                               attributes.labelsOf(x),
                               attributes.namePart(x),
                               List.of(),
-                              x.getAnswerGuide()))
+                              x.getAnswerGuide(), x.getHelpDisplay()))
                   .toList()
               : List.of();
       questions.add(
@@ -1105,15 +1106,14 @@ public class ProductStudioService {
               g.getCustomerGuide(),
               choices,
               g.isNonStandard() ? List.of() : attributes.fieldsFor(g),
-              List.of()));
+              List.of(), List.of(), null, g.getHelpDisplay()));
     }
     return new Process(2, questions, List.of());
   }
 
   private Process readProcess(ProductMaster p) {
     return p.getStudioProcessJson() == null
-        ? defaultProcess(variants(p))
-        : json.read(p.getStudioProcessJson(), Process.class);
+        ? defaultProcess(variants(p)) : json.read(p.getStudioProcessJson(), Process.class);
   }
 
   public Map<String, Answer> fixedAnswers(ProductMaster p) {
@@ -1145,7 +1145,8 @@ public class ProductStudioService {
       if (q == null || !seen.add(q.groupId()) || !expected.containsKey(q.groupId()))
         throw new IllegalArgumentException("프로세스에 다른 그룹 또는 중복 그룹이 있습니다.");
       Question original = expected.get(q.groupId());
-      if (!original.key().equals(q.key()) || original.control() != q.control())
+      if (!original.key().equals(q.key()) || original.control() != q.control()
+          && attributes.require(q.groupId()).getSystemRole() != ProductAttributeRole.SUBCATEGORY)
         throw new IllegalArgumentException("그룹 value와 입력 유형을 변경할 수 없습니다.");
       if (original.fixed()) normalized.add(original);
       else
@@ -1165,7 +1166,7 @@ public class ProductStudioService {
                 q.fields(),
                 q.assetIds(),
                 q.numberCases(),
-                q.preset()));
+                q.preset(), q.helpDisplay()));
     }
     return new Process(process.schemaVersion(), normalized, list(process.rules()),
         list(process.inputLimits()), list(process.notices()));
@@ -1380,7 +1381,7 @@ public class ProductStudioService {
             .ifPresent(v -> ids.addAll(v.assets().stream().map(AssetView::id).toList()));
         choices.add(
             new Choice(
-                c.key(), customer(c.labels()), null, ids.stream().distinct().toList(), c.guide()));
+                c.key(), customer(c.labels()), null, ids.stream().distinct().toList(), c.guide(), c.helpDisplay()));
       }
       safe.add(
           new Question(
@@ -1417,11 +1418,11 @@ public class ProductStudioService {
                               f.maxFileMB(),
                               f.guide(),
                               f.bundleKey(),
-                              list(f.assetIds())))
+                              list(f.assetIds()), f.helpDisplay()))
                   .toList(),
               questionAssets.stream().distinct().toList(),
               q.numberCases(),
-              q.preset()));
+              q.preset(), q.helpDisplay()));
     }
     return new Process(process.schemaVersion(), safe, List.of(),
         list(process.inputLimits()), list(process.notices()));
@@ -1646,7 +1647,7 @@ public class ProductStudioService {
                     v.id().toString(),
                     v.labels().customer(),
                     assets.publicViews(v.assets(), token),
-                    v.guide()));
+                    v.guide(), v.helpDisplay()));
           }
         if (!choice(gv.control())) {
           Set<String> inputKeys = new HashSet<>();

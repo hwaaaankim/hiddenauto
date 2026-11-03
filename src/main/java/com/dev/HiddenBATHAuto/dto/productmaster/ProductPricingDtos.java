@@ -30,7 +30,12 @@ public final class ProductPricingDtos {
   public enum Threshold { LE, LT, GE, GT }
   public enum OutsidePolicy { ERROR, EDGE }
   public record Axis(String fieldKey, Threshold operator, List<BigDecimal> headers,
-      List<Threshold> operators, OutsidePolicy outsidePolicy) {
+      List<Threshold> operators, OutsidePolicy outsidePolicy, BigDecimal zeroThrough) {
+    public Axis(String fieldKey, Threshold operator, List<BigDecimal> headers,
+        List<Threshold> operators, OutsidePolicy outsidePolicy) {
+      this(fieldKey, operator, headers, operators, outsidePolicy, null);
+    }
+    public boolean zeroAt(BigDecimal value) { return zeroThrough != null && value.compareTo(zeroThrough) <= 0; }
     public Axis(String fieldKey, Threshold operator, List<BigDecimal> headers, List<Threshold> operators) {
       this(fieldKey, operator, headers, operators, null);
     }
@@ -52,7 +57,16 @@ public final class ProductPricingDtos {
       Axis xAxis, Axis yAxis, List<List<BigDecimal>> values, String match,
       List<Condition> conditions, List<String> choiceKeys, OptionRangePricing optionPricing,
       OptionTarget optionTarget, TermRole role, List<MultiplierLink> multipliers,
-      List<PriceAdjustment> adjustments, List<Term> branches) {
+      List<PriceAdjustment> adjustments, List<Term> branches, BranchScope branchScope) {
+    public Term(String key, String name, String groupKey, String bundleKey,
+        List<String> fieldKeys, TermType type, BigDecimal amount, Map<String, BigDecimal> rates,
+        Axis xAxis, Axis yAxis, List<List<BigDecimal>> values, String match,
+        List<Condition> conditions, List<String> choiceKeys, OptionRangePricing optionPricing,
+        OptionTarget optionTarget, TermRole role, List<MultiplierLink> multipliers,
+        List<PriceAdjustment> adjustments, List<Term> branches) {
+      this(key,name,groupKey,bundleKey,fieldKeys,type,amount,rates,xAxis,yAxis,values,match,conditions,
+          choiceKeys,optionPricing,optionTarget,role,multipliers,adjustments,branches,null);
+    }
     public Term(String key, String name, String groupKey, String bundleKey,
         List<String> fieldKeys, TermType type, BigDecimal amount, Map<String, BigDecimal> rates,
         Axis xAxis, Axis yAxis, List<List<BigDecimal>> values, String match,
@@ -94,6 +108,7 @@ public final class ProductPricingDtos {
     }
   }
   /** The chosen option being priced by a numeric term; independent options remain additive. */
+  public record BranchScope(String ownerKey, List<Condition> conditions) {}
   public record OptionTarget(String groupKey, String choiceKey) {}
   /** One option term chooses exactly one price; the base amount is never added again. */
   public record OptionRangePricing(String groupKey, Axis axis, List<BigDecimal> amounts,

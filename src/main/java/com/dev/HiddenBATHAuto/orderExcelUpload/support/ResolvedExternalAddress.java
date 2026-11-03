@@ -4,7 +4,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 @Getter
-@Builder
+@Builder(toBuilder = true)
 public class ResolvedExternalAddress {
     private final boolean resolved;
     private final String source;
@@ -14,4 +14,6 @@ public class ResolvedExternalAddress {
     private final String guName;
     private final String roadAddress;
     private final String jibunAddress;
+    private final String buildingName;
+    private final java.util.List<String> providerWarnings;
 }

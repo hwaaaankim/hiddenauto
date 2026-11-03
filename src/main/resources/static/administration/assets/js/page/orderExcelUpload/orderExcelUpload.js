@@ -497,7 +497,7 @@
 
         return `
             <div class="order-excel-address-correction">
-                ${escapeHtml(group.siteAddressDisplayText)}
+                도로명·지번주소를 아래의 별도 입력칸에 저장합니다. <details><summary>주소 보정 안내</summary>${escapeHtml(group.siteAddressDisplayText)}</details>
             </div>
         `;
     }

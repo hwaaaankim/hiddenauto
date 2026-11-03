@@ -171,6 +171,7 @@ public class NonStandardOrderController {
 					.orElseThrow(() -> new IllegalArgumentException("회사 없음: " + company.getId()));
 
 			model.addAttribute("mainAddress", companyFetched.getRoadAddress());
+            model.addAttribute("jibunAddress", companyFetched.getJibunAddress());
 			model.addAttribute("detailAddress", companyFetched.getDetailAddress());
 			model.addAttribute("zipCode", companyFetched.getZipCode());
 			model.addAttribute("doName", companyFetched.getDoName());
@@ -194,6 +195,7 @@ public class NonStandardOrderController {
 
 		} else {
 			model.addAttribute("mainAddress", "");
+            model.addAttribute("jibunAddress", "");
 			model.addAttribute("detailAddress", "");
 			model.addAttribute("zipCode", "");
 			model.addAttribute("doName", "");

@@ -72,7 +72,8 @@
 												<i class="fa-solid fa-list"></i> 일괄보기-리스트형
 											</button>
 
-												<button type="button" class="btn btn-warning"
+												<button sec:authorize="hasRole('ADMIN')" type="button" class="btn btn-primary" id="admin-order-management-open" disabled>선택 발주 일괄변경</button>
+                                                <button type="button" class="btn btn-warning"
 													id="task-list-bulk-confirm-btn" disabled>
 													<i class="fa-solid fa-circle-check"></i> 일괄 컨펌
 												</button>
@@ -1269,6 +1270,8 @@
 	<script src="/administration/assets/js/page/taskList.js?v=20260906-5"></script>
 	<script src="/administration/assets/js/page/taskListOrderEditExtension.js"></script>
 
+<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+<script src="/administration/assets/js/page/adminOrderManagement.js?v=20261103-shop-audit-3"></script>
 </body>
 
 </html>

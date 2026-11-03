@@ -2841,3 +2841,59 @@
 .pms .pms-copy-option label.pms-check > span > strong,
 .pms .pms-copy-option label.pms-check > span > small {display:block;}
 .pms .pms-copy-option:has(input:checked):not(:has(input:disabled)) {border-color:#b4c9ef;background:#f8fbff;}
+
+.pm-help-icon {display:inline-flex;align-items:center;gap:6px;margin:8px 0;padding:8px 12px!important;border:1px solid #c4cddd!important;border-radius:8px!important;background:#f4f7ff!important;color:#244b96!important;font-size:14px!important;cursor:pointer;}
+.pm-help-content {margin:8px 0;line-height:1.6;}
+.pm-preserve-lines {white-space:pre-wrap;overflow-wrap:anywhere;}
+@media (hover:hover) and (pointer:fine) and (min-width:768px) {
+  .pm-answer-choice.pm-keyboard-current {outline:2px solid #2563eb;outline-offset:2px;border-radius:12px;}
+}
+.pm-team-preview {margin:16px 0;padding:16px;border:1px solid #d9dfeb;border-radius:12px;background:#fff;}
+.pm-team-preview table {width:100%;border-collapse:collapse;}
+.pm-team-preview th,.pm-team-preview td {padding:9px;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top;white-space:pre-wrap;}
+.pm-faq-float {position:fixed;right:24px;bottom:24px;z-index:1000;}
+
+/* A whole attachment card is a drop target; nested option cards remain separate. */
+.pm-upload-area.over { outline: 2px solid #3465d9; outline-offset: 3px; }
+.pm-upload-area.over .pm-upload-empty,
+.pm-upload-area.over .pms-drop,
+.pms-drop.pm-price-file-drop.over { border-color: #3465d9; background: #edf3ff; color: #1d469e; }
+.pm-upload-empty[role="button"] { cursor: pointer; }
+.pm-upload-empty[role="button"]:focus-visible,
+.pm-price-file-drop:focus-visible { outline: 2px solid #3465d9; outline-offset: 2px; }
+.pm-price-file-drop { display: grid; gap: 7px; margin: 12px 0; padding: 22px; }
+.pm-price-file-drop small { display: block; font-weight: normal; }
+.pm-upload-area[aria-disabled="true"] .pm-upload-empty { cursor: progress; }
+
+/* Store FAQ stays below its page loading overlay. Native dialogs keep the top layer. */
+.hb-store .pm-faq-float { z-index: 200; }
+
+/* Product FAQ: one open item, a compact floating launcher and a scalable modal. */
+.pm-faq-float.pm-help-icon { border-radius: 999px !important; padding: 13px 20px !important; font-weight: 700; box-shadow: 0 8px 26px #1e355229; transition: transform .18s ease, box-shadow .18s ease; }
+.pm-faq-float.pm-help-icon:not(:disabled):hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 12px 30px #1e355236; }
+.pm-faq-float.pm-help-icon:disabled { opacity: .8; cursor: progress; }
+.pms-dialog.pms.pm-faq-dialog { width: 760px; max-width: calc(100vw - 32px); max-height: 90svh; border-radius: 20px; border-color: #dce3ee; box-shadow: 0 28px 80px #10244440; transform-origin: bottom right; animation: pm-faq-in .24s cubic-bezier(.16,1,.3,1) both; }
+.pm-faq-dialog::backdrop { background: #14233866; backdrop-filter: blur(4px); }
+.pm-faq-dialog .pms-dialog-head { background: #f7f9fc; border-bottom: 1px solid #e4e9f1; }
+.pm-faq-dialog .pms-dialog-body { overscroll-behavior: contain; }
+.pm-faq-overview { margin-bottom: 18px; color: #526174; font-size: 13px; line-height: 1.7; }
+.pm-faq-overview p { margin: 6px 0 0; }
+.pm-faq-dialog .pm-faq-cards { display: grid; gap: 10px; }
+.pm-faq-dialog .pm-faq-card { border: 1px solid #e0e6ef; border-radius: 12px; padding: 0; overflow: clip; background: #fff; }
+.pm-faq-dialog .pm-faq-card.is-open { border-color: #b8c9e8; background: #fbfcff; }
+.pm-faq-card h3 { margin: 0; }
+.pms.pm-faq-dialog .pm-faq-card [data-faq-toggle] { display: flex; align-items: center; gap: 12px; width: 100%; padding: 17px 18px; text-align: left; border: 0; border-radius: 0; background: transparent; color: #203451; font-size: 14px; font-weight: 700; line-height: 1.6; }
+.pm-faq-number { color: #71839d; font-size: 11px; font-weight: 600; }
+.pm-faq-chevron { margin-left: auto; font-size: 21px; transition: transform .22s ease; }
+.pm-faq-card.is-open .pm-faq-chevron { transform: rotate(180deg); }
+.pm-faq-panel { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .24s ease; }
+.pm-faq-card.is-open .pm-faq-panel { grid-template-rows: 1fr; }
+.pm-faq-panel-clip { min-height: 0; overflow: hidden; }
+.pm-faq-panel-content { padding: 0 18px 18px 43px; color: #4c5e76; font-size: 13px; line-height: 1.85; overflow-wrap: anywhere; }
+.pm-faq-panel-content > p { margin: 0; }
+.pm-faq-dialog .pms-dialog-foot { background: #f7f9fc; gap: 8px; }
+.pms-dialog.pms.pm-faq-dialog.pm-faq-closing { animation: pm-faq-out .15s ease both; }
+@keyframes pm-faq-in { from { opacity: 0; transform: translateY(16px) scale(.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes pm-faq-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: translateY(8px) scale(.96); } }
+@media(max-width:600px) { .pm-faq-float.pm-help-icon { right: 14px; bottom: max(14px,env(safe-area-inset-bottom)); padding: 11px 15px !important; } .pms-dialog.pms.pm-faq-dialog { max-width: calc(100vw - 20px); border-radius: 15px; } .pm-faq-panel-content { padding-left: 18px; } .pm-faq-dialog .pms-dialog-foot > * { flex: 1 1 auto; text-align: center; } }
+@media(prefers-reduced-motion:reduce) { .pms-dialog.pms.pm-faq-dialog,.pms-dialog.pms.pm-faq-dialog.pm-faq-closing { animation: none; } .pm-faq-panel,.pm-faq-chevron,.pm-faq-float.pm-help-icon { transition: none; } }

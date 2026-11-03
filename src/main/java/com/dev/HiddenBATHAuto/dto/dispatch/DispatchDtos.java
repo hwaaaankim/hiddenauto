@@ -160,14 +160,17 @@ public class DispatchDtos {
         private String guName;
         private String zipCode;
         private String roadAddress;
+        private String jibunAddress;
         private String detailAddress;
         private String fullAddress;
+        private String actualJibunAddress;
 
         private String siteZipCode;
         private String siteDoName;
         private String siteSiName;
         private String siteGuName;
         private String siteRoadAddress;
+        private String siteJibunAddress;
         private String siteDetailAddress;
         private String siteFullAddress;
 
@@ -175,6 +178,7 @@ public class DispatchDtos {
         private String ordererPhone;
         private int deliveryCost;
         private String preferredDeliveryDateText;
+        private String updatedAtToken;
 
         private String createdAtText;
     }
