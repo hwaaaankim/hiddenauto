@@ -300,6 +300,7 @@
                 else state.summary = data;
             }
             renderSummary();
+            window.dispatchEvent(new Event("hiddenbath:order-notifications-updated"));
 
             const pendingImportant = Number(state.summary.pendingImportantConfirmationCount || 0)
                 + Number(state.asSummary.pendingImportantConfirmationCount || 0);

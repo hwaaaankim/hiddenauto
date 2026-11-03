@@ -413,6 +413,11 @@ public class OrderChangeAuditService {
     }
 
     @Transactional(readOnly = true)
+    public java.util.Set<Long> getPendingViewerChangeOrderIds(Collection<Long> orderIds, Member member) {
+        return orderNotificationService.getPendingViewerChangeOrderIds(normalizeOrderIds(orderIds), member);
+    }
+
+    @Transactional(readOnly = true)
     public Map<Long, OrderChangeSummaryDto> getLatestChangeMap(Collection<Long> orderIds) {
         return getLatestChangeMap(orderIds, false);
     }

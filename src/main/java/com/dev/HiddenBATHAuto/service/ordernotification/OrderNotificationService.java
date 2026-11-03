@@ -226,6 +226,15 @@ public class OrderNotificationService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
+    public Set<Long> getPendingViewerChangeOrderIds(Collection<Long> orderIds, Member member) {
+        if (member == null || member.getId() == null || orderIds == null || orderIds.isEmpty()) return Set.of();
+        return notificationRepository.findPendingViewerChangeOrderIds(orderIds, member.getId(),
+                member.getUsername() == null ? "" : member.getUsername(),
+                List.of(OrderNotificationAction.REGISTER, OrderNotificationAction.NORMAL_REGISTER,
+                        OrderNotificationAction.URGENT_REGISTER, OrderNotificationAction.CHECK_CONFIRM));
+    }
+
     /** 개별 읽음 처리는 종 알림 또는 중요알림으로 노출 가능한 행에 반영합니다. */
     @Transactional
     public OrderNotificationItemDto markRead(Member member, Long notificationId) {

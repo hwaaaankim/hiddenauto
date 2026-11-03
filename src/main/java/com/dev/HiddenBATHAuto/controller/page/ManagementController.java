@@ -262,11 +262,14 @@ public class ManagementController {
 
 	@GetMapping("/nonStandardTaskList")
 	public String nonStandardTaskList(@RequestParam(required = false, defaultValue = "") String keyword,
+            @RequestParam(required = false) String keywordFields,
+            @RequestParam(required = false) String keywordMatch,
 			@RequestParam(required = false) String orderIdFrom,
 			@RequestParam(required = false) String orderIdTo,
 			@RequestParam(required = false) String orderId,
 			@RequestParam(required = false) String productName,
 			@RequestParam(required = false, defaultValue = "delivery") String dateCriteria,
+            @RequestParam(required = false) String dateMode,
 			@RequestParam(required = false) String startDate, @RequestParam(required = false) String endDate,
 			@RequestParam(required = false, defaultValue = "all") String productCategoryId,
 			@RequestParam(required = false, defaultValue = "REQUESTED") String orderStatus,
@@ -297,6 +300,12 @@ public class ManagementController {
 		Long finalOrderIdTo = orderIdRange.to();
 		String finalProductName = normalizeNullableSearchText(productName);
 		String finalKeyword = normalizeNullableSearchText(keyword);
+        if (finalKeyword == null && finalProductName != null && keywordFields == null) {
+            finalKeyword = finalProductName; finalProductName = null; keywordFields = "product";
+        }
+        var keywordFilter = com.dev.HiddenBATHAuto.service.order.ManagementOrderKeyword.of(finalKeyword, keywordFields, keywordMatch);
+        keywordFields = keywordFilter.csv(); keywordMatch = keywordFilter.and() ? "AND" : "OR";
+
 
 		List<NonStandardTaskListSortCriterion> activeSortCriteria =
 				resolveNonStandardTaskListSortCriteria(sortState, sortField, sortDir);
@@ -320,6 +329,7 @@ public class ManagementController {
 				mirrorCuttingOnly,
 				statusEnum,
 				standardBool,
+                keywordFields, keywordMatch,
 				sortedPageable
 		);
 
@@ -382,6 +392,10 @@ public class ManagementController {
 		model.addAttribute("companyOrdererInfoOptions", List.of());
 
 		model.addAttribute("keyword", finalKeyword != null ? finalKeyword : "");
+        model.addAttribute("keywordFields", keywordFields);
+        model.addAttribute("keywordMatch", keywordMatch);
+        model.addAttribute("pendingViewerChanges", orderChangeAuditService.getPendingViewerChangeOrderIds(currentOrderIds, principal != null ? principal.getMember() : null));
+
 		model.addAttribute("orderIdFrom", finalOrderIdFrom != null ? String.valueOf(finalOrderIdFrom) : "");
 		model.addAttribute("orderIdTo", finalOrderIdTo != null ? String.valueOf(finalOrderIdTo) : "");
 		// 기존 orderId 단건 URL과 범위 미지원 외부 다운로드 링크 호환용입니다.
@@ -396,9 +410,8 @@ public class ManagementController {
 		model.addAttribute("startDateStr", range.getStartDateStr());
 		model.addAttribute("endDateStr", range.getEndDateStr());
 		model.addAttribute("dateRangeMode",
-				(StringUtils.hasText(range.getStartDateStr()) || StringUtils.hasText(range.getEndDateStr()))
-						&& !(StringUtils.hasText(range.getStartDateStr())
-								&& range.getStartDateStr().equals(range.getEndDateStr())));
+				"range".equals(dateMode) || (dateMode == null && (StringUtils.hasText(range.getStartDateStr()) || StringUtils.hasText(range.getEndDateStr()))
+                        && !(StringUtils.hasText(range.getStartDateStr()) && range.getStartDateStr().equals(range.getEndDateStr()))));
 
 		model.addAttribute("productCategoryId", (productCategoryId == null) ? "all" : productCategoryId);
 		model.addAttribute("orderStatus", (orderStatus == null) ? OrderStatus.REQUESTED.name() : orderStatus);
@@ -438,6 +451,8 @@ public class ManagementController {
 	public String nonStandardTaskListReadonlyFragment(
 			@AuthenticationPrincipal PrincipalDetails principal,
 			@RequestParam(required = false, defaultValue = "") String keyword,
+            @RequestParam(required = false) String keywordFields,
+            @RequestParam(required = false) String keywordMatch,
 			@RequestParam(required = false) String orderIdFrom,
 			@RequestParam(required = false) String orderIdTo,
 			@RequestParam(required = false) String orderId,
@@ -488,6 +503,7 @@ public class ManagementController {
 				mirrorCuttingOnly,
 				statusEnum,
 				standardBool,
+                keywordFields, keywordMatch,
 				modalPageable
 		);
 
@@ -685,6 +701,8 @@ public class ManagementController {
 
 	@GetMapping("/nonStandardTaskList/bulk-fragment")
 	public String nonStandardTaskListBulkFragment(@RequestParam(required = false, defaultValue = "") String keyword,
+            @RequestParam(required = false) String keywordFields,
+            @RequestParam(required = false) String keywordMatch,
 			@RequestParam(required = false) String orderIdFrom,
 			@RequestParam(required = false) String orderIdTo,
 			@RequestParam(required = false) String orderId,
@@ -739,6 +757,7 @@ public class ManagementController {
 				mirrorCuttingOnly,
 				statusEnum,
 				standardBool,
+                keywordFields, keywordMatch,
 				sortedPageable
 		);
 
@@ -753,6 +772,18 @@ public class ManagementController {
 
 		return "administration/management/order/nonStandard/taskList :: bulkOrderCards";
 	}
+
+    @GetMapping("/nonStandardTaskList/pending-changes")
+    @ResponseBody
+    public java.util.Set<Long> pendingManagementChanges(
+            @RequestParam java.util.List<Long> orderIds,
+            @AuthenticationPrincipal PrincipalDetails principal) {
+        if (principal == null || principal.getMember() == null ||
+                (principal.getMember().getRole() != MemberRole.ADMIN && principal.getMember().getRole() != MemberRole.MANAGEMENT))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "관리 권한이 필요합니다.");
+        if (orderIds.size() > 500) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "한 번에 500건까지 조회할 수 있습니다.");
+        return orderChangeAuditService.getPendingViewerChangeOrderIds(orderIds, principal.getMember());
+    }
 
 	private Long resolveOrderCompanyId(Order order) {
 		if (order == null || order.getTask() == null || order.getTask().getRequestedBy() == null) {
@@ -1025,6 +1056,8 @@ public class ManagementController {
 	@GetMapping("/nonStandardOrder/print")
 	public String printNonStandardOrderList(
 			@RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String keywordFields,
+            @RequestParam(required = false) String keywordMatch,
 			@RequestParam(required = false) String orderIdFrom,
 			@RequestParam(required = false) String orderIdTo,
 			@RequestParam(required = false) String orderId,
@@ -1063,7 +1096,8 @@ public class ManagementController {
 				categoryId,
 				mirrorCuttingOnly,
 				status,
-				standardBool
+				standardBool,
+                keywordFields, keywordMatch
 		);
 
 		List<NonStandardTaskListSortCriterion> sortCriteria =
@@ -1092,6 +1126,8 @@ public class ManagementController {
 	@GetMapping("/nonStandardOrder/excel")
 	public void downloadNonStandardOrderExcel(
 			@RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String keywordFields,
+            @RequestParam(required = false) String keywordMatch,
 			@RequestParam(required = false) String orderIdFrom,
 			@RequestParam(required = false) String orderIdTo,
 			@RequestParam(required = false) String orderId,
@@ -1131,7 +1167,8 @@ public class ManagementController {
 				categoryId,
 				mirrorCuttingOnly,
 				status,
-				standardBool
+				standardBool,
+                keywordFields, keywordMatch
 		);
 
 		List<NonStandardTaskListSortCriterion> sortCriteria =

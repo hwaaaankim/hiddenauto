@@ -88,6 +88,14 @@ public class OrderExcelExportService {
                          String productName, String dateCriteria, String startDate, String endDate,
                          String productCategoryId, String orderStatus, String standard,
                          String sortField, String sortDir, HttpServletResponse response) throws IOException {
+        download(keyword, orderIdFrom, orderIdTo, orderId, productName, dateCriteria, startDate, endDate, productCategoryId, orderStatus, standard, sortField, sortDir, null, null, response);
+    }
+
+    @Transactional(readOnly = true)
+    public void download(String keyword, String orderIdFrom, String orderIdTo, String orderId,
+                         String productName, String dateCriteria, String startDate, String endDate,
+                         String productCategoryId, String orderStatus, String standard,
+                         String sortField, String sortDir, String keywordFields, String keywordMatch, HttpServletResponse response) throws IOException {
         String criteria = normalizeDateCriteria(dateCriteria);
         Long from = positiveLong(orderIdFrom);
         Long to = positiveLong(orderIdTo);
@@ -111,7 +119,7 @@ public class OrderExcelExportService {
                 nullable(keyword), from, to, nullable(productName), criteria,
                 fromDate == null ? null : fromDate.atStartOfDay(),
                 toDate == null ? null : toDate.atTime(LocalTime.MAX),
-                categoryId, mirrorOnly, optionalStatus(orderStatus), optionalStandard(standard));
+                categoryId, mirrorOnly, optionalStatus(orderStatus), optionalStandard(standard), keywordFields, keywordMatch);
 
         // 문제 품목은 경고로 표시하며, 워크북 생성이 끝난 후에만 응답을 시작합니다.
         try (Workbook workbook = buildWorkbook(orders, sortField, sortDir)) {

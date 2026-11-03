@@ -421,47 +421,24 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 	/**
 	 * 관리자 발주 목록의 오더 ID 포함 범위 + 제품명 검색입니다.
 	 */
-	@EntityGraph(attributePaths = { "task", "task.requestedBy", "task.requestedBy.company", "orderItem",
-			"deliveryMethod", "productCategory", "assignedDeliveryHandler", "checkStatus" })
-	@Query("""
-			SELECT o FROM Order o
-			LEFT JOIN o.orderItem filterItem
-			WHERE
-			    (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
-			    AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
-			    AND (:productName IS NULL OR
-			        LOWER(filterItem.productName) LIKE LOWER(CONCAT('%', :productName, '%')))
-			    AND (:keyword IS NULL OR
-			        LOWER(o.task.requestedBy.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
-			        LOWER(o.task.requestedBy.company.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')))
-			    AND (:productCategoryId IS NULL OR o.productCategory.id = :productCategoryId)
-			    AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
-			    AND (:status IS NULL OR o.status = :status)
-			    AND (:standard IS NULL OR o.standard = :standard)
-			    AND (
-			        (:dateCriteria = 'order' AND
-			            (:startDateTime IS NULL OR o.createdAt >= :startDateTime) AND
-			            (:endDateTime IS NULL OR o.createdAt <= :endDateTime))
-			        OR (:dateCriteria = 'delivery' AND
-			            (:startDateTime IS NULL OR o.preferredDeliveryDate >= :startDateTime) AND
-			            (:endDateTime IS NULL OR o.preferredDeliveryDate <= :endDateTime))
-			        OR :dateCriteria = 'all'
-			    )
-			""")
-	Page<Order> findFilteredOrdersWithOrderIdRangeAndProductName(
-			@Param("keyword") String keyword,
-			@Param("orderIdFrom") Long orderIdFrom,
-			@Param("orderIdTo") Long orderIdTo,
-			@Param("productName") String productName,
-			@Param("dateCriteria") String dateCriteria,
-			@Param("startDateTime") LocalDateTime startDateTime,
-			@Param("endDateTime") LocalDateTime endDateTime,
-			@Param("productCategoryId") Long productCategoryId,
-			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
-			@Param("status") OrderStatus status,
-			@Param("standard") Boolean standard,
-			Pageable pageable
-	);
+    default Page<Order> findFilteredOrdersWithOrderIdRangeAndProductName(String keyword, Long orderIdFrom, Long orderIdTo, String productName, String dateCriteria, LocalDateTime startDateTime, LocalDateTime endDateTime, Long productCategoryId, boolean mirrorCuttingOnly, OrderStatus status, Boolean standard, Pageable pageable) {
+        return findFilteredOrdersWithOrderIdRangeAndProductName(keyword, orderIdFrom, orderIdTo, productName, dateCriteria, startDateTime, endDateTime, productCategoryId, mirrorCuttingOnly, status, standard, null, null, pageable);
+    }
+    default Page<Order> findFilteredOrdersWithOrderIdRangeAndProductName(String keyword, Long orderIdFrom, Long orderIdTo, String productName, String dateCriteria, LocalDateTime startDateTime, LocalDateTime endDateTime, Long productCategoryId, boolean mirrorCuttingOnly, OrderStatus status, Boolean standard, String keywordFields, String keywordMatch, Pageable pageable) {
+        var f = com.dev.HiddenBATHAuto.service.order.ManagementOrderKeyword.of(keyword, keywordFields, keywordMatch);
+        return findManagementOrderPage(f.pattern(), f.company(), f.requester(), f.product(), f.address(), f.and(), orderIdFrom, orderIdTo, productName, dateCriteria, startDateTime, endDateTime, productCategoryId, mirrorCuttingOnly, status, standard, pageable);
+    }
+    @EntityGraph(attributePaths = {"task", "task.requestedBy", "task.requestedBy.company", "orderItem", "deliveryMethod", "productCategory", "assignedDeliveryHandler", "checkStatus"})
+    @Query(com.dev.HiddenBATHAuto.service.order.ManagementOrderKeyword.QUERY)
+    Page<Order> findManagementOrderPage(
+        @Param("keywordPattern") String keywordPattern,
+        @Param("searchCompany") boolean searchCompany, @Param("searchRequester") boolean searchRequester,
+        @Param("searchProduct") boolean searchProduct, @Param("searchAddress") boolean searchAddress, @Param("keywordAnd") boolean keywordAnd,
+        @Param("orderIdFrom") Long orderIdFrom, @Param("orderIdTo") Long orderIdTo,
+        @Param("productName") String productName, @Param("dateCriteria") String dateCriteria,
+        @Param("startDateTime") LocalDateTime startDateTime, @Param("endDateTime") LocalDateTime endDateTime,
+        @Param("productCategoryId") Long productCategoryId, @Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
+        @Param("status") OrderStatus status, @Param("standard") Boolean standard, Pageable pageable);
 
 	@Query("""
 			    SELECT o FROM Order o
@@ -617,44 +594,24 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 	 */
 	@EntityGraph(attributePaths = { "task", "task.requestedBy", "task.requestedBy.company", "orderItem",
 			"deliveryMethod", "productCategory", "assignedProductionTeam", "assignedDeliveryHandler", "checkStatus" })
-	@Query("""
-			SELECT o FROM Order o
-			LEFT JOIN o.orderItem filterItem
-			WHERE (:orderIdFrom IS NULL OR o.id >= :orderIdFrom)
-			    AND (:orderIdTo IS NULL OR o.id <= :orderIdTo)
-			    AND (:productName IS NULL OR
-			        LOWER(filterItem.productName) LIKE LOWER(CONCAT('%', :productName, '%')))
-			    AND (:keyword IS NULL OR
-			        LOWER(o.task.requestedBy.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
-			        LOWER(o.task.requestedBy.company.companyName) LIKE LOWER(CONCAT('%', :keyword, '%')))
-			    AND (:productCategoryId IS NULL OR o.productCategory.id = :productCategoryId)
-			    AND (:mirrorCuttingOnly = false OR o.mirrorCuttingProduct = true)
-			    AND (:status IS NULL OR o.status = :status)
-			    AND (:standard IS NULL OR o.standard = :standard)
-			    AND (
-			        (:dateCriteria = 'order' AND
-			            (:startDateTime IS NULL OR o.createdAt >= :startDateTime) AND
-			            (:endDateTime IS NULL OR o.createdAt <= :endDateTime))
-			        OR (:dateCriteria = 'delivery' AND
-			            (:startDateTime IS NULL OR o.preferredDeliveryDate >= :startDateTime) AND
-			            (:endDateTime IS NULL OR o.preferredDeliveryDate <= :endDateTime))
-			        OR :dateCriteria = 'all'
-			    )
-			ORDER BY o.preferredDeliveryDate DESC, o.id DESC
-			""")
-	List<Order> findFilteredOrdersForExcelWithOrderIdRangeAndProductName(
-			@Param("keyword") String keyword,
-			@Param("orderIdFrom") Long orderIdFrom,
-			@Param("orderIdTo") Long orderIdTo,
-			@Param("productName") String productName,
-			@Param("dateCriteria") String dateCriteria,
-			@Param("startDateTime") LocalDateTime startDateTime,
-			@Param("endDateTime") LocalDateTime endDateTime,
-			@Param("productCategoryId") Long productCategoryId,
-			@Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
-			@Param("status") OrderStatus status,
-			@Param("standard") Boolean standard
-	);
+    default List<Order> findFilteredOrdersForExcelWithOrderIdRangeAndProductName(String keyword, Long orderIdFrom, Long orderIdTo, String productName, String dateCriteria, LocalDateTime startDateTime, LocalDateTime endDateTime, Long productCategoryId, boolean mirrorCuttingOnly, OrderStatus status, Boolean standard) {
+        return findFilteredOrdersForExcelWithOrderIdRangeAndProductName(keyword, orderIdFrom, orderIdTo, productName, dateCriteria, startDateTime, endDateTime, productCategoryId, mirrorCuttingOnly, status, standard, null, null);
+    }
+    default List<Order> findFilteredOrdersForExcelWithOrderIdRangeAndProductName(String keyword, Long orderIdFrom, Long orderIdTo, String productName, String dateCriteria, LocalDateTime startDateTime, LocalDateTime endDateTime, Long productCategoryId, boolean mirrorCuttingOnly, OrderStatus status, Boolean standard, String keywordFields, String keywordMatch) {
+        var f = com.dev.HiddenBATHAuto.service.order.ManagementOrderKeyword.of(keyword, keywordFields, keywordMatch);
+        return findManagementOrderExport(f.pattern(), f.company(), f.requester(), f.product(), f.address(), f.and(), orderIdFrom, orderIdTo, productName, dateCriteria, startDateTime, endDateTime, productCategoryId, mirrorCuttingOnly, status, standard);
+    }
+    @EntityGraph(attributePaths = {"task", "task.requestedBy", "task.requestedBy.company", "orderItem", "deliveryMethod", "productCategory", "assignedDeliveryHandler", "checkStatus"})
+    @Query(com.dev.HiddenBATHAuto.service.order.ManagementOrderKeyword.QUERY + " order by o.preferredDeliveryDate desc, o.id desc")
+    List<Order> findManagementOrderExport(
+        @Param("keywordPattern") String keywordPattern,
+        @Param("searchCompany") boolean searchCompany, @Param("searchRequester") boolean searchRequester,
+        @Param("searchProduct") boolean searchProduct, @Param("searchAddress") boolean searchAddress, @Param("keywordAnd") boolean keywordAnd,
+        @Param("orderIdFrom") Long orderIdFrom, @Param("orderIdTo") Long orderIdTo,
+        @Param("productName") String productName, @Param("dateCriteria") String dateCriteria,
+        @Param("startDateTime") LocalDateTime startDateTime, @Param("endDateTime") LocalDateTime endDateTime,
+        @Param("productCategoryId") Long productCategoryId, @Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
+        @Param("status") OrderStatus status, @Param("standard") Boolean standard);
 
 	@Query("""
 			    SELECT o FROM Order o

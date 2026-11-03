@@ -144,6 +144,7 @@ public class NonStandardTaskListViewService {
                 .jibunAddress(order.getJibunAddress())
                 .detailAddress(order.getDetailAddress())
                 .fullAddress(fullAddress.isBlank() ? "-" : fullAddress)
+                .deliveryAddressSearchText(ManagementOrderKeyword.addressText(order))
 
                 .siteZipCode(order.getSiteZipCode())
                 .siteDoName(order.getSiteDoName())
