@@ -622,7 +622,8 @@ public final class ProductStudioDtos {
       BigDecimal unitPrice,
       Long faqTopicId,
       long actualCount,
-      int unallocatedStock) {
+      int unallocatedStock,
+      List<Issue> compositionWarnings) {
     public ProductView(
         Long id,
         long version,
@@ -663,7 +664,8 @@ public final class ProductStudioDtos {
           null,
           null,
           0,
-          0);
+          0,
+          List.of());
     }
   }
 

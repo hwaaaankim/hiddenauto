@@ -63,6 +63,41 @@ public final class ProductStudioProcessSubset {
     }).toList();
   }
 
+  /** Check dependency order even while new questions have no answers/fields yet.
+   * Completeness and scenario validation remain publication requirements. */
+  public static List<Issue> orderIssues(Process process) {
+    Map<String, Integer> order = new LinkedHashMap<>();
+    Map<String, Question> byKey = new LinkedHashMap<>();
+    list(process.questions()).forEach(q -> { order.put(q.key(), order.size()); byKey.put(q.key(), q); });
+    List<Issue> issues = new ArrayList<>();
+    for (Rule rule : list(process.rules())) {
+      for (Condition condition : list(rule.conditions())) {
+        for (Action action : list(rule.actions())) {
+          checkBefore(order, byKey, condition.groupKey(), action.targetKey(), "분기", issues);
+        }
+      }
+    }
+    for (InputLimit limit : list(process.inputLimits())) {
+      if (limit.sourceKey() != null && !limit.sourceKey().isBlank())
+        checkBefore(order, byKey, limit.sourceKey(), limit.targetKey(), "입력제한 " + limit.name(), issues);
+      for (LimitCase c : list(limit.cases()))
+        for (Condition condition : list(c.conditions()))
+          checkBefore(order, byKey, condition.groupKey(), limit.targetKey(), "입력제한 " + limit.name(), issues);
+    }
+    return issues;
+  }
+
+  private static void checkBefore(Map<String, Integer> order, Map<String, Question> questions,
+      String source, String target, String context, List<Issue> issues) {
+    if (!order.containsKey(source) || !order.containsKey(target) || order.get(source) >= order.get(target)) {
+      Question from = questions.get(source), to = questions.get(target);
+      String message = context + ": [" + (from == null ? source : ProductStudioEngine.label(from))
+          + "] 질문은 [" + (to == null ? target : ProductStudioEngine.label(to)) + "] 질문보다 앞에 있어야 합니다.";
+      Issue issue = new Issue("WARNING", "COMPOSITION_ORDER", context, message);
+      if (!issues.contains(issue)) issues.add(issue);
+    }
+  }
+
   private static boolean conditionsPresent(List<Condition> conditions, Set<String> keys) {
     return list(conditions).stream().allMatch(c -> c != null && keys.contains(c.groupKey()));
   }

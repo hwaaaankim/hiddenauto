@@ -490,6 +490,15 @@ public class ProductStudioService {
     }
   }
 
+  /** Keep persisted component ordering aligned with the product-local process order. */
+  private void alignComponentOrder(ProductMaster product, List<Variant> ordered) {
+    Map<Long, Integer> positions = new HashMap<>();
+    for (int i = 0; i < ordered.size(); i++) positions.put(ordered.get(i).groupId(), i);
+    product.getComponents().sort(Comparator.comparingInt(c -> positions.get(c.getGroup().getId())));
+    for (int i = 0; i < product.getComponents().size(); i++)
+      product.getComponents().get(i).setSortOrder(i);
+  }
+
   private record CopySetup(List<Variant> variants, Set<Long> groupIds,
       ProductStudioCopyPolicy.Plan dependencies, Process process) {}
 
@@ -707,6 +716,10 @@ public class ProductStudioService {
   }
 
   private ProductView view(ProductMaster p, boolean detailed) {
+    return view(p, detailed, List.of());
+  }
+
+  private ProductView view(ProductMaster p, boolean detailed, List<Issue> compositionWarnings) {
     List<Variant> v = variants(p);
     return new ProductView(
         p.getId(),
@@ -734,7 +747,7 @@ public class ProductStudioService {
         p.getUnitPrice(),
         p.getFaqTopicId(),
         actuals.countByProductId(p.getId()),
-        p.getLegacyUnallocatedStock());
+        p.getLegacyUnallocatedStock(), compositionWarnings);
   }
 
   public ProductPage search(ProductFilter filter) {
@@ -909,6 +922,41 @@ public class ProductStudioService {
     lockCustomGroups(list(edit.variants()));
     List<Variant> selected = validateVariants(edit.variants(), p.isNonStandard());
     pricing.getObject().assertProductChangeAllowed(p, selected);
+    List<Long> previousGroupOrder = variants(p).stream().map(Variant::groupId).toList();
+    List<Long> selectedGroupOrder = selected.stream().map(Variant::groupId).toList();
+    // Inserting a new group in the middle is an order edit as well.
+    List<Long> appendedGroupOrder = new ArrayList<>(previousGroupOrder.stream()
+        .filter(selectedGroupOrder::contains).toList());
+    selectedGroupOrder.stream().filter(groupId -> !previousGroupOrder.contains(groupId))
+        .forEach(appendedGroupOrder::add);
+    boolean compositionReordered = !appendedGroupOrder.equals(selectedGroupOrder);
+    Process storedProcess = readProcess(p);
+    Process previousProcess = ProductStudioProcessSubset.retain(storedProcess, new HashSet<>(selectedGroupOrder));
+    boolean processChanged = !new HashSet<>(previousGroupOrder).equals(new HashSet<>(selectedGroupOrder))
+        || compositionReordered || ProductStudioProcessSubset.hasRemovedElements(storedProcess, previousProcess);
+    List<Issue> compositionWarnings = new ArrayList<>();
+    Process nextProcess = null;
+    if (p.isNonStandard()) {
+      List<Question> defaults = defaultProcess(selected).questions();
+      nextProcess = new Process(2, ProductStudioProcessSubset.mergeQuestions(
+          previousProcess.questions(), defaults, compositionReordered),
+          previousProcess.rules(), previousProcess.inputLimits(), previousProcess.notices());
+      if (compositionReordered) {
+        compositionWarnings.addAll(ProductStudioProcessSubset.orderIssues(nextProcess));
+        if (!compositionWarnings.isEmpty()) {
+          // Keep existing dependencies; new questions append until the administrator reconnects them.
+          nextProcess = new Process(2, ProductStudioProcessSubset.mergeQuestions(
+              previousProcess.questions(), defaults, false), previousProcess.rules(),
+              previousProcess.inputLimits(), previousProcess.notices());
+          Map<Long, Variant> selectedByGroup = selected.stream()
+              .collect(Collectors.toMap(Variant::groupId, v -> v));
+          selected = nextProcess.questions().stream().map(q -> selectedByGroup.get(q.groupId())).toList();
+        }
+      }
+      // A rejected order edit alone must not demote an otherwise unchanged product.
+      processChanged = !json.write(storedProcess).equals(json.write(nextProcess));
+    }
+
     boolean custom = p.isNonStandard();
     validateMetadata(edit.productionHours(), edit.unitPrice(), edit.faqTopicId(), custom);
     p.setProductionHours(edit.productionHours());
@@ -923,7 +971,8 @@ public class ProductStudioService {
           "동일한 제품이 있습니다: " + duplicate.getProductName() + " (#" + duplicate.getId() + ")");
     // Custom identity/code stays stable; compare definitions to detect a configuration edit.
     String previousHash = custom ? identity(variants(p), true) : p.getStudioIdentity();
-    if (!hash.equals(previousHash)) {
+    if (!hash.equals(previousHash)
+        || !previousGroupOrder.equals(selected.stream().map(Variant::groupId).toList())) {
       // Inventory remains tied to the same product ID; record a complete before/after specification
       // audit.
       ProductStudioAudit audit = new ProductStudioAudit();
@@ -946,14 +995,6 @@ public class ProductStudioService {
     List<ProductAttributeGroup> groups =
         selected.stream().map(v -> attributes.require(v.groupId())).toList();
     List<NameToken> tokens = validateTokens(edit.nameTokens(), groups);
-    List<Long> previousGroupOrder = variants(p).stream().map(Variant::groupId).toList();
-    List<Long> selectedGroupOrder = selected.stream().map(Variant::groupId).toList();
-    boolean compositionReordered = !previousGroupOrder.stream().filter(selectedGroupOrder::contains).toList()
-        .equals(selectedGroupOrder.stream().filter(previousGroupOrder::contains).toList());
-    Process storedProcess = readProcess(p);
-    Process previousProcess = ProductStudioProcessSubset.retain(storedProcess, new HashSet<>(selectedGroupOrder));
-    boolean processChanged = !new HashSet<>(previousGroupOrder).equals(new HashSet<>(selectedGroupOrder))
-        || compositionReordered || ProductStudioProcessSubset.hasRemovedElements(storedProcess, previousProcess);
     p.setStudioDefinitionJson(json.write(selected));
     p.setNameTokensJson(json.write(tokens));
     p.setProductName(edit.productName().trim());
@@ -961,9 +1002,7 @@ public class ProductStudioService {
     boolean retainsPricedOrder = false;
     if (!custom) p.setStudioProcessJson(json.write(defaultProcess(selected)));
     else {
-      List<Question> reordered = ProductStudioProcessSubset.mergeQuestions(
-          previousProcess.questions(), defaultProcess(selected).questions(), compositionReordered);
-      Process proposed = new Process(2, reordered, previousProcess.rules(), previousProcess.inputLimits(), previousProcess.notices());
+      Process proposed = nextProcess;
       retainsPricedOrder = pricing.getObject().isMediaOnlyProcessChange(p, proposed);
       pricing.getObject().reconcileProcessMedia(p, proposed);
       p.setStudioProcessJson(json.write(proposed));
@@ -973,7 +1012,7 @@ public class ProductStudioService {
     else if (p.getStatus() != ProductMasterStatus.DRAFT) {
       if (custom) {
         Validation check = validateProcess(p, readProcess(p));
-        if (!check.valid()) throw new IllegalArgumentException("질문 프로세스 검증 후 사용중으로 변경해 주세요.");
+        if (!check.valid() || !check.exhaustive()) throw new IllegalArgumentException("질문 프로세스 전체 검증 후 사용중으로 변경해 주세요.");
       }
       p.setStatus(ProductMasterStatus.ACTIVE);
     }
@@ -983,7 +1022,7 @@ public class ProductStudioService {
     p.setUpdatedAt(LocalDateTime.now());
     assets.attach("PRODUCT", id, edit.assetIds(), actor);
     products.flush();
-    return view(p, true);
+    return view(p, true, compositionWarnings);
   }
 
   private static boolean decimalEquals(BigDecimal a, BigDecimal b) {
@@ -1275,6 +1314,7 @@ public class ProductStudioService {
     List<Variant> ordered =
         normalized.questions().stream().map(q -> byGroup.get(q.groupId())).toList();
     p.setStudioDefinitionJson(json.write(ordered));
+    alignComponentOrder(p, ordered);
     p.setStudioProcessJson(json.write(normalized));
     // Media-only changes keep registration state. Structural edits follow draft/publish validation.
     if (!retainsPricedProductStatus)

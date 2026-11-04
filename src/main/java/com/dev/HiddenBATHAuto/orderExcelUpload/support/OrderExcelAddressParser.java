@@ -50,13 +50,16 @@ public class OrderExcelAddressParser {
      * 구별하여 상세주소 중복 정리 대상으로 넘깁니다.
      */
     private static final String ROAD_NAME_AND_BUILDING_NUMBER_PATTERN =
-            "(?:대로|로|길)(?:\\s*\\d+(?:번길|길))?\\s*(?>\\d+(?:-\\d+)?)(?!\\d|-(?=\\d)|(?:번길|길)(?=\\s|\\d|$))";
+            OrderExcelAddressSyntax.ROAD_SUFFIX + "\\s*" + OrderExcelAddressSyntax.BUILDING_NUMBER;
     private static final Pattern ROAD_CORE_PATTERN = Pattern.compile(
             "^(.+?" + ROAD_NAME_AND_BUILDING_NUMBER_PATTERN + ")(.*)$"
     );
     private static final Pattern ROAD_NUMBER_PATTERN = Pattern.compile(".*(?:대로|번길|로|길)\\s*\\d+(?:-\\d+)?.*");
     private static final Pattern REGION_PATTERN = Pattern.compile(".*(?:특별시|광역시|특별자치시|특별자치도|[가-힣]+도|[가-힣]+시|[가-힣]+군|[가-힣]+구)\\s+.*");
-    private static final Pattern JIBUN_ADDRESS_PATTERN = Pattern.compile(".*[가-힣0-9]+(?:동|읍|면|리)\\s+산?\\d+(?:-\\d+)?.*");
+    // 법정동의 숫자형 '가'까지 읽습니다. 105동 1101호를 지번으로 오인하지 않습니다.
+    private static final String JIBUN_CORE = OrderExcelAddressSyntax.JIBUN_CORE;
+    private static final Pattern JIBUN_ADDRESS_PATTERN = Pattern.compile(".*" + JIBUN_CORE + ".*");
+    private static final Pattern JIBUN_CORE_PATTERN = Pattern.compile("^(.*?" + JIBUN_CORE + ")(.*)$");
     private static final Pattern DETAIL_HINT_PATTERN = Pattern.compile(".*(?:\\d+\\s*동|\\d+\\s*호|호실|층|지하|상가|오피스텔|아파트|빌라|건물|타워).*");
     private static final Pattern ROAD_OVERLAP_HINT_PATTERN = Pattern.compile(".*(?:대로|번길|로|길).*\\d.*");
 
@@ -429,7 +432,7 @@ public class OrderExcelAddressParser {
         }
 
         Matcher road = ROAD_CORE_PATTERN.matcher(source);
-        Matcher jibun = Pattern.compile("^(.+?(?:동|읍|면|리)\\s+산?\\d+(?:-\\d+)?)(.*)$").matcher(source);
+        Matcher jibun = JIBUN_CORE_PATTERN.matcher(source);
         boolean hasRoad = road.matches();
         boolean hasJibun = jibun.matches();
         // 먼저 완성되는 주소를 기준으로 나머지를 상세주소로 보존합니다.

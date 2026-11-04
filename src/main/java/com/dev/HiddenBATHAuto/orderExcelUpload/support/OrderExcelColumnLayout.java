@@ -88,6 +88,11 @@ public enum OrderExcelColumnLayout {
         }
     }
 
+    /** Same accepted header names for layout detection and row skipping. */
+    public static boolean isHeaderTexts(String date, String company, String item) {
+        return isDateHeader(date) && isCompanyHeader(company) && isItemHeader(normalizeHeader(item));
+    }
+
     private static boolean isDateHeader(String value) {
         String header = normalizeHeader(value);
         return header.equals("날짜") || header.equals("출고일");

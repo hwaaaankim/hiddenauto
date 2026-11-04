@@ -2491,6 +2491,7 @@ public class OrderExcelUploadService {
     }
 
     private boolean isHeaderRow(String dateText, String companyText, String itemName) {
+        if (OrderExcelColumnLayout.isHeaderTexts(dateText, companyText, itemName)) return true;
         String merged = (safe(dateText) + " " + safe(companyText) + " " + safe(itemName)).replaceAll("\\s+", "");
         return merged.contains("날짜") && merged.contains("거래처")
                 || merged.contains("출고일") && merged.contains("품목명");

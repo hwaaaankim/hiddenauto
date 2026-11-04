@@ -514,6 +514,15 @@
               true,
             );
             await S.builderPage(root, saved);
+            if (saved.compositionWarnings?.length) {
+              const reasons = saved.compositionWarnings.map((issue) => issue.message).join("\n");
+              if (window.confirm("구성은 저장했습니다. 요청한 순서는 기존 분기·입력제한과 충돌하여 적용하지 않았습니다. 기존 질문 순서를 유지하고 새 그룹은 마지막에 추가했습니다.\n\n"
+                + reasons + "\n\n비규격 프로세스 화면으로 이동하여 질문 순서와 연결을 수정하시겠습니까?")) {
+                location.href = "/admin/product-master/products/" + saved.id + "/process";
+              }
+            } else if (custom && saved.status === "DRAFT") {
+              S.notice("구성을 저장했습니다. 새 질문의 답변과 입력필드를 비규격 프로세스에서 설정한 후 전체 검증·등록을 완료해 주세요.", true);
+            }
           });
         S.$("#pms-stock", summary).onclick = () =>
           custom

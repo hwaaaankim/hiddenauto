@@ -16,6 +16,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import com.dev.HiddenBATHAuto.orderExcelUpload.support.ResolvedExternalAddress;
+import com.dev.HiddenBATHAuto.orderExcelUpload.support.OrderExcelAddressSyntax;
 import com.dev.HiddenBATHAuto.utils.KoreanAdministrativeRegionNormalizer;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,8 +27,10 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class OrderExcelExternalAddressSearchService {
 
-    private static final Pattern ROAD_NUMBER_PATTERN = Pattern.compile("^(.+?(?:대로|로|길)(?:\\s*\\d+(?:번길|길))?\\s*\\d+(?:-\\d+)?)");
-    private static final Pattern ROAD_KEY_PATTERN = Pattern.compile("([가-힣A-Za-z0-9·.]+(?:대로|로|길)(?:\\s*\\d+(?:번길|길))?)\\s*(\\d+(?:-\\d+)?)");
+    private static final Pattern ROAD_NUMBER_PATTERN = Pattern.compile("^(.+?"
+            + OrderExcelAddressSyntax.ROAD_SUFFIX + "\\s*" + OrderExcelAddressSyntax.BUILDING_NUMBER + ")");
+    private static final Pattern ROAD_KEY_PATTERN = Pattern.compile("([가-힣A-Za-z0-9·.]+"
+            + OrderExcelAddressSyntax.ROAD_SUFFIX + ")\\s*(" + OrderExcelAddressSyntax.BUILDING_NUMBER + ")");
     private static final Pattern DISTRICT_PATTERN = Pattern.compile("(?:^|\\s)([가-힣]+(?:구|군))(?:\\s|$)");
 
     /**
@@ -557,7 +560,7 @@ public class OrderExcelExternalAddressSearchService {
             return;
         }
 
-        Pattern jibunPattern = Pattern.compile("((?:[가-힣]+(?:시|군|구)\\s+)?[가-힣]+(?:동|읍|면|리)\\s+\\d+(?:-\\d+)?)");
+        Pattern jibunPattern = Pattern.compile("((?:[가-힣]+(?:시|군|구)\\s+)?" + OrderExcelAddressSyntax.JIBUN_CORE + ")");
         Matcher matcher = jibunPattern.matcher(normalized);
         while (matcher.find()) {
             addCandidate(result, matcher.group(1));
@@ -619,7 +622,7 @@ public class OrderExcelExternalAddressSearchService {
     }
 
     private String extractLegalDongText(String value) {
-        Matcher matcher = Pattern.compile("(?:^|\\s)([가-힣]+(?:동|읍|면|리))(?:\\s|$)").matcher(normalize(value));
+        Matcher matcher = Pattern.compile("(?:^|\\s)(" + OrderExcelAddressSyntax.LOCALITY + ")(?:\\s|$)").matcher(normalize(value));
         return matcher.find() ? matcher.group(1) : "";
     }
 
