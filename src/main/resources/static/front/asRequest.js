@@ -528,6 +528,7 @@
     function applyCompanyAddress(ctx) {
         ctx.roadAddress.value = ctx.companyAddress.main || '';
         ctx.detailAddress.value = ctx.companyAddress.detail || '';
+        delete ctx.detailAddress.dataset.asAddressExtra;
         ctx.doName.value = ctx.companyAddress.doName || '';
         ctx.siName.value = ctx.companyAddress.siName || '';
         ctx.guName.value = ctx.companyAddress.guName || '';
@@ -538,6 +539,7 @@
     function clearCompanyAddress(ctx) {
         ctx.roadAddress.value = '';
         ctx.detailAddress.value = '';
+        delete ctx.detailAddress.dataset.asAddressExtra;
         ctx.doName.value = '';
         ctx.siName.value = '';
         ctx.guName.value = '';
@@ -770,6 +772,11 @@
         ctx.applicantPhone.value = formatKoreanPhone(ctx.applicantPhone.value);
         ctx.applicantEmail.value = safeTrim(ctx.applicantEmail.value);
         ctx.detailAddress.value = safeTrim(ctx.detailAddress.value);
+        const buildingExtra = ctx.detailAddress.dataset.asAddressExtra || '';
+        const buildingName = buildingExtra.slice(1, -1);
+        if (buildingName && !ctx.detailAddress.value.includes(buildingName)) {
+            ctx.detailAddress.value = [ctx.detailAddress.value, buildingExtra].filter(Boolean).join(' ');
+        }
 
         if (!ctx.customerName.value) valid = setFieldError(ctx.customerName, '고객 성함을 입력해 주세요.') && valid;
         if (!isValidPhone(ctx.onsiteContact.value)) valid = setFieldError(ctx.onsiteContact, '현장 연락처를 확인해 주세요.') && valid;

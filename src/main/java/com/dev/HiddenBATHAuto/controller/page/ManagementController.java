@@ -1,5 +1,7 @@
 package com.dev.HiddenBATHAuto.controller.page;
 
+import com.dev.HiddenBATHAuto.repository.as.AdminAsSort;
+
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -1954,6 +1956,7 @@ public class ManagementController {
 			@RequestParam(required = false) String keywordType, @RequestParam(required = false) String keyword,
 
 			@RequestParam(required = false) String sortField, @RequestParam(required = false) String sortDir,
+            @RequestParam(required = false) String sortState,
 
 			Pageable pageable, Model model) {
 		String resolvedDateType = (dateType == null || dateType.isBlank()) ? "requested" : dateType;
@@ -1973,18 +1976,20 @@ public class ManagementController {
 		String resolvedKeywordType = normalizeAsListKeywordType(keywordType);
 		String resolvedKeyword = normalizeAsListKeyword(keyword);
 
-		String resolvedSortField = normalizeAsListSortField(sortField);
+		String resolvedSortState = AdminAsSort.encode(AdminAsSort.parse(sortState, sortField, sortDir));
+        String resolvedSortField = normalizeAsListSortField(sortField);
 		String resolvedSortDir = normalizeAsListSortDir(sortDir);
 
 		Pageable resolvedPageable = resolveAsListPageable(pageable);
 
-		Page<AsTask> asPage = asTaskService.getFilteredAsListPage(handlerId, status, resolvedDateType, start, end,
+		Page<AsTask> asPage = asTaskService.getAdminAsPage(handlerId, status, resolvedDateType, start, end,
 				asIdFromFilter, asIdToFilter, resolvedPriceFilter, resolvedPaymentCollected, resolvedKeywordType,
-				resolvedKeyword, resolvedSortField, resolvedSortDir, resolvedPageable);
+				resolvedKeyword, resolvedSortState, resolvedPageable);
 
 		Map<Long, LocalDate> scheduledDateMap = asTaskService.getScheduledDateMap(asPage.getContent());
 
 		model.addAttribute("asPage", asPage);
+        model.addAttribute("sortState", resolvedSortState);
 		model.addAttribute("scheduledDateMap", scheduledDateMap);
 
 		model.addAttribute("asHandlers", memberRepository.findByTeamName("AS팀"));
@@ -2022,6 +2027,7 @@ public class ManagementController {
 			@RequestParam(required = false) String keywordType, @RequestParam(required = false) String keyword,
 
 			@RequestParam(required = false) String sortField, @RequestParam(required = false) String sortDir,
+            @RequestParam(required = false) String sortState,
 
 			HttpServletResponse response) throws IOException {
 
@@ -2038,12 +2044,13 @@ public class ManagementController {
 		Boolean resolvedPaymentCollected = normalizeAsListPaymentCollectedFilter(paymentCollectedFilter);
 		String resolvedKeywordType = normalizeAsListKeywordType(keywordType);
 		String resolvedKeyword = normalizeAsListKeyword(keyword);
-		String resolvedSortField = normalizeAsListSortField(sortField);
+		String resolvedSortState = AdminAsSort.encode(AdminAsSort.parse(sortState, sortField, sortDir));
+        String resolvedSortField = normalizeAsListSortField(sortField);
 		String resolvedSortDir = normalizeAsListSortDir(sortDir);
 
-		List<AsTask> asTasks = asTaskService.getFilteredAsListAll(handlerId, status, resolvedDateType, start, end,
+		List<AsTask> asTasks = asTaskService.getAdminAsPage(handlerId, status, resolvedDateType, start, end,
 				asIdFromFilter, asIdToFilter, resolvedPriceFilter, resolvedPaymentCollected, resolvedKeywordType,
-				resolvedKeyword, resolvedSortField, resolvedSortDir);
+				resolvedKeyword, resolvedSortState, Pageable.unpaged()).getContent();
 
 		Map<Long, LocalDate> scheduledDateMap = asTaskService.getScheduledDateMap(asTasks);
 

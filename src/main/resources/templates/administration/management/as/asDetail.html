@@ -4,7 +4,8 @@
 
 <head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
 
-<body class="twocolumn-panel">
+<body class="twocolumn-panel as-detail-page">
+<link rel="stylesheet" href="/administration/assets/css/page/asConsole.css?v=20261104-7">
 
 	<div id="layout-wrapper">
 
@@ -71,7 +72,7 @@
 									<div class="card-body">
 
 										<!-- ✅ 1) 대리점/신청자 -->
-										<div class="as-management-third-section">
+										<div class="as-management-third-section as-detail-section">
 											<div class="as-management-third-section-title">
 												대리점 / 신청자
 												<i class="ri-question-line as-management-third-help"
@@ -121,7 +122,7 @@
 
 										<hr class="as-management-third-divider">
 
-										<div class="as-management-third-section">
+										<div class="as-management-third-section as-detail-section">
 											<div class="as-management-third-section-title">
 												접수 담당자 / 납품 / 청구 정보
 												<i class="ri-question-line as-management-third-help"
@@ -175,7 +176,7 @@
 										<hr class="as-management-third-divider">
 
 										<!-- ✅ 2) 주소(daum.post 모달) -->
-										<div class="as-management-third-section">
+										<div class="as-management-third-section as-detail-section">
 											<div class="as-management-third-section-title">
 												AS 주소
 												<i class="ri-question-line as-management-third-help"
@@ -234,7 +235,7 @@
 										<hr class="as-management-third-divider">
 
 										<!-- ✅ 3) 고객/제품/연락처 (항상 수정 가능) -->
-										<div class="as-management-third-section">
+										<div class="as-management-third-section as-detail-section">
 											<div class="as-management-third-section-title">
 												고객/제품/현장 정보
 												<i class="ri-question-line as-management-third-help"
@@ -289,7 +290,7 @@
 										<hr class="as-management-third-divider">
 
 										<!-- ✅ 4) AS 증상(subject) - readonly + 2단계 셀렉트 -->
-										<div class="as-management-third-section">
+										<div class="as-management-third-section as-detail-section">
 											<div class="as-management-third-section-title">
 												AS 증상(Subject)
 												<i class="ri-question-line as-management-third-help"
@@ -334,7 +335,7 @@
 
 										<!-- ✅ 5) 처리 정보 (가격/상태/담당자) -->
 										<!-- ✅ 5) 처리 정보 (가격/수납/상태/담당자) -->
-										<div class="as-management-third-section">
+										<div class="as-management-third-section as-detail-section">
 											<div class="as-management-third-section-title">
 												처리 정보
 												<i class="ri-question-line as-management-third-help"
@@ -410,7 +411,7 @@
 
 										<hr class="as-management-third-divider">
 
-										<div class="as-management-third-section">
+										<div class="as-management-third-section as-detail-section as-detail-wide">
 											<div class="row g-4">
 
 												<!-- 요청 이미지 -->
@@ -630,7 +631,7 @@
 										<hr class="as-management-third-divider">
 
 										<!-- ✅ 사유/내용(읽기전용) -->
-										<div class="as-management-third-section">
+										<div class="as-management-third-section as-detail-section as-detail-wide">
 											<div class="as-management-third-section-title">요청 내용(읽기전용)</div>
 
 											<div class="row g-3">
@@ -644,7 +645,7 @@
 										<hr class="as-management-third-divider">
 
 										<!-- ✅ 6) 관리자메모 -->
-										<div class="as-management-third-section">
+										<div class="as-management-third-section as-detail-section as-detail-wide">
 											<div class="as-management-third-section-title">
 												관리자메모
 												<i class="ri-question-line as-management-third-help"

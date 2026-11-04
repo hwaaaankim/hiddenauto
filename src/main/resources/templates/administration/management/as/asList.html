@@ -5,7 +5,8 @@
 <head th:replace="~{fragments/administration/common :: autoAdminHead}">
 </head>
 
-<body class="twocolumn-panel">
+<body class="twocolumn-panel as-console-page">
+<link rel="stylesheet" href="/administration/assets/css/page/asConsole.css?v=20261104-7">
 
 	<!-- Begin page -->
 	<div id="layout-wrapper">
@@ -61,7 +62,8 @@
 												    paymentCollectedFilter=${selectedPaymentCollectedFilter},
 												    keywordType=${selectedKeywordType},
 												    keyword=${selectedKeyword},
-												    sortField=${sortField},
+												    sortState=${sortState},
+                        sortField=${sortField},
 												    sortDir=${sortDir}
 												)}" class="btn btn-success">엑셀다운로드</a>
 
@@ -215,7 +217,7 @@
 												<label class="form-label">페이지 사이즈</label>
 												<select class="form-select" name="size"
 													id="as-list-new-added-size-select"
-													onchange="document.getElementById('as-list-new-added-filter-form').submit();">
+													onchange="this.form.requestSubmit();">
 													<option value="10" th:selected="${pageSize == 10}">10개씩</option>
 													<option value="30" th:selected="${pageSize == 30}">30개씩</option>
 													<option value="50" th:selected="${pageSize == 50}">50개씩</option>
@@ -224,7 +226,8 @@
 											</div>
 
 											<!-- 정렬/페이지 유지 -->
-											<input type="hidden" name="sortField" th:value="${sortField}">
+											<input type="hidden" name="sortState" th:value="${sortState}">
+<input type="hidden" name="sortField" th:value="${sortField}">
 											<input type="hidden" name="sortDir" th:value="${sortDir}">
 											<input type="hidden" name="page" value="0">
 
@@ -246,367 +249,31 @@
 										<table class="table table-hover align-middle table-nowrap mb-0" id="tasksTable">
 											<thead class="table-light text-muted">
 												<tr>
-													<th>ID</th>
+													<th><div class="as-sort-heading"><span>ID</span><span class="as-sort-arrows"><button type="button" data-as-sort="id" data-dir="asc" aria-label="ID 오름차순">▲</button><button type="button" data-as-sort="id" data-dir="desc" aria-label="ID 내림차순">▼</button></span><small data-sort-priority="id"></small></div></th>
 
-													<th>
-														<div class="as-list-new-added-th-sort">
-															<span class="as-list-new-added-sort-label">대리점명</span>
-															<span class="as-list-new-added-sort-icons">
-																<a class="as-list-new-added-sort-link"
-																	th:classappend="${sortField == 'companyName' and sortDir == 'asc'} ? ' as-list-new-added-active' : ''"
-																	th:href="@{/management/asList(
-											                            page=0,
-											                            size=${pageSize},
-											                            handlerId=${selectedHandlerId},
-											                            status=${selectedStatus},
-											                            dateType=${selectedDateType},
-											                            fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-											                            toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
-												    asIdFrom=${selectedAsIdFrom},
-												    asIdTo=${selectedAsIdTo},
-											                            priceFilter=${selectedPriceFilter},
-											                            paymentCollectedFilter=${selectedPaymentCollectedFilter},
-											                            keywordType=${selectedKeywordType},
-											                            keyword=${selectedKeyword},
-											                            sortField='companyName',
-											                            sortDir='asc'
-											                       )}">
-																	<i class="fa-solid fa-caret-up"></i>
-																</a>
-																<a class="as-list-new-added-sort-link"
-																	th:classappend="${sortField == 'companyName' and sortDir == 'desc'} ? ' as-list-new-added-active' : ''"
-																	th:href="@{/management/asList(
-											                            page=0,
-											                            size=${pageSize},
-											                            handlerId=${selectedHandlerId},
-											                            status=${selectedStatus},
-											                            dateType=${selectedDateType},
-											                            fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-											                            toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
-												    asIdFrom=${selectedAsIdFrom},
-												    asIdTo=${selectedAsIdTo},
-											                            priceFilter=${selectedPriceFilter},
-											                            paymentCollectedFilter=${selectedPaymentCollectedFilter},
-											                            keywordType=${selectedKeywordType},
-											                            keyword=${selectedKeyword},
-											                            sortField='companyName',
-											                            sortDir='desc'
-											                       )}">
-																	<i class="fa-solid fa-caret-down"></i>
-																</a>
-															</span>
-														</div>
-													</th>
+													<th><div class="as-sort-heading"><span>대리점명</span><span class="as-sort-arrows"><button type="button" data-as-sort="companyName" data-dir="asc" aria-label="대리점명 오름차순">▲</button><button type="button" data-as-sort="companyName" data-dir="desc" aria-label="대리점명 내림차순">▼</button></span><small data-sort-priority="companyName"></small></div></th>
 
-													<th>
-														<div class="as-list-new-added-th-sort">
-															<span class="as-list-new-added-sort-label">신청자</span>
-															<span class="as-list-new-added-sort-icons">
-																<a class="as-list-new-added-sort-link"
-																	th:classappend="${sortField == 'requesterName' and sortDir == 'asc'} ? ' as-list-new-added-active' : ''"
-																	th:href="@{/management/asList(
-											                            page=0,
-											                            size=${pageSize},
-											                            handlerId=${selectedHandlerId},
-											                            status=${selectedStatus},
-											                            dateType=${selectedDateType},
-											                            fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-											                            toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
-												    asIdFrom=${selectedAsIdFrom},
-												    asIdTo=${selectedAsIdTo},
-											                            priceFilter=${selectedPriceFilter},
-											                            paymentCollectedFilter=${selectedPaymentCollectedFilter},
-											                            keywordType=${selectedKeywordType},
-											                            keyword=${selectedKeyword},
-											                            sortField='requesterName',
-											                            sortDir='asc'
-											                       )}">
-																	<i class="fa-solid fa-caret-up"></i>
-																</a>
-																<a class="as-list-new-added-sort-link"
-																	th:classappend="${sortField == 'requesterName' and sortDir == 'desc'} ? ' as-list-new-added-active' : ''"
-																	th:href="@{/management/asList(
-											                            page=0,
-											                            size=${pageSize},
-											                            handlerId=${selectedHandlerId},
-											                            status=${selectedStatus},
-											                            dateType=${selectedDateType},
-											                            fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-											                            toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
-												    asIdFrom=${selectedAsIdFrom},
-												    asIdTo=${selectedAsIdTo},
-											                            priceFilter=${selectedPriceFilter},
-											                            paymentCollectedFilter=${selectedPaymentCollectedFilter},
-											                            keywordType=${selectedKeywordType},
-											                            keyword=${selectedKeyword},
-											                            sortField='requesterName',
-											                            sortDir='desc'
-											                       )}">
-																	<i class="fa-solid fa-caret-down"></i>
-																</a>
-															</span>
-														</div>
-													</th>
+													<th><div class="as-sort-heading"><span>신청자</span><span class="as-sort-arrows"><button type="button" data-as-sort="requesterName" data-dir="asc" aria-label="신청자 오름차순">▲</button><button type="button" data-as-sort="requesterName" data-dir="desc" aria-label="신청자 내림차순">▼</button></span><small data-sort-priority="requesterName"></small></div></th>
 
-													<th>고객 성함</th>
-													<th>제목</th>
-													<th>제품명</th>
-													<th>신청인</th>
-													<th>신청인 연락처</th>
-													<th>현장 연락처</th><th>주소</th>
+													<th><div class="as-sort-heading"><span>고객 성함</span><span class="as-sort-arrows"><button type="button" data-as-sort="customerName" data-dir="asc" aria-label="고객 성함 오름차순">▲</button><button type="button" data-as-sort="customerName" data-dir="desc" aria-label="고객 성함 내림차순">▼</button></span><small data-sort-priority="customerName"></small></div></th>
+													<th><div class="as-sort-heading"><span>제목</span><span class="as-sort-arrows"><button type="button" data-as-sort="subject" data-dir="asc" aria-label="제목 오름차순">▲</button><button type="button" data-as-sort="subject" data-dir="desc" aria-label="제목 내림차순">▼</button></span><small data-sort-priority="subject"></small></div></th>
+													<th><div class="as-sort-heading"><span>제품명</span><span class="as-sort-arrows"><button type="button" data-as-sort="productName" data-dir="asc" aria-label="제품명 오름차순">▲</button><button type="button" data-as-sort="productName" data-dir="desc" aria-label="제품명 내림차순">▼</button></span><small data-sort-priority="productName"></small></div></th>
+													<th><div class="as-sort-heading"><span>신청인</span><span class="as-sort-arrows"><button type="button" data-as-sort="applicantName" data-dir="asc" aria-label="신청인 오름차순">▲</button><button type="button" data-as-sort="applicantName" data-dir="desc" aria-label="신청인 내림차순">▼</button></span><small data-sort-priority="applicantName"></small></div></th>
+													<th><div class="as-sort-heading"><span>신청인 연락처</span><span class="as-sort-arrows"><button type="button" data-as-sort="applicantPhone" data-dir="asc" aria-label="신청인 연락처 오름차순">▲</button><button type="button" data-as-sort="applicantPhone" data-dir="desc" aria-label="신청인 연락처 내림차순">▼</button></span><small data-sort-priority="applicantPhone"></small></div></th>
+													<th><div class="as-sort-heading"><span>현장 연락처</span><span class="as-sort-arrows"><button type="button" data-as-sort="onsiteContact" data-dir="asc" aria-label="현장 연락처 오름차순">▲</button><button type="button" data-as-sort="onsiteContact" data-dir="desc" aria-label="현장 연락처 내림차순">▼</button></span><small data-sort-priority="onsiteContact"></small></div></th><th><div class="as-sort-heading"><span>주소</span><span class="as-sort-arrows"><button type="button" data-as-sort="address" data-dir="asc" aria-label="주소 오름차순">▲</button><button type="button" data-as-sort="address" data-dir="desc" aria-label="주소 내림차순">▼</button></span><small data-sort-priority="address"></small></div></th>
 
-													<th>
-														<div class="as-list-new-added-th-sort">
-															<span class="as-list-new-added-sort-label">담당AS사원</span>
-															<span class="as-list-new-added-sort-icons">
-																<a class="as-list-new-added-sort-link"
-																	th:classappend="${sortField == 'handlerName' and sortDir == 'asc'} ? ' as-list-new-added-active' : ''"
-																	th:href="@{/management/asList(
-											                            page=0,
-											                            size=${pageSize},
-											                            handlerId=${selectedHandlerId},
-											                            status=${selectedStatus},
-											                            dateType=${selectedDateType},
-											                            fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-											                            toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
-												    asIdFrom=${selectedAsIdFrom},
-												    asIdTo=${selectedAsIdTo},
-											                            priceFilter=${selectedPriceFilter},
-											                            paymentCollectedFilter=${selectedPaymentCollectedFilter},
-											                            keywordType=${selectedKeywordType},
-											                            keyword=${selectedKeyword},
-											                            sortField='handlerName',
-											                            sortDir='asc'
-											                       )}">
-																	<i class="fa-solid fa-caret-up"></i>
-																</a>
-																<a class="as-list-new-added-sort-link"
-																	th:classappend="${sortField == 'handlerName' and sortDir == 'desc'} ? ' as-list-new-added-active' : ''"
-																	th:href="@{/management/asList(
-											                            page=0,
-											                            size=${pageSize},
-											                            handlerId=${selectedHandlerId},
-											                            status=${selectedStatus},
-											                            dateType=${selectedDateType},
-											                            fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-											                            toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
-												    asIdFrom=${selectedAsIdFrom},
-												    asIdTo=${selectedAsIdTo},
-											                            priceFilter=${selectedPriceFilter},
-											                            paymentCollectedFilter=${selectedPaymentCollectedFilter},
-											                            keywordType=${selectedKeywordType},
-											                            keyword=${selectedKeyword},
-											                            sortField='handlerName',
-											                            sortDir='desc'
-											                       )}">
-																	<i class="fa-solid fa-caret-down"></i>
-																</a>
-															</span>
-														</div>
-													</th>
+													<th><div class="as-sort-heading"><span>담당AS사원</span><span class="as-sort-arrows"><button type="button" data-as-sort="handlerName" data-dir="asc" aria-label="담당AS사원 오름차순">▲</button><button type="button" data-as-sort="handlerName" data-dir="desc" aria-label="담당AS사원 내림차순">▼</button></span><small data-sort-priority="handlerName"></small></div></th>
 
-													<th>
-														<div class="as-list-new-added-th-sort">
-															<span class="as-list-new-added-sort-label">신청일</span>
-															<span class="as-list-new-added-sort-icons">
-																<a class="as-list-new-added-sort-link"
-																	th:classappend="${sortField == 'requestedAt' and sortDir == 'asc'} ? ' as-list-new-added-active' : ''"
-																	th:href="@{/management/asList(
-											                            page=0,
-											                            size=${pageSize},
-											                            handlerId=${selectedHandlerId},
-											                            status=${selectedStatus},
-											                            dateType=${selectedDateType},
-											                            fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-											                            toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
-												    asIdFrom=${selectedAsIdFrom},
-												    asIdTo=${selectedAsIdTo},
-											                            priceFilter=${selectedPriceFilter},
-											                            paymentCollectedFilter=${selectedPaymentCollectedFilter},
-											                            keywordType=${selectedKeywordType},
-											                            keyword=${selectedKeyword},
-											                            sortField='requestedAt',
-											                            sortDir='asc'
-											                       )}">
-																	<i class="fa-solid fa-caret-up"></i>
-																</a>
-																<a class="as-list-new-added-sort-link"
-																	th:classappend="${sortField == 'requestedAt' and sortDir == 'desc'} ? ' as-list-new-added-active' : ''"
-																	th:href="@{/management/asList(
-											                            page=0,
-											                            size=${pageSize},
-											                            handlerId=${selectedHandlerId},
-											                            status=${selectedStatus},
-											                            dateType=${selectedDateType},
-											                            fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-											                            toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
-												    asIdFrom=${selectedAsIdFrom},
-												    asIdTo=${selectedAsIdTo},
-											                            priceFilter=${selectedPriceFilter},
-											                            paymentCollectedFilter=${selectedPaymentCollectedFilter},
-											                            keywordType=${selectedKeywordType},
-											                            keyword=${selectedKeyword},
-											                            sortField='requestedAt',
-											                            sortDir='desc'
-											                       )}">
-																	<i class="fa-solid fa-caret-down"></i>
-																</a>
-															</span>
-														</div>
-													</th>
-													<th>
-														<div class="as-list-new-added-th-sort">
-															<span class="as-list-new-added-sort-label">방문예정일</span>
-															<span class="as-list-new-added-sort-icons">
-																<a class="as-list-new-added-sort-link"
-																	th:classappend="${sortField == 'scheduledDate' and sortDir == 'asc'} ? ' as-list-new-added-active' : ''"
-																	th:href="@{/management/asList(
-													                    page=0,
-													                    size=${pageSize},
-													                    handlerId=${selectedHandlerId},
-													                    status=${selectedStatus},
-													                    dateType=${selectedDateType},
-													                    fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-													                    toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
-												    asIdFrom=${selectedAsIdFrom},
-												    asIdTo=${selectedAsIdTo},
-													                    priceFilter=${selectedPriceFilter},
-													                    paymentCollectedFilter=${selectedPaymentCollectedFilter},
-													                    keywordType=${selectedKeywordType},
-													                    keyword=${selectedKeyword},
-													                    sortField='scheduledDate',
-													                    sortDir='asc'
-													                )}">
-																	<i class="fa-solid fa-caret-up"></i>
-																</a>
-																<a class="as-list-new-added-sort-link"
-																	th:classappend="${sortField == 'scheduledDate' and sortDir == 'desc'} ? ' as-list-new-added-active' : ''"
-																	th:href="@{/management/asList(
-													                    page=0,
-													                    size=${pageSize},
-													                    handlerId=${selectedHandlerId},
-													                    status=${selectedStatus},
-													                    dateType=${selectedDateType},
-													                    fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-													                    toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
-												    asIdFrom=${selectedAsIdFrom},
-												    asIdTo=${selectedAsIdTo},
-													                    priceFilter=${selectedPriceFilter},
-													                    paymentCollectedFilter=${selectedPaymentCollectedFilter},
-													                    keywordType=${selectedKeywordType},
-													                    keyword=${selectedKeyword},
-													                    sortField='scheduledDate',
-													                    sortDir='desc'
-													                )}">
-																	<i class="fa-solid fa-caret-down"></i>
-																</a>
-															</span>
-														</div>
-													</th>
+													<th><div class="as-sort-heading"><span>신청일</span><span class="as-sort-arrows"><button type="button" data-as-sort="requestedAt" data-dir="asc" aria-label="신청일 오름차순">▲</button><button type="button" data-as-sort="requestedAt" data-dir="desc" aria-label="신청일 내림차순">▼</button></span><small data-sort-priority="requestedAt"></small></div></th>
+													<th><div class="as-sort-heading"><span>방문예정일</span><span class="as-sort-arrows"><button type="button" data-as-sort="scheduledDate" data-dir="asc" aria-label="방문예정일 오름차순">▲</button><button type="button" data-as-sort="scheduledDate" data-dir="desc" aria-label="방문예정일 내림차순">▼</button></span><small data-sort-priority="scheduledDate"></small></div></th>
 													<th>최근수정일</th>
 
-													<th>
-														<div class="as-list-new-added-th-sort">
-															<span class="as-list-new-added-sort-label">처리일</span>
-															<span class="as-list-new-added-sort-icons">
-																<a class="as-list-new-added-sort-link"
-																	th:classappend="${sortField == 'asProcessDate' and sortDir == 'asc'} ? ' as-list-new-added-active' : ''"
-																	th:href="@{/management/asList(
-											                            page=0,
-											                            size=${pageSize},
-											                            handlerId=${selectedHandlerId},
-											                            status=${selectedStatus},
-											                            dateType=${selectedDateType},
-											                            fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-											                            toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
-												    asIdFrom=${selectedAsIdFrom},
-												    asIdTo=${selectedAsIdTo},
-											                            priceFilter=${selectedPriceFilter},
-											                            paymentCollectedFilter=${selectedPaymentCollectedFilter},
-											                            keywordType=${selectedKeywordType},
-											                            keyword=${selectedKeyword},
-											                            sortField='asProcessDate',
-											                            sortDir='asc'
-											                       )}">
-																	<i class="fa-solid fa-caret-up"></i>
-																</a>
-																<a class="as-list-new-added-sort-link"
-																	th:classappend="${sortField == 'asProcessDate' and sortDir == 'desc'} ? ' as-list-new-added-active' : ''"
-																	th:href="@{/management/asList(
-											                            page=0,
-											                            size=${pageSize},
-											                            handlerId=${selectedHandlerId},
-											                            status=${selectedStatus},
-											                            dateType=${selectedDateType},
-											                            fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-											                            toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
-												    asIdFrom=${selectedAsIdFrom},
-												    asIdTo=${selectedAsIdTo},
-											                            priceFilter=${selectedPriceFilter},
-											                            paymentCollectedFilter=${selectedPaymentCollectedFilter},
-											                            keywordType=${selectedKeywordType},
-											                            keyword=${selectedKeyword},
-											                            sortField='asProcessDate',
-											                            sortDir='desc'
-											                       )}">
-																	<i class="fa-solid fa-caret-down"></i>
-																</a>
-															</span>
-														</div>
-													</th>
+													<th><div class="as-sort-heading"><span>처리일</span><span class="as-sort-arrows"><button type="button" data-as-sort="asProcessDate" data-dir="asc" aria-label="처리일 오름차순">▲</button><button type="button" data-as-sort="asProcessDate" data-dir="desc" aria-label="처리일 내림차순">▼</button></span><small data-sort-priority="asProcessDate"></small></div></th>
 
 													<th>비용</th>
 													<th>수납상태</th>
 
-													<th>
-														<div class="as-list-new-added-th-sort">
-															<span class="as-list-new-added-sort-label">상태</span>
-															<span class="as-list-new-added-sort-icons">
-																<a class="as-list-new-added-sort-link"
-																	th:classappend="${sortField == 'status' and sortDir == 'asc'} ? ' as-list-new-added-active' : ''"
-																	th:href="@{/management/asList(
-											                            page=0,
-											                            size=${pageSize},
-											                            handlerId=${selectedHandlerId},
-											                            status=${selectedStatus},
-											                            dateType=${selectedDateType},
-											                            fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-											                            toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
-												    asIdFrom=${selectedAsIdFrom},
-												    asIdTo=${selectedAsIdTo},
-											                            priceFilter=${selectedPriceFilter},
-											                            paymentCollectedFilter=${selectedPaymentCollectedFilter},
-											                            keywordType=${selectedKeywordType},
-											                            keyword=${selectedKeyword},
-											                            sortField='status',
-											                            sortDir='asc'
-											                       )}">
-																	<i class="fa-solid fa-caret-up"></i>
-																</a>
-																<a class="as-list-new-added-sort-link"
-																	th:classappend="${sortField == 'status' and sortDir == 'desc'} ? ' as-list-new-added-active' : ''"
-																	th:href="@{/management/asList(
-											                            page=0,
-											                            size=${pageSize},
-											                            handlerId=${selectedHandlerId},
-											                            status=${selectedStatus},
-											                            dateType=${selectedDateType},
-											                            fromDate=${selectedFromDate != null ? #temporals.format(selectedFromDate, 'yyyy-MM-dd') : ''},
-											                            toDate=${selectedToDate != null ? #temporals.format(selectedToDate, 'yyyy-MM-dd') : ''},
-												    asIdFrom=${selectedAsIdFrom},
-												    asIdTo=${selectedAsIdTo},
-											                            priceFilter=${selectedPriceFilter},
-											                            paymentCollectedFilter=${selectedPaymentCollectedFilter},
-											                            keywordType=${selectedKeywordType},
-											                            keyword=${selectedKeyword},
-											                            sortField='status',
-											                            sortDir='desc'
-											                       )}">
-																	<i class="fa-solid fa-caret-down"></i>
-																</a>
-															</span>
-														</div>
-													</th>
+													<th><div class="as-sort-heading"><span>상태</span><span class="as-sort-arrows"><button type="button" data-as-sort="status" data-dir="asc" aria-label="상태 오름차순">▲</button><button type="button" data-as-sort="status" data-dir="desc" aria-label="상태 내림차순">▼</button></span><small data-sort-priority="status"></small></div></th>
 												</tr>
 											</thead>
 
@@ -766,6 +433,7 @@
                         paymentCollectedFilter=${selectedPaymentCollectedFilter},
                         keywordType=${selectedKeywordType},
                         keyword=${selectedKeyword},
+                        sortState=${sortState},
                         sortField=${sortField},
                         sortDir=${sortDir}
                     )}">
@@ -789,6 +457,7 @@
                         paymentCollectedFilter=${selectedPaymentCollectedFilter},
                         keywordType=${selectedKeywordType},
                         keyword=${selectedKeyword},
+                        sortState=${sortState},
                         sortField=${sortField},
                         sortDir=${sortDir}
                     )}">
@@ -814,6 +483,7 @@
                         paymentCollectedFilter=${selectedPaymentCollectedFilter},
                         keywordType=${selectedKeywordType},
                         keyword=${selectedKeyword},
+                        sortState=${sortState},
                         sortField=${sortField},
                         sortDir=${sortDir}
                     )}" th:text="${pageNum + 1}">
@@ -837,6 +507,7 @@
                         paymentCollectedFilter=${selectedPaymentCollectedFilter},
                         keywordType=${selectedKeywordType},
                         keyword=${selectedKeyword},
+                        sortState=${sortState},
                         sortField=${sortField},
                         sortDir=${sortDir}
                     )}">
@@ -860,6 +531,7 @@
                         paymentCollectedFilter=${selectedPaymentCollectedFilter},
                         keywordType=${selectedKeywordType},
                         keyword=${selectedKeyword},
+                        sortState=${sortState},
                         sortField=${sortField},
                         sortDir=${sortDir}
                     )}">
@@ -889,6 +561,7 @@
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
 <script src="/administration/assets/js/page/asKeywordHighlight.js?v=20261103"></script>
+<script src="/administration/assets/js/page/asConsole.js?v=20261104-7"></script>
 </body>
 
 </html>

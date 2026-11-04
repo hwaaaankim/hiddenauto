@@ -56,4 +56,9 @@ public interface AsTaskRepositoryCustom {
             LocalDate startDate, LocalDate endDate,
             String companyKeyword, List<String> provinceNames, String cityName, String districtName,
             String visitTimeSort, String scheduledDateSort, Pageable pageable);
+
+    Page<AsTask> findAdminAsPage(Long handlerId, AsStatus status, String dateType,
+            LocalDateTime start, LocalDateTime end, Long asIdFrom, Long asIdTo,
+            String priceFilter, Boolean paymentCollected, String keywordType, String keyword,
+            String sortState, Pageable pageable);
 }

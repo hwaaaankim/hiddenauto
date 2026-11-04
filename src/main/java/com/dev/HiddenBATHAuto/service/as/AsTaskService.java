@@ -2611,4 +2611,15 @@ public class AsTaskService {
 	    }
 	    return isAsManagementVisibleStatus(status) ? status : null;
 	}
+
+
+    @Transactional(readOnly = true)
+    public Page<AsTask> getAdminAsPage(Long handlerId, AsStatus status, String dateType,
+            LocalDateTime start, LocalDateTime end, Long asIdFrom, Long asIdTo,
+            String priceFilter, Boolean paymentCollected, String keywordType, String keyword,
+            String sortState, Pageable pageable) {
+        return asTaskRepository.findAdminAsPage(handlerId, status, dateType, start, end,
+                asIdFrom, asIdTo, priceFilter, paymentCollected, keywordType, keyword, sortState, pageable);
+    }
+
 }
