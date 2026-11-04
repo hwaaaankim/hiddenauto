@@ -50,6 +50,7 @@ public record ManagementOrderKeyword(String pattern, Set<String> fields, boolean
         left join t.requestedBy requester
         left join requester.company company
         left join o.productCategory category
+        left join o.deliveryMethod filterMethod
         where (:orderIdFrom is null or o.id >= :orderIdFrom)
           and (:orderIdTo is null or o.id <= :orderIdTo)
           and (:productName is null or lower(filterItem.productName) like lower(concat('%',:productName,'%')))
@@ -57,6 +58,7 @@ public record ManagementOrderKeyword(String pattern, Set<String> fields, boolean
         """ + "(:keywordAnd = false and ((:searchCompany = true and " + COMPANY + ") or (:searchRequester = true and " + REQUESTER + ") or (:searchProduct = true and " + PRODUCT + ") or (:searchAddress = true and " + ADDRESS + "))) or "
         + "(:keywordAnd = true and (:searchCompany = false or " + COMPANY + ") and (:searchRequester = false or " + REQUESTER + ") and (:searchProduct = false or " + PRODUCT + ") and (:searchAddress = false or " + ADDRESS + "))) " + """
           and (:productCategoryId is null or category.id = :productCategoryId)
+          and (:deliveryMethodId is null or filterMethod.id = :deliveryMethodId)
           and (:mirrorCuttingOnly = false or o.mirrorCuttingProduct = true)
           and (:status is null or o.status = :status)
           and (:standard is null or o.standard = :standard)

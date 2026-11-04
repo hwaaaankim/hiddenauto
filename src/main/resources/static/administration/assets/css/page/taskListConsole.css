@@ -144,3 +144,15 @@
   background-size: 10px 7px;
   background-repeat: no-repeat;
 }
+
+/* Delivery is an independent AND filter; keep the second row balanced. */
+.order-console .task-list-filter-method { grid-column:span 2!important; }
+.order-console .task-list-filter-standard,.order-console .task-list-filter-page-size { grid-column:span 1!important; }
+.order-method-match { display:block; width:fit-content; margin-top:4px; padding:2px 6px; border:1px solid #dce6f2; border-radius:4px; color:#536b85; font-size:11px; background:#f5f8fc; }
+@media(max-width:1199px) {
+ .order-console .task-list-filter-status,.order-console .task-list-filter-standard,.order-console .task-list-filter-method,.order-console .task-list-filter-page-size { grid-column:span 3!important; }
+ .order-console .task-list-filter-actions { grid-column:span 12!important; }
+}
+@media(max-width:650px) {
+ .order-console .task-list-filter-status,.order-console .task-list-filter-standard,.order-console .task-list-filter-method,.order-console .task-list-filter-page-size { grid-column:span 6!important; }
+}

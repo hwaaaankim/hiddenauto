@@ -144,6 +144,7 @@ public class AmountExcelAdminController {
     public void downloadSalesVoucher(@RequestParam(required = false) String keyword,
                          @RequestParam(required = false) String keywordFields,
                          @RequestParam(required = false) String keywordMatch,
+            @RequestParam(required = false) Long deliveryMethodId,
                                      @RequestParam(required = false) String orderIdFrom,
                                      @RequestParam(required = false) String orderIdTo,
                                      @RequestParam(required = false) String orderId,
@@ -171,7 +172,7 @@ public class AmountExcelAdminController {
                 standard,
                 sortField,
                 sortDir,
-                keywordFields, keywordMatch, response
+                keywordFields, keywordMatch, deliveryMethodId, response
         );
     }
 }

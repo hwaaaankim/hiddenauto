@@ -49,7 +49,7 @@ kakao:
   throttle-ms: 120
 
 juso:
-  confm-key: "devU01TX0FVVEgyMDI2MDExMDEzMDkyNjExNzQyMDk="
+  confm-key: "devU01TX0FVVEgyMDI2MTEwNDEyMjk0MDEyMDk5OTI="
   base-url: https://business.juso.go.kr
   first-sort: location
   throttle-ms: 0

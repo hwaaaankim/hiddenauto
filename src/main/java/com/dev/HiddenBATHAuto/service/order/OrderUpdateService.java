@@ -1023,6 +1023,10 @@ public class OrderUpdateService {
 
 		try {
 			orderItem.setOptionJson(objectMapper.writeValueAsString(normalizedMap));
+            String productName = normalizedMap.get("제품명");
+            if (productName != null && !productName.isBlank()) {
+                orderItem.setProductName(productName.trim());
+            }
 
 			String color = normalizedMap.get("색상");
 			if (color != null && !color.isBlank()) {

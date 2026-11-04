@@ -204,6 +204,24 @@ public class AmountSalesVoucherExportService {
                                      String sortField,
                                      String sortDir,
                                      String keywordFields, String keywordMatch, HttpServletResponse response) throws IOException {
+        downloadSalesVoucher(keyword, orderIdFrom, orderIdTo, orderId, productName, dateCriteria, startDate, endDate, productCategoryId, orderStatus, standard, sortField, sortDir, keywordFields, keywordMatch, null, response);
+    }
+
+    @Transactional(readOnly = true)
+    public void downloadSalesVoucher(String keyword,
+                                     String orderIdFrom,
+                                     String orderIdTo,
+                                     String orderId,
+                                     String productName,
+                                     String dateCriteria,
+                                     String startDate,
+                                     String endDate,
+                                     String productCategoryId,
+                                     String orderStatus,
+                                     String standard,
+                                     String sortField,
+                                     String sortDir,
+                                     String keywordFields, String keywordMatch, Long deliveryMethodId, HttpServletResponse response) throws IOException {
         String finalDateCriteria = normalizeDateCriteria(dateCriteria);
         DateRange range = buildDateRangeForCriteria(finalDateCriteria, startDate, endDate);
         Long finalOrderId = parsePositiveLongOrNull(orderId);
@@ -237,7 +255,7 @@ public class AmountSalesVoucherExportService {
                 categoryId,
                 mirrorCuttingOnly,
                 status,
-                standardBool, keywordFields, keywordMatch);
+                standardBool, keywordFields, keywordMatch, deliveryMethodId);
 
         List<AmountCustomerMaster> customers = customerRepository.findAll();
         List<AmountItemMaster> items = itemRepository.findAll(Sort.by(Sort.Direction.ASC, "itemName"));

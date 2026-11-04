@@ -129,10 +129,9 @@ public class OrderExcelAddressParser {
         }
 
         RoadAddressParts parts = splitRoadCoreAndDetail(addressPart);
-        String originalFullAddress = firstNonBlank(result.getAddressPart(), result.getRaw(), addressPart);
         String originalRoadAddress = firstNonBlank(result.getOriginalRoadAddress(), result.getRoadAddress(), parts.core(), addressPart);
         String existingDetailAddress = firstNonBlank(result.getDetailAddress(), parts.detail(), extractDetail(addressPart, originalRoadAddress));
-        Optional<ResolvedExternalAddress> resolved = externalAddressSearchService.resolve(addressPart);
+        Optional<ResolvedExternalAddress> resolved = externalAddressSearchService.resolve(parts.core());
 
         if (resolved.isPresent()) {
             ResolvedExternalAddress external = resolved.get();
@@ -140,19 +139,8 @@ public class OrderExcelAddressParser {
             String roadAddress = firstNonBlank(external.getRoadAddress(), parts.core(), addressPart);
             String detailAddress = firstNonBlank(existingDetailAddress, extractDetail(addressPart, roadAddress), parts.detail());
 
-            // 지번/약식 주소를 외부 API로 도로명 주소로 보정하는 경우,
-            // API 결과는 도로명까지만 반환되고 동/호수·건물명 같은 상세주소가 사라질 수 있습니다.
-            // 상세주소를 정확히 분리하지 못했더라도 원문에 상세주소로 보이는 정보가 있으면
-            // 원문 주소 전체를 상세주소 fallback으로 보존합니다.
-            // 예) 성동구 하왕십리동 992, 무학현대 103동 803호
-            //     -> roadAddress=서울 성동구 무학봉길 49
-            //     -> detailAddress=성동구 하왕십리동 992, 무학현대 103동 803호
-            if (detailAddress.isBlank()
-                    && !sameAddressText(roadAddress, originalFullAddress)
-                    && shouldKeepOriginalAddressAsDetail(originalFullAddress)) {
-                detailAddress = originalFullAddress;
-            }
-
+            // 원문은 별도 원본 필드에 보존합니다. 도로명으로 변환되었다는 이유로
+            // 지번 원문 전체를 상세주소에 복사하지 않습니다.
             String building = external.getBuildingName();
             if (building != null && !building.isBlank() && !detailAddress.contains(building)) detailAddress = joinDetails(detailAddress, "(" + building + ")");
             detailAddress = normalizeDetailAddress(roadAddress, detailAddress);
@@ -440,15 +428,18 @@ public class OrderExcelAddressParser {
             return new RoadAddressParts("", "");
         }
 
-        Matcher matcher = ROAD_CORE_PATTERN.matcher(source);
-        if (matcher.find()) {
-            String core = normalize(matcher.group(1));
-            String detail = normalizeDetailAddress(core, matcher.group(2));
-            return new RoadAddressParts(core, detail);
-        }
-
+        Matcher road = ROAD_CORE_PATTERN.matcher(source);
         Matcher jibun = Pattern.compile("^(.+?(?:동|읍|면|리)\\s+산?\\d+(?:-\\d+)?)(.*)$").matcher(source);
-        if (jibun.matches()) return new RoadAddressParts(normalize(jibun.group(1)), trimLeadingAddressSeparators(normalize(jibun.group(2))));
+        boolean hasRoad = road.matches();
+        boolean hasJibun = jibun.matches();
+        // 먼저 완성되는 주소를 기준으로 나머지를 상세주소로 보존합니다.
+        if (hasJibun && (!hasRoad || jibun.end(1) < road.end(1))) {
+            return new RoadAddressParts(normalize(jibun.group(1)), trimLeadingAddressSeparators(normalize(jibun.group(2))));
+        }
+        if (hasRoad) {
+            String core = normalize(road.group(1));
+            return new RoadAddressParts(core, normalizeDetailAddress(core, road.group(2)));
+        }
         return new RoadAddressParts(source, "");
     }
 
@@ -547,25 +538,6 @@ public class OrderExcelAddressParser {
         return !text.isBlank() && DETAIL_HINT_PATTERN.matcher(text).matches();
     }
 
-
-    private boolean shouldKeepOriginalAddressAsDetail(String value) {
-        String text = normalize(value);
-        if (text.isBlank()) {
-            return false;
-        }
-
-        if (looksLikeDetailText(text)) {
-            return true;
-        }
-
-        // 엑셀 원문에서 콤마, 세미콜론, 파이프, 괄호 등으로 주소와 상세정보를 구분한 경우도 보존합니다.
-        if (text.matches(".*[,;|｜、，].*")) {
-            return true;
-        }
-
-        // 건물명 + 숫자 조합처럼 명확한 동/호 표기가 없어도 상세주소일 가능성이 높은 표현을 보존합니다.
-        return text.matches(".*[가-힣]{2,}\\s*\\d{1,4}[-호]?\\d{0,4}.*");
-    }
 
     private String joinDetails(String left, String right) {
         String a = normalize(left);

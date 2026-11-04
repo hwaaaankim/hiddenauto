@@ -425,8 +425,11 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         return findFilteredOrdersWithOrderIdRangeAndProductName(keyword, orderIdFrom, orderIdTo, productName, dateCriteria, startDateTime, endDateTime, productCategoryId, mirrorCuttingOnly, status, standard, null, null, pageable);
     }
     default Page<Order> findFilteredOrdersWithOrderIdRangeAndProductName(String keyword, Long orderIdFrom, Long orderIdTo, String productName, String dateCriteria, LocalDateTime startDateTime, LocalDateTime endDateTime, Long productCategoryId, boolean mirrorCuttingOnly, OrderStatus status, Boolean standard, String keywordFields, String keywordMatch, Pageable pageable) {
+        return findFilteredOrdersWithOrderIdRangeAndProductName(keyword, orderIdFrom, orderIdTo, productName, dateCriteria, startDateTime, endDateTime, productCategoryId, mirrorCuttingOnly, status, standard, keywordFields, keywordMatch, null, pageable);
+    }
+    default Page<Order> findFilteredOrdersWithOrderIdRangeAndProductName(String keyword, Long orderIdFrom, Long orderIdTo, String productName, String dateCriteria, LocalDateTime startDateTime, LocalDateTime endDateTime, Long productCategoryId, boolean mirrorCuttingOnly, OrderStatus status, Boolean standard, String keywordFields, String keywordMatch, Long deliveryMethodId, Pageable pageable) {
         var f = com.dev.HiddenBATHAuto.service.order.ManagementOrderKeyword.of(keyword, keywordFields, keywordMatch);
-        return findManagementOrderPage(f.pattern(), f.company(), f.requester(), f.product(), f.address(), f.and(), orderIdFrom, orderIdTo, productName, dateCriteria, startDateTime, endDateTime, productCategoryId, mirrorCuttingOnly, status, standard, pageable);
+        return findManagementOrderPage(f.pattern(), f.company(), f.requester(), f.product(), f.address(), f.and(), orderIdFrom, orderIdTo, productName, dateCriteria, startDateTime, endDateTime, productCategoryId, mirrorCuttingOnly, status, standard, deliveryMethodId, pageable);
     }
     @EntityGraph(attributePaths = {"task", "task.requestedBy", "task.requestedBy.company", "orderItem", "deliveryMethod", "productCategory", "assignedDeliveryHandler", "checkStatus"})
     @Query(com.dev.HiddenBATHAuto.service.order.ManagementOrderKeyword.QUERY)
@@ -438,7 +441,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         @Param("productName") String productName, @Param("dateCriteria") String dateCriteria,
         @Param("startDateTime") LocalDateTime startDateTime, @Param("endDateTime") LocalDateTime endDateTime,
         @Param("productCategoryId") Long productCategoryId, @Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
-        @Param("status") OrderStatus status, @Param("standard") Boolean standard, Pageable pageable);
+        @Param("status") OrderStatus status, @Param("standard") Boolean standard, @Param("deliveryMethodId") Long deliveryMethodId, Pageable pageable);
 
 	@Query("""
 			    SELECT o FROM Order o
@@ -598,8 +601,11 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         return findFilteredOrdersForExcelWithOrderIdRangeAndProductName(keyword, orderIdFrom, orderIdTo, productName, dateCriteria, startDateTime, endDateTime, productCategoryId, mirrorCuttingOnly, status, standard, null, null);
     }
     default List<Order> findFilteredOrdersForExcelWithOrderIdRangeAndProductName(String keyword, Long orderIdFrom, Long orderIdTo, String productName, String dateCriteria, LocalDateTime startDateTime, LocalDateTime endDateTime, Long productCategoryId, boolean mirrorCuttingOnly, OrderStatus status, Boolean standard, String keywordFields, String keywordMatch) {
+        return findFilteredOrdersForExcelWithOrderIdRangeAndProductName(keyword, orderIdFrom, orderIdTo, productName, dateCriteria, startDateTime, endDateTime, productCategoryId, mirrorCuttingOnly, status, standard, keywordFields, keywordMatch, null);
+    }
+    default List<Order> findFilteredOrdersForExcelWithOrderIdRangeAndProductName(String keyword, Long orderIdFrom, Long orderIdTo, String productName, String dateCriteria, LocalDateTime startDateTime, LocalDateTime endDateTime, Long productCategoryId, boolean mirrorCuttingOnly, OrderStatus status, Boolean standard, String keywordFields, String keywordMatch, Long deliveryMethodId) {
         var f = com.dev.HiddenBATHAuto.service.order.ManagementOrderKeyword.of(keyword, keywordFields, keywordMatch);
-        return findManagementOrderExport(f.pattern(), f.company(), f.requester(), f.product(), f.address(), f.and(), orderIdFrom, orderIdTo, productName, dateCriteria, startDateTime, endDateTime, productCategoryId, mirrorCuttingOnly, status, standard);
+        return findManagementOrderExport(f.pattern(), f.company(), f.requester(), f.product(), f.address(), f.and(), orderIdFrom, orderIdTo, productName, dateCriteria, startDateTime, endDateTime, productCategoryId, mirrorCuttingOnly, status, standard, deliveryMethodId);
     }
     @EntityGraph(attributePaths = {"task", "task.requestedBy", "task.requestedBy.company", "orderItem", "deliveryMethod", "productCategory", "assignedDeliveryHandler", "checkStatus"})
     @Query(com.dev.HiddenBATHAuto.service.order.ManagementOrderKeyword.QUERY + " order by o.preferredDeliveryDate desc, o.id desc")
@@ -611,7 +617,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         @Param("productName") String productName, @Param("dateCriteria") String dateCriteria,
         @Param("startDateTime") LocalDateTime startDateTime, @Param("endDateTime") LocalDateTime endDateTime,
         @Param("productCategoryId") Long productCategoryId, @Param("mirrorCuttingOnly") boolean mirrorCuttingOnly,
-        @Param("status") OrderStatus status, @Param("standard") Boolean standard);
+        @Param("status") OrderStatus status, @Param("standard") Boolean standard, @Param("deliveryMethodId") Long deliveryMethodId);
 
 	@Query("""
 			    SELECT o FROM Order o

@@ -6,7 +6,7 @@
 <head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
 
 <body class="twocolumn-panel">
-<link rel="stylesheet" href="/administration/assets/css/page/taskListConsole.css?v=20261103-manager-6">
+<link rel="stylesheet" href="/administration/assets/css/page/taskListConsole.css?v=20261104-manager-9">
 	<div id="admin-task-list-second-loading-overlay" class="admin-task-list-second-loading-overlay is-active"
 		aria-hidden="false">
 		<div class="admin-task-list-second-loading-box">
@@ -62,7 +62,7 @@
 													id="task-list-site-statement-btn" disabled title="현장명세서"><i class="ri-printer-line" aria-hidden="true"></i><span>현장명세서</span></button><button type="button" class="btn order-tool order-tool--print"
 													id="task-list-parcel-statement-btn" disabled title="택배명세서"><i class="ri-printer-line" aria-hidden="true"></i><span>택배명세서</span></button><a th:href="@{/management/nonStandardOrder/print(
                                                     keyword=${keyword},
-keywordFields=${keywordFields},keywordMatch=${keywordMatch},dateMode=${dateRangeMode ? 'range' : 'single'},
+keywordFields=${keywordFields},keywordMatch=${keywordMatch},deliveryMethodId=${deliveryMethodId},dateMode=${dateRangeMode ? 'range' : 'single'},
                                                     orderIdFrom=${orderIdFrom},
                                                     orderIdTo=${orderIdTo},
                                                     productName=${productName},
@@ -77,7 +77,7 @@ keywordFields=${keywordFields},keywordMatch=${keywordMatch},dateMode=${dateRange
                                                     sortDir=${sortDir}
                                                 )}" class="btn order-tool order-tool--print" target="_blank" rel="noopener" title="바로출력"><i class="ri-printer-line" aria-hidden="true"></i><span>바로출력</span></a><a th:href="@{/management/nonStandardOrder/excel(
                                                     keyword=${keyword},
-keywordFields=${keywordFields},keywordMatch=${keywordMatch},dateMode=${dateRangeMode ? 'range' : 'single'},
+keywordFields=${keywordFields},keywordMatch=${keywordMatch},deliveryMethodId=${deliveryMethodId},dateMode=${dateRangeMode ? 'range' : 'single'},
                                                     orderIdFrom=${orderIdFrom},
                                                     orderIdTo=${orderIdTo},
                                                     productName=${productName},
@@ -93,7 +93,7 @@ keywordFields=${keywordFields},keywordMatch=${keywordMatch},dateMode=${dateRange
                                                     size=${pageSize}
                                                 )}" class="btn order-tool order-tool--download" title="엑셀"><i class="ri-download-2-line" aria-hidden="true"></i><span>엑셀</span></a><a sec:authorize="hasAuthority('ROLE_ADMIN')" th:href="@{/admin/amount-excel/sales-voucher-download(
 											        keyword=${keyword},
-keywordFields=${keywordFields},keywordMatch=${keywordMatch},dateMode=${dateRangeMode ? 'range' : 'single'},
+keywordFields=${keywordFields},keywordMatch=${keywordMatch},deliveryMethodId=${deliveryMethodId},dateMode=${dateRangeMode ? 'range' : 'single'},
 												        orderIdFrom=${orderIdFrom},
 												        orderIdTo=${orderIdTo},
 												        orderId=${orderId},
@@ -109,7 +109,7 @@ keywordFields=${keywordFields},keywordMatch=${keywordMatch},dateMode=${dateRange
 											   )}" class="btn order-tool order-tool--download" title="매출전표"><i class="ri-download-2-line" aria-hidden="true"></i><span>매출전표</span></a><a sec:authorize="hasAuthority('ROLE_ADMIN')"
 													th:href="@{/admin/order-excel-upload/download(
                                                     keyword=${keyword},
-keywordFields=${keywordFields},keywordMatch=${keywordMatch},dateMode=${dateRangeMode ? 'range' : 'single'},
+keywordFields=${keywordFields},keywordMatch=${keywordMatch},deliveryMethodId=${deliveryMethodId},dateMode=${dateRangeMode ? 'range' : 'single'},
                                                     orderIdFrom=${orderIdFrom},
                                                     orderIdTo=${orderIdTo},
                                                     orderId=${orderId},
@@ -219,7 +219,8 @@ keywordFields=${keywordFields},keywordMatch=${keywordMatch},dateMode=${dateRange
 												</div>
 											</div>
 
-											<div class="col-xxl-2 col-sm-3 task-list-filter-page-size">
+											<div class="task-list-filter-method"><label class="form-label" for="order-delivery-filter">배송수단</label><select class="form-select" id="order-delivery-filter" name="deliveryMethodId"><option value="">전체</option><option th:each="method : ${deliveryMethods}" th:value="${method.id}" th:text="${method.methodName}" th:selected="${deliveryMethodId == method.id}"></option></select></div>
+<div class="col-xxl-2 col-sm-3 task-list-filter-page-size">
 												<label class="form-label">페이지 사이즈</label>
 												<div class="input-light">
 													<select class="form-control" id="task-list-added-pageSize"
@@ -471,7 +472,7 @@ keywordFields=${keywordFields},keywordMatch=${keywordMatch},dateMode=${dateRange
 																	class="admin-task-list-second-product-name admin-task-list-second-product-highlight-target"
 																	th:text="${row.productName}">
 																	제품명
-																</span><span class="order-address-hit" data-keyword-address th:attr="data-keyword-address=${row.deliveryAddressSearchText}" hidden></span></div>
+																</span><small class="order-method-match" th:if="${deliveryMethodId != null}" th:text="|배송수단: ${row.deliveryMethodName}|"></small><span class="order-address-hit" data-keyword-address th:attr="data-keyword-address=${row.deliveryAddressSearchText}" hidden></span></div>
 
 																<!-- 제품명을 제외한 제품코드/시리즈/사이즈/색상/수량 -->
 																<span class="admin-task-list-second-product-summary"
@@ -556,7 +557,7 @@ keywordFields=${keywordFields},keywordMatch=${keywordMatch},dateMode=${dateRange
                                                                 page=0,
                                                                 size=${pageSize},
                                                                 keyword=${keyword},
-keywordFields=${keywordFields},keywordMatch=${keywordMatch},dateMode=${dateRangeMode ? 'range' : 'single'},
+keywordFields=${keywordFields},keywordMatch=${keywordMatch},deliveryMethodId=${deliveryMethodId},dateMode=${dateRangeMode ? 'range' : 'single'},
                                                                 orderIdFrom=${orderIdFrom},
                                                                 orderIdTo=${orderIdTo},
                                                                 productName=${productName},
@@ -580,7 +581,7 @@ keywordFields=${keywordFields},keywordMatch=${keywordMatch},dateMode=${dateRange
                                                                 page=${prevPage},
                                                                 size=${pageSize},
                                                                 keyword=${keyword},
-keywordFields=${keywordFields},keywordMatch=${keywordMatch},dateMode=${dateRangeMode ? 'range' : 'single'},
+keywordFields=${keywordFields},keywordMatch=${keywordMatch},deliveryMethodId=${deliveryMethodId},dateMode=${dateRangeMode ? 'range' : 'single'},
                                                                 orderIdFrom=${orderIdFrom},
                                                                 orderIdTo=${orderIdTo},
                                                                 productName=${productName},
@@ -605,7 +606,7 @@ keywordFields=${keywordFields},keywordMatch=${keywordMatch},dateMode=${dateRange
                                                                 page=${i - 1},
                                                                 size=${pageSize},
                                                                 keyword=${keyword},
-keywordFields=${keywordFields},keywordMatch=${keywordMatch},dateMode=${dateRangeMode ? 'range' : 'single'},
+keywordFields=${keywordFields},keywordMatch=${keywordMatch},deliveryMethodId=${deliveryMethodId},dateMode=${dateRangeMode ? 'range' : 'single'},
                                                                 orderIdFrom=${orderIdFrom},
                                                                 orderIdTo=${orderIdTo},
                                                                 productName=${productName},
@@ -629,7 +630,7 @@ keywordFields=${keywordFields},keywordMatch=${keywordMatch},dateMode=${dateRange
                                                                 page=${nextPage},
                                                                 size=${pageSize},
                                                                 keyword=${keyword},
-keywordFields=${keywordFields},keywordMatch=${keywordMatch},dateMode=${dateRangeMode ? 'range' : 'single'},
+keywordFields=${keywordFields},keywordMatch=${keywordMatch},deliveryMethodId=${deliveryMethodId},dateMode=${dateRangeMode ? 'range' : 'single'},
                                                                 orderIdFrom=${orderIdFrom},
                                                                 orderIdTo=${orderIdTo},
                                                                 productName=${productName},
@@ -653,7 +654,7 @@ keywordFields=${keywordFields},keywordMatch=${keywordMatch},dateMode=${dateRange
                                                                 page=${lastPage},
                                                                 size=${pageSize},
                                                                 keyword=${keyword},
-keywordFields=${keywordFields},keywordMatch=${keywordMatch},dateMode=${dateRangeMode ? 'range' : 'single'},
+keywordFields=${keywordFields},keywordMatch=${keywordMatch},deliveryMethodId=${deliveryMethodId},dateMode=${dateRangeMode ? 'range' : 'single'},
                                                                 orderIdFrom=${orderIdFrom},
                                                                 orderIdTo=${orderIdTo},
                                                                 productName=${productName},
@@ -1150,10 +1151,10 @@ keywordFields=${keywordFields},keywordMatch=${keywordMatch},dateMode=${dateRange
 			alert(message);
 		});
 	</script>
-	<script src="/administration/assets/js/page/taskList.js?v=20261103-manager-4"></script>
+	<script src="/administration/assets/js/page/taskList.js?v=20261104-manager-9"></script>
 	<script src="/administration/assets/js/page/taskListOrderEditExtension.js"></script>
 
-<script src="/administration/assets/js/page/adminOrderManagement.js?v=20261103-manager-4"></script>
+<script src="/administration/assets/js/page/adminOrderManagement.js?v=20261104-manager-9"></script>
 <script src="/administration/assets/js/page/taskListConsole.js?v=20261103-manager-4"></script>
 </body>
 

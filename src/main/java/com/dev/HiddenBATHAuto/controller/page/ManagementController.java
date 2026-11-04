@@ -266,6 +266,7 @@ public class ManagementController {
 	public String nonStandardTaskList(@RequestParam(required = false, defaultValue = "") String keyword,
             @RequestParam(required = false) String keywordFields,
             @RequestParam(required = false) String keywordMatch,
+            @RequestParam(required = false) Long deliveryMethodId,
 			@RequestParam(required = false) String orderIdFrom,
 			@RequestParam(required = false) String orderIdTo,
 			@RequestParam(required = false) String orderId,
@@ -331,7 +332,7 @@ public class ManagementController {
 				mirrorCuttingOnly,
 				statusEnum,
 				standardBool,
-                keywordFields, keywordMatch,
+                keywordFields, keywordMatch, deliveryMethodId,
 				sortedPageable
 		);
 
@@ -385,7 +386,8 @@ public class ManagementController {
 		 * 상세 수정용 배송수단/회사/주소 데이터는 order-detail-fragment에서 내려갑니다.
 		 * 배송팀 멤버는 고객 발주 일괄 컨펌 모달의 담당자 선택지로 사용하므로 활성 멤버만 제공합니다.
 		 */
-		model.addAttribute("deliveryMethods", List.of());
+		model.addAttribute("deliveryMethods", deliveryMethodRepository.findAll());
+        model.addAttribute("deliveryMethodId", deliveryMethodId);
 		model.addAttribute("deliveryTeamMembers",
 				memberRepository.findByTeam_NameAndEnabledTrueOrderByNameAsc("배송팀"));
 		model.addAttribute("companyOptions", List.of());
@@ -455,6 +457,7 @@ public class ManagementController {
 			@RequestParam(required = false, defaultValue = "") String keyword,
             @RequestParam(required = false) String keywordFields,
             @RequestParam(required = false) String keywordMatch,
+            @RequestParam(required = false) Long deliveryMethodId,
 			@RequestParam(required = false) String orderIdFrom,
 			@RequestParam(required = false) String orderIdTo,
 			@RequestParam(required = false) String orderId,
@@ -505,7 +508,7 @@ public class ManagementController {
 				mirrorCuttingOnly,
 				statusEnum,
 				standardBool,
-                keywordFields, keywordMatch,
+                keywordFields, keywordMatch, deliveryMethodId,
 				modalPageable
 		);
 
@@ -705,6 +708,7 @@ public class ManagementController {
 	public String nonStandardTaskListBulkFragment(@RequestParam(required = false, defaultValue = "") String keyword,
             @RequestParam(required = false) String keywordFields,
             @RequestParam(required = false) String keywordMatch,
+            @RequestParam(required = false) Long deliveryMethodId,
 			@RequestParam(required = false) String orderIdFrom,
 			@RequestParam(required = false) String orderIdTo,
 			@RequestParam(required = false) String orderId,
@@ -759,7 +763,7 @@ public class ManagementController {
 				mirrorCuttingOnly,
 				statusEnum,
 				standardBool,
-                keywordFields, keywordMatch,
+                keywordFields, keywordMatch, deliveryMethodId,
 				sortedPageable
 		);
 
@@ -1060,6 +1064,7 @@ public class ManagementController {
 			@RequestParam(required = false) String keyword,
             @RequestParam(required = false) String keywordFields,
             @RequestParam(required = false) String keywordMatch,
+            @RequestParam(required = false) Long deliveryMethodId,
 			@RequestParam(required = false) String orderIdFrom,
 			@RequestParam(required = false) String orderIdTo,
 			@RequestParam(required = false) String orderId,
@@ -1099,7 +1104,7 @@ public class ManagementController {
 				mirrorCuttingOnly,
 				status,
 				standardBool,
-                keywordFields, keywordMatch
+                keywordFields, keywordMatch, deliveryMethodId
 		);
 
 		List<NonStandardTaskListSortCriterion> sortCriteria =
@@ -1130,6 +1135,7 @@ public class ManagementController {
 			@RequestParam(required = false) String keyword,
             @RequestParam(required = false) String keywordFields,
             @RequestParam(required = false) String keywordMatch,
+            @RequestParam(required = false) Long deliveryMethodId,
 			@RequestParam(required = false) String orderIdFrom,
 			@RequestParam(required = false) String orderIdTo,
 			@RequestParam(required = false) String orderId,
@@ -1170,7 +1176,7 @@ public class ManagementController {
 				mirrorCuttingOnly,
 				status,
 				standardBool,
-                keywordFields, keywordMatch
+                keywordFields, keywordMatch, deliveryMethodId
 		);
 
 		List<NonStandardTaskListSortCriterion> sortCriteria =

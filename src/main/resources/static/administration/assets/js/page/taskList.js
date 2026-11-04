@@ -274,7 +274,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			"orderIdTo",
 			"orderId",
 			"productName",
-            "keywordFields", "keywordMatch", "dateMode",
+            "keywordFields", "keywordMatch", "deliveryMethodId", "dateMode",
 			"dateCriteria",
 			"startDate",
 			"endDate",

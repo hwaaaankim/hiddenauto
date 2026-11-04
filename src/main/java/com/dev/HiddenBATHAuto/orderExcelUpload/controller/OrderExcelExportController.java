@@ -26,6 +26,7 @@ public class OrderExcelExportController {
     public void download(@RequestParam(required = false) String keyword,
                          @RequestParam(required = false) String keywordFields,
                          @RequestParam(required = false) String keywordMatch,
+            @RequestParam(required = false) Long deliveryMethodId,
                          @RequestParam(required = false) String orderIdFrom,
                          @RequestParam(required = false) String orderIdTo,
                          @RequestParam(required = false) String orderId,
@@ -42,7 +43,7 @@ public class OrderExcelExportController {
         try {
             exportService.download(keyword, orderIdFrom, orderIdTo, orderId, productName,
                     dateCriteria, startDate, endDate, productCategoryId, orderStatus, standard,
-                    sortField, sortDir, keywordFields, keywordMatch, response);
+                    sortField, sortDir, keywordFields, keywordMatch, deliveryMethodId, response);
         } catch (IllegalArgumentException | IllegalStateException ex) {
             // Generation/validation finishes before setting download headers or writing bytes.
             // Return the order-specific correction message if a stored value cannot be represented.
