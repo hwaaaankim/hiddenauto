@@ -6,6 +6,44 @@
     description: "저장된 제품 이미지 중 가장 먼저 등록된 이미지가 고객 제품 카드에 표시됩니다. 대표를 교체하면 남아 있는 이전 이미지가 대표가 될 수 있으므로 저장 후 확인하세요. 대표이미지 한 장만 유지하면 해당 이미지가 표시됩니다. 질문·옵션 자료는 해당 그룹·옵션 또는 비규격 프로세스에 등록하세요.",
     saveLabel,
   });
+  S.showCompositionReview = function (root, saved) {
+    const review = saved.compositionReview;
+    if (!review || (!review.processRequired && !(review.issues || []).length)) return;
+    const blocked = review.outcome === "BLOCKED", kept = review.outcome === "KEPT_ORDER";
+    const summary = blocked
+      ? "구성 변경을 저장하지 않았습니다. 기존 구성·질문·분기는 유지됩니다."
+      : kept
+        ? "요청한 순서는 적용하지 않았습니다. 기존 질문 순서를 유지하고 새 그룹은 마지막에 추가했습니다."
+        : saved.status === "DRAFT"
+          ? "요청한 구성과 순서를 등록중으로 저장했습니다. 질문 상세 설정은 비규격 프로세스에서 이어서 완료해 주세요."
+          : "구성과 순서를 저장했습니다. 아래 검증 안내를 확인해 주세요.";
+    const issues = review.issues || [];
+    const knownKeys = new Set((saved.process?.questions || []).map((q) => q.key));
+    const focus = issues.map((issue) => issue.target).find((key) => key && knownKeys.has(key));
+    const url = "/admin/product-master/products/" + saved.id + "/process" + (focus ? "?question=" + encodeURIComponent(focus) : "");
+    S.$("[data-composition-review]", root)?.remove();
+    const panel = document.createElement("section");
+    panel.className = "pms-help";
+    panel.setAttribute("data-composition-review", review.outcome);
+    panel.setAttribute("role", "status");
+    panel.innerHTML = `<strong>${S.e(summary)}</strong><p>${review.existingFlowValidated
+      ? (review.pendingGroupIds?.length
+          ? "기존 질문 흐름의 전체 검증을 완료했습니다. 새 질문은 답변·입력필드·필요한 분기를 설정한 뒤 최종 전체 검증을 받아야 합니다."
+          : "저장되는 기존 질문 흐름의 전체 검증을 완료했습니다. 아래 안내도 함께 확인해 주세요.")
+      : "기존 흐름의 전체 검증이 완료된 상태가 아닙니다. 표시된 원인을 비규격 프로세스에서 확인해 주세요."}</p>${issues.length
+      ? `<details open><summary>확인할 내용 ${issues.length}건</summary><ul>${issues.map((issue) => `<li>${S.e(issue.location ? issue.location + ": " : "")}${S.e(issue.message)}</li>`).join("")}</ul></details>` : ""}<div class="pms-actions"><a class="pms-button" href="${S.e(url)}">비규격 프로세스에서 상세 수정</a></div>`;
+    root.prepend(panel);
+    if (review.processRequired) {
+      const reasons = issues.slice(0, 8).map((issue) => (issue.location ? issue.location + ": " : "") + issue.message).join("\n");
+      const more = issues.length > 8 ? "\n나머지 안내는 구성 화면의 검증 결과에서 확인할 수 있습니다." : "";
+      if (window.confirm(summary + (reasons ? "\n\n" + reasons + more : "")
+          + (blocked ? "\n\n이동하면 현재 화면의 미저장 구성 변경은 반영되지 않습니다." : "")
+          + "\n\n비규격 프로세스 화면으로 이동하여 상세 설정을 계속하시겠습니까?")) {
+        S.dirty = false;
+        location.href = url;
+      }
+    }
+  };
   S.pricingStatus = function (status) {
     if (!status) return S.badge("가격 상태 확인 실패", "amber");
     return S.badge(status.registered ? (status.stale ? "가격식 재검증 필요" : "가격식 등록됨") : "가격식 미등록", status.stale ? "red" : status.registered ? "green" : "amber");
@@ -507,6 +545,12 @@
               nameTokens: tokens,
               assetIds: productFiles.map((f) => f.id),
             });
+            if (saved.compositionReview?.outcome === "BLOCKED") {
+              S.dirty = true;
+              S.notice("기존 연결을 보호하기 위해 구성 변경을 저장하지 않았습니다. 검증 결과를 확인해 주세요.");
+              S.showCompositionReview(root, saved);
+              return;
+            }
             product = saved;
             S.dirty = false;
             S.notice(
@@ -514,7 +558,9 @@
               true,
             );
             await S.builderPage(root, saved);
-            if (saved.compositionWarnings?.length) {
+            if (saved.compositionReview) {
+              S.showCompositionReview(root, saved);
+            } else if (saved.compositionWarnings?.length) {
               const reasons = saved.compositionWarnings.map((issue) => issue.message).join("\n");
               if (window.confirm("구성은 저장했습니다. 요청한 순서는 기존 분기·입력제한과 충돌하여 적용하지 않았습니다. 기존 질문 순서를 유지하고 새 그룹은 마지막에 추가했습니다.\n\n"
                 + reasons + "\n\n비규격 프로세스 화면으로 이동하여 질문 순서와 연결을 수정하시겠습니까?")) {

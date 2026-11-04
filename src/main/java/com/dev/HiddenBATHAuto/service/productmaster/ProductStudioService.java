@@ -720,6 +720,11 @@ public class ProductStudioService {
   }
 
   private ProductView view(ProductMaster p, boolean detailed, List<Issue> compositionWarnings) {
+    return view(p, detailed, compositionWarnings, null);
+  }
+
+  private ProductView view(ProductMaster p, boolean detailed, List<Issue> compositionWarnings,
+      CompositionReview compositionReview) {
     List<Variant> v = variants(p);
     return new ProductView(
         p.getId(),
@@ -747,7 +752,7 @@ public class ProductStudioService {
         p.getUnitPrice(),
         p.getFaqTopicId(),
         actuals.countByProductId(p.getId()),
-        p.getLegacyUnallocatedStock(), compositionWarnings);
+        p.getLegacyUnallocatedStock(), compositionWarnings, compositionReview);
   }
 
   public ProductPage search(ProductFilter filter) {
@@ -924,36 +929,37 @@ public class ProductStudioService {
     pricing.getObject().assertProductChangeAllowed(p, selected);
     List<Long> previousGroupOrder = variants(p).stream().map(Variant::groupId).toList();
     List<Long> selectedGroupOrder = selected.stream().map(Variant::groupId).toList();
-    // Inserting a new group in the middle is an order edit as well.
-    List<Long> appendedGroupOrder = new ArrayList<>(previousGroupOrder.stream()
-        .filter(selectedGroupOrder::contains).toList());
-    selectedGroupOrder.stream().filter(groupId -> !previousGroupOrder.contains(groupId))
-        .forEach(appendedGroupOrder::add);
-    boolean compositionReordered = !appendedGroupOrder.equals(selectedGroupOrder);
+    // A composition edit submits the whole visible skeleton order, including additions/removals.
+    // Metadata-only saves preserve the independently saved process order.
+    boolean compositionReordered = !previousGroupOrder.equals(selectedGroupOrder);
+    boolean compositionEdited = compositionReordered
+        || !Objects.equals(canonical(variants(p)), canonical(selected));
     Process storedProcess = readProcess(p);
-    Process previousProcess = ProductStudioProcessSubset.retain(storedProcess, new HashSet<>(selectedGroupOrder));
-    boolean processChanged = !new HashSet<>(previousGroupOrder).equals(new HashSet<>(selectedGroupOrder))
-        || compositionReordered || ProductStudioProcessSubset.hasRemovedElements(storedProcess, previousProcess);
+    boolean processChanged = false;
     List<Issue> compositionWarnings = new ArrayList<>();
+    CompositionReview compositionReview = null;
     Process nextProcess = null;
-    if (p.isNonStandard()) {
-      List<Question> defaults = defaultProcess(selected).questions();
-      nextProcess = new Process(2, ProductStudioProcessSubset.mergeQuestions(
-          previousProcess.questions(), defaults, compositionReordered),
-          previousProcess.rules(), previousProcess.inputLimits(), previousProcess.notices());
-      if (compositionReordered) {
-        compositionWarnings.addAll(ProductStudioProcessSubset.orderIssues(nextProcess));
-        if (!compositionWarnings.isEmpty()) {
-          // Keep existing dependencies; new questions append until the administrator reconnects them.
-          nextProcess = new Process(2, ProductStudioProcessSubset.mergeQuestions(
-              previousProcess.questions(), defaults, false), previousProcess.rules(),
-              previousProcess.inputLimits(), previousProcess.notices());
-          Map<Long, Variant> selectedByGroup = selected.stream()
-              .collect(Collectors.toMap(Variant::groupId, v -> v));
-          selected = nextProcess.questions().stream().map(q -> selectedByGroup.get(q.groupId())).toList();
-        }
+    if (p.isNonStandard() && !compositionEdited) {
+      // Ordinary name/description/FAQ/file edits do not become blocked composition edits
+      // merely because the existing product is still an unfinished draft.
+      nextProcess = new Process(2, ProductStudioProcessSubset.mergeQuestions(storedProcess.questions(),
+          defaultProcess(selected).questions(), false), storedProcess.rules(), storedProcess.inputLimits(), storedProcess.notices());
+      processChanged = !json.write(storedProcess).equals(json.write(nextProcess));
+    } else if (p.isNonStandard()) {
+      ProductMaster proposedProduct = new ProductMaster();
+      proposedProduct.setStudioDefinitionJson(json.write(selected));
+      ProductStudioCompositionPolicy.Decision decision = ProductStudioCompositionPolicy.review(
+          storedProcess, defaultProcess(selected), compositionReordered, fixedAnswers(p), fixedAnswers(proposedProduct));
+      compositionReview = decision.review();
+      // Keep the compatibility field limited to rejected changes, not normal pending answers.
+      if ("BLOCKED".equals(compositionReview.outcome()) || "KEPT_ORDER".equals(compositionReview.outcome()))
+        compositionWarnings.addAll(compositionReview.issues());
+      if (decision.blocked()) return view(p, true, compositionWarnings, compositionReview);
+      nextProcess = decision.process();
+      if ("KEPT_ORDER".equals(compositionReview.outcome())) {
+        Map<Long, Variant> selectedByGroup = selected.stream().collect(Collectors.toMap(Variant::groupId, v -> v));
+        selected = nextProcess.questions().stream().map(q -> selectedByGroup.get(q.groupId())).toList();
       }
-      // A rejected order edit alone must not demote an otherwise unchanged product.
       processChanged = !json.write(storedProcess).equals(json.write(nextProcess));
     }
 
@@ -1007,7 +1013,9 @@ public class ProductStudioService {
       pricing.getObject().reconcileProcessMedia(p, proposed);
       p.setStudioProcessJson(json.write(proposed));
     }
-    if (custom && processChanged && !retainsPricedOrder) p.setStatus(ProductMasterStatus.DRAFT);
+    if (custom && ((processChanged && !retainsPricedOrder)
+        || compositionReview != null && "APPLIED_DRAFT".equals(compositionReview.outcome())))
+      p.setStatus(ProductMasterStatus.DRAFT);
     else if ("DISCONTINUED".equals(edit.status())) p.setStatus(ProductMasterStatus.DISCONTINUED);
     else if (p.getStatus() != ProductMasterStatus.DRAFT) {
       if (custom) {
@@ -1022,7 +1030,12 @@ public class ProductStudioService {
     p.setUpdatedAt(LocalDateTime.now());
     assets.attach("PRODUCT", id, edit.assetIds(), actor);
     products.flush();
-    return view(p, true, compositionWarnings);
+    if (compositionReview != null && p.getStatus() == ProductMasterStatus.DRAFT && processChanged
+        && !compositionReview.processRequired())
+      compositionReview = new CompositionReview(compositionReview.outcome(), true,
+          compositionReview.existingFlowValidated(), compositionReview.scenarios(),
+          compositionReview.pendingGroupIds(), compositionReview.issues());
+    return view(p, true, compositionWarnings, compositionReview);
   }
 
   private static boolean decimalEquals(BigDecimal a, BigDecimal b) {

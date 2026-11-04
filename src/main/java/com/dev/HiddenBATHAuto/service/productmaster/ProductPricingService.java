@@ -254,6 +254,18 @@ public class ProductPricingService {
     requireCoverage(source, original, definition);
     // Caller has already validated the selected dependency closure before cloning attachments.
     Definition projected = ProductStudioCopyPolicy.retainTestAnswers(definition, sourceProjection);
+    // The projection already contains the replacement fixed classifications. Stored test
+    // answers still belong to the source: replace those fixed answers before key remapping.
+    // Otherwise an unrelated category/series change can pass the copy plan but fail here
+    // because its old value key no longer exists in the projected question. A changed
+    // multi-select classification must use all target choices, not a positional subset.
+    Map<String, Answer> projectedTests = new LinkedHashMap<>();
+    if (copyTests) {
+      projectedTests.putAll(map(projected.testAnswers()));
+      projectedTests.putAll(studio.fixedAnswers(target));
+    }
+    projected = new Definition(projected.schemaVersion(), projected.schemaFingerprint(),
+        projected.terms(), projectedTests);
     Definition copied = ProductPricingCompatibility.remap(projected, sourceProjection, targetProcess,
         fingerprint(targetProcess, studio.fixedAnswers(target)));
     errors = ProductPricingEngine.validate(targetProcess, pricingGroups(target, targetProcess), copied);

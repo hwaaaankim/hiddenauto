@@ -52,6 +52,11 @@ public final class ProductStudioEngine {
 
   private static void issue(
       List<Issue> issues, String severity, String code, String at, String message) {
+    issue(issues, severity, code, at, message, null);
+  }
+
+  private static void issue(
+      List<Issue> issues, String severity, String code, String at, String message, String target) {
     if (issues.size() >= 200) {
       if (issues.size() == 200)
         issues.add(
@@ -62,7 +67,7 @@ public final class ProductStudioEngine {
                 "오류·안내가 많아 처음 200개를 표시합니다. 표시된 내용을 수정하고 다시 검증해 주세요."));
       return;
     }
-    Issue issue = new Issue(severity, code, at, message);
+    Issue issue = new Issue(severity, code, at, message, target);
     if (!issues.contains(issue)) issues.add(issue);
   }
 
@@ -192,6 +197,10 @@ public final class ProductStudioEngine {
   }
 
   public static List<Issue> structure(Process process) {
+    return structure(process, Set.of());
+  }
+
+  private static List<Issue> structure(Process process, Set<String> pending) {
     List<Issue> issues = new ArrayList<>();
     if (process == null
         || process.schemaVersion() != 2
@@ -215,15 +224,15 @@ public final class ProductStudioEngine {
       order.put(q.key(), order.size());
       try {
         customerLabel(q.labels(), 80);
-        fields(q.control(), q.fields(), q.fixed());
+        fields(q.control(), q.fields(), q.fixed() || pending.contains(q.key()));
         require(
             text(q.question()).length() <= 300 && text(q.guide()).length() <= 1000,
             "질문/도움말 길이를 확인해 주세요.");
         if (choice(q.control())) {
-          require(!list(q.choices()).isEmpty() && q.choices().size() <= 200, "보기는 1~200개여야 합니다.");
-          uniqueLabels(q.choices().stream().map(c -> c == null ? null : c.labels()).toList(), "보기");
+          require((pending.contains(q.key()) || !list(q.choices()).isEmpty()) && list(q.choices()).size() <= 200, "보기는 1~200개여야 합니다.");
+          uniqueLabels(list(q.choices()).stream().map(c -> c == null ? null : c.labels()).toList(), "보기");
           Set<String> keys = new HashSet<>();
-          for (Choice c : q.choices()) {
+          for (Choice c : list(q.choices())) {
             require(
                 c != null
                     && c.key() != null
@@ -403,7 +412,7 @@ public final class ProductStudioEngine {
       }
       if (!visible && !q.fixed()) hidden.add(q.key());
       List<Field> shownFields = list(q.fields()).stream().filter(f -> allowed.contains(f.key())).toList();
-      if (q.control() == Control.NUMBER) for (Field f : q.fields())
+      if (q.control() == Control.NUMBER) for (Field f : list(q.fields()))
         if (!allowed.contains(f.key())) hiddenFields.add(q.key() + ":" + f.key());
       if (visible && q.control() == Control.NUMBER) try {
         uniqueLabels(shownFields.stream().map(Field::labels).toList(), "동시에 표시되는 입력 필드");
@@ -551,12 +560,40 @@ public final class ProductStudioEngine {
   }
 
   public static Validation validate(Process process, Map<String, Answer> fixed) {
-    List<Issue> issues = structure(process);
+    return validate(process, fixed, Set.of());
+  }
+
+  /** Composition planning only: unfinished questions may be targets, never unknown sources.
+   * This does not authorize publication or create placeholder answers. */
+  static Validation validateCompositionDraft(Process process, Map<String, Answer> fixed, Set<String> pending) {
+    return validate(process, fixed, Set.copyOf(pending));
+  }
+
+  private static Validation validate(Process process, Map<String, Answer> fixed, Set<String> pending) {
+    List<Issue> issues = structure(process, pending);
+    if (!pending.isEmpty()) {
+      Set<String> known = list(process.questions()).stream().map(Question::key).collect(Collectors.toSet());
+      if (!known.containsAll(pending)) issue(issues, "ERROR", "SCHEMA", "미설정 질문", "현재 프로세스에 없는 미설정 질문입니다.");
+      for (Question q : list(process.questions())) if (pending.contains(q.key())
+          && (q.fixed() || (choice(q.control()) ? !list(q.choices()).isEmpty() : !list(q.fields()).isEmpty())))
+        issue(issues, "ERROR", "SCHEMA", label(q), "미설정 질문으로 생략할 수 없는 설정입니다.");
+      for (Rule r : list(process.rules())) for (Condition c : list(r.conditions())) if (pending.contains(c.groupKey()))
+        issue(issues, "ERROR", "COMPOSITION_PENDING_SOURCE", r.name(),
+            "분기 [" + r.name() + "]는 미설정 질문 [" + process.questions().stream().filter(q -> c.groupKey().equals(q.key()))
+                .findFirst().map(ProductStudioEngine::label).orElse(c.groupKey())
+                + "]을 조건 원본으로 사용합니다. 비규격 프로세스에서 해당 질문을 먼저 설정해 주세요.", c.groupKey());
+      for (InputLimit limit : list(process.inputLimits())) {
+        boolean sourcePending = limit.sourceKey() != null && pending.contains(limit.sourceKey()) || list(limit.cases()).stream()
+            .flatMap(c -> list(c.conditions()).stream()).anyMatch(c -> pending.contains(c.groupKey()));
+        if (sourcePending) issue(issues, "ERROR", "COMPOSITION_PENDING_SOURCE", limit.name(),
+            "입력제한 [" + limit.name() + "]의 원본 질문이 미설정 상태입니다. 비규격 프로세스에서 먼저 설정해 주세요.");
+      }
+    }
     if (!issues.isEmpty()) return new Validation(false, false, 0, issues);
     issues.addAll(validateNumberCases(process));
     issues.addAll(ProductStudioConstraints.coverage(process));
     if (!issues.isEmpty()) return new Validation(false, false, 0, issues);
-    Probe probe = new Probe(process, fixed, issues);
+    Probe probe = new Probe(process, fixed, issues, pending);
     probe.walk(0, new LinkedHashMap<>(map(fixed)));
     if (!probe.exhaustive)
       issue(
@@ -567,10 +604,11 @@ public final class ProductStudioEngine {
           "검증 한도 20,000개 상태를 초과했습니다. 조건 또는 질문을 나눠 다시 검증해 주세요. 미검증 상태로 등록완료할 수 없습니다.");
     for (Rule r : list(process.rules()))
       if (!probe.hitRules.contains(r.key()))
-        issue(issues, "ERROR", "UNREACHABLE_RULE", r.name(), "허용된 입력 범위에서 이 규칙에 도달하지 못했습니다.");
+        issue(issues, "ERROR", "UNREACHABLE_RULE", r.name(), "허용된 입력 범위에서 이 규칙에 도달하지 못했습니다.",
+            r.actions().isEmpty() ? null : r.actions().get(0).targetKey());
     for (Question q : process.questions())
       if (!q.fixed() && !probe.visibleQuestions.contains(q.key()))
-        issue(issues, "WARNING", "UNREACHABLE_QUESTION", label(q), "이 질문이 표시되는 경로를 찾지 못했습니다.");
+        issue(issues, "WARNING", "UNREACHABLE_QUESTION", label(q), "이 질문이 표시되는 경로를 찾지 못했습니다.", q.key());
     return new Validation(
         issues.stream().noneMatch(i -> i.severity().equals("ERROR")),
         probe.exhaustive,
@@ -583,13 +621,15 @@ public final class ProductStudioEngine {
     final Map<String, Answer> fixed;
     final List<Issue> issues;
     final Set<String> hitRules = new HashSet<>(), visibleQuestions = new HashSet<>();
+    final Set<String> pending;
     long visits, leaves;
     boolean exhaustive = true;
 
-    Probe(Process p, Map<String, Answer> f, List<Issue> i) {
+    Probe(Process p, Map<String, Answer> f, List<Issue> i, Set<String> pending) {
       process = p;
       fixed = map(f);
       issues = i;
+      this.pending = pending;
     }
 
     void walk(int index, Map<String, Answer> answers) {
@@ -607,8 +647,9 @@ public final class ProductStudioEngine {
       hitRules.addAll(state.matchedRules());
       // Input-required errors are expected until this question receives its sample answer.
       for (String e : state.errors())
-        if (e.contains("충돌") || e.contains("동시에") || e.contains("경우의 수") || e.contains("보기가 없습니다") || e.contains("의존성 충돌"))
-          issue(issues, "ERROR", "PATH", label(q), e + " 예시: " + example(process, answers));
+        if (!(pending.contains(q.key()) && "선택 가능한 보기가 없습니다.".equals(e))
+            && (e.contains("충돌") || e.contains("동시에") || e.contains("경우의 수") || e.contains("보기가 없습니다") || e.contains("의존성 충돌")))
+          issue(issues, "ERROR", "PATH", label(q), e + " 예시: " + example(process, answers), q.key());
       if (q.fixed() && !state.errors().isEmpty())
         issue(issues, "ERROR", "FIXED", label(q), "고정 사양을 입력해 주세요: " + state.errors());
       if (!state.visible()) {
@@ -616,6 +657,12 @@ public final class ProductStudioEngine {
         return;
       }
       visibleQuestions.add(q.key());
+      if (pending.contains(q.key())) {
+        // No later condition can depend on this unanswered question (checked above).
+        // Its visibility, rule conflicts and rule reachability were still inspected.
+        walk(index + 1, answers);
+        return;
+      }
       if (q.fixed()) {
         if (!state.errors().isEmpty()) issue(issues, "ERROR", "FIXED", label(q), "고정 사양을 확인해 주세요.");
         walk(index + 1, answers);
@@ -639,7 +686,7 @@ public final class ProductStudioEngine {
         return;
       }
       if (samples.isEmpty())
-        issue(issues, "ERROR", "EMPTY_DOMAIN", label(q), "검증 조건을 만족하는 입력값이 없습니다.");
+        issue(issues, "ERROR", "EMPTY_DOMAIN", label(q), "검증 조건을 만족하는 입력값이 없습니다.", q.key());
       boolean hasValid = false;
       for (Answer a : samples) {
         Map<String, Answer> next = new LinkedHashMap<>(answers);
@@ -649,7 +696,7 @@ public final class ProductStudioEngine {
         if (!exhaustive) return;
       }
       if (!hasValid && !samples.isEmpty()) issue(issues, "ERROR", "EMPTY_DOMAIN", label(q),
-          "현재 경로의 필드별 제한과 합계 제한을 동시에 만족하는 값이 없습니다. 예시: " + example(process, answers));
+          "현재 경로의 필드별 제한과 합계 제한을 동시에 만족하는 값이 없습니다. 예시: " + example(process, answers), q.key());
     }
   }
 

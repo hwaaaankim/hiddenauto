@@ -73,7 +73,7 @@ public final class ProductStudioProcessSubset {
     for (Rule rule : list(process.rules())) {
       for (Condition condition : list(rule.conditions())) {
         for (Action action : list(rule.actions())) {
-          checkBefore(order, byKey, condition.groupKey(), action.targetKey(), "분기", issues);
+          checkBefore(order, byKey, condition.groupKey(), action.targetKey(), "분기 [" + rule.name() + "]", issues);
         }
       }
     }
@@ -93,7 +93,7 @@ public final class ProductStudioProcessSubset {
       Question from = questions.get(source), to = questions.get(target);
       String message = context + ": [" + (from == null ? source : ProductStudioEngine.label(from))
           + "] 질문은 [" + (to == null ? target : ProductStudioEngine.label(to)) + "] 질문보다 앞에 있어야 합니다.";
-      Issue issue = new Issue("WARNING", "COMPOSITION_ORDER", context, message);
+      Issue issue = new Issue("WARNING", "COMPOSITION_ORDER", context, message, target);
       if (!issues.contains(issue)) issues.add(issue);
     }
   }

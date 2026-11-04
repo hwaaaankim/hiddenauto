@@ -600,6 +600,9 @@ public final class ProductStudioDtos {
   public record AssetView(
       String id, String name, String type, long size, String url, boolean image) {}
 
+  public record CompositionReview(String outcome, boolean processRequired, boolean existingFlowValidated,
+      long scenarios, List<Long> pendingGroupIds, List<Issue> issues) {}
+
   public record ProductView(
       Long id,
       long version,
@@ -623,7 +626,8 @@ public final class ProductStudioDtos {
       Long faqTopicId,
       long actualCount,
       int unallocatedStock,
-      List<Issue> compositionWarnings) {
+      List<Issue> compositionWarnings,
+      CompositionReview compositionReview) {
     public ProductView(
         Long id,
         long version,
@@ -665,7 +669,8 @@ public final class ProductStudioDtos {
           null,
           0,
           0,
-          List.of());
+          List.of(),
+          null);
     }
   }
 
