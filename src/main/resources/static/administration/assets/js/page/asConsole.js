@@ -122,3 +122,83 @@
         }
     });
 })();
+
+(function () {
+    'use strict';
+    const viewport = document.querySelector('.as-console-page .as-table-scroll');
+    const table = viewport?.querySelector('table');
+    if (!table) return;
+
+    const top = document.createElement('div');
+    top.className = 'as-table-scroll-top';
+    top.tabIndex = 0;
+    top.setAttribute('role', 'region');
+    top.setAttribute('aria-label', 'AS 목록 상단 가로 스크롤');
+    const spacer = document.createElement('div');
+    spacer.className = 'as-table-scroll-spacer';
+    top.append(spacer);
+
+    function createGuide(position) {
+        const guide = document.createElement('div');
+        guide.className = 'as-table-scroll-guide';
+        const left = document.createElement('button');
+        left.type = 'button';
+        left.textContent = '‹ 왼쪽';
+        left.setAttribute('aria-label', position + ' 표 왼쪽으로 이동');
+        const message = document.createElement('span');
+        const right = document.createElement('button');
+        right.type = 'button';
+        right.textContent = '오른쪽 ›';
+        right.setAttribute('aria-label', position + ' 표 오른쪽으로 이동');
+        left.addEventListener('click', () => move(-1));
+        right.addEventListener('click', () => move(1));
+        guide.append(left, message, right);
+        return { guide, left, right, message };
+    }
+    function move(direction) {
+        viewport.scrollLeft += direction * Math.max(160, viewport.clientWidth * 0.7);
+        synchronize(viewport);
+    }
+    const upper = createGuide('상단');
+    const lower = createGuide('하단');
+    viewport.before(upper.guide, top);
+    viewport.after(lower.guide);
+
+    function render() {
+        const max = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
+        const overflow = max > 1;
+        const left = viewport.scrollLeft > 1;
+        const right = viewport.scrollLeft < max - 1;
+        top.hidden = !overflow;
+        for (const item of [upper, lower]) {
+            item.guide.hidden = !overflow;
+            item.left.disabled = !left;
+            item.right.disabled = !right;
+            item.message.textContent = left && right ? '양쪽에 추가 항목이 있습니다 · 좌우 스크롤'
+                : right ? '오른쪽에 추가 항목이 있습니다 →'
+                : '← 왼쪽에 추가 항목이 있습니다 · 마지막 항목';
+        }
+    }
+    function synchronize(source) {
+        const target = source === top ? viewport : top;
+        if (Math.abs(target.scrollLeft - source.scrollLeft) > 0.5) {
+            target.scrollLeft = source.scrollLeft;
+        }
+        render();
+    }
+    top.addEventListener('scroll', () => synchronize(top), { passive: true });
+    viewport.addEventListener('scroll', () => synchronize(viewport), { passive: true });
+    function resize() {
+        spacer.style.width = viewport.scrollWidth + 'px';
+        top.scrollLeft = viewport.scrollLeft;
+        render();
+    }
+    if (window.ResizeObserver) {
+        const observer = new ResizeObserver(resize);
+        observer.observe(viewport);
+        observer.observe(table);
+    }
+    window.addEventListener('resize', resize, { passive: true });
+    document.fonts?.ready.then(resize);
+    resize();
+})();
