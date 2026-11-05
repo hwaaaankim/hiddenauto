@@ -120,8 +120,8 @@ body.hb-store { margin:0;background:var(--hb-bg);color:var(--hb-ink);font:400 14
 .hb-store .pms .hb-next:hover { background:#665235;border-color:#665235; }
 .hb-question-errors { margin:10px 0;color:#a13b2a;font-size:12px;white-space:pre-line; }
 .hb-question-errors:empty { display:none; }
-.hb-inline-status { margin:15px 0;padding:12px 16px;border:1px solid #d8cebc;border-radius:5px;background:#eeebe3;color:var(--hb-gold);font-size:11px; }
-.hb-inline-status:before { content:'—';margin-right:10px; }
+.hb-inline-status { position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap; }
+
 .hb-quote { margin-top:28px;padding:26px;border:1px solid var(--hb-gold-light);border-radius:5px;background:white; }
 .hb-store .pms .hb-quote h2 { display:block;margin:0 0 15px;font-size:19px;font-weight:500;line-height:1.6; }
 .hb-total { margin:18px 0;color:var(--hb-gold);font-size:32px;font-weight:500;letter-spacing:-.04em; }
@@ -351,3 +351,29 @@ body.hb-store[data-motion=reduced] * { transition-duration:0ms!important;animati
 .hb-store #hb-faq-button { display:inline-flex;align-items:center;justify-content:center;width:auto;height:auto;min-width:132px;min-height:44px;max-width:calc(100vw - 32px);white-space:nowrap;padding:11px 18px!important;background:var(--hb-gold)!important;color:#fff!important;border-color:var(--hb-gold)!important;font-weight:500;box-shadow:0 6px 20px #302a2025; }
 .hb-team-hint { display:none; }
 @media (max-width:800px) { .hb-team-hint { display:block;margin:0 0 10px;color:var(--hb-muted);font-size:10px; } }
+
+/* A quiet local loading bar keeps the selected answer in place while its successor is prepared. */
+.hb-detail { overflow-anchor:none; }
+.hb-question { position:relative; }
+.hb-step-loader { display:block;position:absolute;inset:auto 0 0;height:3px;overflow:hidden;border-radius:3px;background:#e4ded1;opacity:0;pointer-events:none;transition:opacity 160ms ease; }
+.hb-step-loader>i { display:block;width:6%;height:100%;border-radius:inherit;background:var(--hb-gold);transition:width 1100ms var(--hb-ease); }
+.hb-choice-loading { position:relative; }
+.hb-question.is-loading>.hb-step-loader,.hb-question.is-loading .hb-choice-loading>.hb-step-loader { opacity:1; }
+.hb-question.is-loading .hb-standard-option:has(input:checked),.hb-question.is-loading .pm-answer-choice:has(input:checked) { box-shadow:inset 0 0 0 1px var(--hb-gold),0 3px 14px #79633e12; }
+.hb-choice-hint { margin:0 0 14px!important;color:var(--hb-muted);font-size:11px;line-height:1.8; }
+.hb-choice-hint>span { display:none; }
+@media (hover:hover) and (pointer:fine) { .hb-choice-hint>span { display:block;margin-top:2px;font-size:10px;color:var(--hb-gold); } }
+.hb-option-cursor:focus-within { outline:2px solid var(--hb-gold-light);outline-offset:3px; }
+.hb-result-loading { position:relative;min-height:150px;margin-top:28px;padding:26px 24px;border:1px solid var(--hb-line);border-radius:10px;background:#fff; }
+.hb-result-line { display:block;width:48%;height:12px;margin-bottom:20px;border-radius:4px;background:#ece8df; }
+.hb-result-line.is-short { width:30%;height:24px; }
+.hb-result-loading>.hb-step-loader { left:24px;right:24px;bottom:20px;opacity:1; }
+
+.hb-standard-input-note { margin:0 0 16px!important;color:var(--hb-muted);font-size:12px;line-height:1.8; }
+.hb-store .hb-info .hb-standard-absence { display:flex;align-items:center;gap:10px;margin:12px 0;padding:12px 14px;border:1px solid var(--hb-line);border-radius:8px;background:#fff;cursor:pointer; }
+.hb-store .hb-info .hb-standard-absence>span { margin:0;font-size:12px;font-weight:400; }
+.hb-standard-presets { margin:16px 0;font-size:11px; }
+.hb-standard-presets>summary { cursor:pointer;color:var(--hb-gold);line-height:1.8; }
+.hb-standard-presets>div { display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:8px;margin:12px 0; }
+.hb-store .hb-standard-presets button { min-width:0;padding:10px 12px;background:#fff;font-size:11px;text-align:left;overflow-wrap:anywhere; }
+.hb-standard-presets>small { color:var(--hb-muted);line-height:1.8; }

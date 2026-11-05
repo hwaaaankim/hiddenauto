@@ -58,7 +58,10 @@
   function error(message, inline = false) {
     if (inline) {
       const host = document.getElementById('hb-question-errors') || document.getElementById('hb-flow-error');
-      if (host) { host.textContent = message || ''; host.hidden = !message; return; }
+      if (host) { host.textContent = message || ''; host.hidden = !message;
+        const retry = main.querySelector('.hb-question.is-current .hb-next');
+        if (message && retry && main.querySelector('.hb-question.is-current input[type=radio]:checked')) { retry.hidden = false; retry.textContent = '선택한 옵션으로 다시 시도'; }
+        return; }
     }
     errorBox.hidden = !message;
     errorBox.textContent = message || '';
@@ -68,21 +71,170 @@
       errorBox.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
   }
-  function localBusy(on, label) {
+  let stepLoading = null, focusMotion = null;
+  const stepLoaderHtml = '<span class="hb-step-loader" aria-hidden="true"><i></i></span>';
+  function loaderIn(node) {
+    if (!node) return null;
+    let loader = node.querySelector(':scope > .hb-step-loader');
+    if (!loader) { node.insertAdjacentHTML('beforeend', stepLoaderHtml); loader = node.lastElementChild; }
+    return loader;
+  }
+  function localBusy(on, label, lockCurrent = true) {
     const config = document.getElementById('hb-config');
     if (!config) return;
     config.setAttribute('aria-busy', String(on));
     const current = config.querySelector('.hb-question.is-current');
-    if (current) current.inert = on;
-    config.querySelectorAll('[data-edit]').forEach(b => { b.disabled = on; });
+    if (on) {
+      if (!busy) { clearTimeout(loadingHide); overlay.hidden = true; }
+      cancelFocusMotion();
+      if (current) {
+        current.inert = lockCurrent; current.classList.add('is-loading');
+        if (!stepLoading || stepLoading.node !== current) {
+        const anchor = current.querySelector('input[type=radio]:checked')?.closest('.hb-standard-option,.pm-answer-choice') || current;
+        const loader = loaderIn(anchor), bar = loader.querySelector('i');
+        if (anchor !== current) anchor.classList.add('hb-choice-loading');
+        bar.style.transition = 'none'; bar.style.width = '6%';
+        void bar.offsetWidth; bar.style.transition = '';
+        stepLoading = { node:current, anchor, bar, started:performance.now(), settled:false };
+        requestAnimationFrame(() => { if (bar.isConnected && stepLoading?.bar === bar && !stepLoading.settled) bar.style.width = '82%'; });
+        }
+      }
+    } else {
+      if (stepLoading) { stepLoading.node.inert = false; stepLoading.node.classList.remove('is-loading'); stepLoading.anchor.classList.remove('hb-choice-loading'); }
+      stepLoading = null;
+      if (current) { current.inert = false; current.classList.remove('is-loading'); }
+    }
+    config.querySelectorAll('[data-edit],.hb-question.is-current .hb-next').forEach(button => { button.disabled = on; });
     const status = document.getElementById('hb-inline-status');
     if (status) { status.textContent = on ? label : ''; status.hidden = !on; }
+  }
+  async function settleStepLoading() {
+    const state = stepLoading;
+    if (!state || state.settled) return;
+    state.settled = true;
+    state.bar.style.transitionDuration = duration(110) + 'ms'; state.bar.style.width = '100%';
+    const wait = Math.max(duration(90), duration(180) - (performance.now() - state.started));
+    if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
+  }
+  function resultLoading(target) {
+    target.innerHTML = `<div class="hb-result-loading" role="status" aria-label="선택한 구성을 확인하고 있습니다."><span class="hb-result-line"></span><span class="hb-result-line is-short"></span>${stepLoaderHtml}</div>`;
+    const placeholder = target.firstElementChild;
+    placeholder._hbHeight = placeholder.getBoundingClientRect().height;
+    requestAnimationFrame(() => { if (placeholder.isConnected) placeholder.querySelector('i').style.width = '84%'; });
+    return placeholder;
+  }
+  function cancelFocusMotion() {
+    if (focusMotion?.frame) cancelAnimationFrame(focusMotion.frame);
+    focusMotion = null;
+  }
+  function moveToQuestion(card, focusInput = false) {
+    cancelFocusMotion();
+    if (!card?.isConnected) return;
+    const header = main.ownerDocument.querySelector('.hb-header')?.getBoundingClientRect().height || 20;
+    const rect = card.getBoundingClientRect(), from = scrollY;
+    const needsMove = rect.top < header + 16 || rect.bottom > innerHeight - 28;
+    const destination = () => Math.max(0, Math.min(document.documentElement.scrollHeight - innerHeight,
+      scrollY + card.getBoundingClientRect().top - header - 24));
+    const target = needsMove ? destination() : from;
+    if (focusInput && S.desktopQuestionInput()) {
+      card.querySelector('input[data-answer-field]:not(:disabled):not([type=file]),input[data-answer-choice][tabindex="0"],input[data-answer-choice]:not(:disabled),h2')?.focus({preventScroll:true});
+    }
+    if (Math.abs(target - from) < 2) return;
+    const ms = duration(Math.min(640, 340 + Math.abs(target-from) * .16));
+    if (!ms) { window.scrollTo({top:target,behavior:'instant'}); return; }
+    const state = { frame:null }, started = performance.now(); focusMotion = state;
+    const frame = now => {
+      if (focusMotion !== state || !card.isConnected) return;
+      const t = Math.min(1, (now-started)/ms), ease = 1-Math.pow(1-t,4);
+      window.scrollTo({top:from+(destination()-from)*ease,behavior:'instant'});
+      if (t < 1) state.frame = requestAnimationFrame(frame); else focusMotion = null;
+    };
+    state.frame = requestAnimationFrame(frame);
+  }
+  function focusQuestion() {
+    const card = main.querySelector('.hb-question.is-current') || main.querySelector('#hb-product-result .hb-quote') || main.querySelector('#hb-price .hb-quote');
+    moveToQuestion(card, true);
+  }
+  for (const event of ['wheel','touchstart','pointerdown']) window.addEventListener(event, cancelFocusMotion, {passive:true});
+  window.addEventListener('keydown', event => {
+    if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','PageUp','PageDown','Home','End','Escape'].includes(event.key)) cancelFocusMotion();
+  }, {capture:true});
+  function bindStoreQuestionNavigation(box, control, submit, nextButton, autoAdvance = control === 'RADIO') {
+    const radio = control === 'RADIO', choice = radio || control === 'CHECKBOX';
+    let cursor = 0, advancing = false;
+    const inputs = () => [...box.querySelectorAll('input[data-answer-choice]:not(:disabled)')];
+    const mark = (index, focus = false) => {
+      const values = inputs(); if (!values.length) return;
+      cursor = (index + values.length) % values.length;
+      values.forEach((input,i) => {
+        input.tabIndex = i === cursor ? 0 : -1;
+        input.closest('.hb-standard-option,.pm-answer-choice')?.classList.toggle('hb-option-cursor', i === cursor);
+      });
+      if (focus) {
+        const input = values[cursor]; input.focus({preventScroll:true});
+        const rect = input.getBoundingClientRect(), header = main.ownerDocument.querySelector('.hb-header')?.offsetHeight || 20;
+        if (rect.top < header+16 || rect.bottom > innerHeight-28) moveToQuestion(input.closest('.hb-standard-option,.pm-answer-choice'));
+      }
+    };
+    const advance = () => {
+      if (advancing || running || uploadCount || !box.isConnected) return;
+      advancing = true; setDetailFocus('options');
+      Promise.resolve(submit()).finally(() => { advancing = false; });
+    };
+    if (control === 'CHECKBOX') {
+      const hint=document.createElement('p');hint.className='hb-choice-hint';hint.textContent='항목을 모두 선택한 뒤 다음 버튼으로 확정해 주세요.';box.before(hint);
+    }
+    if (control === 'TEXTAREA') {
+      const hint=document.createElement('p');hint.className='hb-choice-hint';hint.textContent='Enter로 다음 단계 · Shift+Enter로 줄바꿈';box.before(hint);
+    }
+    if (choice) {
+      mark(Math.max(0,inputs().findIndex(input => input.checked)));
+      box.addEventListener('focusin', event => {
+        if (event.target.matches('input[data-answer-choice]')) mark(inputs().indexOf(event.target));
+      });
+    }
+    if (radio) {
+      nextButton.hidden = autoAdvance && !box.querySelector('input:checked');
+      const hint = document.createElement('p'); hint.className = 'hb-choice-hint';
+      hint.innerHTML = autoAdvance ? '옵션을 선택하면 다음 단계로 이어집니다.<span>화살표로 이동 · Enter로 선택</span>' : '등록된 값을 선택한 뒤 다음 버튼 또는 Enter로 확정해 주세요.<span>화살표로 이동 · Enter로 확정</span>';
+      box.before(hint);
+      if (autoAdvance) {
+        box.addEventListener('change', event => { if (event.target.matches('input[data-answer-choice]')) advance(); });
+        // A checked option can be selected again after a failed request.
+        box.addEventListener('click', event => { if (event.target.matches('input[data-answer-choice]') && event.target.checked) advance(); });
+      }
+    }
+    box.addEventListener('keydown', event => {
+      if (event.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey || event.target.closest('button,a,select,[data-pm-help]')) return;
+      const target = event.target;
+      if (event.repeat && event.key === ' ') { event.preventDefault(); return; }
+      if (choice && target.matches('input[data-answer-choice]')) {
+        if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key)) {
+          event.preventDefault();
+          mark(inputs().indexOf(target) + (['ArrowLeft','ArrowUp'].includes(event.key) ? -1 : 1), true);
+        } else if (event.key === 'Enter') {
+          event.preventDefault(); if (event.repeat) return;
+          if (!radio) { nextButton.focus({preventScroll:true}); return; }
+          target.checked = true; target.dispatchEvent(new Event('input',{bubbles:true}));
+          advance();
+        }
+        return;
+      }
+      if (event.key === 'Enter' && target.matches('input[data-answer-field]:not([type=file]),textarea[data-answer-field]')) {
+        if (target.matches('textarea') && event.shiftKey) return;
+        event.preventDefault(); if (event.repeat || !target.reportValidity()) return;
+        const fields = [...box.querySelectorAll('input[data-answer-field]:not(:disabled):not([type=file]),textarea[data-answer-field]:not(:disabled)')];
+        const next = fields[fields.indexOf(target)+1];
+        if (next) { next.focus({preventScroll:true}); if (next.getBoundingClientRect().bottom > innerHeight-32) moveToQuestion(next.closest('.pm-answer-field')); }
+        else advance();
+      }
+    });
   }
   async function run(action, label = '화면을 준비하고 있습니다.', scope = 'page') {
     if (running || uploadCount || !action) return;
     running = true; lastAction = action; error('');
     const local = scope === 'question';
-    if (local) { error('', true); localBusy(true, label); } else setBusy(true, label);
+    if (local) { error('', true); localBusy(true, label); } else { cancelFocusMotion(); setBusy(true, label); }
     try { await action(); }
     catch (err) { error(err.message || '처리 중 오류가 발생했습니다.', local); }
     finally {
@@ -287,12 +439,12 @@
     const cell = (row, role) => `<td><strong>${e(row.group?.[role] || row.group?.customer)}</strong><p>${e(row.answer?.[role] || row.answer?.customer || '아직 선택하지 않음')}</p></td>`;
     return `<section class="hb-team-preview"><h3>팀별 표시 확인</h3><p>고객에게 보이는 질문과 각 화면의 그룹명·선택값·입력값을 비교합니다.</p><small class="hb-team-hint">표를 좌우로 밀어 각 화면의 표시 내용을 확인해 주세요.</small><div class="hb-team-scroll"><table><thead><tr><th>고객 질문</th><th>고객 화면</th><th>생산팀 화면</th><th>관리팀 화면</th></tr></thead><tbody>${rows.map(row => `<tr><th>${e(row.question || row.group?.customer)}</th>${cell(row,'customer')}${cell(row,'production')}${cell(row,'management')}</tr>`).join('') || '<tr><td colspan="4">선택 가능한 질문이 없습니다.</td></tr>'}</tbody></table></div></section>`;
   }
-  function updateTeamPreview(result = evaluation) {
+  function updateTeamPreview(result = evaluation, standardDisplay = null) {
     const config = document.getElementById('hb-config');
     if (!config) return;
     let host = document.getElementById('hb-team-preview');
     if (!host) { host = document.createElement('div'); host.id = 'hb-team-preview'; config.append(host); }
-    if (standardState) { host.innerHTML = teamComparison(list(standardState.display)); return; }
+    if (standardState) { host.innerHTML = teamComparison(list(standardDisplay || standardState.display)); return; }
     if (!result) return;
     const raw = product._teamProcess || product.process;
     const rows = list(result.questions).filter(state => (state.visible || state.question.fixed) && product.groups?.find(g => g.id === state.question.groupId)?.role !== 'SUBCATEGORY').map(state => {
@@ -321,9 +473,6 @@
     info.addEventListener('change', () => setDetailFocus('options'));
     info.addEventListener('focusin', event => { if (event.target.matches(':focus-visible')) setDetailFocus('options'); });
   }
-  function optionHtml(option, name) {
-    return `<article class="hb-standard-option"><label class="hb-standard-choice"><input type="radio" name="${e(name)}" value="${e(option.key)}" data-answer-choice="${e(option.key)}"><span>${e(option.label)}</span></label>${S.help(option, option.assets, option.label + ' 안내')}</article>`;
-  }
   function paintCustomModels() {
     const config = document.getElementById('hb-config');
     config.innerHTML = `<article class="hb-question is-current"><header class="hb-question-heading"><span class="hb-eyebrow">STEP 01 · 제품 선택</span></header><h2 tabindex="-1">어떤 제품을 구성하시겠어요?</h2><div class="hb-model-choices">${seriesContext.products.map(p => `<button type="button" data-custom-model="${p.id}"><strong>${e(p.productName)}</strong><span>${e(p.catalogCode)} · ${e(S.status[p.status] || p.status)}</span><small>이 제품으로 맞춤 구성 ↗</small></button>`).join('')}</div><div id="hb-flow-error" class="hb-question-errors" role="alert" hidden></div></article>`;
@@ -341,54 +490,127 @@
       await paintStandard(); setDetailFocus('options'); focusQuestion();
     }, '이 질문부터 다시 선택할 수 있도록 준비하고 있습니다.', 'question');
   }
+  function decimalKey(value) {
+    const match = String(value ?? '').trim().match(/^([+-]?)(\d*\.?\d+)(?:[eE]([+-]?\d+))?$/);
+    if (!match) return null;
+    const parts = match[2].split('.'), exponent = Number(match[3] || 0);
+    if (Math.abs(exponent) > 1000) return null;
+    let digits = parts.join(''), point = parts[0].length + exponent;
+    if (point < 0) { digits = '0'.repeat(-point) + digits; point = 0; }
+    if (point > digits.length) digits += '0'.repeat(point-digits.length);
+    const integer = (digits.slice(0,point) || '0').replace(/^0+(?=\d)/,'');
+    const fraction = digits.slice(point).replace(/0+$/,'');
+    return (match[1] === '-' && (integer !== '0' || fraction) ? '-' : '') + integer + (fraction ? '.'+fraction : '');
+  }
+  function standardAnswer(q, node) {
+    if (node.querySelector('[data-standard-absent]')?.checked) return { absent:true, choices:[],fields:{} };
+    if (q.control === 'FILE') return { fileKey:node.querySelector('[data-standard-file]:checked')?.value,choices:[],fields:{} };
+    const box = node.querySelector('.hb-standard-answer');
+    if (S.isChoice(q.control)) return S.readAnswer(box,q);
+    const fields = {};
+    box.querySelectorAll('[data-answer-field]:not(:disabled)').forEach(input => { if (input.value !== '' && (q.control === 'NUMBER' || input.value.trim())) fields[input.dataset.answerField] = input.value; });
+    return { choices:[],fields };
+  }
+  function standardMatch(q, answer) {
+    if (answer.absent) return q.options.find(option => option.absent);
+    if (q.control === 'FILE') return q.options.find(option => !option.absent && option.key === answer.fileKey);
+    const choiceKey = values => JSON.stringify([...values].sort());
+    return q.options.find(option => !option.absent && choiceKey(option.choices) === choiceKey(answer.choices) &&
+      Object.keys(option.inputs).length === Object.keys(answer.fields).length && Object.entries(option.inputs).every(([key,value]) =>
+        q.control === 'NUMBER' ? decimalKey(value) !== null && decimalKey(value) === decimalKey(answer.fields[key])
+          : String(value).replace(/\r\n?/g,'\n') === String(answer.fields[key] ?? '').replace(/\r\n?/g,'\n')));
+  }
+  function standardLivePreview(q, answer) {
+    const option = standardMatch(q,answer), actual = option ? {choices:option.choices,fields:option.inputs} : answer;
+    const label = answer.absent ? '해당 없음' : q.control === 'FILE' ? option?.label : null;
+    const display = list(standardState.display).map(row => row === standardState.display.at(-1) ? {
+      ...row,answer:Object.fromEntries(['customer','production','management'].map(role => [role,label || S.answerText(q,actual,assets,role)]))
+    } : row);
+    updateTeamPreview(null,display);
+  }
+  function standardFileOptions(q) {
+    return `<div class="hb-standard-options" role="radiogroup" aria-label="${e(q.label)}">${q.options.filter(option=>!option.absent).map(option => {
+      const files = Object.values(option.inputs).flat().map(id=>assets.get(id)).filter(Boolean);
+      return `<article class="hb-standard-option"><label class="hb-standard-choice"><input type="radio" name="standard-file-${q.groupId}" value="${e(option.key)}" data-standard-file data-answer-choice="${e(option.key)}"><span>${e(option.label)}</span></label>${S.media(files,'등록된 사양 파일')}${S.help(option,option.assets,'선택 사양 안내')}</article>`;
+    }).join('')}</div>`;
+  }
+  function mountStandardQuestion(node,q) {
+    list(q.assets).forEach(asset=>assets.set(asset.id,asset));
+    const input = !S.isChoice(q.control) && q.control !== 'FILE';
+    const absence = q.options.some(option=>option.absent) ? '<label class="hb-standard-absence"><input type="checkbox" data-standard-absent><span>이 항목 해당 없음</span></label>' : '';
+    const presets = input ? `<details class="hb-standard-presets"><summary>입력 가능한 등록 규격 ${q.options.filter(option=>!option.absent).length}가지 보기</summary><div>${q.options.filter(option=>!option.absent).map(option=>`<button type="button" data-standard-preset="${e(option.key)}">${e(option.label)}</button>`).join('')}</div><small>등록 규격을 누르면 입력칸에 채워집니다. 다음 버튼 또는 Enter로 확정해 주세요.</small></details>` : '';
+    node.querySelector('.hb-question-body').innerHTML = `${S.help(q,list(q.assetIds).map(id=>assets.get(id)).filter(Boolean),'질문 안내')}${input ? '<p class="hb-standard-input-note">등록된 규격과 일치하는 값을 입력한 뒤 확정해 주세요.</p>' : ''}${absence}<div class="hb-standard-answer" data-control="${e(q.control)}">${q.control==='FILE' ? standardFileOptions(q) : S.inputAnswer(q,{choices:[],fields:{}},false,assets)}</div>${presets}<div id="hb-question-errors" class="hb-question-errors" role="alert" hidden></div><button type="button" class="hb-next" id="hb-standard-next">입력·선택 완료 · 다음으로</button>`;
+    const box=node.querySelector('.hb-standard-answer'), next=node.querySelector('#hb-standard-next');
+    box.querySelectorAll('[aria-required=true]').forEach(field=>field.required=true);
+    box.querySelectorAll('input[data-answer-field]').forEach(field => {
+      if(q.control==='NUMBER') {
+        const id=`hb-standard-values-${q.groupId}-${field.dataset.answerField}`;
+        const values=[...new Set(q.options.filter(option=>!option.absent).map(option=>option.inputs[field.dataset.answerField]).filter(value=>value!=null))];
+        field.setAttribute('list',id);field.insertAdjacentHTML('afterend',`<datalist id="${e(id)}">${values.map(value=>`<option value="${e(value)}"></option>`).join('')}</datalist>`);
+      }
+    });
+    box.querySelectorAll('.pm-answer-fields').forEach(fields=>{fields.style.setProperty('--hb-field-columns',Math.min(3,Math.max(1,fields.querySelectorAll('.pm-answer-field').length)));});
+    const update = () => {
+      const absent=!!node.querySelector('[data-standard-absent]')?.checked;
+      box.querySelectorAll('input,textarea,button').forEach(field=>{field.disabled=absent;});
+      const answer=standardAnswer(q,node);
+      standardLivePreview(q,answer);
+    };
+    box.addEventListener('input',update);box.addEventListener('change',update);
+    const submit=()=>{
+      if(!node.querySelector('[data-standard-absent]')?.checked) {
+        for(const field of box.querySelectorAll('input[data-answer-field]:not(:disabled),textarea[data-answer-field]:not(:disabled)')) if(!field.checkValidity()) {
+          const meta=q.fields.find(item=>item.key===field.dataset.answerField),name=meta?.labels?.customer||'입력값';
+          const reason=field.validity.valueMissing?'값을 입력해 주세요.':field.validity.rangeUnderflow?`최소 ${field.min} 이상 입력해 주세요.`:field.validity.rangeOverflow?`최대 ${field.max} 이하로 입력해 주세요.`:field.validity.stepMismatch?`${field.step} 간격으로 입력해 주세요.`:'올바른 값을 입력해 주세요.';
+          error(name+': '+reason,true);field.reportValidity();return;
+        }
+      }
+      const selected=standardMatch(q,standardAnswer(q,node));
+      if(!selected) { error(S.isChoice(q.control)?'선택한 조합과 일치하는 등록 제품이 없습니다. 선택 가능한 항목과 조합을 확인해 주세요.':'입력한 값과 일치하는 등록 규격이 없습니다. 입력 가능한 등록 규격을 확인해 주세요.',true);const presets=node.querySelector('.hb-standard-presets');if(presets)presets.open=true;return; }
+      return run(async()=>{
+      const selections={...standardSelections,[q.groupId]:selected.key};
+      const next=await request(`/customer-series/${seriesContext.series.productId}/configure`,'POST',selections);
+      if(pendingRoute)return;
+      standardSelections=selections;standardState=next;standardProduct=null;removeFaq();
+      document.getElementById('hb-price').replaceChildren();await paintStandard();focusQuestion();
+      },'다음 구성을 준비하고 있습니다.','question');
+    };
+    next.onclick=submit;
+    bindStoreQuestionNavigation(box,q.control==='FILE'?'RADIO':q.control,submit,next,q.control==='RADIO');
+    node.querySelector('[data-standard-absent]')?.addEventListener('change',()=>{update();if(q.control==='RADIO'&&node.querySelector('[data-standard-absent]').checked)submit();});
+    node.querySelectorAll('[data-standard-preset]').forEach(button=>button.onclick=()=>{
+      const option=q.options.find(option=>option.key===button.dataset.standardPreset);
+      const absent=node.querySelector('[data-standard-absent]');if(absent)absent.checked=false;
+      box.querySelectorAll('[data-answer-field]').forEach(field=>{field.value=option.inputs[field.dataset.answerField]??'';});update();
+    });
+    update();
+  }
   async function paintStandard() {
-    const config = document.getElementById('hb-config'), state = standardState;
-    let thread = config.querySelector('#hb-standard-thread');
-    if (!thread) {
-      config.innerHTML = `<div class="hb-process-header"><span>나에게 맞는 규격 구성</span><span id="hb-step-count"></span></div><div class="hb-progress"><i></i></div><div id="hb-standard-thread" aria-label="규격 옵션 질문과 답변"></div><div id="hb-flow-error" class="hb-question-errors" role="alert" hidden></div><div id="hb-inline-status" class="hb-inline-status" role="status" aria-live="polite" hidden></div>`;
-      thread = config.querySelector('#hb-standard-thread');
+    await settleStepLoading();
+    const config=document.getElementById('hb-config'),state=standardState;
+    let thread=config.querySelector('#hb-standard-thread');
+    if(!thread){config.innerHTML=`<div class="hb-process-header"><span>나에게 맞는 규격 구성</span><span id="hb-step-count"></span></div><div class="hb-progress"><i></i></div><div id="hb-standard-thread" aria-label="규격 옵션 질문과 답변"></div><div id="hb-flow-error" class="hb-question-errors" role="alert" hidden></div><div id="hb-inline-status" class="hb-inline-status" role="status" aria-live="polite" hidden></div>`;thread=config.querySelector('#hb-standard-thread');}
+    document.getElementById('hb-step-count').textContent=`${state.steps.length} / ${state.totalGroups} 단계`;
+    config.querySelector('.hb-progress i').style.width=`${state.totalGroups?state.steps.length/state.totalGroups*100:100}%`;
+    const wanted=[...state.steps,...(state.next?[state.next]:[])],keys=new Set(wanted.map(q=>String(q.groupId)));
+    await Promise.all([...thread.children].filter(node=>!keys.has(node.dataset.groupId)).map(removeMessage));
+    const motions=[];
+    for(let index=0;index<wanted.length;index++){
+      const q=wanted[index],selected=q.options.find(option=>option.key===standardSelections[q.groupId]),complete=index<state.steps.length;
+      list(q.assets).forEach(asset=>assets.set(asset.id,asset));
+      let node=[...thread.children].find(node=>node.dataset.groupId===String(q.groupId));const added=!node;
+      if(added){node=document.createElement('article');node.dataset.groupId=q.groupId;thread.append(node);}
+      const signature=JSON.stringify([complete,q,selected?.key]);if(node._hbSignature===signature)continue;
+      const oldHeight=node.getBoundingClientRect().height;node._hbSignature=signature;node.inert=!complete&&!!stepLoading;node.className='hb-question '+(complete?'is-complete':'is-current');
+      node.innerHTML=`<header class="hb-question-heading"><span class="hb-eyebrow">STEP ${String(index+1).padStart(2,'0')} · ${e(q.label)}</span><span class="hb-question-state">${complete?'<span>선택 완료</span><button type="button" data-edit>이 질문부터 초기화</button>':'선택 중'}</span></header><h2 tabindex="-1">${e(q.question||q.label)}</h2><div class="hb-question-body"></div>`;
+      if(complete){const help=selected&&!selected.absent?S.answerMedia(q,{choices:selected.choices,fields:selected.inputs},assets):'';node.querySelector('.hb-question-body').innerHTML=`<div class="hb-response"><span class="hb-response-label">확정하신 내용</span><p>${e(selected?.label)}</p>${S.help(q,list(q.assetIds).map(id=>assets.get(id)).filter(Boolean),'질문 안내')}${help}</div>`;node.querySelector('[data-edit]').onclick=()=>resetStandard(q.groupId);}
+      else mountStandardQuestion(node,q);
+      motions.push(reveal(node,added?0:oldHeight));
     }
-    document.getElementById('hb-step-count').textContent = `${state.steps.length} / ${state.totalGroups} 단계`;
-    config.querySelector('.hb-progress i').style.width = `${state.totalGroups ? state.steps.length/state.totalGroups*100 : 100}%`;
-    const wanted = [...state.steps, ...(state.next ? [state.next] : [])];
-    const keys = new Set(wanted.map(q => String(q.groupId)));
-    [...thread.children].filter(node => !keys.has(node.dataset.groupId)).forEach(node => node.remove());
-    for (let i=0; i<wanted.length; i++) {
-      const q = wanted[i], selected = q.options.find(o => o.key === standardSelections[q.groupId]);
-      let node = [...thread.children].find(n => n.dataset.groupId === String(q.groupId));
-      const added = !node;
-      if (added) { node = document.createElement('article'); node.dataset.groupId = q.groupId; thread.append(node); }
-      const complete = i < state.steps.length;
-      const signature = JSON.stringify([complete, q, selected?.key]);
-      if (node._hbSignature === signature) continue;
-      node._hbSignature = signature; node.inert = false;
-      node.className = 'hb-question ' + (complete ? 'is-complete' : 'is-current');
-      node.innerHTML = `<header class="hb-question-heading"><span class="hb-eyebrow">STEP ${String(i+1).padStart(2,'0')} · ${e(q.label)}</span><span class="hb-question-state">${complete ? '<span>선택 완료</span><button type="button" data-edit>이 질문부터 초기화</button>' : '선택 중'}</span></header><h2 tabindex="-1">${e(q.question || q.label + '을 선택해 주세요.')}</h2>${complete ? `<div class="hb-response"><span class="hb-response-label">선택하신 내용</span><p>${e(selected?.label)}</p>${S.help(q,q.assets,q.label + ' 질문 안내')}${selected ? S.help(selected,selected.assets,selected.label + ' 안내') : ''}</div>` : `${S.help(q,q.assets,q.label + ' 안내')}<div class="hb-standard-options" role="radiogroup" aria-label="${e(q.label)}">${q.options.map(o => optionHtml(o,'standard-'+q.groupId)).join('')}</div><div id="hb-question-errors" class="hb-question-errors" role="alert" hidden></div><button type="button" class="hb-next" id="hb-standard-next">선택 완료 · 다음으로</button>`}`;
-      node.onkeydown = null;
-      if (complete) node.querySelector('[data-edit]').onclick = () => resetStandard(q.groupId);
-      else {
-        const submit = () => run(async () => {
-          const picked = node.querySelector('input:checked');
-          if (!picked) { error('옵션을 선택해 주세요.', true); return; }
-          const selections = {...standardSelections,[q.groupId]:picked.value};
-          const next = await request(`/customer-series/${seriesContext.series.productId}/configure`, 'POST', selections);
-          if (pendingRoute) return;
-          standardSelections = selections; standardState = next; standardProduct = null; removeFaq();
-          document.getElementById('hb-price').replaceChildren();
-          await paintStandard(); focusQuestion();
-        }, '선택한 옵션과 조합 가능한 다음 항목을 확인하고 있습니다.', 'question');
-        node.querySelector('#hb-standard-next').onclick = submit;
-        node.onkeydown = event => { if (event.key === 'Enter' && event.target.matches('input')) { event.preventDefault(); submit(); } };
-      }
-      if (added) await reveal(node);
-    }
-    updateTeamPreview();
-    if (state.complete) {
-      if (state.products.length === 1) await showStandardProduct(state.products[0].id);
-      else {
-        document.getElementById('hb-price').innerHTML = `<section class="hb-quote"><h2>이 구성에 맞는 제품을 선택해 주세요.</h2><p>같은 옵션 구성으로 등록된 제품이 여러 개 있습니다.</p><div class="hb-model-choices">${state.products.map(p => `<button type="button" data-standard-product="${p.id}"><strong>${e(p.productName)}</strong><span>${e(p.catalogCode)}</span><small>${e(money(p.unitPrice))}</small></button>`).join('')}</div><div id="hb-product-result"></div></section>`;
-        main.querySelectorAll('[data-standard-product]').forEach(button => button.onclick = () => run(() => showStandardProduct(Number(button.dataset.standardProduct)), '선택한 제품을 확인하고 있습니다.', 'question'));
-      }
+    await Promise.all(motions);updateTeamPreview();
+    if(state.complete){
+      if(state.products.length===1)await showStandardProduct(state.products[0].id);
+      else{document.getElementById('hb-price').innerHTML=`<section class="hb-quote"><h2>이 구성에 맞는 제품을 선택해 주세요.</h2><p>같은 옵션 구성으로 등록된 제품이 여러 개 있습니다.</p><div class="hb-model-choices">${state.products.map(p=>`<button type="button" data-standard-product="${p.id}"><strong>${e(p.productName)}</strong><span>${e(p.catalogCode)}</span><small>${e(money(p.unitPrice))}</small></button>`).join('')}</div><div id="hb-product-result"></div></section>`;main.querySelectorAll('[data-standard-product]').forEach(button=>button.onclick=()=>run(async()=>{await showStandardProduct(Number(button.dataset.standardProduct));focusQuestion();},'제품을 확인하고 있습니다.','question'));await reveal(document.getElementById('hb-price').firstElementChild);}
     }
   }
   function standardGuidance(selected) {
@@ -404,6 +626,9 @@
     return content ? `<details class="hb-final-guidance" open><summary>완성된 제품의 상세 안내·이미지</summary>${content}</details>` : '';
   }
   async function showStandardProduct(id) {
+    const target = document.getElementById('hb-product-result') || document.getElementById('hb-price');
+    const placeholder = resultLoading(target);
+    try {
     const fresh = await request(`/customer-series/${seriesContext.series.productId}/configure`, 'POST', standardSelections);
     if (pendingRoute) return;
     if (!fresh.complete || !fresh.products.some(p => p.id === id)) throw Error('제품 구성이 변경되었습니다. 옵션을 다시 확인해 주세요.');
@@ -411,11 +636,15 @@
     if (pendingRoute) return;
     if (selected.nonStandard || selected.status === 'DISCONTINUED' || !standardState.products.some(p => p.id === selected.id)) throw Error('현재 구성에 맞는 규격제품을 다시 확인해 주세요.');
     standardProduct = selected;
-    const target = document.getElementById('hb-product-result') || document.getElementById('hb-price');
     target.innerHTML = `<section class="hb-quote"><span class="hb-eyebrow">YOUR CONFIGURATION</span><h2>선택하신 제품이 완성되었습니다.</h2><strong class="hb-selected-name">${e(selected.productName)}</strong>${selected.description ? `<p class="hb-info-description">${e(selected.description)}</p>` : ''}<dl class="hb-meta"><dt>제품코드</dt><dd>${e(selected.catalogCode)}</dd><dt>생산기간</dt><dd>${selected.productionHours == null ? '미등록' : e(S.productionTime(selected.productionHours))}</dd><dt>등록 상태</dt><dd>${e(S.status[selected.status] || selected.status)}</dd></dl><div class="hb-total">${e(money(selected.unitPrice))}</div><small>선택한 옵션에 일치하는 실제 규격제품의 등록 단가</small>${S.media(list(selected.assets).filter(a=>!a.image),'제품 첨부파일')}${standardGuidance(selected)}<p class="hb-result-note">배송비·할인·결제는 연결 전이며 주문은 저장되지 않습니다.</p>${standardState.steps.length ? '<button type="button" id="hb-standard-restart">옵션 다시 구성하기</button>' : ''}</section>`;
     const restart = document.getElementById('hb-standard-restart');
     if (restart) restart.onclick = () => resetStandard(standardState.steps[0].groupId);
-    await reveal(target.querySelector('.hb-quote')); void installFaq();
+    await reveal(target.querySelector('.hb-quote'), placeholder._hbHeight); void installFaq();
+    } catch (err) {
+      target.innerHTML = `<section class="hb-quote"><h2>선택한 제품을 다시 확인해 주세요.</h2><p class="hb-question-errors">${e(err.message)}</p><button type="button" id="hb-standard-retry">제품·가격 다시 확인</button></section>`;
+      document.getElementById('hb-standard-retry').onclick = () => run(async () => { await showStandardProduct(id); focusQuestion(); }, '제품을 확인하고 있습니다.', 'question');
+      await reveal(target.querySelector('.hb-quote'), placeholder._hbHeight);
+    } finally { if (placeholder.isConnected) placeholder.remove(); }
   }
   let faqSequence=0;
   function removeFaq(){faqSequence++;document.getElementById('hb-faq-button')?.remove();}
@@ -496,7 +725,7 @@
     const animation = node.animate([
       { height: oldHeight + 'px', opacity: oldHeight ? 1 : 0, transform: oldHeight ? 'translateY(0)' : 'translateY(14px)' },
       { height: height + 'px', opacity: 1, transform: 'translateY(0)' }
-    ], { duration: duration(260), easing: 'cubic-bezier(.22,.61,.36,1)' });
+    ], { duration: duration(320), easing: 'cubic-bezier(.22,.61,.36,1)' });
     try { await animation.finished; } catch (_) { /* Navigation may remove the thread. */ }
     if (node.isConnected) node.style.overflow = '';
   }
@@ -532,7 +761,7 @@
     const signature = JSON.stringify([state.question.question, state.answer]);
     if (node._hbComplete === signature) return null;
     const height = node.getBoundingClientRect().height;
-    node._hbComplete = signature; node.classList.remove('is-current', 'hb-current'); node.classList.add('is-complete');
+    node._hbComplete = signature; node.classList.remove('is-current', 'hb-current', 'is-loading'); node.classList.add('is-complete');
     node.removeAttribute('id'); node.inert = false;
     const key = state.question.key;
     node.querySelector('.hb-question-state').innerHTML = `<span>선택 완료</span><button type="button" data-edit="${e(key)}" aria-label="${e(state.question.labels.customer)} 이 질문부터 초기화">이 질문부터 초기화</button>`;
@@ -543,12 +772,13 @@
   }
   function mountCurrent(node, state, index, attemptedKey) {
     const q = { ...state.question, choices: list(state.question.choices).filter(c => state.allowed.includes(c.key)), fields: list(state.question.fields).filter(f => state.allowed.includes(f.key)) };
-    node._hbComplete = null; node.classList.remove('is-complete'); node.classList.add('is-current', 'hb-current'); node.id = 'hb-current';
+    node._hbComplete = null; node.inert = !!stepLoading; node.classList.remove('is-complete','is-loading'); node.classList.add('is-current', 'hb-current'); node.id = 'hb-current';
     node.querySelector('h2').textContent = q.question || q.labels.customer;
     node.querySelector('.hb-question-state').textContent = '선택 중';
     answers[q.key] = answers[q.key] || S.copy(state.answer);
     node.querySelector('.hb-question-body').innerHTML = `${S.help(q, list(q.assetIds).map(id => assets.get(id)).filter(Boolean), "질문 참고자료")}<div id="hb-input" data-control="${e(q.control)}">${S.inputAnswer(q, answers[q.key], false, assets)}</div><div id="hb-guides"></div><div id="hb-question-errors" class="hb-question-errors" role="alert">${attemptedKey === q.key ? state.errors.map(e).join('<br>') : ''}</div><button type="button" class="hb-next" id="hb-answer-next">선택 완료 · 다음으로</button>`;
     const box = node.querySelector('#hb-input');
+    box.querySelectorAll('input[aria-required],textarea[aria-required]').forEach(input => { input.required = !!state.required && input.getAttribute('aria-required') === 'true'; });
     // Choice and dimension counts are based on the registered question, not label guesses.
     const grid = box.querySelector('.pm-answer-choices');
     if (grid) {
@@ -568,8 +798,12 @@
     };
     let guideSequence=0, guideTimer;
     const updateGuidance=()=>{
-      showGuides();clearTimeout(guideTimer);const seq=++guideSequence, id=product.id;
+      if (!box.isConnected) return;
+      showGuides(); clearTimeout(guideTimer);
+      if (running || uploadCount) return;
+      const seq=++guideSequence, id=product.id;
       guideTimer=setTimeout(async()=>{
+        if (!box.isConnected || running || seq !== guideSequence) return;
         try {
           const values={...answers,[q.key]:S.readAnswer(box,q,answers[q.key])};
           const result=await request(`/products/${id}/customer-evaluate`,'POST',values,{quiet:true});
@@ -589,12 +823,16 @@
       onChange: value => { S.dirty = false; answers[q.key] = value; showGuides(); },
       onBusy: on => {
         uploadCount = Math.max(0, uploadCount + (on ? 1 : -1));
-        localBusy(on, '첨부파일을 업로드하고 있습니다.');
+        localBusy(uploadCount > 0, '첨부파일을 업로드하고 있습니다.', false);
+        if (on) queueMicrotask(() => {
+          if (box.isConnected && uploadCount) box.querySelectorAll('.pm-upload-area[aria-disabled=true]').forEach(area => area.removeAttribute('aria-disabled'));
+        });
         if (!on && !uploadCount && pendingRoute && !running) { pendingRoute = false; run(route); }
       },
       onError: message => error(message, true)
     });
     node.querySelector('#hb-answer-next').onclick = () => run(async () => {
+      clearTimeout(guideTimer); guideSequence++;
       const next = prunedFrom(q.key); next[q.key] = S.readAnswer(box, q, answers[q.key]);
       const result = await request(`/products/${product.id}/customer-evaluate`, 'POST', next);
       if (pendingRoute) return;
@@ -602,12 +840,12 @@
       if (fresh?.visible && !fresh.errors.length) done.push(q.key);
       answers = next; completed = done; evaluation = result;
       document.getElementById('hb-price').replaceChildren();
-      const status = document.getElementById('hb-inline-status'); if (status) status.hidden = true;
       await paintProcess(q.key); focusQuestion();
     }, '선택한 내용에 맞는 다음 질문을 확인하고 있습니다.', 'question');
-    S.bindQuestionNavigation(box, q, () => node.querySelector('#hb-answer-next').onclick());
+    bindStoreQuestionNavigation(box, q.control, () => node.querySelector('#hb-answer-next').onclick(), node.querySelector('#hb-answer-next'));
   }
   async function paintProcess(attemptedKey) {
+    await settleStepLoading();
     const visible = mergeAnswers(), active = visible.find(s => !completed.includes(s.question.key));
     currentQuestion = active?.question?.key || null;
     const config = document.getElementById('hb-config');
@@ -630,9 +868,9 @@
       if (completed.includes(state.question.key)) {
         const change = completeQuestion(node, state); if (change) motions.push(change);
       } else {
-        const wasComplete = node.classList.contains('is-complete'), oldHeight = node.getBoundingClientRect().height;
+        const oldHeight = node.getBoundingClientRect().height;
         mountCurrent(node, state, index, attemptedKey);
-        if (added || wasComplete) motions.push(reveal(node, added ? 0 : oldHeight));
+        motions.push(reveal(node, added ? 0 : oldHeight));
       }
     }
     await Promise.all(motions);
@@ -646,15 +884,9 @@
       }
     }
   }
-  let focusMotion = null;
-  function focusQuestion() {
-    const card = document.querySelector('.hb-question.is-current') || document.querySelector('.hb-quote');
-    S.focusQuestion(card, document.querySelector('.hb-header')?.getBoundingClientRect().height || 20);
-  }
-  window.addEventListener('wheel', () => { if (focusMotion) cancelAnimationFrame(focusMotion); focusMotion = null; }, { passive: true });
-  window.addEventListener('touchstart', () => { if (focusMotion) cancelAnimationFrame(focusMotion); focusMotion = null; }, { passive: true });
   async function calculate() {
     const target = document.getElementById('hb-price');
+    const placeholder = resultLoading(target);
     try {
       const status = (await request('/pricing/status', 'POST', { productIds: [product.id] }))[0];
       if (!status?.registered) throw Error('등록된 가격계산식이 없습니다. 제품 관리에서 가격계산식을 등록해 주세요.');
@@ -664,12 +896,12 @@
       if (!calculation.complete) throw Error(list(calculation.errors).join('\n') || '가격계산을 완료하지 못했습니다.');
       target.innerHTML = `<section class="hb-quote"><span class="hb-eyebrow">YOUR CONFIGURATION</span><h2>나만의 구성이 완성되었습니다.</h2><div class="hb-total">${e(money(calculation.total))}</div><small>저장된 가격식으로 계산한 구성 가격</small><details><summary>가격계산 내역 확인</summary>${list(calculation.terms).map(t => `<div class="hb-term"><span>${e(t.name)}${t.applied ? '' : ' · 적용 안 됨'}</span><span>${t.role === 'FACTOR' ? e(t.amount) + '배' : e(money(t.amount))}</span></div><p class="hb-term-why">${e(t.explanation)}</p>${list(t.multipliers).map(m => `<p class="hb-term-why">${e(m.name)}: ${e(m.value)}배 (${list(m.terms).map(f => e(f.name) + ' ' + e(f.value)).join(' / ')})</p>`).join('')}${list(t.adjustments).map(a => `<p class="hb-term-why">${e(a.name)}: ${e(a.before)} → ${e(a.after)} · ${e(a.range)}</p>`).join('')}`).join('')}</details><p class="hb-result-note">제품 구성 확인용 결과입니다. 배송비·할인·결제는 연결 전이며 주문은 저장되지 않습니다.</p><button id="hb-restart-config">옵션 다시 구성하기</button></section>`;
       document.getElementById('hb-restart-config').onclick = () => resetQuestion(list(product.process?.questions).find(q => !q.fixed)?.key);
-      await reveal(target.querySelector('.hb-quote'));
+      await reveal(target.querySelector('.hb-quote'), placeholder._hbHeight);
     } catch (err) {
       target.innerHTML = `<section class="hb-quote"><h2>옵션 선택이 완료되었습니다.</h2><p class="hb-question-errors">${e(err.message)}</p><button id="hb-retry-price">가격계산 다시 시도</button><p class="hb-result-note">계산되지 않은 가격은 표시하지 않습니다.</p></section>`;
-      document.getElementById('hb-retry-price').onclick = () => run(calculate, '가격을 다시 계산하고 있습니다.', 'question');
-      await reveal(target.querySelector('.hb-quote'));
-    }
+      document.getElementById('hb-retry-price').onclick = () => run(async () => { await calculate(); focusQuestion(); }, '가격을 다시 계산하고 있습니다.', 'question');
+      await reveal(target.querySelector('.hb-quote'), placeholder._hbHeight);
+    } finally { if (placeholder.isConnected) placeholder.remove(); }
   }
   main.addEventListener('load', ev => ev.target.closest?.('.hb-card-image')?.classList.remove('is-loading'), true);
   // Missing registered images fall back visibly, never silently presented as real product photography.
