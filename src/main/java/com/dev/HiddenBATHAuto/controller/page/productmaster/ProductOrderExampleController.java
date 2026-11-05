@@ -8,7 +8,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 @Controller
 @PreAuthorize("hasRole('ADMIN')")
 public class ProductOrderExampleController {
-  @GetMapping({"/admin/customer-order-example", "/admin/customer-order-example/products/{id}"})
+  @GetMapping({"/admin/customer-order-example", "/admin/customer-order-example/products/{id}",
+      "/admin/customer-order-example/series/{id}"})
   public String page() {
     return "administration/productmaster/customerOrderExample";
   }

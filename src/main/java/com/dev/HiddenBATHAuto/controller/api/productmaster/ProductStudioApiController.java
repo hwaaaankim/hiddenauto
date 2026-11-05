@@ -24,6 +24,7 @@ public class ProductStudioApiController {
   private final ProductStudioService service;
   private final ProductStudioAssetService assets;
   private final ProductStudioCustomerService customer;
+  private final ProductStorefrontService storefront;
   private final com.dev.HiddenBATHAuto.repository.productmaster.ProductMasterRepository products;
 
   @GetMapping("/summary")
@@ -49,6 +50,23 @@ public class ProductStudioApiController {
   @GetMapping("/groups")
   public ApiResponse<List<GroupView>> groups() {
     return ApiResponse.ok(attributes.catalog());
+  }
+
+  @GetMapping("/customer-collections")
+  public ApiResponse<List<ProductStorefrontService.Collection>> collections(
+      @RequestParam(defaultValue = "false") boolean nonStandard) {
+    return ApiResponse.ok(storefront.collections(nonStandard));
+  }
+
+  @GetMapping("/customer-series/{id}")
+  public ApiResponse<ProductStorefrontService.SeriesDetail> series(@PathVariable Long id) {
+    return ApiResponse.ok(storefront.series(id));
+  }
+
+  @PostMapping("/customer-series/{id}/configure")
+  public ApiResponse<ProductStorefrontService.Configuration> configure(@PathVariable Long id,
+      @RequestBody java.util.Map<Long, String> selections) {
+    return ApiResponse.ok(storefront.configure(id, selections));
   }
 
   @GetMapping("/customer-showroom")

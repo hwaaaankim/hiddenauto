@@ -35,7 +35,7 @@ public class ProductStudioCustomerService {
       long total, Long productId, List<AssetView> assets) {}
   public record ShowroomPage(List<ShowroomNavigation> navigation, List<ShowroomSection> sections,
       int nextOffset, long totalSections, boolean hasMore, long productTotal) {}
-  private record ShowroomData(Map<Long, GroupView> groups, Map<Long, List<Variant>> definitions,
+  record ShowroomData(Map<Long, GroupView> groups, Map<Long, List<Variant>> definitions,
       List<Map.Entry<String, List<ProductMaster>>> buckets, Map<String, Map<Long, String>> paths,
       Map<String, Map<String, String>> names) {}
 
@@ -83,7 +83,7 @@ public class ProductStudioCustomerService {
         entry.getValue().size());
   }
 
-  private ShowroomData showroomData(boolean nonStandard) {
+  ShowroomData showroomData(boolean nonStandard) {
     List<GroupView> catalog = attributes.catalog();
     Map<Long, GroupView> byGroup = catalog.stream().collect(Collectors.toMap(GroupView::id, g -> g));
     List<GroupView> basics = new ArrayList<>();
@@ -267,7 +267,7 @@ public class ProductStudioCustomerService {
     return "I:" + codes.configurationHash(json.write(canonical(v.inputs())));
   }
 
-  private Object canonical(Object value) {
+  Object canonical(Object value) {
     if (value instanceof Map<?, ?> map) {
       Map<String, Object> sorted = new TreeMap<>();
       map.forEach((key, item) -> sorted.put(String.valueOf(key), canonical(item)));
@@ -327,7 +327,7 @@ public class ProductStudioCustomerService {
         g.guide(), g.control().name(), options, media, g.helpDisplay());
   }
 
-  private ProductCard card(ProductMaster p, List<Variant> variants,
+  ProductCard card(ProductMaster p, List<Variant> variants,
       Map<Long, GroupView> groups, boolean admin) {
     List<AssetView> media = assets.owned("PRODUCT", p.getId());
     // Question/option/field guidance is not a product representative image.
