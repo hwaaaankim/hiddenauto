@@ -1,0 +1,24 @@
+# Project-wide read-only access. Original profile and prefix retained for upgrade compatibility.
+hiddenbath:
+  productmaster-mcp:
+    enabled: ${HIDDENBATH_PM_MCP_ENABLED:false}
+    port: ${HIDDENBATH_PM_MCP_PORT:8095}
+    db-url: ${HIDDENBATH_PM_MCP_DB_URL:}
+    db-username: ${HIDDENBATH_PM_MCP_DB_USERNAME:}
+    db-password: ${HIDDENBATH_PM_MCP_DB_PASSWORD:}
+    expected-database: ${HIDDENBATH_PM_MCP_EXPECTED_DATABASE:hiddenauto_dev}
+    allowed-origins: ${HIDDENBATH_PM_MCP_ALLOWED_ORIGINS:https://chatgpt.com}
+    connections:
+      www:
+        enabled: ${HIDDENBATH_MCP_WWW_ENABLED:false}
+        db-url: ${HIDDENBATH_MCP_WWW_DB_URL:}
+        db-username: ${HIDDENBATH_MCP_WWW_DB_USERNAME:}
+        db-password: ${HIDDENBATH_MCP_WWW_DB_PASSWORD:}
+        expected-database: ${HIDDENBATH_MCP_WWW_DATABASE:hiddenauto}
+      rag:
+        enabled: ${HIDDENBATH_MCP_RAG_ENABLED:false}
+        db-url: ${HIDDENBATH_MCP_RAG_DB_URL:}
+        db-username: ${HIDDENBATH_MCP_RAG_DB_USERNAME:}
+        db-password: ${HIDDENBATH_MCP_RAG_DB_PASSWORD:}
+        expected-database: ${HIDDENBATH_MCP_RAG_DATABASE:ax_rag_dev}
+        schema: ${HIDDENBATH_MCP_RAG_SCHEMA:public}
