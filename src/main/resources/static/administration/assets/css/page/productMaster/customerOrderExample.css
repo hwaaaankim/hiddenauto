@@ -82,10 +82,10 @@ body.hb-store { margin:0;background:var(--hb-bg);color:var(--hb-ink);font:400 14
 .hb-breadcrumb a:hover { color:var(--hb-gold); }
 .hb-detail { display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start;gap:clamp(32px,4vw,76px);padding:18px var(--hb-edge) 90px; }
 .hb-gallery { position:sticky;top:108px;min-width:0; }
-.hb-gallery-stage { position:relative;width:100%;aspect-ratio:1;max-height:max(350px,calc(100svh - 244px));overflow:hidden;border-radius:5px;background:#edeae3;touch-action:pan-y; }
-.hb-gallery-track { display:flex;width:100%;height:100%;will-change:transform; }
-.hb-gallery-slide { display:grid;flex:0 0 100%;place-items:center;min-width:0;height:100%;padding:8%; }
-.hb-gallery-slide img { width:100%;height:100%;object-fit:contain; }
+.hb-gallery-stage { position:relative;width:100%;aspect-ratio:1;max-height:max(350px,calc(100svh - 244px));overflow:hidden;border-radius:5px;background:#edeae3;touch-action:pan-y;transition:height 680ms var(--hb-ease); }
+.hb-gallery-track { position:absolute;inset:0;display:flex;width:100%;height:100%;min-height:0;will-change:transform; }
+.hb-gallery-slide { display:flex;flex:0 0 100%;align-items:center;justify-content:center;min-width:0;min-height:0;height:100%;padding:8%; }
+.hb-gallery-slide img { display:block;min-width:0;min-height:0;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain; }
 .hb-gallery-tools { display:flex;align-items:center;justify-content:space-between;position:absolute;inset:auto 18px 18px; }
 .hb-gallery-tools button { width:42px;min-height:42px;padding:0;background:#ffffffc4;font-size:19px; }
 .hb-gallery-count { color:var(--hb-muted);font-size:11px; }
@@ -267,6 +267,9 @@ body.hb-store[data-motion=reduced] * { transition-duration:0ms!important;animati
   .hb-detail[data-focus=gallery] { grid-template-columns:minmax(0,1.16fr) minmax(0,.84fr); }
   .hb-gallery { align-self:start; }
   .hb-gallery-stage { aspect-ratio:auto;height:clamp(300px,calc(100svh - 290px),620px);max-height:none; }
+  /* Keep the sticky gallery and thumbnail row in view; fit every square photo inside it. */
+  .hb-detail[data-focus=gallery] .hb-gallery-stage { height:clamp(160px,calc(100svh - 250px),720px); }
+  .hb-detail[data-focus=gallery] .hb-gallery-slide { padding:20px clamp(16px,2vw,32px) 72px; }
   .hb-info { position:relative; }
   .hb-info:before { content:'';position:absolute;left:calc(clamp(32px,4vw,76px) / -2);top:0;bottom:0;width:1px;background:var(--hb-line);pointer-events:none; }
   .hb-store .hb-info .pms-check-grid.pm-answer-choices,
