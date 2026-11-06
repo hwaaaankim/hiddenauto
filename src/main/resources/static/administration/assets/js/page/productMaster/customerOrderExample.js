@@ -717,8 +717,46 @@
     completed = completed.filter(k => visible.some(s => s.question.key === k && !s.errors.length));
     return visible;
   }
+  // Keep registered ALWAYS/ICON rendering intact; compact only media already rendered here.
+  function compactQuestionMedia(root) {
+    if (!root) return;
+    root.querySelectorAll('[data-pm-gallery]').forEach(gallery => {
+      const previews = [...gallery.querySelectorAll('[data-pm-image]')];
+      if (!previews.length) return;
+      const question = gallery.closest('.hb-question');
+      if (gallery.classList.contains('pm-media')) {
+        gallery.classList.add('hb-media-compact');
+        gallery.setAttribute('aria-label', gallery.dataset.pmGalleryTitle || '안내 이미지');
+        const caption = gallery.querySelector('.pm-media-caption');
+        if (question) caption?.remove();
+        else caption?.querySelector('small')?.remove();
+      }
+      const cover = previews[0];
+      if (!cover.querySelector('.hb-media-count')) {
+        const count = document.createElement('span');
+        count.className = 'hb-media-count'; count.textContent = String(previews.length);
+        count.setAttribute('aria-hidden', 'true'); cover.append(count);
+        cover.setAttribute('aria-label', `${cover.getAttribute('aria-label') || '이미지 확대'} · 이미지 ${previews.length}장`);
+      }
+    });
+    root.querySelectorAll('.pm-upload-heading > div > small').forEach(summary => {
+      // The editable attachment list keeps its own filenames, actions and upload status.
+      summary.textContent = `${summary.closest('.pm-upload-area').querySelectorAll('.pms-file').length}개 첨부`;
+    });
+    const question = root.matches('.hb-question') ? root : root.closest('.hb-question');
+    if (!question) return;
+    const visibleImage = question.querySelector('[data-pm-image]');
+    let hint = question.querySelector(':scope > .hb-image-hint');
+    if (!visibleImage) { hint?.remove(); return; }
+    if (!hint) {
+      hint = document.createElement('p'); hint.className = 'hb-image-hint';
+      hint.textContent = '이미지를 누르면 크게 볼 수 있습니다.';
+      question.querySelector(':scope > h2').after(hint);
+    }
+  }
   async function reveal(node, oldHeight = 0) {
     if (!node?.isConnected) return;
+    compactQuestionMedia(node);
     const height = node.getBoundingClientRect().height;
     if (!duration(1)) return;
     node.style.overflow = 'hidden';
@@ -820,13 +858,14 @@
     box.addEventListener('input', updateGuidance); box.addEventListener('change', updateGuidance); showGuides();
     S.answerFileEvents(box, q, answers[q.key], assets, {
       uploadPath: S.base + '/assets/stage', isCurrent: () => box.isConnected && currentQuestion === q.key,
-      onChange: value => { S.dirty = false; answers[q.key] = value; showGuides(); },
+      onChange: value => { S.dirty = false; answers[q.key] = value; showGuides(); queueMicrotask(() => compactQuestionMedia(node)); },
       onBusy: on => {
         uploadCount = Math.max(0, uploadCount + (on ? 1 : -1));
         localBusy(uploadCount > 0, '첨부파일을 업로드하고 있습니다.', false);
         if (on) queueMicrotask(() => {
           if (box.isConnected && uploadCount) box.querySelectorAll('.pm-upload-area[aria-disabled=true]').forEach(area => area.removeAttribute('aria-disabled'));
         });
+        if (!on) queueMicrotask(() => compactQuestionMedia(node));
         if (!on && !uploadCount && pendingRoute && !running) { pendingRoute = false; run(route); }
       },
       onError: message => error(message, true)
@@ -854,6 +893,7 @@
       const fixed = list(evaluation.questions).filter(s => s.question.fixed && product.groups?.find(g=>g.id===s.question.groupId)?.role!=='SUBCATEGORY');
       config.innerHTML = `<div class="hb-process-header"><span>나만의 제품 구성</span><span id="hb-step-count"></span></div><div class="hb-progress"><i></i></div>${fixed.length ? `<details class="hb-fixed-specs"><summary>기본 사양 보기</summary>${fixed.map(s => `<div class="hb-answer"><strong>${e(s.question.labels.customer)}</strong><p>${e(S.answerText(s.question, s.answer, assets))}</p>${S.help(s.question,list(s.question.assetIds).map(id=>assets.get(id)).filter(Boolean),'기본 사양 안내')}${S.answerMedia(s.question, s.answer, assets)}</div>`).join('')}</details>` : ''}<div id="hb-thread" aria-label="제품 구성 질문과 답변"></div><div id="hb-flow-error" class="hb-question-errors" role="alert" hidden></div><div id="hb-inline-status" class="hb-inline-status" role="status" aria-live="polite" hidden></div>`;
       thread = config.querySelector('#hb-thread');
+      compactQuestionMedia(config.querySelector('.hb-fixed-specs'));
     }
     document.getElementById('hb-step-count').textContent = `${completed.length} / ${visible.length} 단계`;
     config.querySelector('.hb-progress i').style.width = `${visible.length ? completed.length / visible.length * 100 : 100}%`;
