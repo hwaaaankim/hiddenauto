@@ -73,10 +73,50 @@ public final class ProductPricingEngine {
           group.label() + ": 가격영향이 켜진 숫자 그룹의 입력 " + fields.size() + "개"
               + (names.isBlank() ? "" : " (" + names + ")") + " 중 최소 1개를 가격계산식에 연결해야 저장할 수 있습니다. "
               + "가격 항의 입력, 숫자 범위별 옵션 금액의 기준, 또는 항의 숫자 적용 조건으로 연결해 주세요. "
+              + "다른 숫자 그룹의 항에 조건별 가격표를 여러 개 등록해도 이 그룹의 입력이 자동 연결되지는 않습니다. "
+              + "일반용·심리스용 입력 그룹을 나눴다면 각 입력 그룹에 별도 가격 항을 등록해야 합니다. "
               + "모든 입력이나 모든 묶음을 사용할 필요는 없습니다. 예: W·H 묶음 + D에서 W·H 2차원 항 하나 또는 D 1차원 항 하나도 가능합니다."
-              + (draft ? " 현재 항은 반영할 수 있으며, 남은 그룹은 최종 저장 전에 연결하세요." : "")));
+              + (draft ? " 현재 항은 반영할 수 있으며, 남은 그룹은 최종 저장 전에 연결하세요." : ""), "groups." + group.groupKey()));
     }
     return List.copyOf(issues);
+  }
+
+  public static Map<String, Set<String>> numericReferences(List<PricingGroup> groups, Definition definition) {
+    Map<String, Set<String>> result = new LinkedHashMap<>();
+    for (PricingGroup group : groups) if (group.control() == Control.NUMBER) {
+      Set<String> fields = new LinkedHashSet<>();
+      for (Term term : list(definition == null ? null : definition.terms())) fields.addAll(numericFieldReferences(term, group.groupKey()));
+      result.put(group.groupKey(), Set.copyOf(fields));
+    }
+    return result;
+  }
+
+  /** Group-level references are not enough when an ALLOW rule switches input bundles. */
+  public static Issue numericPathIssue(QuestionState state, Set<String> referenced) {
+    if (state == null || referenced == null || referenced.isEmpty() || !state.visible()
+        || state.question().fixed() || state.question().control() != Control.NUMBER || !state.errors().isEmpty()) return null;
+    List<Field> shown = state.question().fields().stream().filter(f -> state.allowed().contains(f.key())).toList();
+    if (shown.isEmpty() || shown.stream().anyMatch(f -> referenced.contains(f.key()))) return null;
+    return new Issue("ERROR", "PRICE_NUMERIC_PATH_UNUSED", label(state.question()),
+        "‘" + label(state.question()) + "’의 현재 경로에 표시된 숫자 입력("
+            + shown.stream().map(f -> f.labels().customer()).collect(Collectors.joining(" / "))
+            + ")에 연결된 가격계산이 없습니다. 같은 그룹의 다른 입력묶음이나 다른 숫자 그룹에 등록한 조건별 가격표가 이 입력을 자동으로 계산하지 않습니다. "
+            + "이 경로의 입력묶음에 맞는 항을 등록하거나 프로세스가 실제로 사용하는 공통 입력으로 연결을 맞추세요. 무료 경로라면 해당 입력에 0원 계산을 명시하세요.",
+        "groups." + state.question().key());
+  }
+
+  /** Saved/actual prices must not report a partial sum as a complete quote. */
+  public static Calculation checkInputBindings(Calculation calculation, List<PricingGroup> groups, Definition definition) {
+    List<String> errors = new ArrayList<>(calculation.errors());
+    participationIssues(groups, definition, false).stream().map(Issue::message).forEach(errors::add);
+    Map<String, Set<String>> references = numericReferences(groups, definition);
+    for (QuestionState state : calculation.evaluation() == null ? List.<QuestionState>of() : calculation.evaluation().questions()) {
+      Issue issue = numericPathIssue(state, references.get(state.question().key()));
+      if (issue != null) errors.add(issue.message());
+    }
+    errors = new ArrayList<>(new LinkedHashSet<>(errors));
+    if (errors.equals(calculation.errors())) return calculation;
+    return new Calculation(null, false, List.copyOf(errors), calculation.terms(), calculation.evaluation());
   }
 
   public static List<String> validate(Process process, List<PricingGroup> groups, Definition definition) {
@@ -278,6 +318,13 @@ public final class ProductPricingEngine {
 
   public static Calculation calculate(Process process, List<PricingGroup> groups,
       Definition definition, Map<String, Answer> submitted) {
+    Calculation calculation = calculateDraft(process, groups, definition, submitted);
+    return calculation.evaluation() == null ? calculation : checkInputBindings(calculation, groups, definition);
+  }
+
+  /** An explicit single-term/editor draft may intentionally omit other price inputs. */
+  public static Calculation calculateDraft(Process process, List<PricingGroup> groups,
+      Definition definition, Map<String, Answer> submitted) {
     List<String> validation = validate(process, groups, definition);
     if (!validation.isEmpty()) return new Calculation(null, false, validation, List.of(), null);
     return calculateValidated(process, definition, submitted);
@@ -302,6 +349,10 @@ public final class ProductPricingEngine {
     List<Term> tables = definition.terms().stream().filter(t -> role(t) == TermRole.PRICE && matrix(t) && applied.contains(t.key())).toList();
     for (int i = 0; i < tables.size(); i++) for (int j = i + 1; j < tables.size(); j++) {
       Term a = tables.get(i), b = tables.get(j);
+      // A conditional family has its own exactly-one check below. Reporting the
+      // same overlap again at every numeric boundary can hide other missing paths.
+      if (a.branchScope() != null && b.branchScope() != null
+          && Objects.equals(a.branchScope().ownerKey(), b.branchScope().ownerKey())) continue;
       if (!a.groupKey().equals(b.groupKey()) || !Objects.equals(a.optionTarget(), b.optionTarget())) continue;
       List<String> shared = a.fieldKeys().stream().filter(b.fieldKeys()::contains).toList();
       if (shared.isEmpty()) continue;
@@ -330,19 +381,7 @@ public final class ProductPricingEngine {
               + "에서 적용되는 가격표가 없습니다: " + entry.getValue().stream().map(Term::name).collect(Collectors.joining(" / "))
               + ". 허용 입력 범위를 빠짐없이 나누세요. 예: 600 이하 / 600 초과. 무료 구간은 0원 가격표로 명시하세요.");
     }
-    Map<String, List<Term>> branchFamilies = new LinkedHashMap<>();
-    for (Term term : definition.terms()) if (term.branchScope() != null)
-      branchFamilies.computeIfAbsent(term.branchScope().ownerKey(), k -> new ArrayList<>()).add(term);
-    for (List<Term> family : branchFamilies.values()) {
-      Term first = family.get(0); QuestionState state = states.get(first.groupKey());
-      if (state == null || !state.visible() && !state.question().fixed() || !state.errors().isEmpty()
-          || !state.allowed().containsAll(first.fieldKeys()) || first.fieldKeys().stream()
-              .anyMatch(k -> !map(state.answer().fields()).containsKey(k))) continue;
-      if (!list(first.branchScope().conditions()).stream().allMatch(c -> conditionMatches(c, evaluated, states))) continue;
-      long count = family.stream().filter(t -> applied.contains(t.key())).count();
-      if (count != 1) errors.add((count == 0 ? "조건별 계산 누락: " : "조건별 계산 중복: ")
-          + first.name() + " · 현재 선택에는 정확히 한 조건의 계산이 연결되어야 합니다.");
-    }
+    ProductPricingBranches.coverageIssues(definition, evaluated, results).stream().map(Issue::message).forEach(errors::add);
     if (total.compareTo(MAX_MONEY) > 0) errors.add("최종가격이 허용 범위를 벗어났습니다. 계산 합계: "
         + total.toPlainString() + "원 / 허용 한도: " + MAX_MONEY.toPlainString() + "원. 각 항의 입력 수량·단가와 동시 적용 조건을 확인해 주세요.");
     boolean complete = errors.isEmpty();
@@ -469,7 +508,7 @@ public final class ProductPricingEngine {
         + "). 조건의 질문·옵션이 현재 분기에 표시되는지도 확인해 주세요.";
   }
 
-  private static boolean conditionMatches(Condition condition, Evaluation evaluation, Map<String, QuestionState> states) {
+  static boolean conditionMatches(Condition condition, Evaluation evaluation, Map<String, QuestionState> states) {
     QuestionState state = states.get(condition.groupKey());
     return state != null && (state.visible() || state.question().fixed()) && state.errors().isEmpty()
         && evaluation.answers().containsKey(condition.groupKey())

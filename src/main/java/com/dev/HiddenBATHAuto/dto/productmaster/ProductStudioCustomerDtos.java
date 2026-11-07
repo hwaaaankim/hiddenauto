@@ -11,6 +11,9 @@ import java.util.Map;
 public final class ProductStudioCustomerDtos {
   private ProductStudioCustomerDtos() {}
 
+  /** Public quote exposes the accepted total, never internal terms, tables or test answers. */
+  public record PriceQuote(BigDecimal total, boolean complete, List<String> errors) {}
+
   public record BrowseRequest(
       boolean nonStandard,
       Map<Long, String> selections,

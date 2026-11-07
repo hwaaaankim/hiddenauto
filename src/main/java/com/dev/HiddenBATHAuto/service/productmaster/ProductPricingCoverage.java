@@ -24,11 +24,12 @@ public final class ProductPricingCoverage {
     // Editing a formula is not publishing it. Monetary witnesses must remain visible,
     // but they must not prevent adding the next independent term or its conditions.
     List<Issue> issues = coverage.issues().stream().map(issue -> draft
-        && Set.of("PRICE_TERM_MONEY_LIMIT", "PRICE_TOTAL_MONEY_LIMIT", "PRICE_TABLE_GAP", "PRICE_BRANCH_GAP", "PRICE_AXIS_RANGE").contains(issue.code())
+        && Set.of("PRICE_TERM_MONEY_LIMIT", "PRICE_TOTAL_MONEY_LIMIT", "PRICE_TABLE_GAP", "PRICE_BRANCH_GAP", "PRICE_AXIS_RANGE", "PRICE_UNREACHABLE_TERM", "PRICE_NUMERIC_PATH_UNUSED").contains(issue.code())
         ? new Issue("WARNING", issue.code(), issue.location(),
             "작성 중 안내: 이 항은 초안에 반영할 수 있습니다. 최종 저장 전 아래 범위·단가·조건을 확인해야 합니다. "
                 + issue.message(), issue.target()) : issue).collect(Collectors.toCollection(ArrayList::new));
     issues.addAll(ProductPricingEngine.participationIssues(groups, definition, draft));
+    issues.addAll(unusedChoices(process, groups, definition));
     return new Validation(coverage.exhaustive() && issues.stream().noneMatch(i -> "ERROR".equals(i.severity())),
         coverage.exhaustive(), coverage.scenarios(), List.copyOf(issues));
   }
@@ -47,8 +48,22 @@ public final class ProductPricingCoverage {
     // A projection may omit unrelated questions, but must never hide an invalid original
     // process. The full process is checked first, including SUM bounds and unreachable rules.
     Budget budget = new Budget();
-    Validation processValidation = ProductStudioEngine.validate(process, fixedAnswers);
+    Map<String, Set<String>> references = ProductPricingEngine.numericReferences(groups, definition);
+    Map<String, Issue> bindingIssues = new LinkedHashMap<>();
+    Validation processValidation = ProductStudioEngine.validateWithObserver(process, fixedAnswers, (state, answers) -> {
+      Issue issue = ProductPricingEngine.numericPathIssue(state, references.get(state.question().key()));
+      if (issue == null) return;
+      String signature = state.question().key() + ":" + state.allowed().stream().sorted().collect(Collectors.joining(","));
+      bindingIssues.putIfAbsent(signature, new Issue(issue.severity(), issue.code(), issue.location(),
+          issue.message() + " 재현 경로: " + ProductStudioEngine.answerExample(state.question(), state.answer())
+              + " / " + process.questions().stream().filter(q -> !q.key().equals(state.question().key()) && answers.containsKey(q.key()))
+                  .map(q -> label(q) + ": " + ProductStudioEngine.answerExample(q, answers.get(q.key()))).collect(Collectors.joining("; ")),
+          issue.target()));
+    });
     if (!processValidation.valid() || !processValidation.exhaustive()) return processValidation;
+    // Preserve unreachable-question warnings as well as pricing failures.
+    issues.addAll(processValidation.issues());
+    issues.addAll(bindingIssues.values());
     List<ProductPricingValidationPlan.Part> parts = ProductPricingValidationPlan.build(process, definition, fixedAnswers);
     Set<String> hit = new HashSet<>();
     Set<String> moneyIssues = new HashSet<>();
@@ -88,7 +103,7 @@ public final class ProductPricingCoverage {
     // exceed the monetary limit for mutually exclusive branches even if every real
     // total is valid. In that case verify correlated combinations; do not reject an
     // unattainable bound as an actual overflow and do not waive the total-price check.
-    if (exhaustive && issues.isEmpty() && sumCoupledQuantity
+    if (exhaustive && issues.stream().noneMatch(i -> "ERROR".equals(i.severity())) && sumCoupledQuantity
         && maximumTotal.compareTo(ProductPricingEngine.MAX_MONEY) > 0) {
       exhaustive = false;
       issues.add(new Issue("ERROR", "PRICE_VALIDATION_LIMIT", "합계 제한과 최종 금액",
@@ -97,7 +112,7 @@ public final class ProductPricingCoverage {
               + "이는 실제 입력이 금액 한도를 초과했다고 단정하는 오류가 아닙니다. 각 항의 실제 허용 최대값·단가·배율을 확인하고 전체 검사를 다시 진행하세요.",
           "terms." + definition.terms().get(0).key()));
     }
-    if (exhaustive && issues.isEmpty() && maximumTotal.compareTo(ProductPricingEngine.MAX_MONEY) > 0 && parts.size() > 1) {
+    if (exhaustive && issues.stream().noneMatch(i -> "ERROR".equals(i.severity())) && maximumTotal.compareTo(ProductPricingEngine.MAX_MONEY) > 0 && parts.size() > 1) {
       correlatedTotals = true;
       Probe correlated = new Probe(process, groups, definition, issues, budget, moneyIssues);
       correlated.walk(0, new LinkedHashMap<>(map(fixedAnswers)));
@@ -109,8 +124,12 @@ public final class ProductPricingCoverage {
       }
     }
     if (exhaustive) for (Term term : definition.terms()) {
-      if (!hit.contains(term.key())) add(issues, "PRICE_UNREACHABLE_TERM", term.name(),
-          "현재 프로세스의 어떤 허용 경로에서도 이 항이 적용되지 않습니다. 항의 입력묶음·선택 보기와 적용 조건이 같은 분기를 가리키는지 확인해 주세요.");
+      if (!hit.contains(term.key())) {
+        String owner = term.branchScope() == null ? term.key() : term.branchScope().ownerKey();
+        if (issues.stream().noneMatch(i -> i.code().equals("PRICE_UNREACHABLE_TERM") && Objects.equals(i.target(), "terms." + owner)))
+          issues.add(new Issue("ERROR", "PRICE_UNREACHABLE_TERM", term.name(),
+              "현재 프로세스의 어떤 허용 경로에서도 이 항이 적용되지 않습니다. 숫자 질문이 기본 숨김이면 해당 질문을 표시하는 분기 연결이 필요합니다. 항의 입력묶음·선택 보기와 적용 조건도 같은 경로를 가리키는지 확인해 주세요.", "terms." + owner));
+      }
     }
     if (exhaustive && scenarios == 0) add(issues, "PRICE_EMPTY_DOMAIN", "가격 검증",
         "가격계산을 검증할 수 있는 완성된 프로세스 경로가 없습니다.");
@@ -154,6 +173,8 @@ public final class ProductPricingCoverage {
     long visits;
     final long deadline = System.nanoTime() + 15_000_000_000L;
     boolean timedOut;
+    final Set<String> branchWitnesses = new HashSet<>();
+    final Set<String> pathWitnesses = new HashSet<>();
     boolean expired() {
       if (System.nanoTime() > deadline) timedOut = true;
       return timedOut;
@@ -161,6 +182,41 @@ public final class ProductPricingCoverage {
     boolean next() {
       if (++visits > MAX_SCENARIOS) return false;
       return (visits & 127) != 1 || !expired();
+    }
+  }
+
+  /** An unused selectable price-impact group is an advisory, not an invented charge.
+   * Controls such as 'add drawer' can affect a priced downstream quantity indirectly. */
+  private static List<Issue> unusedChoices(Process process, List<PricingGroup> groups, Definition definition) {
+    Set<String> referenced = new LinkedHashSet<>();
+    collectReferences(definition == null ? List.of() : list(definition.terms()), referenced);
+    List<Issue> issues = new ArrayList<>();
+    for (PricingGroup group : groups) {
+      if (group.control() != Control.RADIO && group.control() != Control.CHECKBOX) continue;
+      Set<String> downstream = new LinkedHashSet<>(Set.of(group.groupKey()));
+      boolean changed;
+      do {
+        changed = false;
+        for (Rule rule : list(process.rules())) if (list(rule.conditions()).stream().anyMatch(c -> downstream.contains(c.groupKey())))
+          for (Action action : list(rule.actions())) if (downstream.add(action.targetKey())) changed = true;
+      } while (changed);
+      if (downstream.stream().anyMatch(referenced::contains)) continue;
+      issues.add(new Issue("WARNING", "PRICE_CHOICE_GROUP_UNUSED", group.label(),
+          "‘" + group.label() + "’은 가격영향 그룹이지만 이 선택이나 연결된 뒤 질문을 사용하는 가격 항·적용 조건이 없습니다. 별도 추가금이 필요하다면 옵션별 금액 또는 가격표를 등록하세요. 추가금이 없는 설정인지도 확인해 주세요. 이 안내만으로 금액을 자동 생성하지 않습니다.",
+          "groups." + group.groupKey()));
+    }
+    return issues;
+  }
+
+  private static void collectReferences(List<Term> terms, Set<String> keys) {
+    for (Term term : terms) {
+      if (term == null) continue;
+      keys.add(term.groupKey());
+      for (Condition c : list(term.conditions())) if (c != null) keys.add(c.groupKey());
+      for (PriceAdjustment a : list(term.adjustments())) if (a != null) keys.add(a.groupKey());
+      if (term.optionTarget() != null) keys.add(term.optionTarget().groupKey());
+      if (term.optionPricing() != null) keys.add(term.optionPricing().groupKey());
+      collectReferences(list(term.branches()), keys);
     }
   }
 
@@ -354,6 +410,16 @@ public final class ProductPricingCoverage {
       if (calculation.complete() && calculation.total() != null) maximumTotal = maximumTotal.max(calculation.total());
       calculation.terms().stream().filter(TermResult::applied).map(TermResult::key).forEach(hitTerms::add);
       Set<String> explained = new HashSet<>();
+      for (Issue issue : ProductPricingBranches.coverageIssues(definition, calculation.evaluation(), calculation.terms())) {
+        explained.add(issue.message());
+        String owner = issue.target().substring("terms.".length());
+        String signature = definition.terms().stream().filter(t -> t.branchScope() != null && owner.equals(t.branchScope().ownerKey()))
+            .flatMap(t -> list(t.conditions()).stream()).distinct()
+            .map(c -> c.groupKey() + ":" + c + "=" + ProductStudioEngine.matches(c, answers.get(c.groupKey())))
+            .collect(Collectors.joining("|"));
+        if (budget.branchWitnesses.add(issue.code() + ":" + issue.target() + ":" + signature) && issues.size() < 100)
+          issues.add(new Issue(issue.severity(), issue.code(), issue.location(), issue.message() + " 재현 입력: " + example(answers), issue.target()));
+      }
       boolean diagnosedMoney = false;
       if (calculation.errors().stream().anyMatch(ProductPricingMoneyDiagnostics::monetary)) {
         List<Issue> monetary = ProductPricingMoneyDiagnostics.issues(definition, calculation);
@@ -370,10 +436,21 @@ public final class ProductPricingCoverage {
         rangeIssue(term, term.xAxis(), "x", calculation.evaluation());
         if (term.yAxis() != null) rangeIssue(term, term.yAxis(), "y", calculation.evaluation());
       }
-      if (!calculation.complete()) { for (String error : calculation.errors()) if (!explained.contains(error)
-          && !(diagnosedMoney && ProductPricingMoneyDiagnostics.monetary(error))) add(issues,
-          error.startsWith("조건별 계산 누락:") ? "PRICE_BRANCH_GAP" : error.startsWith("조건별 계산 중복:") ? "PRICE_BRANCH_OVERLAP" : error.startsWith("가격표 중복:") ? "PRICE_TABLE_OVERLAP" : error.startsWith("가격표 범위 누락:") ? "PRICE_TABLE_GAP" : "PRICE_PATH",
-          "가격계산", error + " 예시: " + example(answers));
+      if (!calculation.complete()) {
+        for (String error : calculation.errors()) {
+          if (explained.contains(error) || diagnosedMoney && ProductPricingMoneyDiagnostics.monetary(error)) continue;
+          String code = error.startsWith("조건별 계산 누락:") ? "PRICE_BRANCH_GAP" : error.startsWith("조건별 계산 중복:") ? "PRICE_BRANCH_OVERLAP"
+              : error.startsWith("가격표 중복:") ? "PRICE_TABLE_OVERLAP" : error.startsWith("가격표 범위 누락:") ? "PRICE_TABLE_GAP" : "PRICE_PATH";
+          String signature = code.equals("PRICE_TABLE_OVERLAP") && error.contains("같은 입력(")
+              ? error.substring(0, error.indexOf("같은 입력(")) : error;
+          // Keep one witness for the same dependency failure rather than filling
+          // the issue limit with the same missing factor at every size boundary.
+          if (!budget.pathWitnesses.add(code + ":" + signature)) continue;
+          Term source = definition.terms().stream().filter(t -> error.startsWith(t.name() + ": ")).findFirst().orElse(null);
+          if (source == null) add(issues, code, "가격계산", error + " 예시: " + example(answers));
+          else if (issues.size() < 100) issues.add(new Issue("ERROR", code, source.name(), error + " 예시: " + example(answers),
+              "terms." + (source.branchScope() == null ? source.key() : source.branchScope().ownerKey())));
+        }
       } else checkScopes(calculation);
     }
 

@@ -419,3 +419,7 @@ body.hb-store[data-motion=reduced] * { transition-duration:0ms!important;animati
 .hb-store .hb-info .pm-upload-area .pms-file-image { height:96px; }
 .hb-store .hb-info .pm-file-copy>small { display:none; }
 .hb-store .hb-info .hb-standard-option:has(.hb-media-compact)>.hb-standard-choice { min-height:48px;padding:10px; }
+
+/* Multi-line product candidates must not inherit the shared one-line button height. */
+.hb-store .hb-model-choices>button{height:auto;min-height:112px;white-space:normal;line-height:1.6;justify-content:center}
+.hb-store .hb-model-choices>button>strong,.hb-store .hb-model-choices>button>span,.hb-store .hb-model-choices>button>small{flex:0 0 auto;display:block;width:100%;margin:0;white-space:normal;overflow-wrap:anywhere}

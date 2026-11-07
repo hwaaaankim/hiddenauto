@@ -118,6 +118,23 @@
           return `${name}: ${c.lower ?? ""} ${op || c.operator}`;
         })
         .join(S.isChoice(q.control) ? " / " : " · ");
+    function visibility(target) {
+      const incoming = process.rules.filter(r => (r.actions || []).some(a => a.targetKey === target.key));
+      const earlier = qs().filter(q => process.questions.indexOf(q) < process.questions.indexOf(target));
+      const dialog = S.dialog(nm(target) + ' · 표시 연결 확인', `<p class="pms-help">기본 표시: <strong>${target.visible ? '표시' : '숨김'}</strong>. 앞 질문을 표시하는 연결만으로 이 질문이 자동 표시되지는 않습니다. 조건에 맞을 때 이 질문을 표시하는 연결을 직접 지정하세요.</p>${incoming.map(r => `<section class="pms-panel pms-panel-body"><strong>${S.e(r.name)}</strong><p>${r.conditions.map(c => S.e(nm(process.questions.find(q => q.key === c.groupKey))) + ' · ' + S.e(conditionText(process.questions.find(q => q.key === c.groupKey), [c]))).join(r.match === 'ANY' ? ' 또는 ' : ' 그리고 ')}</p><button type="button" data-incoming-rule="${S.e(r.key)}">연결 ${readOnly ? '조회' : '수정'}</button></section>`).join('') || '<p class="pms-alert">이 질문을 대상으로 하는 연결이 없습니다.</p>'}${!readOnly ? `<label>표시 조건으로 사용할 앞 질문<select data-visibility-source><option value="">질문을 선택해 주세요</option>${earlier.map(q => `<option value="${S.e(q.key)}">${S.e(nm(q))}</option>`).join('')}</select></label><button type="button" data-visibility-add>이 질문을 표시하는 분기 작성</button>` : ''}<button type="button" data-visibility-question>질문 기본 표시·입력 설정 확인</button>`);
+      S.$$('[data-incoming-rule]', dialog).forEach(button => button.onclick = () => {
+        const rule = process.rules.find(r => r.key === button.dataset.incomingRule); dialog.close(); advanced(rule.conditions[0]?.groupKey, rule);
+      });
+      S.$('[data-visibility-question]', dialog).onclick = () => { dialog.close(); question(target); };
+      S.$('[data-visibility-add]', dialog)?.addEventListener('click', () => {
+        const source = earlier.find(q => q.key === S.$('[data-visibility-source]', dialog).value);
+        if (!source) return S.toast('표시 조건을 판단할 앞 질문을 선택해 주세요.');
+        const rule = { key: S.key('R'), name: nm(source) + ' → ' + nm(target) + ' 표시', match: 'ALL',
+          conditions: [{ groupKey: source.key, fieldKey: source.control === 'NUMBER' ? source.fields[0]?.key : null, operator: S.isChoice(source.control) ? 'EQ' : 'PRESENT', choiceKeys: [], text: null, lower: null, upper: null, lowerInclusive: true, upperInclusive: true }],
+          actions: [{ targetKey: target.key, effect: 'SHOW', choiceKeys: [], questionText: null }] };
+        dialog.close(); advanced(source.key, rule);
+      });
+    }
     async function validate(test = process) {
       const v = await S.request(
         "/products/" + p.id + "/validate",
@@ -129,7 +146,7 @@
         el.innerHTML = `<p class="pms-help" role="status">${v.valid && v.exhaustive ? "검증 통과" : "수정 필요"} · ${v.scenarios}개 경로</p>${v.issues
           .map((i, index) => {
             const question = test.questions.find(
-              (q) => (nm(q) === i.location || q.key === i.location) && !S.isBase(S.group(q.groupId)),
+              (q) => (q.key === i.target || nm(q) === i.location || q.key === i.location) && !S.isBase(S.group(q.groupId)),
             );
             const relatedLimits = (test.inputLimits || []).filter((l) => l.name === i.location || i.message.includes("[" + l.name + "]"));
             const relatedNotices = i.code === "INPUT_NOTICE" ? test.questions.filter((q) => q.key === i.location) : [];
@@ -140,9 +157,10 @@
                 i.message.includes(r.name + "]") ||
                 i.message.includes(" / " + r.name),
             );
-            return `<article class="pm-validation-issue ${i.severity === "ERROR" ? "pms-error" : ""}"><strong>${S.e(i.location)} · ${i.severity === "ERROR" ? "수정 필요" : "확인"}</strong><p>${S.e(i.message)}</p>${S.errorAdvice(i.message) ? `<p class="pm-fix-example">${S.e(S.errorAdvice(i.message))}</p>` : ""}<div class="pms-actions">${question ? `<button data-fix-question="${S.e(question.key)}">${S.e(nm(question))} 답변 수정</button>` : ""}${rules.map((r) => `<button data-fix-rule="${S.e(r.key)}">${S.e(r.name)} 연결 ${readOnly ? "조회" : "수정"}</button>`).join("")}${relatedLimits.map((l) => `<button data-fix-limit="${S.e(l.targetKey)}">${S.e(l.name)} 입력제한 ${readOnly ? "조회" : "수정"}</button>`).join("")}${relatedNotices.map((q) => `<button data-fix-notice="${S.e(q.key)}">조건별 안내 ${readOnly ? "조회" : "수정"}</button>`).join("")}</div></article>`;
+            return `<article class="pm-validation-issue ${i.severity === "ERROR" ? "pms-error" : ""}"><strong>${S.e(i.location)} · ${i.severity === "ERROR" ? "수정 필요" : "확인"}</strong><p>${S.e(i.message)}</p>${S.errorAdvice(i.message) ? `<p class="pm-fix-example">${S.e(S.errorAdvice(i.message))}</p>` : ""}<div class="pms-actions">${question ? `<button data-fix-question="${S.e(question.key)}">${S.e(nm(question))} 답변 수정</button>` : ""}${question && i.code === "UNREACHABLE_QUESTION" ? `<button data-fix-visibility="${S.e(question.key)}">이 질문의 표시 분기 확인</button>` : ""}${rules.map((r) => `<button data-fix-rule="${S.e(r.key)}">${S.e(r.name)} 연결 ${readOnly ? "조회" : "수정"}</button>`).join("")}${relatedLimits.map((l) => `<button data-fix-limit="${S.e(l.targetKey)}">${S.e(l.name)} 입력제한 ${readOnly ? "조회" : "수정"}</button>`).join("")}${relatedNotices.map((q) => `<button data-fix-notice="${S.e(q.key)}">조건별 안내 ${readOnly ? "조회" : "수정"}</button>`).join("")}</div></article>`;
           })
           .join("")}`;
+        S.$$("[data-fix-visibility]", el).forEach(button => button.onclick = () => visibility(process.questions.find(q => q.key === button.dataset.fixVisibility)));
         S.$$("[data-fix-question]", el).forEach(
           (b) =>
             (b.onclick = () => {
@@ -1084,6 +1102,6 @@
     S.dirty = false;
     const initialKey = new URLSearchParams(location.search).get("question");
     const initialQuestion = qs().find((q) => q.key === initialKey);
-    if (initialQuestion) question(initialQuestion);
+    if (initialQuestion) { if (new URLSearchParams(location.search).get("connections") === "show") visibility(initialQuestion); else question(initialQuestion); }
   };
 })(window.PMS);

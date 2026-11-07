@@ -418,6 +418,8 @@
         return `<li><strong>${S.e(label(target))}</strong> · ${S.e(text)}</li>`;
       }).join("")}</ul></article>`).join("") || '<p class="pms-help">추가 연결 없이 위 질문 순서대로 진행합니다.</p>'}</div></section>` : "";
     const quote = summary?.pricingTest;
+    const pricingAdmin = admin || !!p._isAdminTest;
+    const compactCompletion = !!summary && !admin;
     // The server supplies already validated intermediate results. Keep decimal text
     // intact until the final, rounded term value instead of recomputing in the client.
     const calculationValue = (value, unit = '원') => {
@@ -427,9 +429,10 @@
     };
     const adjustmentResult = term => (term.adjustments || []).length ? `<ol class="pm-customer-adjustment-results">${term.adjustments.map((adjustment, index) => `<li><strong>${index + 1}. ${S.e(adjustment.name)}</strong><small>입력 ${S.e(adjustment.input)} · ${S.e(adjustment.range || '')}</small><p>${S.e(calculationValue(adjustment.before))} ${adjustment.operation === 'ADD' ? '＋ ' + S.e(calculationValue(adjustment.value)) : '× ' + S.e(calculationValue(adjustment.value, '배'))} = ${S.e(calculationValue(adjustment.after))}</p></li>`).join('')}</ol>${(term.multipliers || []).length ? `<p class="pms-help">위 결과에 ${term.multipliers.map(link => S.e(link.name) + ' ' + S.e(calculationValue(link.value, '배'))).join(' × ')}를 이어서 곱합니다.</p>` : ''}` : '';
 
-    const priceTest = quote ? `<section class="pm-customer-price-test pms-section" aria-live="polite"><h3>가격계산 테스트 결과</h3>${quote.complete && quote.total != null
-      ? `<p class="pm-customer-price-total"><strong>${S.e(Number(quote.total).toLocaleString("ko-KR", { maximumFractionDigits: 2 }))}원</strong></p><details><summary>적용된 금액·조건별 계산·배율 확인</summary>${(quote.terms || []).filter((t) => t.applied).map((t) => `<section class="pm-customer-price-term"><p><strong>${S.e(t.name)}</strong> · ${t.amount == null ? "계산 확인 필요" : S.e(Number(t.amount).toLocaleString("ko-KR", { maximumFractionDigits: t.role === "FACTOR" ? 6 : 2 })) + (t.role === "FACTOR" ? " (배율·수량)" : "원")}<br><small>${S.e(t.explanation || "")}</small></p>${adjustmentResult(t)}</section>`).join("")}</details>`
-      : `<div class="pms-alert">${(quote.errors?.length ? quote.errors : ["가격계산을 완료하지 못했습니다."]).map((message) => `<p>${S.e(message)}</p>`).join("")}</div>`}<a class="pms-button" href="/admin/product-master/products/${encodeURIComponent(summary.pricingProductId)}/pricing">가격계산식 확인·수정</a></section>` : "";
+    const quoteDetails = pricingAdmin && (quote?.terms || []).length ? `<details><summary>적용된 금액·조건별 계산·배율 확인</summary>${quote.terms.filter(t => t.applied).map(t => `<section class="pm-customer-price-term"><p><strong>${S.e(t.name)}</strong> · ${t.amount == null ? "계산 확인 필요" : S.e(calculationValue(t.amount, t.role === 'FACTOR' ? ' (배율·수량)' : '원'))}<br><small>${S.e(t.explanation || "")}</small></p>${adjustmentResult(t)}</section>`).join('')}</details>` : '';
+    const priceTest = quote ? `<section class="pm-customer-price-test pms-section" aria-live="polite"><h3>${pricingAdmin ? '가격계산 테스트 결과' : '선택 구성의 가격'}</h3>${quote.complete && quote.total != null
+      ? `<p class="pm-customer-price-total"><strong>${S.e(calculationValue(quote.total))}</strong></p>${quoteDetails}`
+      : `<div class="pms-alert">${(quote.errors?.length ? quote.errors : ["가격계산을 완료하지 못했습니다."]).map(message => `<p>${S.e(message)}</p>`).join('')}</div>`}<p class="pms-help">제품 구성의 가격 확인 결과입니다. 배송비·할인·결제는 연결 전이며 주문은 저장되지 않습니다.</p>${pricingAdmin && summary.pricingProductId != null ? `<a class="pms-button" href="/admin/product-master/products/${encodeURIComponent(summary.pricingProductId)}/pricing">가격계산식 확인·수정</a>` : ''}</section>` : '';
     const summarySection = summary ? `<section id="${prefix}-selection" class="pm-product-section"><header><span class="pm-detail-eyebrow">YOUR SELECTION</span><h2>선택·입력한 제품 구성</h2><p>입력하신 사양이 이 제품의 제작 구성으로 정리되었습니다.</p></header>
       <div class="pm-selection-grid">${questions.map((q) => `<div><span>${S.e(label(q))}</span><strong>${S.e(S.answerText(q, answer(q) || {}, amap))}</strong></div>`).join("")}</div>
       ${priceTest}<div class="pms-actions"><button type="button" data-copy-configuration>구성 내용 복사</button>${onBack ? '<button type="button" data-detail-back>선택 내용 수정</button>' : ""}</div></section>` : "";
@@ -443,12 +446,12 @@
           <div class="pms-actions pm-detail-actions">${topicButton}${actions}</div></div></section>
       <nav class="pm-product-tabs" aria-label="상세 정보 영역">${summary ? `<a href="#${prefix}-selection">내 선택 내용</a>` : ""}<a href="#${prefix}-spec">${p.nonStandard && !summary ? "질문·선택 범위" : "구성 사양·가이드"}</a>
         ${rules ? `<a href="#${prefix}-rules">연관관계</a>` : ""}${faq ? '<button type="button" data-pm-faq>FAQ 보기</button>' : ""}</nav>${S.teamPreview(p, summary)}${summarySection}
-      <section id="${prefix}-spec" class="pm-product-section"><header><span class="pm-detail-eyebrow">${p.nonStandard && !summary ? "CUSTOMIZATION GUIDE" : "PRODUCT SPECIFICATION"}</span>
+      ${compactCompletion ? '<details class="pm-completed-guides"><summary>선택한 옵션의 안내·이미지 자세히 보기</summary>' : ""}<section id="${prefix}-spec" class="pm-product-section"><header><span class="pm-detail-eyebrow">${p.nonStandard && !summary ? "CUSTOMIZATION GUIDE" : "PRODUCT SPECIFICATION"}</span>
         <h2>${p.nonStandard && !summary ? "어떤 질문이 나올까요?" : "제품 사양과 사용 가이드"}</h2>${p.nonStandard && !summary ? '<p>번호 순서로 질문이 진행됩니다. 답변에 따라 뒤의 질문이나 선택지가 달라질 수 있습니다.</p>' : ""}</header>
         ${custom.length ? `<div class="pm-question-index">${custom.map((q, i) => `<a href="#${prefix}-q-${i}">${String(i + 1).padStart(2, "0")} ${S.e(label(q))}</a>`).join("")}</div>
           <div class="pm-spec-cards">${custom.map(questionCard).join("")}</div>` : '<p class="pms-help">추가 옵션 없이 위 기본 분류로 구성된 제품입니다.</p>'}
         ${admin || basics.some((q) => q.guide?.trim() || (q.choices || []).some((c) => c.guide?.trim() || fs(c.assetIds).length || groups.get(q.groupId)?.values?.find((v) => v.key === c.key)?.assets?.length) || fs(q.assetIds).length || groupQuestionAssets(groups.get(q.groupId)).length)
-          ? `<details class="pm-base-guides" open><summary>${admin ? "기본 분류의 등록 내용·value·이미지·안내 보기" : "기본 분류의 이미지·안내 보기"}</summary>${basics.map(questionCard).join("")}</details>` : ""}</section>${rules}
+          ? `<details class="pm-base-guides" open><summary>${admin ? "기본 분류의 등록 내용·value·이미지·안내 보기" : "기본 분류의 이미지·안내 보기"}</summary>${basics.map(questionCard).join("")}</details>` : ""}</section>${compactCompletion ? "</details>" : ""}${rules}
       ${admin ? `<details class="pm-product-identity"><summary>제품 코드·관리 정보·제품명 생성 규칙</summary><dl><div><dt>제품 ID</dt><dd>${p.id}</dd></div><div><dt>제품 코드</dt><dd class="mono">${S.e(p.productCode)}</dd></div><div><dt>카탈로그 코드</dt><dd class="mono">${S.e(p.catalogCode)}</dd></div><div><dt>등록 상태</dt><dd>${S.e(p.registrationStatus)}</dd></div>
         ${(p.nameTokens || []).map((t, i) => `<div><dt>제품명 규칙 ${i + 1}</dt><dd>${S.e(groups.get(t.groupId)?.labels?.management || t.groupId)} · 구분자 ${S.e(JSON.stringify(t.before || ""))} · 앞 문자 ${S.e(JSON.stringify(t.prefix || ""))} · 뒤 문자 ${S.e(JSON.stringify(t.suffix || ""))}</dd></div>`).join("")}</dl></details>` : ""}
     </div>`;
@@ -459,7 +462,8 @@
     S.$$("[data-detail-back]", root).forEach((b) => { b.onclick = onBack; });
     S.$("[data-copy-configuration]", root)?.addEventListener("click", async (e) => {
       try {
-        await navigator.clipboard.writeText(`${p.productName}\n${p.catalogCode}\n` + questions.map((q) => `${label(q)}: ${S.answerText(q, answer(q) || {}, amap)}`).join("\n"));
+        const acceptedPrice = quote?.complete && quote.total != null ? `\n구성 가격: ${calculationValue(quote.total)} (배송비·할인·결제 별도)` : '';
+        await navigator.clipboard.writeText(`${p.productName}\n${p.catalogCode}\n` + questions.map((q) => `${label(q)}: ${S.answerText(q, answer(q) || {}, amap)}`).join("\n") + acceptedPrice);
         S.toast("구성 내용을 복사했습니다.");
       } catch { S.toast("복사 권한을 확인해 주세요."); }
     });

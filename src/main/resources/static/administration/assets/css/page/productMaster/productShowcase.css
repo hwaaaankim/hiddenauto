@@ -219,3 +219,14 @@
 .pms .pm-customer-adjustment-results > li { margin: 12px 0; }
 .pms .pm-customer-adjustment-results small { display: block; margin-top: 4px; }
 .pms .pm-customer-adjustment-results p { margin: 6px 0 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+/* Completed customer configuration: keep the accepted amount close to the summary. */
+.pm-product-detail .pm-customer-price-test{padding:22px 24px;border:1px solid #d8e3f5;border-radius:12px;background:#f7faff;margin:24px 0 16px}
+.pm-product-detail .pm-customer-price-test h3{font-size:14px;letter-spacing:0;color:#475569;margin:0 0 10px}
+.pm-product-detail .pm-customer-price-total{font-size:30px;line-height:1.25;color:#153a72;margin:0 0 14px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.pm-product-detail .pm-customer-price-test>.pms-help{background:transparent;padding:0;margin:12px 0 0;line-height:1.65;color:#63738a}
+.pm-product-detail .pm-completed-guides{margin:24px 0;border:1px solid #dce5f2;border-radius:12px;background:#fff}
+.pm-product-detail .pm-completed-guides>summary{cursor:pointer;padding:20px 24px;font-size:15px;font-weight:650;color:#26446e;line-height:1.6}
+.pm-product-detail .pm-completed-guides>summary:focus-visible{outline:2px solid #3668db;outline-offset:3px}
+.pm-product-detail .pm-completed-guides>.pm-product-section{margin:0;padding:0 24px 24px}
+@media(max-width:600px){.pm-product-detail .pm-customer-price-test{padding:18px 16px}.pm-product-detail .pm-customer-price-total{font-size:26px}.pm-product-detail .pm-completed-guides>summary{padding:16px}.pm-product-detail .pm-completed-guides>.pm-product-section{padding:0 16px 16px}}

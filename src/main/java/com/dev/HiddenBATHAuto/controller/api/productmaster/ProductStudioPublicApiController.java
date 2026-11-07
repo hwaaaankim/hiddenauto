@@ -54,6 +54,12 @@ public class ProductStudioPublicApiController {
     return ApiResponse.ok(service.evaluatePublic(token, answers, actor(session)));
   }
 
+  @PostMapping("/{token}/price")
+  public ApiResponse<Object> price(
+      @PathVariable String token, @RequestBody Map<String, Answer> answers, HttpSession session) {
+    return ApiResponse.ok(ProductPricingWire.response(service.quotePublic(token, answers, actor(session))));
+  }
+
   @PostMapping(value = "/{token}/upload", consumes = "multipart/form-data")
   public ApiResponse<List<AssetView>> upload(
       @PathVariable String token,

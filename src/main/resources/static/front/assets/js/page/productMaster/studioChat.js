@@ -173,8 +173,15 @@
     evaluation = result; merge(); paintProcess();
   }
   async function attachPricingTest(result, id) {
-    // The administrator's customer test uses the saved server formula and the exact accepted answers.
-    // Public pages keep their existing response contract and do not receive internal price terms.
+    // Both paths use the saved engine. Public responses contain only total/completion/errors.
+    if (!admin && product.nonStandard && result.complete) {
+      try {
+        result.pricingTest = await S.api(`/product-spec/studio/${encodeURIComponent(token)}/price`, "POST", result.answers);
+      } catch (err) {
+        result.pricingTest = { complete: false, errors: ["가격 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."] };
+      }
+      return;
+    }
     if (admin && product.nonStandard && result.complete) {
       try {
         const state = (await S.request("/pricing/status", "POST", { productIds: [id] }))[0];

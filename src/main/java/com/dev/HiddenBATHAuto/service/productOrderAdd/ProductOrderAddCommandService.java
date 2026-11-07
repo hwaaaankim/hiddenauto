@@ -155,6 +155,19 @@ public class ProductOrderAddCommandService {
         validateMoney(request.getPackingCost(), "포장비");
         validateMoney(request.getDeliveryCost(), "운임비");
 
+        // Validate the complete sum before any order/file/audit is written. Each line can
+        // fit an int while their sum does not; int addition would silently wrap negative.
+        long taskTotal = (long) request.getPackingCost() + request.getDeliveryCost();
+        for (int i = 0; i < request.getOrders().size(); i++) {
+            ProductOrderCreateRequest orderRequest = request.getOrders().get(i);
+            validateOrderMoney(orderRequest, i + 1);
+            taskTotal += orderRequest.getTotalAmount();
+            if (taskTotal > Integer.MAX_VALUE) {
+                throw new IllegalArgumentException(
+                        "발주 합계가 저장 가능한 최대 금액(2,147,483,647원)을 초과했습니다. 발주를 나누어 등록해 주세요.");
+            }
+        }
+
         Member deliveryHandler = resolveDeliveryHandler(
                 request,
                 autoAssignTargetMethod,
@@ -173,8 +186,6 @@ public class ProductOrderAddCommandService {
         task.setUpdatedAt(now);
         task = taskRepository.save(task);
 
-        int ordersTotalAmount = 0;
-
         boolean hasDeliveryHandler = deliveryHandler != null;
         int nextDeliveryOrderIndex = 0;
 
@@ -189,8 +200,6 @@ public class ProductOrderAddCommandService {
 
         for (int i = 0; i < request.getOrders().size(); i++) {
             ProductOrderCreateRequest orderRequest = request.getOrders().get(i);
-
-            validateOrderMoney(orderRequest, i + 1);
 
             ResolvedOrderMeta resolved = resolveOrderMeta(orderRequest);
             LinkedHashMap<String, String> optionMap = buildOptionMap(orderRequest, resolved);
@@ -278,14 +287,9 @@ public class ProductOrderAddCommandService {
                     "/management/api/product-order-add"
             );
 
-            ordersTotalAmount += order.getTotalAmount();
         }
 
-        task.setTotalPrice(
-                ordersTotalAmount
-                        + request.getPackingCost()
-                        + request.getDeliveryCost()
-        );
+        task.setTotalPrice((int) taskTotal);
         task.setUpdatedAt(LocalDateTime.now());
         taskRepository.save(task);
 

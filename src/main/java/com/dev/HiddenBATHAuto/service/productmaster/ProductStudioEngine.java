@@ -563,6 +563,12 @@ public final class ProductStudioEngine {
     return validate(process, fixed, Set.of());
   }
 
+  /** Observe the same reachable input states used by process validation. */
+  public static Validation validateWithObserver(Process process, Map<String, Answer> fixed,
+      java.util.function.BiConsumer<QuestionState, Map<String, Answer>> observer) {
+    return validate(process, fixed, Set.of(), observer);
+  }
+
   /** Composition planning only: unfinished questions may be targets, never unknown sources.
    * This does not authorize publication or create placeholder answers. */
   static Validation validateCompositionDraft(Process process, Map<String, Answer> fixed, Set<String> pending) {
@@ -570,6 +576,11 @@ public final class ProductStudioEngine {
   }
 
   private static Validation validate(Process process, Map<String, Answer> fixed, Set<String> pending) {
+    return validate(process, fixed, pending, null);
+  }
+
+  private static Validation validate(Process process, Map<String, Answer> fixed, Set<String> pending,
+      java.util.function.BiConsumer<QuestionState, Map<String, Answer>> observer) {
     List<Issue> issues = structure(process, pending);
     if (!pending.isEmpty()) {
       Set<String> known = list(process.questions()).stream().map(Question::key).collect(Collectors.toSet());
@@ -593,7 +604,7 @@ public final class ProductStudioEngine {
     issues.addAll(validateNumberCases(process));
     issues.addAll(ProductStudioConstraints.coverage(process));
     if (!issues.isEmpty()) return new Validation(false, false, 0, issues);
-    Probe probe = new Probe(process, fixed, issues, pending);
+    Probe probe = new Probe(process, fixed, issues, pending, observer);
     probe.walk(0, new LinkedHashMap<>(map(fixed)));
     if (!probe.exhaustive)
       issue(
@@ -608,7 +619,11 @@ public final class ProductStudioEngine {
             r.actions().isEmpty() ? null : r.actions().get(0).targetKey());
     for (Question q : process.questions())
       if (!q.fixed() && !probe.visibleQuestions.contains(q.key()))
-        issue(issues, "WARNING", "UNREACHABLE_QUESTION", label(q), "이 질문이 표시되는 경로를 찾지 못했습니다.", q.key());
+        issue(issues, "WARNING", "UNREACHABLE_QUESTION", label(q),
+            "이 질문이 표시되는 경로를 찾지 못했습니다. ‘" + label(q) + "’의 기본 표시 여부와 이 질문을 대상으로 하는 표시(SHOW) 분기를 확인하세요. "
+                + (list(process.rules()).stream().flatMap(r -> list(r.actions()).stream()).noneMatch(a -> q.key().equals(a.targetKey()) && a.effect() == Effect.SHOW)
+                    ? "이 질문을 표시하는 분기가 없습니다. 앞 질문을 표시하는 연결만으로 뒤의 숫자 입력이 자동 표시되지는 않습니다."
+                    : "표시 분기의 앞 답변과 추가 조건을 실제로 만족할 수 있는지 확인해 주세요."), q.key());
     return new Validation(
         issues.stream().noneMatch(i -> i.severity().equals("ERROR")),
         probe.exhaustive,
@@ -622,14 +637,17 @@ public final class ProductStudioEngine {
     final List<Issue> issues;
     final Set<String> hitRules = new HashSet<>(), visibleQuestions = new HashSet<>();
     final Set<String> pending;
+    final java.util.function.BiConsumer<QuestionState, Map<String, Answer>> observer;
     long visits, leaves;
     boolean exhaustive = true;
 
-    Probe(Process p, Map<String, Answer> f, List<Issue> i, Set<String> pending) {
+    Probe(Process p, Map<String, Answer> f, List<Issue> i, Set<String> pending,
+        java.util.function.BiConsumer<QuestionState, Map<String, Answer>> observer) {
       process = p;
       fixed = map(f);
       issues = i;
       this.pending = pending;
+      this.observer = observer;
     }
 
     void walk(int index, Map<String, Answer> answers) {
@@ -692,7 +710,11 @@ public final class ProductStudioEngine {
         Map<String, Answer> next = new LinkedHashMap<>(answers);
         next.put(q.key(), a);
         QuestionState tested = evaluateChecked(process, next).questions().get(index);
-        if (tested.errors().isEmpty()) { hasValid = true; walk(index + 1, next); }
+        if (tested.errors().isEmpty()) {
+          hasValid = true;
+          if (observer != null) observer.accept(tested, next);
+          walk(index + 1, next);
+        }
         if (!exhaustive) return;
       }
       if (!hasValid && !samples.isEmpty()) issue(issues, "ERROR", "EMPTY_DOMAIN", label(q),

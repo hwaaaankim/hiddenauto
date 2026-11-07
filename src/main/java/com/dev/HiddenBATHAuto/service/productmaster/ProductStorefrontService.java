@@ -97,9 +97,9 @@ public class ProductStorefrontService {
     Set<Long> ordered = new LinkedHashSet<>();
     scope.forEach(p -> data.definitions().get(p.getId()).forEach(v -> ordered.add(v.groupId())));
     List<GroupView> groups = ordered.stream().map(data.groups()::get)
-        .filter(g -> !Set.of("CATEGORY", "SERIES").contains(g.role()))
-        .filter(g -> !"SUBCATEGORY".equals(g.role()) || scope.stream()
-            .map(p -> optionKey(variant(data.definitions().get(p.getId()), g.id()))).distinct().count() > 1)
+        // Developer attributes never become customer questions. If hidden specifications
+        // distinguish otherwise matching products, keep those products as final candidates.
+        .filter(g -> g.askQuestion() && !Set.of("CATEGORY", "SUBCATEGORY", "SERIES").contains(g.role()))
         .toList();
     Set<Long> valid = groups.stream().map(GroupView::id).collect(Collectors.toSet());
     if (!valid.containsAll(selections.keySet()))

@@ -115,7 +115,7 @@ public class ProductPricingService {
     // An explicit draft can test one term while editing. Only the stored formula must
     // still meet participation requirements after a shared group's price flag changes.
     if (request.definition() == null) requireSavedParticipation(p, process, definition);
-    return calculate(p, process, definition, request.answers());
+    return calculate(p, process, definition, request.answers(), request.definition() != null);
   }
 
   /** Draft diagnostics use the same process and price interpreters as saving and actual pricing. */
@@ -135,7 +135,7 @@ public class ProductPricingService {
         request.definition(), studio.fixedAnswers(p), draft);
     List<Issue> issues = new ArrayList<>(processValidation.issues());
     issues.addAll(priceValidation.issues());
-    return new Validation(priceValidation.valid(), priceValidation.exhaustive(), priceValidation.scenarios(), List.copyOf(issues));
+    return new Validation(priceValidation.valid(), priceValidation.exhaustive(), priceValidation.scenarios(), List.copyOf(new LinkedHashSet<>(issues)));
   }
 
   public List<CopySource> copySources(Long id) {
@@ -289,8 +289,8 @@ public class ProductPricingService {
     if (definition == null) ready.add("원제품에 가격계산식이 등록되지 않았습니다.");
     else if (!Objects.equals(definition.schemaFingerprint(), fingerprint(process, studio.fixedAnswers(p))))
       ready.add("등록한 가격계산식과 현재 프로세스가 다릅니다.");
+    List<PricingGroup> groups = definition != null && ready.isEmpty() ? pricingGroups(p, process) : List.of();
     if (definition != null && ready.isEmpty()) {
-      List<PricingGroup> groups = pricingGroups(p, process);
       ready.addAll(ProductPricingEngine.validate(process, groups, definition));
       ready.addAll(participationErrors(groups, definition));
     }
@@ -300,7 +300,8 @@ public class ProductPricingService {
       try {
         Map<String, Answer> stored = new LinkedHashMap<>(answers(a));
         stored.putAll(fixed);
-        Calculation calculation = ProductPricingEngine.calculateValidated(process, definition, stored);
+        Calculation calculation = ProductPricingEngine.checkInputBindings(
+            ProductPricingEngine.calculateValidated(process, definition, stored), groups, definition);
         return actualResult(a.getId(), calculation);
       } catch (RuntimeException ex) {
         log.warn("실제품 가격계산 실패: actualId={}", a.getId());
@@ -330,9 +331,15 @@ public class ProductPricingService {
     return json.read(a.getAnswersJson(), new TypeReference<Map<String, Answer>>() {});
   }
   private Calculation calculate(ProductMaster p, Process process, Definition definition, Map<String, Answer> submitted) {
+    return calculate(p, process, definition, submitted, false);
+  }
+
+  private Calculation calculate(ProductMaster p, Process process, Definition definition, Map<String, Answer> submitted, boolean partialDraft) {
     Map<String, Answer> answers = new LinkedHashMap<>(map(submitted));
     answers.putAll(studio.fixedAnswers(p));
-    return ProductPricingEngine.calculate(process, pricingGroups(p, process), definition, answers);
+    List<PricingGroup> groups = pricingGroups(p, process);
+    return partialDraft ? ProductPricingEngine.calculateDraft(process, groups, definition, answers)
+        : ProductPricingEngine.calculate(process, groups, definition, answers);
   }
 
   public void assertProcessChangeAllowed(ProductMaster product, Process proposed) {

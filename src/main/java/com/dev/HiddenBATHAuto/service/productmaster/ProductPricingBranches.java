@@ -4,6 +4,7 @@ import static com.dev.HiddenBATHAuto.dto.productmaster.ProductPricingDtos.*;
 import static com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioDtos.*;
 import java.util.*;
 import java.nio.charset.StandardCharsets;
+import java.util.stream.Collectors;
 
 /** Persist one owner; reuse the existing exhaustive interpreter for conditional tables. */
 public final class ProductPricingBranches {
@@ -11,6 +12,43 @@ public final class ProductPricingBranches {
   private static <T> List<T> safe(List<T> items) { return items == null ? List.of() : items; }
   private static void require(boolean ok,String message) { if(!ok)throw new IllegalArgumentException(message); }
   private static String id(String text) { return UUID.nameUUIDFromBytes(text.getBytes(StandardCharsets.UTF_8)).toString(); }
+
+  /** One diagnostic per failing family, using the same effective answers as real pricing.
+   * A hidden material answer must never make a visible numeric family's missing table disappear. */
+  public static List<Issue> coverageIssues(Definition expanded, Evaluation evaluation, List<TermResult> results) {
+    Map<String, QuestionState> states = evaluation.questions().stream()
+        .collect(Collectors.toMap(s -> s.question().key(), s -> s));
+    Set<String> applied = results.stream().filter(TermResult::applied).map(TermResult::key).collect(Collectors.toSet());
+    Map<String, List<Term>> families = new LinkedHashMap<>();
+    for (Term term : safe(expanded.terms())) if (term.branchScope() != null)
+      families.computeIfAbsent(term.branchScope().ownerKey(), k -> new ArrayList<>()).add(term);
+    List<Issue> issues = new ArrayList<>();
+    for (Map.Entry<String, List<Term>> entry : families.entrySet()) {
+      List<Term> family = entry.getValue(); Term first = family.get(0);
+      QuestionState state = states.get(first.groupKey());
+      if (state == null || !state.visible() && !state.question().fixed() || !state.errors().isEmpty()
+          || !state.allowed().containsAll(first.fieldKeys()) || state.answer() == null
+          || first.fieldKeys().stream().anyMatch(k -> state.answer().fields() == null || !state.answer().fields().containsKey(k))) continue;
+      if (!safe(first.branchScope().conditions()).stream().allMatch(c -> ProductPricingEngine.conditionMatches(c, evaluation, states))) continue;
+      List<Term> selected = family.stream().filter(t -> applied.contains(t.key())).toList();
+      if (selected.size() == 1) continue;
+      Set<String> sourceKeys = family.stream().flatMap(t -> safe(t.conditions()).stream())
+          .map(Condition::groupKey).collect(Collectors.toCollection(LinkedHashSet::new));
+      String hidden = sourceKeys.stream().map(states::get).filter(Objects::nonNull)
+          .filter(s -> !s.visible() && !s.question().fixed()).map(s -> ProductStudioEngine.label(s.question()))
+          .collect(Collectors.joining(" / "));
+      String message = (selected.isEmpty() ? "조건별 계산 누락: " : "조건별 계산 중복: ")
+          + first.name() + " · 현재 표시된 ‘" + ProductStudioEngine.label(state.question())
+          + "’ 입력에는 이 항의 조건별 계산이 정확히 하나 적용되어야 합니다. ";
+      if (selected.isEmpty()) message += (hidden.isBlank() ? "" : "현재 경로에서 숨겨진 기준 질문: " + hidden + ". ")
+          + "이 항이 특정 상판·재질에만 해당하면 ‘항 전체 적용 조건’을 지정하세요. 공통 입력을 함께 사용한다면 같은 항 안에 다른 경로의 조건별 가격표도 추가하세요. 숨겨진 질문의 이전 답변은 계산에 사용하지 않습니다.";
+      else message += "동시에 적용된 계산: " + selected.stream().map(Term::name).collect(Collectors.joining(" / "))
+          + ". 분기별 기준 질문·선택 보기·추가 조건을 서로 겹치지 않게 나누세요.";
+      issues.add(new Issue("ERROR", selected.isEmpty() ? "PRICE_BRANCH_GAP" : "PRICE_BRANCH_OVERLAP",
+          ProductStudioEngine.label(state.question()), message, "terms." + entry.getKey()));
+    }
+    return List.copyOf(issues);
+  }
   public static List<TermResult> results(Definition original,List<TermResult> evaluated) {
     if(original.terms().stream().noneMatch(t->!safe(t.branches()).isEmpty()))return evaluated;
     Map<String,TermResult> byKey=new HashMap<>(); evaluated.forEach(t->byKey.put(t.key(),t));

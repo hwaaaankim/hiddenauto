@@ -4,6 +4,7 @@ import static com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioDtos.*;
 import static com.dev.HiddenBATHAuto.service.productmaster.ProductStudioEngine.*;
 
 import com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioDtos.Process;
+import com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioCustomerDtos.PriceQuote;
 import com.dev.HiddenBATHAuto.enums.productmaster.*;
 import com.dev.HiddenBATHAuto.model.productmaster.*;
 import com.dev.HiddenBATHAuto.repository.productmaster.*;
@@ -1493,6 +1494,31 @@ public class ProductStudioService {
   public Evaluation evaluatePublic(String token, Map<String, Answer> submitted, String actor) {
     ProductMaster p = publicProduct(token);
     return customerEvaluation(evaluate(p.getId(), new EvaluateRequest(null, submitted), actor));
+  }
+
+  /** Same accepted answers and saved engine as management, with a customer-only response. */
+  public PriceQuote quotePublic(String token, Map<String, Answer> submitted, String actor) {
+    ProductMaster p = publicProduct(token);
+    Evaluation evaluated = evaluate(p.getId(), new EvaluateRequest(null, submitted), actor);
+    if (!evaluated.complete()) {
+      List<String> errors = evaluated.questions().stream().filter(QuestionState::visible)
+          .flatMap(state -> list(state.errors()).stream()).distinct().toList();
+      return new PriceQuote(null, false, errors.isEmpty()
+          ? List.of("필수 옵션과 입력값을 확인해 주세요.") : errors);
+    }
+    if (!p.isNonStandard()) return p.getUnitPrice() == null
+        ? new PriceQuote(null, false, List.of("이 제품의 가격 정보가 아직 등록되지 않았습니다."))
+        : new PriceQuote(p.getUnitPrice(), true, List.of());
+    try {
+      var result = pricing.getObject().evaluate(p.getId(),
+          new com.dev.HiddenBATHAuto.dto.productmaster.ProductPricingDtos.EvaluateRequest(null, evaluated.answers()));
+      return result.complete() && result.total() != null
+          ? new PriceQuote(result.total(), true, List.of())
+          : new PriceQuote(null, false, List.of("선택한 구성의 가격을 계산하지 못했습니다. 옵션을 다시 확인하거나 제품 문의를 이용해 주세요."));
+    } catch (IllegalArgumentException | IllegalStateException e) {
+      // Do not publish administrator term names or private pricing diagnostics on public pages.
+      return new PriceQuote(null, false, List.of("현재 제품 구성의 가격 정보를 확인 중입니다. 잠시 후 다시 시도하거나 제품 문의를 이용해 주세요."));
+    }
   }
 
   private Evaluation customerEvaluation(Evaluation result) {
