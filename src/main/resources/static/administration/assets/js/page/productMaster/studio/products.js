@@ -245,7 +245,7 @@
       faqTopicId: product?.faqTopicId ?? null,
     };
     root.innerHTML =
-      '<div class="pms-triple"><section class="pms-panel"><div class="pms-panel-title"><h2>구성 가능한 그룹</h2></div><div class="pms-toolbar"><input id="pms-palette-filter" placeholder="그룹 검색"></div><div id="pms-palette" class="pms-palette"></div></section><section class="pms-panel"><div class="pms-panel-title"><div><h2>제품 구성 · 질문 순서</h2><small>그룹을 드래그하여 추가·순서 변경</small></div><button id="pms-name-rule">제품명 구성</button></div><div id="pms-selected" class="pms-selected"></div></section><section class="pms-panel"><div class="pms-panel-title"><h2>' +
+      '<div class="pms-triple"><section class="pms-panel"><div class="pms-panel-title"><h2>구성 가능한 그룹</h2></div><div class="pms-toolbar"><input id="pms-palette-filter" placeholder="그룹 검색"></div><div id="pms-palette" class="pms-palette"></div></section><section class="pms-panel"><div class="pms-panel-title"><div><h2>제품 구성 · 질문 순서</h2><small>그룹을 드래그하여 추가·순서 변경 · 필수 3개 포함 최대 100개</small></div><button id="pms-name-rule">제품명 구성</button></div><div id="pms-selected" class="pms-selected"></div></section><section class="pms-panel"><div class="pms-panel-title"><h2>' +
       (detail ? "제품 정보" : "생성 요약") +
       '</h2></div><div class="pms-panel-body" id="pms-summary"></div></section></div>';
     if (detail && !nonStandard) root.insertAdjacentHTML("afterbegin", '<div data-standard-price-top></div>');
@@ -304,6 +304,8 @@
     function add(id) {
       const g = S.group(id);
       if (selected.some((r) => r.groupId === id)) return;
+      if (selected.length >= 100)
+        return S.toast("대분류·중분류·시리즈를 포함하여 최대 100개 그룹까지 추가할 수 있습니다.");
       if (!S.isBase(g) && g.nonStandard !== nonStandard)
         return S.toast("제품 유형에 맞는 그룹만 추가할 수 있습니다.");
       const other = selected

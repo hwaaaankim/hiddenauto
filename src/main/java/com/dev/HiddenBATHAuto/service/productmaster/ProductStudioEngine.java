@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 public final class ProductStudioEngine {
   private ProductStudioEngine() {}
 
-  public static final int MAX_QUESTIONS = 40;
+  public static final int MAX_QUESTIONS = 100;
   public static final int MAX_RULES = 200;
   public static final int MAX_SCENARIOS = 20_000;
   private static final Set<String> FORMATS = Set.of("ANY", "EMAIL", "PHONE", "ALPHANUMERIC");
@@ -207,7 +207,7 @@ public final class ProductStudioEngine {
         || list(process.questions()).isEmpty()
         || list(process.questions()).size() > MAX_QUESTIONS
         || list(process.rules()).size() > MAX_RULES) {
-      issue(issues, "ERROR", "SCHEMA", "프로세스", "질문 1~40개, 규칙 200개 이하의 버전 2 프로세스가 필요합니다.");
+      issue(issues, "ERROR", "SCHEMA", "프로세스", "질문 1~100개, 규칙 200개 이하의 버전 2 프로세스가 필요합니다.");
       return issues;
     }
     Map<String, Question> byKey = new LinkedHashMap<>();

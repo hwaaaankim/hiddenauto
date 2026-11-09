@@ -19,7 +19,7 @@ public final class ProductStudioCompositionPolicy {
     if (defaults.schemaVersion() != 2 || defaults.questions().isEmpty()
         || defaults.questions().size() > ProductStudioEngine.MAX_QUESTIONS)
       return decision(source, "BLOCKED", true, false, 0, List.of(), List.of(new Issue("ERROR", "SCHEMA", "제품 구성",
-          "질문 그룹은 1~40개인 버전 2 프로세스로 구성해야 합니다.")));
+          "질문 그룹은 1~100개인 버전 2 프로세스로 구성해야 합니다.")));
     Set<Long> selected = defaults.questions().stream().map(Question::groupId).collect(Collectors.toSet());
     Set<Long> existing = source.questions().stream().map(Question::groupId).collect(Collectors.toSet());
     List<Long> pending = defaults.questions().stream().map(Question::groupId)

@@ -55,7 +55,7 @@ public class ProductStudioService {
     if (request == null
         || list(request.groups()).size() < 3
         || request.groups().size() > MAX_QUESTIONS)
-      throw new IllegalArgumentException("대분류·중분류·시리즈를 포함하여 3~40개 그룹을 선택해 주세요.");
+      throw new IllegalArgumentException("대분류·중분류·시리즈를 포함하여 3~100개 그룹을 선택해 주세요.");
     List<ProductAttributeGroup> groups = new ArrayList<>();
     Set<Long> ids = new HashSet<>();
     Set<String> roles = new HashSet<>();
@@ -768,8 +768,8 @@ public class ProductStudioService {
     if (!Set.of(20, 50, 100, 200).contains(size))
       throw new IllegalArgumentException("페이지 크기는 20·50·100·200 중 선택해 주세요.");
     if (text(filter.keyword()).length() > 160
-        || map(filter.options()).size() > 40
-        || list(filter.customGroups()).size() > 40)
+        || map(filter.options()).size() > MAX_QUESTIONS
+        || list(filter.customGroups()).size() > MAX_QUESTIONS)
       throw new IllegalArgumentException("검색 조건이 너무 많거나 깁니다.");
     Specification<ProductMaster> spec =
         (root, query, b) -> {

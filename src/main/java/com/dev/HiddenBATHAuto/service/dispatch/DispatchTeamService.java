@@ -487,6 +487,16 @@ public class DispatchTeamService {
 
             String targetOrdererName = cleanInput(item.getOrdererName());
             String targetOrdererPhone = cleanInput(item.getOrdererPhone());
+            // Older admin clients can omit these fields. Empty strings explicitly clear
+            // a general-delivery value; an omitted field keeps the persisted value.
+            if (admin && !siteDelivery) {
+                if (item.getOrdererName() == null) targetOrdererName = cleanInput(order.getOrdererName());
+                if (item.getOrdererPhone() == null) targetOrdererPhone = cleanInput(order.getOrdererPhone());
+            }
+            if (admin && (targetOrdererName != null && targetOrdererName.codePointCount(0, targetOrdererName.length()) > 50
+                    || targetOrdererPhone != null && targetOrdererPhone.codePointCount(0, targetOrdererPhone.length()) > 30)) {
+                throw new IllegalArgumentException("주문자 이름은 50자, 연락처는 30자 이내로 입력해 주세요. orderId=" + orderId);
+            }
             if (siteDelivery && (targetOrdererName == null || targetOrdererPhone == null)) {
                 throw new IllegalArgumentException(
                         "현장배송 수령자 이름과 연락처를 모두 입력해 주세요. orderId=" + orderId
@@ -552,11 +562,13 @@ public class DispatchTeamService {
 
             if (plan.siteDelivery()) {
                 applySiteAddress(order, plan.address());
-                order.setOrdererName(plan.ordererName());
-                order.setOrdererPhone(plan.ordererPhone());
             } else {
                 applyGeneralAddress(order, plan.address());
                 clearSiteAddress(order);
+            }
+            if (admin || plan.siteDelivery()) {
+                order.setOrdererName(plan.ordererName());
+                order.setOrdererPhone(plan.ordererPhone());
             }
 
             if (plan.dispatchComplete()) {
@@ -612,13 +624,13 @@ public class DispatchTeamService {
                     "deliveryAddress", plan.siteDelivery() ? "현장주소" : "배송주소",
                     plan.beforeAddress(), plan.address().display(),
                     admin ? OrderWorkArea.PRODUCTION : null, OrderWorkArea.DISPATCH, OrderWorkArea.DELIVERY));
-            if (plan.siteDelivery()) {
+            if (admin || plan.siteDelivery()) {
                 addressChanges.add(OrderFieldChangeCommand.of(
-                        "ordererName", "현장배송 수령자",
+                        "ordererName", admin ? "주문자 이름" : "현장배송 수령자",
                         plan.beforeOrdererName(), plan.ordererName(),
                         admin ? OrderWorkArea.PRODUCTION : null, OrderWorkArea.DISPATCH, OrderWorkArea.DELIVERY));
                 addressChanges.add(OrderFieldChangeCommand.of(
-                        "ordererPhone", "현장배송 수령자 연락처",
+                        "ordererPhone", admin ? "주문자 연락처" : "현장배송 수령자 연락처",
                         plan.beforeOrdererPhone(), plan.ordererPhone(),
                         admin ? OrderWorkArea.PRODUCTION : null, OrderWorkArea.DISPATCH, OrderWorkArea.DELIVERY));
             }
@@ -628,7 +640,7 @@ public class DispatchTeamService {
                     source,
                     loginMember,
                     admin ? "MANAGEMENT_ORDER_UPDATE" : "DISPATCH_DELIVERY_ADDRESS_CHANGE",
-                    admin ? "관리자 배송지 정보 변경" : "출고팀 배송지 정보 변경",
+                    admin ? "관리자 배송지·주문자 정보 변경" : "출고팀 배송지 정보 변경",
                     managementPath,
                     customerSearchBefore.get(order.getId()),
                     addressChanges.toArray(OrderFieldChangeCommand[]::new)
