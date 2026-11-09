@@ -43,7 +43,8 @@ public final class ProductPricingBranches {
       if (selected.isEmpty()) message += (hidden.isBlank() ? "" : "현재 경로에서 숨겨진 기준 질문: " + hidden + ". ")
           + "이 항이 특정 상판·재질에만 해당하면 ‘항 전체 적용 조건’을 지정하세요. 공통 입력을 함께 사용한다면 같은 항 안에 다른 경로의 조건별 가격표도 추가하세요. 숨겨진 질문의 이전 답변은 계산에 사용하지 않습니다.";
       else message += "동시에 적용된 계산: " + selected.stream().map(Term::name).collect(Collectors.joining(" / "))
-          + ". 분기별 기준 질문·선택 보기·추가 조건을 서로 겹치지 않게 나누세요.";
+          + ". 분기별 기준 질문·선택 보기·추가 조건을 서로 겹치지 않게 나누세요. "
+          + "서로 다른 경로의 분기에 같은 고정금액·단가·가격표를 사용하는 것은 허용됩니다. 현재 경로에서 여러 조건 묶음이 동시에 선택되어 중복 계산이 발생했습니다.";
       issues.add(new Issue("ERROR", selected.isEmpty() ? "PRICE_BRANCH_GAP" : "PRICE_BRANCH_OVERLAP",
           ProductStudioEngine.label(state.question()), message, "terms." + entry.getKey()));
     }

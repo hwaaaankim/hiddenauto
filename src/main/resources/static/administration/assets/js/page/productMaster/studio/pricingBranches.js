@@ -9,9 +9,12 @@
   B.primary = (branch, sources) => (branch.conditions || []).find(c => c.operator === "EQ" && !c.fieldKey && sources.some(q => q.key === c.groupKey));
   B.source = (branch, sources) => sources.find(q => q.key === B.primary(branch, sources)?.groupKey);
   B.setSource = (branch, sources, sourceKey) => {
-    if (!sources.some(q => q.key === sourceKey)) throw Error("현재 구성에 없는 기준 질문입니다.");
-    const previous = B.primary(branch, sources), conditions = branch.conditions || [];
-    branch.conditions = previous ? conditions.map(c => c === previous ? eq(sourceKey) : c) : [eq(sourceKey), ...conditions];
+    if (sourceKey && !sources.some(q => q.key === sourceKey)) throw Error("현재 구성에 없는 기준 질문입니다.");
+    if ((B.source(branch, sources)?.key || "") === sourceKey) return;
+    // An explicit source switch replaces this row's complete condition selection.
+    // Retaining other predicates here silently ANDs the old and new material questions.
+    // Existing advanced conditions remain intact when opening/cancelling the editor.
+    branch.conditions = sourceKey ? [eq(sourceKey)] : [];
   };
   B.setChoices = (branch, sources, choices) => {
     const primary = B.primary(branch, sources), source = B.source(branch, sources);
@@ -74,17 +77,18 @@
       return B.inventory(draft.branches, sources).map(row => `<div class="pm-branch-inventory-item"><strong>${e(label(row.source))}</strong><span>${row.rows.length}개 계산 · 전체 보기 ${row.source.choices.length}개</span>${row.missing.length ? `<details><summary>아직 연결하지 않은 보기 ${row.missing.length}개</summary><p>${row.missing.map(c => e(label(c))).join(", ")}</p></details>` : '<small class="pm-branch-inventory-ok">모든 보기 연결</small>'}${row.repeated.length ? `<details><summary>여러 묶음에 선택된 보기 ${row.repeated.length}개</summary><p>${row.repeated.map(c => e(label(c))).join(", ")}</p></details>` : ''}</div>`).join("");
     }
     function render() {
-      body.innerHTML = `<ol class="pm-stepper pm-branch-stepper"><li class="${!step ? "active" : ""}" ${!step ? 'aria-current="step"' : ''}><b>1</b><span>답변 연결<small>어떤 선택에 적용할지</small></span></li><li class="${step ? "active" : ""}" ${step ? 'aria-current="step"' : ''}><b>2</b><span>계산 자료 등록<small>각 답변의 금액·표</small></span></li><li><b>3</b><span>항에 반영<small>검사 후 초안에 추가</small></span></li></ol><div class="pm-branch-stage-heading"><h3>${step ? '각 조건에 사용할 계산을 확인하세요.' : '같은 가격표를 쓰는 답변끼리 묶으세요.'}</h3><p>${step ? '조건마다 고정금액·곱셈·가격표 중 필요한 방식을 사용합니다. 기존 자료는 조회·수정할 수 있습니다.' : '분기마다 기준 질문을 따로 선택할 수 있습니다. 예: 대리석 종류와 심리스 컬러를 같은 항 안에서 연결합니다.'}</p></div><div data-branch-error class="pms-error" role="alert"></div><div class="pm-branch-layout"><aside class="pm-branch-context" aria-label="입력과 적용 범위">${scopeHtml()}<section class="pm-branch-scope"><span class="pm-price-kicker">답변 연결 현황</span><div data-branch-inventory>${inventoryHtml() || '<p>조건 묶음을 추가하면 연결 내역이 표시됩니다.</p>'}</div><small>전체 보기 기준의 참고 내역입니다. 실제 누락·중복 여부는 프로세스 경로와 추가 조건을 함께 검사합니다.</small></section></aside><div class="pm-branch-list"><header><strong>조건 묶음 ${draft.branches.length}개</strong><span>${step ? '각 묶음에서 계산 조회·수정' : '질문 선택 → 답변 체크'}</span></header>${draft.branches.map(rowHtml).join("") || '<div class="pms-empty">아래 ‘조건 묶음 추가’를 눌러 첫 답변 묶음을 만드세요.</div>'}</div></div>`;
+      body.innerHTML = `<ol class="pm-stepper pm-branch-stepper"><li class="${!step ? "active" : ""}" ${!step ? 'aria-current="step"' : ''}><b>1</b><span>답변 연결<small>어떤 선택에 적용할지</small></span></li><li class="${step ? "active" : ""}" ${step ? 'aria-current="step"' : ''}><b>2</b><span>계산 자료 등록<small>각 답변의 금액·표</small></span></li><li><b>3</b><span>항에 반영<small>검사 후 초안에 추가</small></span></li></ol><div class="pm-branch-stage-heading"><h3>${step ? '각 조건에 사용할 계산을 확인하세요.' : '조건 묶음별로 질문과 답변을 연결하세요.'}</h3><p>${step ? '각 분기에 같은 고정금액·단가·엑셀 가격표를 반복해서 사용할 수 있습니다. 실제 선택 경로마다 이 항의 계산 하나가 적용되는지 검사합니다.' : '대리석용 묶음과 심리스용 묶음을 각각 추가하세요. 기준 질문을 바꾸면 해당 묶음의 이전 선택·상세 조건을 비우며, 이름과 계산 자료는 유지됩니다.'}</p></div><div data-branch-error class="pms-error" role="alert"></div><div class="pm-branch-layout"><aside class="pm-branch-context" aria-label="입력과 적용 범위">${scopeHtml()}<section class="pm-branch-scope"><span class="pm-price-kicker">답변 연결 현황</span><div data-branch-inventory>${inventoryHtml() || '<p>조건 묶음을 추가하면 연결 내역이 표시됩니다.</p>'}</div><small>전체 보기 기준의 참고 내역입니다. 실제 누락·중복 여부는 프로세스 경로와 추가 조건을 함께 검사합니다.</small></section></aside><div class="pm-branch-list"><header><strong>조건 묶음 ${draft.branches.length}개</strong><span>${step ? '각 묶음에서 계산 조회·수정' : '질문 선택 → 답변 체크'}</span></header>${draft.branches.map(rowHtml).join("") || '<div class="pms-empty">아래 ‘조건 묶음 추가’를 눌러 첫 답변 묶음을 만드세요.</div>'}</div></div>`;
       S.$("[data-branch-prev]", d).hidden = !step; S.$("[data-branch-add]", d).hidden = !!step;
       S.$("[data-branch-next]", d).hidden = !!step; S.$("[data-branch-apply]", d).hidden = !step;
       S.$("[data-branch-scope]", body).onclick = () => editConditions(draft, conditions => { draft.conditions = conditions; });
       S.$$("[data-branch-name]", body).forEach(input => input.oninput = () => { draft.branches[Number(input.dataset.branchName)].name = input.value; });
-      S.$$("[data-branch-source]", body).forEach(input => input.onchange = async () => {
-        const branch = draft.branches[Number(input.dataset.branchSource)], previous = B.primary(branch, sources);
-        if (previous && !await S.confirm("이 분기의 기준 질문·보기 연결만 변경합니다. 가격표와 다른 분기는 유지됩니다. 계속하시겠습니까?")) { render(); return; }
-        if (input.value) B.setSource(branch, sources, input.value);
-        else branch.conditions = (branch.conditions || []).filter(c => c !== previous);
+      S.$$("[data-branch-source]", body).forEach(input => input.onchange = () => {
+        const index = Number(input.dataset.branchSource), branch = draft.branches[index];
+        if ((B.source(branch, sources)?.key || "") === input.value) return;
+        B.setSource(branch, sources, input.value);
         render();
+        S.$(`[data-branch-source="${index}"]`, body).focus({ preventScroll: true });
+        S.$("[data-branch-status]", d).textContent = "기준 질문을 바꿔 이 묶음의 이전 선택·상세 조건을 비웠습니다. 새 조건을 선택하세요.";
       });
       S.$$("[data-branch-choice]", body).forEach(input => input.onchange = () => {
         const index = Number(input.dataset.branchChoice);
