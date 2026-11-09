@@ -460,8 +460,12 @@ public class DispatchTeamService {
 
             boolean handlerRequired = DeliveryMethodAssignmentPolicy.requiresHandler(targetMethod)
                     && (!admin || deliveryOrderIndexService.isDeliveryAssignmentAllowedStatus(order.getStatus()));
+            boolean optionalHandlerSelected = admin
+                    && deliveryOrderIndexService.isDeliveryAssignmentAllowedStatus(order.getStatus())
+                    && DeliveryMethodAssignmentPolicy.allowsHandler(targetMethod)
+                    && item.getDeliveryHandlerId() != null;
             Member targetHandler = null;
-            if (handlerRequired) {
+            if (handlerRequired || optionalHandlerSelected) {
                 targetHandler = getValidatedDeliveryHandler(item.getDeliveryHandlerId(), handlerCache);
                 if (item.getPreferredDeliveryDate() == null) requireDeliveryDate(order);
                 handlerIdsToLock.add(targetHandler.getId());
@@ -523,7 +527,14 @@ public class DispatchTeamService {
             ));
         }
 
-        lockDeliveryHandlerIds(handlerIdsToLock);
+        // Old queue owners must be locked for cleanup even if no longer active.
+        // Only the handlers receiving a new assignment must pass the active-team check.
+        Set<Long> assignmentHandlerIds = plans.stream()
+                .map(OrderManagementPlan::targetHandler)
+                .filter(Objects::nonNull)
+                .map(Member::getId)
+                .collect(java.util.stream.Collectors.toSet());
+        lockDeliveryHandlerIds(handlerIdsToLock, assignmentHandlerIds);
 
         var customerSearchBefore = new java.util.HashMap<Long, com.dev.HiddenBATHAuto.model.task.audit.CustomerOrderSearchSnapshot>();
         for (OrderManagementPlan plan : plans) customerSearchBefore.put(plan.order().getId(),
@@ -1425,6 +1436,10 @@ public class DispatchTeamService {
     }
 
     private void lockDeliveryHandlerIds(Set<Long> handlerIds) {
+        lockDeliveryHandlerIds(handlerIds, handlerIds);
+    }
+
+    private void lockDeliveryHandlerIds(Set<Long> handlerIds, Set<Long> assignmentHandlerIds) {
         if (handlerIds == null || handlerIds.isEmpty()) {
             return;
         }
@@ -1448,7 +1463,9 @@ public class DispatchTeamService {
                 );
             }
 
-            validateDeliveryHandler(locked);
+            if (assignmentHandlerIds.contains(handlerId)) {
+                validateDeliveryHandler(locked);
+            }
         }
     }
 

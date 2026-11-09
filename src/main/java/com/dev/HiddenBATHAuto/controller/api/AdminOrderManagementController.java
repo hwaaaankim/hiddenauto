@@ -30,6 +30,7 @@ public class AdminOrderManagementController {
         return Map.of("methods", methods.findAll(Sort.by("id")).stream().map(m -> Map.of(
                 "id", m.getId(), "name", m.getMethodName(),
                 "handlerRequired", DeliveryMethodAssignmentPolicy.requiresHandler(m),
+                "handlerAllowed", DeliveryMethodAssignmentPolicy.allowsHandler(m),
                 "site", DeliveryMethodAssignmentPolicy.containsKeyword(m.getMethodName(), "현장배송"))).toList(),
                 "handlers", members.findByTeam_NameAndEnabledTrueOrderByNameAscUsernameAsc("배송팀").stream()
                         .map(m -> Map.of("id", m.getId(), "name", m.getName() + " (" + m.getUsername() + ")")).toList());

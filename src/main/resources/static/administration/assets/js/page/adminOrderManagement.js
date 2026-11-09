@@ -7,7 +7,7 @@
     if(key&&token)headers[key]=token;
     const response=await fetch('/admin/order-management'+path,{method:data?'POST':'GET',headers,body:data?JSON.stringify(data):undefined});
     let result;try{result=JSON.parse(await response.text());}catch{throw Error('응답을 확인하지 못했습니다. 로그인 상태를 확인해 주세요.');}
-    if(!response.ok)throw Error(result.message||'발주관리 처리에 실패했습니다.');return result;
+    if(!response.ok)throw Error(result.message||(response.status===400?'변경 요청을 읽을 수 없습니다. 화면을 새로고침한 뒤 다시 시도해 주세요.':'발주관리 처리에 실패했습니다.'));return result;
   }
   const ids=()=>[...new Set([...document.querySelectorAll('.task-list-order-checkbox:checked:not(:disabled),.admin-task-list-second-bulk-checkbox:checked:not(:disabled)')].map(c=>Number(c.value)).filter(n=>n>0))];
   let rows=[],drafts=[],options,busy=false,dialog,area,changedAddress=null;
@@ -16,6 +16,8 @@
   const method=id=>options.methods.find(m=>m.id===Number(id));
   const eligible=d=>['CONFIRMED','PRODUCTION_DONE','DISPATCH_DONE','DELIVERY_DONE'].includes(rows.find(r=>r.orderId===d.orderId)?.status);
   const needsHandler=d=>!!method(d.deliveryMethodId)?.handlerRequired&&eligible(d);
+  const handlerAllowed=m=>!!(m?.handlerAllowed??m?.handlerRequired);
+  const canAssign=d=>handlerAllowed(method(d.deliveryMethodId))&&eligible(d);
   const opts=(list,value)=>'<option value="">선택</option>'+list.map(x=>`<option value="${x.id}" ${String(x.id)===String(value)?'selected':''}>${e(x.name)}</option>`).join('');
   const actual=r=>{
     const meaningful=v=>!['','없음','null','미입력','해당없음'].includes(String(v||'').normalize('NFKC').replace(/[\s‐‑‒–—−－-]/g,'').toLowerCase());
@@ -30,15 +32,17 @@
   }
   function syncBulkHandler(){
     const select=dialog.querySelector('[data-bulk-handler]'),selected=dialog.querySelector('[data-bulk-method]').value;
-    const count=drafts.filter(d=>eligible(d)&&(selected?method(selected)?.handlerRequired:needsHandler(d))).length;
+    const count=drafts.filter(d=>eligible(d)&&(selected?handlerAllowed(method(selected)):canAssign(d))).length;
     select.disabled=busy||!count;if(!count)select.value='';
     dialog.querySelector('[data-bulk-handler-hint]').textContent=count?`배정 가능한 ${count}건에만 적용합니다.`:'선택 수단·발주 상태에는 담당자를 배정하지 않습니다.';
     dialog.querySelector('[data-routing-hint]').textContent=routingHint();
   }
   function paint(){
+    // Reflect the same assignment policy in the row, review and submitted request.
+    drafts.forEach(d=>{if(!canAssign(d))d.deliveryHandlerId='';});
     area.innerHTML=drafts.map((d,i)=>`<article class="order-bulk-card" data-index="${i}"><header><strong>#${d.orderId}</strong><span>${e(rows[i].companyName)} · ${e(rows[i].productName)}</span></header>
       <div class="row g-2"><label class="col-md-4">배송수단<select class="form-select" data-field="deliveryMethodId">${opts(options.methods,d.deliveryMethodId)}</select></label>
-      <label class="col-md-4">배송담당자<select class="form-select" data-field="deliveryHandlerId" ${needsHandler(d)?'':'disabled'}>${opts(options.handlers,d.deliveryHandlerId)}</select><small>${needsHandler(d)?'배송담당자 필수':!eligible(d)?'승인 전·취소 상태에는 배정하지 않습니다.':'담당자 배정 불필요'}</small></label>
+      <label class="col-md-4">배송담당자<select class="form-select" data-field="deliveryHandlerId" ${canAssign(d)?'':'disabled'}>${opts(options.handlers,d.deliveryHandlerId)}</select><small>${needsHandler(d)?'배송담당자 필수':canAssign(d)?'배송담당자 선택사항':!eligible(d)?'승인 전·취소 상태에는 배정하지 않습니다.':'담당자 배정 불필요'}</small></label>
       <label class="col-md-4">출고일(배송희망일)<input type="date" class="form-control" data-field="preferredDeliveryDate" value="${e(d.preferredDeliveryDate)}"></label></div>
       <section class="order-bulk-destination"><div class="d-flex align-items-center justify-content-between gap-2"><strong>${e(method(d.deliveryMethodId)?.name||'수단 미선택')} → ${destination(d)}에 반영</strong><button type="button" class="btn btn-sm btn-outline-primary" data-search="${i}"><i class="ri-map-pin-line" aria-hidden="true"></i> 주소 검색</button></div>${addressHtml(d.address)}
       <label class="w-100">상세주소<input class="form-control" data-detail value="${e(d.address.detailAddress)}"></label></section>
@@ -57,9 +61,12 @@
   }
   function payload(d,i){
     const site=method(d.deliveryMethodId)?.site;
-    return {...d,address:undefined,deliveryMethodId:Number(d.deliveryMethodId),deliveryHandlerId:needsHandler(d)?Number(d.deliveryHandlerId)||null:null,
-      expectedUpdatedAt:rows[i].updatedAtToken,preferredDeliveryDate:d.preferredDeliveryDate||null,deliveryCost:rows[i].deliveryCost,dispatchComplete:false,keepDeliveryAddress:JSON.stringify(d.address)===JSON.stringify(actual(rows[i])),
-      ...Object.fromEntries(Object.entries(d.address).map(([k,v])=>[site?'site'+k[0].toUpperCase()+k.slice(1):k,v])),generalAddressSearched:!site&&d.searched,siteAddressSearched:!!site&&d.searched};
+    // Send the request contract only. Draft fields such as `searched` must stay in the UI.
+    return {orderId:d.orderId,deliveryMethodId:Number(d.deliveryMethodId),deliveryHandlerId:canAssign(d)?Number(d.deliveryHandlerId)||null:null,
+      expectedUpdatedAt:rows[i].updatedAtToken,preferredDeliveryDate:d.preferredDeliveryDate||null,deliveryCost:rows[i].deliveryCost,dispatchComplete:false,
+      ordererName:d.ordererName,ordererPhone:d.ordererPhone,keepDeliveryAddress:JSON.stringify(d.address)===JSON.stringify(actual(rows[i])),
+      ...Object.fromEntries(['zipCode','doName','siName','guName','roadAddress','jibunAddress','detailAddress'].map(k=>[site?'site'+k[0].toUpperCase()+k.slice(1):k,d.address[k]])),
+      generalAddressSearched:!site&&d.searched===true,siteAddressSearched:!!site&&d.searched===true};
   }
   launch.onclick=async()=>{
     if(busy||!ids().length)return;busy=true;sync();
@@ -80,15 +87,15 @@
       dialog.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>{if(!busy)dialog.close();});dialog.addEventListener('cancel',ev=>{if(busy)ev.preventDefault();});
       const openedDialog=dialog;dialog.addEventListener('close',()=>{if(dialog===openedDialog){changedAddress=null;drafts=[];}openedDialog.remove();sync();});
       dialog.addEventListener('input',resetReview);
-      dialog.addEventListener('change',ev=>{capture();resetReview();if(ev.target.dataset.field==='deliveryMethodId'){drafts.forEach(d=>{if(!needsHandler(d))d.deliveryHandlerId='';});paint();}else if(ev.target.matches('[data-bulk-method]'))syncBulkHandler();});
-      dialog.querySelector('[data-apply]').onclick=()=>{capture();const m=dialog.querySelector('[data-bulk-method]').value,h=dialog.querySelector('[data-bulk-handler]').value,date=dialog.querySelector('[data-bulk-date]').value;drafts.forEach(d=>{if(m)d.deliveryMethodId=m;if(!needsHandler(d))d.deliveryHandlerId='';else if(h)d.deliveryHandlerId=h;if(date)d.preferredDeliveryDate=date;});paint();resetReview();};
+      dialog.addEventListener('change',ev=>{capture();resetReview();if(ev.target.dataset.field==='deliveryMethodId'){drafts.forEach(d=>{if(!canAssign(d))d.deliveryHandlerId='';});paint();}else if(ev.target.matches('[data-bulk-method]'))syncBulkHandler();});
+      dialog.querySelector('[data-apply]').onclick=()=>{capture();const m=dialog.querySelector('[data-bulk-method]').value,h=dialog.querySelector('[data-bulk-handler]').value,date=dialog.querySelector('[data-bulk-date]').value;drafts.forEach(d=>{if(m)d.deliveryMethodId=m;if(!canAssign(d))d.deliveryHandlerId='';else if(h)d.deliveryHandlerId=h;if(date)d.preferredDeliveryDate=date;});paint();resetReview();};
       area.onclick=ev=>{const b=ev.target.closest('[data-search]');if(b)try{capture();postcode(a=>{drafts[Number(b.dataset.search)].address=a;drafts[Number(b.dataset.search)].searched=true;paint();resetReview();});}catch(err){alert(err.message);}};
       dialog.querySelector('[data-address]').onclick=()=>{try{postcode(a=>{changedAddress=a;dialog.querySelector('[data-bulk-address-preview]').innerHTML=addressHtml(a);dialog.querySelector('[data-bulk-detail]').value=a.detailAddress;dialog.querySelector('[data-bulk-detail]').disabled=false;dialog.querySelector('[data-apply-address]').disabled=false;resetReview();});}catch(err){alert(err.message);}};
       dialog.querySelector('[data-apply-address]').onclick=()=>{if(!changedAddress)return;capture();drafts.forEach(d=>{d.address={...changedAddress,detailAddress:dialog.querySelector('[data-bulk-detail]').value};d.searched=true;});paint();resetReview();};
       dialog.querySelector('[data-save]').onclick=async()=>{
         if(busy)return;capture();const review=dialog.querySelector('[data-review]');
         try{
-          drafts.forEach(d=>{if(!method(d.deliveryMethodId))throw Error('#'+d.orderId+' 배송수단을 선택해 주세요.');if(needsHandler(d)&&(!d.deliveryHandlerId||!d.preferredDeliveryDate))throw Error('#'+d.orderId+' 담당자와 출고일을 입력해 주세요.');if(method(d.deliveryMethodId).site&&(!d.ordererName.trim()||!d.ordererPhone.trim()))throw Error('#'+d.orderId+' 현장 수령자와 연락처를 입력해 주세요.');});
+          drafts.forEach(d=>{if(!method(d.deliveryMethodId))throw Error('#'+d.orderId+' 배송수단을 선택해 주세요.');if(needsHandler(d)&&(!d.deliveryHandlerId||!d.preferredDeliveryDate))throw Error('#'+d.orderId+' 담당자와 출고일을 입력해 주세요.');if(canAssign(d)&&d.deliveryHandlerId&&!d.preferredDeliveryDate)throw Error('#'+d.orderId+' 담당자를 배정하려면 출고일을 입력해 주세요.');if(method(d.deliveryMethodId).site&&(!d.ordererName.trim()||!d.ordererPhone.trim()))throw Error('#'+d.orderId+' 현장 수령자와 연락처를 입력해 주세요.');});
           if(review.hidden){review.innerHTML='<h5>저장할 변경 내용</h5>'+drafts.map((d,i)=>`<section><strong>#${d.orderId}</strong> ${e(rows[i].deliveryMethodName)} → ${e(method(d.deliveryMethodId)?.name)} / 담당자 ${e(rows[i].deliveryHandlerName||'없음')} → ${e(options.handlers.find(h=>h.id===Number(d.deliveryHandlerId))?.name||'없음')} / 출고일 ${e(rows[i].preferredDeliveryDateText||'미등록')} → ${e(d.preferredDeliveryDate||'유지')}<p>기존: ${e(actual(rows[i]).roadAddress)} ${e(actual(rows[i]).detailAddress)}</p><strong>${destination(d)}에 반영</strong>${addressHtml(d.address)}<p>상세: ${e(d.address.detailAddress)||'없음'}</p>${method(d.deliveryMethodId)?.site?`<p>현장 수령자: ${e(d.ordererName)} ${e(d.ordererPhone)}</p>`:''}</section>`).join('');review.hidden=false;dialog.querySelector('[data-save]').textContent='확인한 내용 저장';review.scrollIntoView({block:'nearest'});return;}
           busy=true;dialog.querySelectorAll('button,input,select').forEach(el=>el.disabled=true);
           const result=await api('',{items:drafts.map(payload)});window.alert(result.updatedCount+'건을 저장했습니다.');location.reload();

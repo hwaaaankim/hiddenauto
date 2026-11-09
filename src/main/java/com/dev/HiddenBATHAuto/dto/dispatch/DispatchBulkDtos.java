@@ -1,6 +1,8 @@
 package com.dev.HiddenBATHAuto.dto.dispatch;
 
 import java.time.LocalDate;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -217,6 +219,9 @@ public final class DispatchBulkDtos {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
+    // Compatibility for already-open admin pages: this is UI-only state.
+    // Keep strict handling for every other unknown field and use the named address flags.
+    @JsonIgnoreProperties(value = {"searched"})
     public static class OrderManagementItemDto {
         private Long orderId;
         private Long deliveryMethodId;
