@@ -526,8 +526,8 @@
 .pm-price-branches .pms-dialog-head { padding:18px 22px; }
 .pm-price-branches .pms-dialog-body { padding:20px 22px; background:#f7f9fc; }
 .pm-price-branches .pms-dialog-foot { padding:14px 18px; gap:8px; flex-wrap:wrap; }
-.pm-price-branches .pms-dialog-foot [data-branch-status] { flex-basis:100%; font-size:12px; color:#48668f; }
-.pm-price-branches .pms-dialog-foot [data-branch-status]:empty { display:none; }
+.pm-price-branches .pms-dialog-foot [data-branch-status] { flex-basis:100%; min-height:1.7em; font-size:12px; color:#48668f; }
+.pm-price-branches .pms-dialog-foot [data-branch-status]:empty { display:block; }
 .pm-price-branches button { white-space:normal; height:auto; min-height:34px; padding:7px 11px; border-radius:7px; font-size:12px; line-height:1.5; }
 .pm-price-branches .pm-branch-stepper { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:0 0 18px; padding:0; }
 .pm-price-branches .pm-branch-stepper > li { display:flex; gap:10px; align-items:center; background:#fff; border:1px solid #e0e7f0; padding:12px 14px; border-radius:9px; color:#6c7e95; }
@@ -592,6 +592,7 @@
   .pm-price-branches .pm-branch-inventory-item { border:0; }
 }
 @media(max-width:600px) {
+  .pm-price-branches .pms-dialog-foot [data-branch-status] { min-height:3.4em; }
   .pms .pm-price-page { font-size:12px; gap:14px; }
   .pms .pm-price-page .pms-panel-title,.pms .pm-price-page .pms-panel-body { padding:14px; }
   .pms .pm-price-hero .pms-panel-title strong { font-size:17px; }
