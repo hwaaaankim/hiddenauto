@@ -1,5 +1,7 @@
 package com.dev.HiddenBATHAuto.orderExcelUpload.service;
 
+import com.dev.HiddenBATHAuto.utils.CompanyDefaultDeliveryAddress;
+
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -2558,39 +2560,9 @@ public class OrderExcelUploadService {
     }
 
     private ResolvedCompanyAddress resolveCompanyDefaultAddress(Company company) {
-        if (company == null) {
-            return new ResolvedCompanyAddress("", "", "", "", "", "", false);
-        }
-
-        String roadAddress = normalizeMeaningful(company.getRoadAddress());
-        String detailAddress = normalizeMeaningful(company.getDetailAddress());
-
-        if (hasText(roadAddress) || hasText(detailAddress)) {
-            return new ResolvedCompanyAddress(
-                    normalizeMeaningful(company.getZipCode()),
-                    normalizeProvinceName(company.getDoName()),
-                    normalizeMeaningful(company.getSiName()),
-                    normalizeMeaningful(company.getGuName()),
-                    roadAddress,
-                    detailAddress,
-                    false
-            );
-        }
-
-        String fallbackAddress = firstMeaningful(
-                company.getOriginAddress(),
-                company.getJibunAddress()
-        );
-
-        return new ResolvedCompanyAddress(
-                normalizeMeaningful(company.getZipCode()),
-                normalizeProvinceName(company.getDoName()),
-                normalizeMeaningful(company.getSiName()),
-                normalizeMeaningful(company.getGuName()),
-                fallbackAddress,
-                "",
-                hasText(fallbackAddress)
-        );
+        var address = CompanyDefaultDeliveryAddress.from(company);
+        return new ResolvedCompanyAddress(address.zipCode(), address.doName(), address.siName(),
+                address.guName(), address.roadAddress(), address.detailAddress(), address.fallbackUsed());
     }
 
     private String firstMeaningful(String... values) {

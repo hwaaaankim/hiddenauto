@@ -203,6 +203,25 @@ public final class DispatchBulkDtos {
         private List<Long> orderIds = new ArrayList<>();
     }
 
+    @Data
+    @NoArgsConstructor
+    public static class DirectDeliveryPreviewRow {
+        private Long orderId;
+        private Long deliveryMethodId;
+        private Long deliveryHandlerId;
+        private String deliveryHandlerName;
+        private String companyName;
+        private String zipCode;
+        private String doName;
+        private String siName;
+        private String guName;
+        private String roadAddress;
+        private String jibunAddress;
+        private String detailAddress;
+        private boolean applicable;
+        private String message;
+    }
+
     /**
      * 통합 발주관리 저장 요청입니다. items 전체 검증이 끝난 뒤에만 한 트랜잭션으로 반영됩니다.
      */
@@ -256,6 +275,8 @@ public final class DispatchBulkDtos {
 
         private String ordererName;
         private String ordererPhone;
+        /** null preserves existing memo; an empty string explicitly clears it. ADMIN only. */
+        private String adminMemo;
     }
 
     @Data

@@ -168,11 +168,22 @@ public class ProductOrderAddCommandService {
             }
         }
 
-        Member deliveryHandler = resolveDeliveryHandler(
+        // Resolve server-side production categories before assigning a common handler.
+        // As in Excel registration, REQUESTED rows must not receive a handler or index.
+        List<ResolvedOrderMeta> resolvedOrders = request.getOrders().stream()
+                .map(this::resolveOrderMeta)
+                .toList();
+        boolean hasAssignableOrders = resolvedOrders.stream()
+                .anyMatch(meta -> isBathroomGoodsProductionCategory(meta.productCategory()));
+        Member deliveryHandler = hasAssignableOrders ? resolveDeliveryHandler(
                 request,
                 autoAssignTargetMethod,
                 siteDelivery
-        );
+        ) : null;
+        if (hasAssignableOrders && autoAssignTargetMethod && deliveryHandler == null) {
+            throw new IllegalArgumentException(
+                    "생산완료로 등록되는 욕실용품의 직배송/현장배송 담당자를 찾지 못했습니다. 배송 담당자를 직접 선택해 주세요.");
+        }
 
         LocalDateTime now = LocalDateTime.now();
         LocalDate deliveryDate = request.getPreferredDeliveryDate();
@@ -201,7 +212,10 @@ public class ProductOrderAddCommandService {
         for (int i = 0; i < request.getOrders().size(); i++) {
             ProductOrderCreateRequest orderRequest = request.getOrders().get(i);
 
-            ResolvedOrderMeta resolved = resolveOrderMeta(orderRequest);
+            ResolvedOrderMeta resolved = resolvedOrders.get(i);
+            OrderStatus initialStatus = isBathroomGoodsProductionCategory(resolved.productCategory())
+                    ? OrderStatus.PRODUCTION_DONE : OrderStatus.REQUESTED;
+            boolean assignHandlerToOrder = hasDeliveryHandler && initialStatus == OrderStatus.PRODUCTION_DONE;
             LinkedHashMap<String, String> optionMap = buildOptionMap(orderRequest, resolved);
 
             boolean mirrorCuttingProduct = mirrorCuttingProductMatcher.isMirrorCuttingProduct(
@@ -223,7 +237,7 @@ public class ProductOrderAddCommandService {
             order.setPackingCost(request.getPackingCost());
             order.setDeliveryCost(request.getDeliveryCost());
 
-            if (hasDeliveryHandler) {
+            if (assignHandlerToOrder) {
                 order.setAssignedDeliveryHandler(deliveryHandler);
                 order.setAssignedDeliveryTeam(deliveryHandler.getTeamCategory());
             } else {
@@ -248,9 +262,7 @@ public class ProductOrderAddCommandService {
             order.setTotalAmount(orderRequest.getTotalAmount());
             order.setOrderComment(trimToNull(orderRequest.getOrderComment()));
             order.setAdminMemo(trimToNull(orderRequest.getAdminMemo()));
-            order.setStatus(isBathroomGoodsProductionCategory(resolved.productCategory())
-                    ? OrderStatus.PRODUCTION_DONE
-                    : OrderStatus.REQUESTED);
+            order.setStatus(initialStatus);
             order.setCreatedAt(now);
             order.setUpdatedAt(now);
 
@@ -263,7 +275,7 @@ public class ProductOrderAddCommandService {
 
             order = orderRepository.save(order);
 
-            if (hasDeliveryHandler) {
+            if (assignHandlerToOrder) {
                 registerDeliveryOrderIndex(
                         order,
                         deliveryHandler,

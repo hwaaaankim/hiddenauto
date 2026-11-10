@@ -100,7 +100,7 @@
 											<div class="position-relative product-admin-add-autocomplete-wrap">
 												<input type="text" id="product-admin-add-delivery-member-input"
 													class="form-control product-admin-add-control" autocomplete="off"
-													placeholder="직배송일 때만 선택합니다." disabled>
+													placeholder="직배송/현장배송 욕실용품에만 적용합니다." disabled>
 												<input type="hidden" id="product-admin-add-delivery-member-id">
 
 												<div id="product-admin-add-delivery-member-dropdown"
@@ -109,7 +109,8 @@
 											<div id="product-admin-add-delivery-member-feedback"
 												class="invalid-feedback d-block product-admin-add-feedback"></div>
 
-											<div id="product-admin-add-delivery-member-summary"
+											<p class="small text-muted mt-2 mb-1">일반 제품은 고객 발주 상태로 등록되며 배송담당자와 배송순번을 배정하지 않습니다. 선택한 담당자는 생산완료로 등록되는 욕실용품의 직배송·현장배송에만 적용됩니다.</p>
+                                            <div id="product-admin-add-delivery-member-summary"
 												class="product-admin-add-selected-summary d-none"></div>
 										</div>
 
@@ -487,7 +488,7 @@
 	<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
 
 	<script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
-	<script src="/administration/assets/js/page/productOrderAdd.js?v=20261103-improvements-1"></script>
+	<script src="/administration/assets/js/page/productOrderAdd.js?v=20261110-status-assignment-2"></script>
 </body>
 
 </html>

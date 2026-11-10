@@ -847,6 +847,11 @@
 			isSiteDeliverySelected();
 	}
 
+	function getHandlerAssignableOrderCount() {
+        return state.orders.filter(order => normalizeProductionCategoryName(order.standard
+            ? order.assignedProductionCategoryName : order.customProductionCategoryName) === '욕실용품').length;
+    }
+
 	function syncDeliveryHandlerAvailability() {
 		const assignable = isDeliveryHandlerAssignableSelected();
 
@@ -856,7 +861,7 @@
 
 		els.deliveryInput.disabled = !assignable;
 		els.deliveryInput.placeholder = assignable
-			? '선택사항입니다. 미선택 시 주소 기준으로 자동 배정됩니다.'
+			? '욕실용품에만 적용합니다. 미선택 시 주소 기준 자동배정'
 			: '화물/방문/택배는 배송 담당자를 지정하지 않습니다.';
 
 		if (!assignable) {
@@ -3579,9 +3584,9 @@
                     <div class="product-admin-add-summary-item">
                         <span class="product-admin-add-summary-item-label">배송 담당자</span>
                         <span class="product-admin-add-summary-item-value">
-                            ${isDeliveryHandlerAssignableSelected()
-                                ? (state.deliveryHandler ? `${escapeHtml(state.deliveryHandler.name)} (${escapeHtml(state.deliveryHandler.username || '-')})` : '주소 기준 자동배정')
-                                : '지정하지 않음'}
+                            ${isDeliveryHandlerAssignableSelected() && getHandlerAssignableOrderCount() > 0
+                                ? (state.deliveryHandler ? `${escapeHtml(state.deliveryHandler.name)} (${escapeHtml(state.deliveryHandler.username || '-')})` : '주소 기준 자동배정') + ` · 생산완료 욕실용품 ${getHandlerAssignableOrderCount()}건에만 적용`
+                                : (isDeliveryHandlerAssignableSelected() ? '지정하지 않음 (일반 제품은 승인 시 배정)' : '지정하지 않음 (담당자 비대상 배송수단)')}
                         </span>
                     </div>
 
@@ -3876,7 +3881,7 @@
 				companyId: state.company.companyId,
 				preferredDeliveryDate: els.preferredDate.value,
 				deliveryMethodId: state.deliveryMethod ? Number(state.deliveryMethod.id) : null,
-				deliveryHandlerId: isDeliveryHandlerAssignableSelected() && state.deliveryHandler
+				deliveryHandlerId: isDeliveryHandlerAssignableSelected() && getHandlerAssignableOrderCount() > 0 && state.deliveryHandler
 					? Number(state.deliveryHandler.memberId)
 					: null,
 

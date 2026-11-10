@@ -147,6 +147,8 @@ public class DispatchDtos {
         private int quantity;
 
         private String adminMemo;
+        /** Raw editable memo, without display-only dash substitution. */
+        private String adminMemoValue;
 
         private Long deliveryMethodId;
         private String deliveryMethodName;

@@ -1,6 +1,9 @@
 package com.dev.HiddenBATHAuto.service.dispatch;
 
 import com.dev.HiddenBATHAuto.service.dispatch.DispatchDeliveryAddressPolicy.AddressInput;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.DirectDeliveryPreviewRow;
+import com.dev.HiddenBATHAuto.service.productOrderAdd.DeliveryHandlerAutoAssignService;
+import com.dev.HiddenBATHAuto.utils.CompanyDefaultDeliveryAddress;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDate;
@@ -15,6 +18,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
@@ -131,6 +135,7 @@ public class DispatchTeamService {
     private final DeliveryOrderIndexRepository deliveryOrderIndexRepository;
     private final DeliveryOrderIndexService deliveryOrderIndexService;
     private final OrderOperationalChangeRecorder changeRecorder;
+    private final DeliveryHandlerAutoAssignService deliveryHandlerAutoAssignService;
 
     @Transactional(readOnly = true)
     public DispatchOrderSearchResponse searchDispatchOrders(
@@ -360,6 +365,60 @@ public class DispatchTeamService {
         return orderManagementPreview(orderIds, true);
     }
 
+    /** Read-only proposals: apply and save never re-randomize the reviewed handler. */
+    @Transactional(readOnly = true)
+    public List<DirectDeliveryPreviewRow> getAdminDirectDeliveryPreview(
+            List<Long> orderIds, Member actor) {
+        validateAdmin(actor);
+        List<DispatchOrderRowDto> selected = orderManagementPreview(orderIds, true);
+        List<DeliveryMethod> directMethods = deliveryMethodRepository.findAll().stream()
+                .filter(m -> DeliveryMethodAssignmentPolicy.containsKeyword(m.getMethodName(), "직배송")
+                        && !isSiteDeliveryMethod(m) && DeliveryMethodAssignmentPolicy.allowsHandler(m)).toList();
+        if (directMethods.size() != 1)
+            throw new IllegalArgumentException("직배송 배송수단이 없거나 여러 개입니다. 배송수단 설정을 확인해 주세요.");
+        DeliveryMethod direct = directMethods.get(0);
+        Map<Long, Order> orders = findOrderMap(selected.stream().map(DispatchOrderRowDto::getOrderId).toList());
+        Map<Long, Optional<Member>> companyHandlers = new HashMap<>();
+        List<DirectDeliveryPreviewRow> result = new ArrayList<>();
+        for (DispatchOrderRowDto selectedRow : selected) {
+            Order order = orders.get(selectedRow.getOrderId());
+            var row = new DirectDeliveryPreviewRow();
+            row.setOrderId(order.getId());
+            row.setDeliveryMethodId(direct.getId());
+            Company company = order.getTask() == null || order.getTask().getRequestedBy() == null
+                    ? null : order.getTask().getRequestedBy().getCompany();
+            if (company == null) {
+                row.setMessage("발주 업체를 찾을 수 없습니다. 업체 정보를 확인해 주세요.");
+                result.add(row);
+                continue;
+            }
+            row.setCompanyName(company.getCompanyName());
+            var address = CompanyDefaultDeliveryAddress.from(company);
+            row.setZipCode(address.zipCode()); row.setDoName(address.doName());
+            row.setSiName(address.siName()); row.setGuName(address.guName());
+            row.setRoadAddress(address.roadAddress()); row.setDetailAddress(address.detailAddress());
+            row.setJibunAddress(company.getJibunAddress());
+            List<String> notes = new ArrayList<>();
+            row.setApplicable(new AddressInput(address.zipCode(), address.doName(), address.siName(),
+                    address.guName(), address.roadAddress(), address.detailAddress()).hasDaumAddress());
+            if (!row.isApplicable()) notes.add("업체 기본 주소의 우편번호 또는 도로명주소가 없습니다. 업체 주소를 보완한 뒤 다시 조회해 주세요.");
+            if (address.fallbackUsed()) notes.add("엑셀 등록과 동일하게 업체 원본주소/지번주소를 기본 배송지로 사용합니다.");
+            if (deliveryOrderIndexService.isDeliveryAssignmentAllowedStatus(order.getStatus())) {
+                Member handler = companyHandlers.computeIfAbsent(company.getId(), id ->
+                        deliveryHandlerAutoAssignService.findRandomDeliveryHandler(cleanInput(address.doName()),
+                                cleanInput(address.siName()), cleanInput(address.guName()))).orElse(null);
+                if (handler != null) {
+                    row.setDeliveryHandlerId(handler.getId());
+                    row.setDeliveryHandlerName(memberLabel(handler));
+                } else notes.add("업체 행정구역에 일치하는 배송담당자가 없습니다. 적용 후 담당자를 직접 선택해야 저장할 수 있습니다.");
+                if (order.getPreferredDeliveryDate() == null) notes.add("출고일을 입력해야 저장할 수 있습니다.");
+            } else notes.add("승인 전·취소 상태는 기존 정책에 따라 담당자를 배정하지 않습니다.");
+            row.setMessage(String.join(" ", notes));
+            result.add(row);
+        }
+        return result;
+    }
+
     private void validateAdmin(Member actor) {
         if (actor == null || actor.getRole() != com.dev.HiddenBATHAuto.model.auth.MemberRole.ADMIN)
             throw new AccessDeniedException("관리자만 접근할 수 있습니다.");
@@ -439,6 +498,7 @@ public class DispatchTeamService {
             if (admin && !java.util.Objects.equals(item.getExpectedUpdatedAt(), String.valueOf(order.getUpdatedAt())))
                 throw new IllegalStateException("다른 화면에서 변경된 발주입니다. 일괄변경 창을 다시 열어 최신 내용을 확인해 주세요. orderId=" + orderId);
             if (admin && item.isDispatchComplete()) throw new IllegalArgumentException("관리자 일괄변경에서는 상태를 변경할 수 없습니다.");
+            if (!admin && item.getAdminMemo() != null) throw new IllegalArgumentException("비고 일괄변경은 관리자 기능입니다.");
             if (!admin && item.getPreferredDeliveryDate() != null) throw new IllegalArgumentException("출고일 일괄변경은 관리자 기능입니다.");
 
             if (item.getDeliveryMethodId() == null) {
@@ -522,6 +582,8 @@ public class DispatchTeamService {
                     targetAddress,
                     targetOrdererName,
                     targetOrdererPhone,
+                    admin && item.getAdminMemo() != null ? item.getAdminMemo() : order.getAdminMemo(),
+                    order.getAdminMemo(),
                     targetDeliveryCost,
                     item.isDispatchComplete(),
                     deliveryMethodLabel(order.getDeliveryMethod()),
@@ -559,6 +621,7 @@ public class DispatchTeamService {
                     ? plan.targetHandler().getTeamCategory()
                     : null);
             order.setDeliveryCost(plan.deliveryCost());
+            if (admin) order.setAdminMemo(plan.adminMemo());
 
             if (plan.siteDelivery()) {
                 applySiteAddress(order, plan.address());
@@ -575,19 +638,20 @@ public class DispatchTeamService {
                 order.setStatus(OrderStatus.DISPATCH_DONE);
             }
             order.setUpdatedAt(now);
-        }
-
-        List<Order> saveTargets = plans.stream().map(OrderManagementPlan::order).toList();
-        orderRepository.saveAll(saveTargets);
-        orderRepository.flush();
-
-        for (OrderManagementPlan plan : plans) {
+            // Synchronize each order and its queue before mutating the next order.
+            // If all Orders are changed first, old indexes of later orders become
+            // invisible to queue normalization while still occupying unique slots.
+            // A multi-order handler swap can then collide with those old slots.
+            // All plans are already validated and all old/new owners locked above;
+            // the surrounding transaction still rolls back the entire batch on failure.
+            orderRepository.saveAndFlush(order);
             if (plan.targetHandler() == null) {
-                deliveryOrderIndexService.removeIndex(plan.order());
+                deliveryOrderIndexService.removeIndex(order);
             } else {
-                deliveryOrderIndexService.ensureIndex(plan.order());
+                deliveryOrderIndexService.ensureIndex(order);
             }
         }
+        List<Order> saveTargets = plans.stream().map(OrderManagementPlan::order).toList();
         deliveryOrderIndexRepository.flush();
 
         for (OrderManagementPlan plan : plans) {
@@ -620,6 +684,8 @@ public class DispatchTeamService {
             }
 
             List<OrderFieldChangeCommand> addressChanges = new ArrayList<>();
+            if (admin) addressChanges.add(OrderFieldChangeCommand.of("adminMemo", "관리자 비고",
+                    plan.beforeAdminMemo(), plan.adminMemo(), OrderWorkArea.PRODUCTION, OrderWorkArea.DISPATCH, OrderWorkArea.DELIVERY));
             addressChanges.add(OrderFieldChangeCommand.of(
                     "deliveryAddress", plan.siteDelivery() ? "현장주소" : "배송주소",
                     plan.beforeAddress(), plan.address().display(),
@@ -640,7 +706,7 @@ public class DispatchTeamService {
                     source,
                     loginMember,
                     admin ? "MANAGEMENT_ORDER_UPDATE" : "DISPATCH_DELIVERY_ADDRESS_CHANGE",
-                    admin ? "관리자 배송지·주문자 정보 변경" : "출고팀 배송지 정보 변경",
+                    admin ? "관리자 배송지·주문자·비고 변경" : "출고팀 배송지 정보 변경",
                     managementPath,
                     customerSearchBefore.get(order.getId()),
                     addressChanges.toArray(OrderFieldChangeCommand[]::new)
@@ -956,13 +1022,10 @@ public class DispatchTeamService {
         LocalDateTime now = LocalDateTime.now();
         for (Order order : changeTargets) {
             order.setAssignedDeliveryHandler(targetHandler);
+            order.setAssignedDeliveryTeam(targetHandler.getTeamCategory());
             order.setUpdatedAt(now);
-        }
-
-        orderRepository.saveAll(changeTargets);
-        orderRepository.flush();
-
-        for (Order order : changeTargets) {
+            // Keep every not-yet-processed order consistent with its existing index.
+            orderRepository.saveAndFlush(order);
             deliveryOrderIndexService.ensureIndex(order);
         }
 
@@ -1256,16 +1319,13 @@ public class DispatchTeamService {
             order.setAssignedDeliveryTeam(plan.removeAssignment() ? null : plan.handler().getTeamCategory());
             order.setUpdatedAt(now);
             saveTargets.add(order);
-        }
-
-        orderRepository.saveAll(saveTargets);
-        orderRepository.flush();
-
-        for (BulkDeliveryMethodPlan plan : plans) {
+            // Validation and owner locks are complete before this loop starts.
+            // Synchronize this order's index before changing the next order.
+            orderRepository.saveAndFlush(order);
             if (plan.removeAssignment()) {
-                deliveryOrderIndexService.removeIndex(plan.order());
+                deliveryOrderIndexService.removeIndex(order);
             } else {
-                deliveryOrderIndexService.ensureIndex(plan.order());
+                deliveryOrderIndexService.ensureIndex(order);
             }
         }
 
@@ -1618,6 +1678,8 @@ public class DispatchTeamService {
             AddressInput address,
             String ordererName,
             String ordererPhone,
+            String adminMemo,
+            String beforeAdminMemo,
             int deliveryCost,
             boolean dispatchComplete,
             String beforeMethodLabel,
@@ -2190,6 +2252,7 @@ public class DispatchTeamService {
                 .sizeText(sizeText)
                 .quantity(order.getQuantity())
                 .adminMemo(safeTextOrDash(order.getAdminMemo()))
+                .adminMemoValue(order.getAdminMemo())
                 .deliveryMethodId(deliveryMethod != null ? deliveryMethod.getId() : null)
                 .deliveryMethodName(deliveryMethod != null ? safeTextOrDash(deliveryMethod.getMethodName()) : "미지정")
                 .deliveryHandlerId(deliveryHandler != null ? deliveryHandler.getId() : null)

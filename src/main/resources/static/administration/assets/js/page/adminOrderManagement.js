@@ -46,7 +46,7 @@
       <label class="col-md-4">출고일(배송희망일)<input type="date" class="form-control" data-field="preferredDeliveryDate" value="${e(d.preferredDeliveryDate)}"></label></div>
       <section class="order-bulk-destination"><div class="d-flex align-items-center justify-content-between gap-2"><strong>${e(method(d.deliveryMethodId)?.name||'수단 미선택')} → ${destination(d)}에 반영</strong><button type="button" class="btn btn-sm btn-outline-primary" data-search="${i}"><i class="ri-map-pin-line" aria-hidden="true"></i> 주소 검색</button></div>${addressHtml(d.address)}
       <label class="w-100">상세주소<input class="form-control" data-detail value="${e(d.address.detailAddress)}"></label></section>
-      <div class="row g-2"><label class="col-md-6">주문자 이름<input class="form-control" maxlength="50" data-field="ordererName" value="${e(d.ordererName)}"></label><label class="col-md-6">주문자 연락처<input type="tel" class="form-control" maxlength="30" data-field="ordererPhone" value="${e(d.ordererPhone)}"></label></div><div class="d-flex align-items-center justify-content-between gap-2 mt-2"><small>${method(d.deliveryMethodId)?.site?'현장배송은 이 이름·연락처를 수령자 정보로 사용하므로 모두 입력해 주세요.':'이 발주의 주문자 정보를 변경합니다.'}</small><button type="button" class="btn btn-sm btn-outline-secondary" data-reset-orderer="${i}">주문자 정보 되돌리기</button></div></article>`).join('');
+      <div class="row g-2"><label class="col-md-6">주문자 이름<input class="form-control" maxlength="50" data-field="ordererName" value="${e(d.ordererName)}"></label><label class="col-md-6">주문자 연락처<input type="tel" class="form-control" maxlength="30" data-field="ordererPhone" value="${e(d.ordererPhone)}"></label></div><div class="d-flex align-items-center justify-content-between gap-2 mt-2"><small>${method(d.deliveryMethodId)?.site?'현장배송은 이 이름·연락처를 수령자 정보로 사용하므로 모두 입력해 주세요.':'이 발주의 주문자 정보를 변경합니다.'}</small><button type="button" class="btn btn-sm btn-outline-secondary" data-reset-orderer="${i}">주문자 정보 되돌리기</button></div><label class="w-100 mt-2">비고 (관리자 메모)<textarea class="form-control" rows="2" data-field="adminMemo">${e(d.adminMemo)}</textarea></label><button type="button" class="btn btn-sm btn-outline-secondary mt-1" data-reset-memo="${i}">비고 되돌리기</button></article>`).join('');
     syncBulkHandler();
   }
   function capture(){area.querySelectorAll('[data-index]').forEach(card=>{const d=drafts[Number(card.dataset.index)];card.querySelectorAll('[data-field]').forEach(el=>d[el.dataset.field]=el.value);d.address.detailAddress=card.querySelector('[data-detail]').value;});}
@@ -64,7 +64,7 @@
     // Send the request contract only. Draft fields such as `searched` must stay in the UI.
     return {orderId:d.orderId,deliveryMethodId:Number(d.deliveryMethodId),deliveryHandlerId:canAssign(d)?Number(d.deliveryHandlerId)||null:null,
       expectedUpdatedAt:rows[i].updatedAtToken,preferredDeliveryDate:d.preferredDeliveryDate||null,deliveryCost:rows[i].deliveryCost,dispatchComplete:false,
-      ordererName:d.ordererName,ordererPhone:d.ordererPhone,keepDeliveryAddress:JSON.stringify(d.address)===JSON.stringify(actual(rows[i])),
+      ordererName:d.ordererName,ordererPhone:d.ordererPhone,adminMemo:d.adminMemo===(rows[i].adminMemoValue??'')?null:d.adminMemo,keepDeliveryAddress:JSON.stringify(d.address)===JSON.stringify(actual(rows[i])),
       ...Object.fromEntries(['zipCode','doName','siName','guName','roadAddress','jibunAddress','detailAddress'].map(k=>[site?'site'+k[0].toUpperCase()+k.slice(1):k,d.address[k]])),
       generalAddressSearched:!site&&d.searched===true,siteAddressSearched:!!site&&d.searched===true};
   }
@@ -72,12 +72,14 @@
     if(busy||!ids().length)return;busy=true;sync();
     try{
       [options,rows]=await Promise.all([api('/options'),api('/preview',{orderIds:ids()})]);
-      drafts=rows.map(r=>({orderId:r.orderId,deliveryMethodId:r.deliveryMethodId,deliveryHandlerId:r.deliveryHandlerId||'',preferredDeliveryDate:r.preferredDeliveryDateText||'',ordererName:r.ordererName||'',ordererPhone:r.ordererPhone||'',address:actual(r),searched:false}));changedAddress=null;
+      drafts=rows.map(r=>({orderId:r.orderId,deliveryMethodId:r.deliveryMethodId,deliveryHandlerId:r.deliveryHandlerId||'',preferredDeliveryDate:r.preferredDeliveryDateText||'',ordererName:r.ordererName||'',ordererPhone:r.ordererPhone||'',adminMemo:r.adminMemoValue??'',address:actual(r),searched:false}));changedAddress=null;
       dialog?.remove();dialog=document.createElement('dialog');dialog.className='admin-bulk-order-dialog';
       dialog.innerHTML=`<header class="order-bulk-head"><div><h4>선택 발주 일괄변경 <span>${rows.length}건</span></h4><p>변경 내용 확인 후 저장해야 반영됩니다.</p></div><button type="button" class="btn btn-sm btn-light" data-close aria-label="저장하지 않고 닫기"><i class="ri-close-line" aria-hidden="true"></i> 닫기</button></header>
         <div class="order-bulk-body"><section class="order-bulk-settings"><h5>공통으로 적용할 항목</h5><div class="row g-2"><label class="col-md-4">일괄 배송수단<select class="form-select" data-bulk-method>${opts(options.methods,'')}</select></label><label class="col-md-4">일괄 배송담당자<select class="form-select" data-bulk-handler>${opts(options.handlers,'')}</select><small data-bulk-handler-hint></small></label><label class="col-md-4">일괄 출고일<input type="date" class="form-control" data-bulk-date></label></div>
 
         <section class="order-bulk-destination"><h5>주문자 정보 일괄 적용</h5><div class="row g-2"><label class="col-md-6">일괄 주문자 이름<input class="form-control" maxlength="50" data-bulk-orderer-name placeholder="적용할 이름"></label><label class="col-md-6">일괄 주문자 연락처<input type="tel" class="form-control" maxlength="30" data-bulk-orderer-phone placeholder="적용할 연락처"></label></div><p class="order-bulk-routing">입력한 항목만 전체 발주에 덮어씁니다. 빈칸은 기존 값을 유지합니다. 아래에서 개별 수정할 수 있으며, 최종 저장 전까지 서버에 반영되지 않습니다.</p><div class="order-bulk-actions"><button type="button" class="btn btn-sm btn-outline-primary" data-apply-orderer>주문자 정보 전체에 적용</button><button type="button" class="btn btn-sm btn-outline-secondary" data-reset-orderer="all">전체 주문자 정보 되돌리기</button></div><small>되돌리기는 창을 열었을 때의 이름·연락처만 복원합니다. 변경한 배송수단·주소·담당자·출고일은 유지됩니다.</small></section>
+        <section class="order-bulk-destination"><h5>비고 일괄 적용</h5><textarea class="form-control" rows="2" data-bulk-memo placeholder="전체 발주에 적용할 관리자 비고"></textarea><p class="order-bulk-routing">입력한 비고로 전체를 덮어씁니다. 비고를 지우려면 ‘전체 비고 비우기’를 사용하세요. 적용 후 개별 수정할 수 있습니다.</p><div class="order-bulk-actions"><button type="button" class="btn btn-sm btn-outline-primary" data-apply-memo>비고 전체에 적용</button><button type="button" class="btn btn-sm btn-outline-secondary" data-clear-memo>전체 비고 비우기</button><button type="button" class="btn btn-sm btn-outline-secondary" data-reset-memo="all">전체 비고 되돌리기</button></div></section>
+        <section class="order-bulk-destination"><h5>업체 기본 주소로 직배송 일괄변경</h5><p>각 발주의 업체 기본 주소와 행정구역 담당자를 조회합니다. 미리보기에서 적용한 뒤에도 아래에서 개별 수정하거나 공통 설정으로 덮어쓸 수 있습니다. 최종 저장 전에는 서버에 반영되지 않습니다.</p><button type="button" class="btn btn-sm btn-outline-primary" data-direct-preview>직배송 일괄변경</button><div data-direct-review class="order-bulk-review" hidden></div></section>
         <p data-orderer-status class="order-bulk-routing" role="status" aria-live="polite"></p>
         <div data-bulk-address-preview class="order-bulk-address-preview" role="status"><p>아직 공통 주소를 검색하지 않았습니다. 아래 각 발주의 현재 주소는 그대로 유지됩니다.</p></div>
         <label class="w-100">일괄 상세주소<input class="form-control" data-bulk-detail placeholder="주소 검색 후 동·호수 등을 입력하세요" disabled></label><p data-routing-hint class="order-bulk-routing"></p><div class="order-bulk-actions"><button type="button" class="btn btn-sm btn-outline-primary" data-apply>수단·담당자·출고일 적용</button><button type="button" class="btn btn-sm btn-outline-primary" data-address><i class="ri-map-pin-line" aria-hidden="true"></i> 일괄 주소 검색</button><button type="button" class="btn btn-sm btn-outline-primary" data-apply-address disabled>검색한 주소를 전체에 적용</button></div></section>
@@ -85,13 +87,52 @@
         <footer class="order-bulk-foot"><span>닫으면 저장하지 않은 변경은 취소됩니다.</span><button type="button" class="btn btn-sm btn-light" data-close>닫기</button><button type="button" class="btn btn-sm btn-primary" data-save>변경 내용 확인</button></footer>`;
       document.body.append(dialog);area=dialog.querySelector('[data-rows]');busy=false;paint();dialog.showModal();
       const alert=message=>{const el=dialog.querySelector('[data-alert]');el.hidden=false;el.textContent=message;el.scrollIntoView({block:'nearest'});};
-      const resetReview=()=>{dialog.querySelector('[data-review]').hidden=true;dialog.querySelector('[data-save]').textContent='변경 내용 확인';};
+      let directProposals=null;
+      const resetReview=()=>{directProposals=null;dialog.querySelector('[data-direct-review]').hidden=true;dialog.querySelector('[data-review]').hidden=true;dialog.querySelector('[data-save]').textContent='변경 내용 확인';};
       dialog.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>{if(!busy)dialog.close();});dialog.addEventListener('cancel',ev=>{if(busy)ev.preventDefault();});
       const openedDialog=dialog;dialog.addEventListener('close',()=>{if(dialog===openedDialog){changedAddress=null;drafts=[];}openedDialog.remove();sync();});
       dialog.addEventListener('input',resetReview);
       dialog.addEventListener('change',ev=>{capture();resetReview();if(ev.target.dataset.field==='deliveryMethodId'){drafts.forEach(d=>{if(!canAssign(d))d.deliveryHandlerId='';});paint();}else if(ev.target.matches('[data-bulk-method]'))syncBulkHandler();});
       dialog.querySelector('[data-apply]').onclick=()=>{capture();const m=dialog.querySelector('[data-bulk-method]').value,h=dialog.querySelector('[data-bulk-handler]').value,date=dialog.querySelector('[data-bulk-date]').value;drafts.forEach(d=>{if(m)d.deliveryMethodId=m;if(!canAssign(d))d.deliveryHandlerId='';else if(h)d.deliveryHandlerId=h;if(date)d.preferredDeliveryDate=date;});paint();resetReview();};
       const ordererStatus=message=>{dialog.querySelector('[data-orderer-status]').textContent=message;dialog.querySelector('[data-alert]').hidden=true;resetReview();};
+      dialog.querySelector('[data-apply-memo]').onclick=()=>{
+        const memo=dialog.querySelector('[data-bulk-memo]').value;
+        if(!memo.trim()){alert('적용할 비고를 입력하거나 전체 비고 비우기를 사용해 주세요.');return;}
+        capture();drafts.forEach(d=>d.adminMemo=memo);paint();ordererStatus('전체 비고에 적용했습니다. 아직 저장하지 않았습니다.');
+      };
+      dialog.querySelector('[data-clear-memo]').onclick=()=>{capture();drafts.forEach(d=>d.adminMemo='');paint();ordererStatus('전체 비고를 비웠습니다. 최종 저장 전까지 되돌릴 수 있습니다.');};
+      dialog.addEventListener('click',ev=>{
+        const b=ev.target.closest('[data-reset-memo]');if(!b||busy)return;
+        capture();drafts.forEach((d,i)=>{if(b.dataset.resetMemo==='all'||i===Number(b.dataset.resetMemo))d.adminMemo=rows[i].adminMemoValue??'';});
+        paint();ordererStatus('비고를 창을 열었을 때의 값으로 되돌렸습니다.');
+      });
+      dialog.querySelector('[data-direct-preview]').onclick=async()=>{
+        if(busy)return;capture();resetReview();busy=true;
+        const controls=[...dialog.querySelectorAll('button,input,select,textarea')].map(el=>[el,el.disabled]);
+        controls.forEach(([el])=>el.disabled=true);
+        try{
+          const proposals=await api('/direct-delivery-preview',{orderIds:drafts.map(d=>d.orderId)});
+          if(proposals.length!==drafts.length||drafts.some(d=>!proposals.some(p=>p.orderId===d.orderId)))throw Error('미리보기 발주 목록이 일치하지 않습니다. 다시 조회해 주세요.');
+          directProposals=new Map(proposals.map(p=>[p.orderId,p]));
+          const blocked=proposals.filter(p=>!p.applicable).length;
+          const panel=dialog.querySelector('[data-direct-review]');
+          panel.innerHTML='<h5>직배송 변경 미리보기</h5><p>현재 편집 중인 값 → 업체 기준 변경값입니다. 출고일·주문자·비고는 유지됩니다. 같은 업체는 이번 조회에서 같은 담당자를 사용합니다.</p>'+drafts.map(d=>{
+            const p=directProposals.get(d.orderId);
+            return `<section><strong>#${d.orderId} · ${e(p.companyName||'업체 없음')}</strong><p>배송수단: ${e(method(d.deliveryMethodId)?.name)} → ${e(method(p.deliveryMethodId)?.name)}<br>담당자: ${e(options.handlers.find(h=>h.id===Number(d.deliveryHandlerId))?.name||'없음')} → ${e(p.deliveryHandlerName||'미배정')}</p><p>현재 주소: ${e(d.address.roadAddress)} ${e(d.address.detailAddress)}</p>${addressHtml(p)}<p>상세주소: ${e(p.detailAddress)||'없음'}</p>${p.message?`<p class="${p.applicable?'text-warning':'text-danger'}">${e(p.message)}</p>`:''}</section>`;
+          }).join('')+`<p>${blocked?`${blocked}건의 업체 주소를 보완한 후 다시 조회해 주세요. 전체 적용은 보류됩니다.`:'적용하면 아래 편집 목록에 반영됩니다. 담당자 미배정 건은 저장 전에 직접 선택해 주세요.'}</p><div class="order-bulk-actions"><button type="button" class="btn btn-sm btn-primary" data-direct-apply ${blocked?'disabled':''}>미리보기 내용 적용</button><button type="button" class="btn btn-sm btn-outline-secondary" data-direct-cancel>취소</button></div>`;
+          panel.hidden=false;
+          panel.querySelector('[data-direct-cancel]').onclick=resetReview;
+          panel.querySelector('[data-direct-apply]').onclick=()=>{
+            if(busy||!directProposals||[...directProposals.values()].some(p=>!p.applicable))return;
+            capture();drafts.forEach(d=>{
+              const p=directProposals.get(d.orderId);d.deliveryMethodId=p.deliveryMethodId;d.deliveryHandlerId=p.deliveryHandlerId||'';
+              d.address=Object.fromEntries(['zipCode','doName','siName','guName','roadAddress','jibunAddress','detailAddress'].map(k=>[k,p[k]||'']));d.searched=true;
+            });
+            paint();ordererStatus('직배송·업체 기본 주소·지역 담당자를 편집 목록에 적용했습니다. 개별 수정 또는 공통 덮어쓰기 후 최종 저장해 주세요.');
+          };
+          panel.scrollIntoView({block:'nearest'});
+        }catch(err){alert(err.message);}finally{busy=false;controls.forEach(([el,disabled])=>el.disabled=disabled);sync();}
+      };
       dialog.querySelector('[data-apply-orderer]').onclick=()=>{
         capture();const name=dialog.querySelector('[data-bulk-orderer-name]').value.trim(),phone=dialog.querySelector('[data-bulk-orderer-phone]').value.trim();
         if(!name&&!phone){alert('일괄 적용할 주문자 이름 또는 연락처를 입력해 주세요.');return;}
@@ -111,10 +152,10 @@
         if(busy)return;capture();const review=dialog.querySelector('[data-review]');
         try{
           drafts.forEach(d=>{if(!method(d.deliveryMethodId))throw Error('#'+d.orderId+' 배송수단을 선택해 주세요.');if(needsHandler(d)&&(!d.deliveryHandlerId||!d.preferredDeliveryDate))throw Error('#'+d.orderId+' 담당자와 출고일을 입력해 주세요.');if(canAssign(d)&&d.deliveryHandlerId&&!d.preferredDeliveryDate)throw Error('#'+d.orderId+' 담당자를 배정하려면 출고일을 입력해 주세요.');if(d.ordererName.trim().length>50||d.ordererPhone.trim().length>30)throw Error('#'+d.orderId+' 주문자 이름은 50자, 연락처는 30자 이내로 입력해 주세요.');if(method(d.deliveryMethodId).site&&(!d.ordererName.trim()||!d.ordererPhone.trim()))throw Error('#'+d.orderId+' 현장 수령자와 연락처를 입력해 주세요.');});
-          if(review.hidden){review.innerHTML='<h5>저장할 변경 내용</h5>'+drafts.map((d,i)=>`<section><strong>#${d.orderId}</strong> ${e(rows[i].deliveryMethodName)} → ${e(method(d.deliveryMethodId)?.name)} / 담당자 ${e(rows[i].deliveryHandlerName||'없음')} → ${e(options.handlers.find(h=>h.id===Number(d.deliveryHandlerId))?.name||'없음')} / 출고일 ${e(rows[i].preferredDeliveryDateText||'미등록')} → ${e(d.preferredDeliveryDate||'유지')}<p>기존: ${e(actual(rows[i]).roadAddress)} ${e(actual(rows[i]).detailAddress)}</p><strong>${destination(d)}에 반영</strong>${addressHtml(d.address)}<p>상세: ${e(d.address.detailAddress)||'없음'}</p><p>주문자 이름: ${e(rows[i].ordererName||'미등록')} → ${e(d.ordererName.trim()||'미등록')}<br>주문자 연락처: ${e(rows[i].ordererPhone||'미등록')} → ${e(d.ordererPhone.trim()||'미등록')}</p></section>`).join('');review.hidden=false;dialog.querySelector('[data-save]').textContent='확인한 내용 저장';review.scrollIntoView({block:'nearest'});return;}
-          busy=true;dialog.querySelectorAll('button,input,select').forEach(el=>el.disabled=true);
+          if(review.hidden){review.innerHTML='<h5>저장할 변경 내용</h5>'+drafts.map((d,i)=>`<section><strong>#${d.orderId}</strong> ${e(rows[i].deliveryMethodName)} → ${e(method(d.deliveryMethodId)?.name)} / 담당자 ${e(rows[i].deliveryHandlerName||'없음')} → ${e(options.handlers.find(h=>h.id===Number(d.deliveryHandlerId))?.name||'없음')} / 출고일 ${e(rows[i].preferredDeliveryDateText||'미등록')} → ${e(d.preferredDeliveryDate||'유지')}<p>기존: ${e(actual(rows[i]).roadAddress)} ${e(actual(rows[i]).detailAddress)}</p><strong>${destination(d)}에 반영</strong>${addressHtml(d.address)}<p>상세: ${e(d.address.detailAddress)||'없음'}</p><p>주문자 이름: ${e(rows[i].ordererName||'미등록')} → ${e(d.ordererName.trim()||'미등록')}<br>주문자 연락처: ${e(rows[i].ordererPhone||'미등록')} → ${e(d.ordererPhone.trim()||'미등록')}</p><p style="white-space:pre-wrap">비고: ${e(rows[i].adminMemoValue||'없음')} → ${e(d.adminMemo||'없음')}</p></section>`).join('');review.hidden=false;dialog.querySelector('[data-save]').textContent='확인한 내용 저장';review.scrollIntoView({block:'nearest'});return;}
+          busy=true;dialog.querySelectorAll('button,input,select,textarea').forEach(el=>el.disabled=true);
           const result=await api('',{items:drafts.map(payload)});window.alert(result.updatedCount+'건을 저장했습니다.');location.reload();
-        }catch(err){busy=false;dialog.querySelectorAll('button,input,select').forEach(el=>el.disabled=false);dialog.querySelector('[data-apply-address]').disabled=!changedAddress;dialog.querySelector('[data-bulk-detail]').disabled=!changedAddress;paint();alert(err.message);}
+        }catch(err){busy=false;dialog.querySelectorAll('button,input,select,textarea').forEach(el=>el.disabled=false);dialog.querySelector('[data-apply-address]').disabled=!changedAddress;dialog.querySelector('[data-bulk-detail]').disabled=!changedAddress;paint();alert(err.message);}
       };
     }catch(err){window.alert(err.message);}finally{busy=false;sync();}
   };

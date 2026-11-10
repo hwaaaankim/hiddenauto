@@ -42,6 +42,12 @@ public class AdminOrderManagementController {
         return service.getAdminOrderManagementPreview(request.getOrderIds(), principal.getMember());
     }
 
+    @PostMapping("/direct-delivery-preview")
+    public List<DirectDeliveryPreviewRow> directDeliveryPreview(@RequestBody OrderManagementPreviewRequest request,
+            @AuthenticationPrincipal PrincipalDetails principal) {
+        return service.getAdminDirectDeliveryPreview(request.getOrderIds(), principal.getMember());
+    }
+
     @PostMapping
     public OrderManagementSaveResponse save(@RequestBody OrderManagementSaveRequest request,
             @AuthenticationPrincipal PrincipalDetails principal) {
