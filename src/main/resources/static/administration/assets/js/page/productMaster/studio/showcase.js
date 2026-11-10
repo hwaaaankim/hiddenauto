@@ -309,21 +309,21 @@
   S.registeredQuestion = function (q, fs = () => [], g = {}, process = null) {
     const names = (x) => `<dl><div><dt>고객용</dt><dd>${S.e(x.labels?.customer)}</dd></div><div><dt>생산팀용</dt><dd>${S.e(x.labels?.production)}</dd></div><div><dt>관리팀용</dt><dd>${S.e(x.labels?.management)}</dd></div></dl>`;
     return `<div class="pm-registered-summary"><p><strong>질문 이름 (고객용)</strong> · ${S.e(label(q))}</p><p><strong>고객용 질문</strong> · ${S.e(q.question || label(q))}</p>
-      <small class="mono">질문 value: ${S.e(q.key)}</small>${q.guide?.trim() ? `<div class="pm-tutorial"><strong>튜토리얼·도움말</strong><p class="pm-preserve-lines">${S.e(q.guide)}</p></div>` : ""}
+      ${S.internalValue(q.key)}${q.guide?.trim() ? `<div class="pm-tutorial"><strong>튜토리얼·도움말</strong><p class="pm-preserve-lines">${S.e(q.guide)}</p></div>` : ""}
       ${S.media(unique([...fs(q.assetIds), ...groupQuestionAssets(g)]), label(q) + " 질문 공통 안내")}
       ${q.choices?.length ? `<details><summary>등록된 답변 ${q.choices.length}개 · 표시명·value·안내·파일</summary>${q.choices.map((c) => {
         const v = g.values?.find((v) => v.key === c.key);
-        return `<article class="pm-spec-option" title="${S.e(S.branchSummary(process, q, c.key))}"><strong>${S.e(c.labels.management)}</strong>${names(c)}<small class="mono">value: ${S.e(c.key)}</small>
+        return `<article class="pm-spec-option" title="${S.e(S.branchSummary(process, q, c.key))}"><strong>${S.e(c.labels.management)}</strong>${names(c)}${S.internalValue(c.key)}
           ${!g.nonStandard && c.namePart != null ? `<p>제품명 구성 문자: ${S.e(c.namePart) || "없음"}</p>` : ""}${c.guide?.trim() ? `<p class="pm-preserve-lines">${S.e(c.guide)}</p>` : ""}
           ${S.media(unique([...fs(c.assetIds), ...(v?.assets || [])]), label(q) + " · " + label(c))}</article>`;
       }).join("")}</details>` : ""}
-      ${q.fields?.length ? `<details><summary>등록된 입력 항목 ${q.fields.length}개 · 표시명·value·허용 범위</summary>${q.fields.map((f) => `<article class="pm-spec-option" title="${S.e(S.branchSummary(process, q, f.key, true))}"><strong>${S.e(f.labels.management)}</strong>${names(f)}<small class="mono">value: ${S.e(f.key)}</small>${q.control === "NUMBER" ? `<p><strong>입력 묶음</strong>: ${S.e(S.numberBundleCaption(q, f))}</p>` : ""}
+      ${q.fields?.length ? `<details><summary>등록된 입력 항목 ${q.fields.length}개 · 표시명·value·허용 범위</summary>${q.fields.map((f) => `<article class="pm-spec-option" title="${S.e(S.branchSummary(process, q, f.key, true))}"><strong>${S.e(f.labels.management)}</strong>${names(f)}${S.internalValue(f.key)}${q.control === "NUMBER" ? `<p><strong>입력 묶음</strong>: ${S.e(S.numberBundleCaption(q, f))}</p>` : ""}
         <p>${q.control === "NUMBER" ? S.e(`${f.min ?? (f.allowNegative ? "제한 없음" : 0)} ~ ${f.max ?? "제한 없음"} ${f.unit || ""} · 간격 ${f.step ?? 1}`)
           : q.control === "FILE" ? S.e(`${(f.extensions || []).join(", ")} · ${f.minFiles ?? 0}~${f.maxFiles ?? 1}개 · 최대 ${f.maxFileMB ?? 10}MB`)
           : S.e(`${f.minLength ?? 0}~${f.maxLength ?? 500}자 · ${f.format || "형식 제한 없음"}`)} · ${f.required ? "필수" : "선택"}</p>
         ${S.media(fs(f.assetIds), label(q) + " · " + label(f))}</article>`).join("")}</details>` : ""}
       ${q.numberCases?.length ? `<details><summary>숫자 범위 조건 ${q.numberCases.length}개</summary>${q.numberCases.map((c) => `<article class="pm-spec-option"><strong>${S.e(c.name)}</strong><p>${S.e(c.conditions.map((x) => S.conditionText(q, x)).join(" 그리고 "))}</p>
-        ${c.guide?.trim() ? `<p class="pm-preserve-lines">${S.e(c.guide)}</p>` : ""}<small class="mono">value: ${S.e(c.key)}</small></article>`).join("")}</details>` : ""}${S.inputLimitSummary(process, q)}${S.inputNoticeSummary(process, q)}</div>`;
+        ${c.guide?.trim() ? `<p class="pm-preserve-lines">${S.e(c.guide)}</p>` : ""}${S.internalValue(c.key)}</article>`).join("")}</details>` : ""}${S.inputLimitSummary(process, q)}${S.inputNoticeSummary(process, q)}</div>`;
   };
 
   S.mountProductDetail = function (root, p, { admin = false, faq = null, summary = null, actions = "", onBack } = {}) {
@@ -399,7 +399,7 @@
             ${S.help(f, fs(f.assetIds), label(f) + " 입력 항목 안내")}${Array.isArray(raw) ? S.media(fs(raw), label(f) + " 첨부파일") : ""}${technical(f)}</section>`;
         }).join("")}</div>` : ""}
         ${!chosen && q.numberCases?.length ? `<div class="pm-number-cases"><h4>입력값에 따른 범위 조건</h4>${q.numberCases.map((c) => `<article><strong>${S.e(c.name)}</strong>
-          <p>${S.e((c.conditions || []).map((x) => S.conditionText(q, x)).join(" 그리고 "))}</p>${S.help(c,[],"입력 구간 안내")}${admin ? `<small class="mono">value: ${S.e(c.key)}</small>` : ""}</article>`).join("")}</div>` : ""}
+          <p>${S.e((c.conditions || []).map((x) => S.conditionText(q, x)).join(" 그리고 "))}</p>${S.help(c,[],"입력 구간 안내")}${admin ? `${S.internalValue(c.key)}` : ""}</article>`).join("")}</div>` : ""}
         ${chosen ? S.answerNotices(q,a,summary?.questions.find(s=>s.question.key===q.key),p.process).map(t=>S.guideHtml(q,t,p.process)).join("") : ""}
         ${admin ? `${S.inputLimitSummary(p.process, q)}${S.inputNoticeSummary(p.process, q)}<div class="pms-actions pm-spec-edit-links">${p.actualCount > 0 ? '<button type="button" disabled title="등록된 실 제품이 있어 공통 설정과 제품 설정을 수정할 수 없습니다.">공통 그룹·옵션 설정 수정</button>' : `<a class="pms-button" href="/admin/product-master/groups?groupId=${q.groupId}" target="_blank" rel="noopener">공통 그룹·옵션 설정 수정</a>`}${p.nonStandard && !isBase(q) ? `${p.actualCount > 0 ? '<button type="button" disabled>이 제품의 질문·답변 수정</button>' : `<a class="pms-button" href="/admin/product-master/products/${p.id}/process?question=${encodeURIComponent(q.key)}">이 제품의 질문·답변 수정</a>`}<a class="pms-button" href="/admin/product-master/products/${p.id}/process?mode=view&question=${encodeURIComponent(q.key)}">등록된 질문·분기 조회</a>` : ""}</div>` : ""}
         ${technical(q, g.key ? `<div><dt>그룹 value</dt><dd class="mono">${S.e(g.key)}</dd></div><div><dt>그룹 질문 설정</dt><dd>${g.askQuestion ? "고객 질문 포함" : "질문 제외 · 고정 사양"}</dd></div>

@@ -244,6 +244,7 @@
     `<label class="pms-textarea-field"><span>${S.e(label)}</span><textarea data-path="${S.e(path)}" rows="3" maxlength="${max}">${S.e(value)}</textarea></label>`;
   S.check = (label, path, value, css = "") =>
     `<label class="${css || "pms-check"}"><input type="checkbox" data-path="${S.e(path)}" ${value ? "checked" : ""}><span>${S.e(label)}</span></label>`;
+  S.internalValue = (key) => `<details class="pm-internal-value"><summary>내부 식별값 확인 · 읽기 전용</summary><label><span>저장·분기 연결용 value</span><input type="text" value="${S.e(key)}" readonly aria-readonly="true"></label><small>시스템에서 자동 생성하는 값입니다. 표시명을 수정해도 이 연결값은 유지됩니다.</small></details>`;
   S.checkField = (title, label, path, value) =>
     `<div class="pms-control-field"><span class="pms-field-label">${S.e(title)}</span>${S.check(label, path, value)}</div>`;
   S.select = (label, path, value, options) =>
@@ -374,7 +375,7 @@
     fields
       .map(
         (f, i) =>
-          `<details class="pms-list-row pms-editor" ${S.editorAttrs(f.key, i === 0)} data-field-index="${i}"><summary class="pms-row-head"><span class="pms-handle" title="드래그하여 필드 순서를 변경합니다">⠿</span><strong data-editor-title>입력 ${i + 1} · ${S.e(f.labels?.management || "새 필드")}</strong><small class="mono">${S.e(f.key)}</small><button type="button" class="pms-remove" data-remove-field="${i}">×</button></summary><div class="pms-editor-body">${S.labels(f, prefix + "." + i, true, f.namePart)}${control === "NUMBER" ? S.field("입력 예시 (placeholder · 선택사항)", prefix + "." + i + ".placeholder", f.placeholder || "", "text", 'inputmode="decimal" maxlength="40"') : ""}${S.textarea("입력 시 안내메시지", prefix + "." + i + ".guide", f.guide || "", 2000)}${S.helpDisplaySelect(prefix + "." + i + ".helpDisplay", f.helpDisplay)}<div class="pms-form-grid four pms-section">${S.checkField("입력 여부", "필수 입력", prefix + "." + i + ".required", f.required)}${control === "NUMBER" ? S.checkField("음수 입력", "음수 허용", prefix + "." + i + ".allowNegative", f.allowNegative) + S.field("단위", prefix + "." + i + ".unit", f.unit, "text", 'maxlength="20"') + S.field("입력 간격", prefix + "." + i + ".step", f.step, "number", 'min="0.001" step="0.001"') + S.field("최소값", prefix + "." + i + ".min", f.min, "number", 'step="0.001"') + S.field("최대값", prefix + "." + i + ".max", f.max, "number", 'step="0.001"') : control === "FILE" ? S.field("최소 개수", prefix + "." + i + ".minFiles", f.minFiles, "number", 'min="0" max="20"') + S.field("최대 개수", prefix + "." + i + ".maxFiles", f.maxFiles, "number", 'min="1" max="20"') + S.field("파일당 최대 MB", prefix + "." + i + ".maxFileMB", f.maxFileMB, "number", 'min="1" max="20"') : `${S.field("최소 글자 수", prefix + "." + i + ".minLength", f.minLength, "number", 'min="0" max="10000"')}${S.field("최대 글자 수", prefix + "." + i + ".maxLength", f.maxLength, "number", 'min="1" max="10000"')}${S.select("형식 검증", prefix + "." + i + ".format", f.format, { ANY: "제한 없음", EMAIL: "이메일", PHONE: "전화번호", ALPHANUMERIC: "영문·숫자" })}`}</div>${control === "FILE" ? `<div class="pms-check-grid" data-validation-path="${prefix}.${i}.extensions">${["jpg", "jpeg", "png", "gif", "webp", "pdf", "txt", "csv", "xlsx", "xls", "docx", "doc", "pptx", "ppt", "zip", "hwp", "hwpx"].map((ext) => `<label class="pms-check"><input type="checkbox" data-field-ext="${i}" value="${ext}" ${f.extensions.includes(ext) ? "checked" : ""}>${ext}</label>`).join("")}</div>` : ""}</div></details>`,
+          `<details class="pms-list-row pms-editor" ${S.editorAttrs(f.key, i === 0)} data-field-index="${i}"><summary class="pms-row-head"><span class="pms-handle" title="드래그하여 필드 순서를 변경합니다">⠿</span><strong data-editor-title>입력 ${i + 1} · ${S.e(f.labels?.management || "새 필드")}</strong><button type="button" class="pms-remove" data-remove-field="${i}">×</button></summary><div class="pms-editor-body">${S.labels(f, prefix + "." + i, true, f.namePart)}${S.internalValue(f.key)}${control === "NUMBER" ? S.field("입력 예시 (placeholder · 선택사항)", prefix + "." + i + ".placeholder", f.placeholder || "", "text", 'inputmode="decimal" maxlength="40"') : ""}${S.textarea("입력 시 안내메시지", prefix + "." + i + ".guide", f.guide || "", 2000)}${S.helpDisplaySelect(prefix + "." + i + ".helpDisplay", f.helpDisplay)}<div class="pms-form-grid ${control === "NUMBER" ? "pm-number-settings-grid" : "four"} pms-section">${S.checkField("입력 여부", "필수 입력", prefix + "." + i + ".required", f.required)}${control === "NUMBER" ? S.checkField("음수 입력", "음수 허용", prefix + "." + i + ".allowNegative", f.allowNegative) + S.field("단위", prefix + "." + i + ".unit", f.unit, "text", 'maxlength="20"') + S.field("입력 간격", prefix + "." + i + ".step", f.step, "number", 'min="0.001" step="0.001"') + S.field("최소값", prefix + "." + i + ".min", f.min, "number", 'step="0.001"') + S.field("최대값", prefix + "." + i + ".max", f.max, "number", 'step="0.001"') : control === "FILE" ? S.field("최소 개수", prefix + "." + i + ".minFiles", f.minFiles, "number", 'min="0" max="20"') + S.field("최대 개수", prefix + "." + i + ".maxFiles", f.maxFiles, "number", 'min="1" max="20"') + S.field("파일당 최대 MB", prefix + "." + i + ".maxFileMB", f.maxFileMB, "number", 'min="1" max="20"') : `${S.field("최소 글자 수", prefix + "." + i + ".minLength", f.minLength, "number", 'min="0" max="10000"')}${S.field("최대 글자 수", prefix + "." + i + ".maxLength", f.maxLength, "number", 'min="1" max="10000"')}${S.select("형식 검증", prefix + "." + i + ".format", f.format, { ANY: "제한 없음", EMAIL: "이메일", PHONE: "전화번호", ALPHANUMERIC: "영문·숫자" })}`}</div>${control === "FILE" ? `<div class="pms-check-grid" data-validation-path="${prefix}.${i}.extensions">${["jpg", "jpeg", "png", "gif", "webp", "pdf", "txt", "csv", "xlsx", "xls", "docx", "doc", "pptx", "ppt", "zip", "hwp", "hwpx"].map((ext) => `<label class="pms-check"><input type="checkbox" data-field-ext="${i}" value="${ext}" ${f.extensions.includes(ext) ? "checked" : ""}>${ext}</label>`).join("")}</div>` : ""}</div></details>`,
       )
       .join("");
   S.fieldEvents = (root, fields, rerender, prefix = "fields") => {
@@ -451,6 +452,22 @@
       },
     });
   };
+  // Keep wizard navigation outside the scrolling content, preserving its button nodes.
+  S.dialogStageFooter = (dialog) => {
+    const body = S.$(".pms-dialog-body", dialog);
+    const actions = body?.querySelector(":scope > .pm-stage-actions");
+    if (!actions) return;
+    let footer = dialog.querySelector(":scope > .pms-dialog-foot");
+    if (!footer) {
+      footer = document.createElement("footer");
+      footer.className = "pms-dialog-foot";
+      dialog.append(footer);
+    }
+    footer.replaceChildren(...actions.childNodes);
+    actions.remove();
+    body.scrollTop = 0;
+  };
+
   let dialogSequence = 0;
   S.dialog = (title, body, { wide = true, foot = "", onClose } = {}) => {
     const el = document.createElement("dialog");

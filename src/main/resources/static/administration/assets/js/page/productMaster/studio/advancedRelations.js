@@ -16,7 +16,7 @@
     const fieldName = (q, f) => {
       if (q?.control !== "NUMBER") return f.labels.management;
       const bundles = S.numberBundles(q), i = bundles.findIndex((b) => b.fields.some((x) => x.key === f.key));
-      return `${bundles[i]?.fields.length > 1 ? "묶음 " + (i + 1) : "독립 입력 " + (i + 1)} · ${f.labels.management} (${f.key})`;
+      return `${bundles[i]?.fields.length > 1 ? "묶음 " + (i + 1) : "독립 입력 " + (i + 1)} · ${f.labels.management}`;
     };
     const dialog = S.dialog(readOnly ? "복합 연관관계 조회" : "복합 연관관계 설정", "", { foot: readOnly ? "" : '<button type="button" class="primary" data-save-advanced>구조 확인 후 임시 연결</button>' });
     const body = S.$(".pms-dialog-body", dialog);

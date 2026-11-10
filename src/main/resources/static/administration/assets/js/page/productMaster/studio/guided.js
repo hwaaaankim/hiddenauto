@@ -303,7 +303,7 @@
         qs()
           .map(
             (q, i) =>
-              `<article class="pm-flow-node"><span class="pm-flow-state">${S.badge(ready(q) ? "답변 등록됨" : "설정 필요", ready(q) ? "green" : "amber")}</span><span class="pms-badge">${i + 1} · ${S.e(S.controls[q.control])}</span><h3>${S.e(q.question || nm(q))}</h3><p>${S.group(q.groupId)?.askQuestion === false ? "고정 사양 · 질문 제외" : S.isChoice(q.control) ? q.choices.length + "개 답변" : q.fields.length + "개 입력 항목"}${q.control === "NUMBER" ? " · " + (q.numberCases || []).length + "개 범위" : ""}</p><small class="pm-question-asset-summary">질문 안내 ${(q.assetIds || []).length}개 · ${S.isChoice(q.control) ? "선택지" : "입력 필드"} 자료 ${(S.isChoice(q.control) ? q.choices : q.fields).reduce((count, item) => count + (item.assetIds || []).length, 0)}개</small><div class="pm-flow-answer-list">${(S.isChoice(q.control) ? q.choices.map((c) => c.labels.management) : q.fields.map((f) => f.labels.management + (q.control === "NUMBER" ? " · " + (f.min ?? "제한 없음") + "~" + (f.max ?? "제한 없음") + " " + (f.unit || "") : ""))).map((text, answerIndex) => `<span tabindex="0" class="pm-branch-tooltip" title="${S.e(answerDetails(q, (S.isChoice(q.control) ? q.choices : q.fields)[answerIndex]))}">${S.e(text)}</span>`).join("")}</div>${stage === 0 ? `<button data-edit="${S.e(q.key)}" class="primary">${readOnly ? "등록 답변·제한 보기" : "답변 등록·수정"}</button>` : ""}${canEditQuestionAssets(q) ? `<button type="button" data-edit-assets="${S.e(q.key)}">이미지·파일만 수정</button>` : assetOnlyAllowed && S.group(q.groupId)?.nonStandard === false ? commonAssetGuide(q) : ""}${stage === 1 ? `<button data-relate="${S.e(q.key)}" ${i === qs().length - 1 ? "disabled" : ""}>${readOnly ? "연결 내용 안내" : "이 답변에서 연관관계 설정"}</button>${!readOnly && i < qs().length - 1 ? `<button data-advanced-relate="${S.e(q.key)}">복합 조건·여러 동작 연결</button>` : ""}` : ""}${process.rules
+              `<article class="pm-flow-node"><span class="pm-flow-state">${S.badge(ready(q) ? "답변 등록됨" : "설정 필요", ready(q) ? "green" : "amber")}</span><span class="pms-badge">${i + 1} · ${S.e(S.controls[q.control])}</span><h3>${S.e(q.question || nm(q))}</h3><p>${S.group(q.groupId)?.askQuestion === false ? "고정 사양 · 질문 제외" : S.isChoice(q.control) ? q.choices.length + "개 답변" : q.fields.length + "개 입력 항목"}${q.control === "NUMBER" ? " · " + (q.numberCases || []).length + "개 범위" : ""}</p><small class="pm-question-asset-summary">질문 안내 ${(q.assetIds || []).length}개 · ${S.isChoice(q.control) ? "선택지" : "입력 필드"} 자료 ${(S.isChoice(q.control) ? q.choices : q.fields).reduce((count, item) => count + (item.assetIds || []).length, 0)}개</small><div class="pm-flow-answer-list">${(S.isChoice(q.control) ? q.choices.map((c) => c.labels.management) : q.fields.map((f) => f.labels.management + (q.control === "NUMBER" ? " · " + (f.min ?? "제한 없음") + "~" + (f.max ?? "제한 없음") + " " + (f.unit || "") : ""))).map((text, answerIndex) => `<span tabindex="0" class="pm-branch-tooltip" title="${S.e(answerDetails(q, (S.isChoice(q.control) ? q.choices : q.fields)[answerIndex]))}">${S.e(text)}</span>`).join("")}</div><div class="pm-flow-node-actions">${stage === 0 ? `<button data-edit="${S.e(q.key)}" class="primary">${readOnly ? "등록 답변·제한 보기" : "답변 등록·수정"}</button>` : ""}${canEditQuestionAssets(q) ? `<button type="button" data-edit-assets="${S.e(q.key)}">이미지·파일만 수정</button>` : assetOnlyAllowed && S.group(q.groupId)?.nonStandard === false ? commonAssetGuide(q) : ""}${stage === 1 ? `<button data-relate="${S.e(q.key)}" ${i === qs().length - 1 ? "disabled" : ""}>${readOnly ? "연결 내용 안내" : "이 답변에서 연관관계 설정"}</button>${!readOnly && i < qs().length - 1 ? `<button data-advanced-relate="${S.e(q.key)}">복합 조건·여러 동작 연결</button>` : ""}` : ""}</div>${process.rules
                 .filter((r) => r.conditions.some((c) => c.groupKey === q.key))
                 .map(
                   (r) =>
@@ -417,8 +417,9 @@
           S.$(`[data-asset-only-count="${index}"]`, body).textContent = list.length + "개 첨부";
         }, S.base + "/assets/stage", options(index));
       });
-      S.$("[data-cancel-assets]", body).onclick = () => d.close();
-      S.$("[data-save-assets]", body).onclick = (e) => S.run(e.currentTarget, async () => {
+      S.dialogStageFooter(d);
+      S.$("[data-cancel-assets]", d).onclick = () => d.close();
+      S.$("[data-save-assets]", d).onclick = (e) => S.run(e.currentTarget, async () => {
         const saved = await S.request("/products/" + p.id + "/process", "PUT", {
           version: p.version,
           process: draft,
@@ -510,6 +511,7 @@
           '<button data-next class="primary">' +
           (step === titles.length - 1 ? readOnly ? "조회 닫기" : "이 질문 완성" : "다음") +
           "</button></div>";
+        S.dialogStageFooter(d);
         const guidance = document.createElement("div");
         guidance.className = "pm-editor-guidance";
         guidance.innerHTML = `<strong>${step + 1}단계 · ${S.e(title)}</strong><p>${{
@@ -529,11 +531,11 @@
           const choice = S.isChoice(q.control),
             rows = choice ? q.choices : q.fields,
             prefix = choice ? "choices." : "fields.";
-          box.innerHTML = `<div class="pms-help pm-process-asset-guide"><strong>이미지를 넣을 위치를 먼저 확인해 주세요.</strong><p>특정 옵션만 설명하는 자료는 해당 선택지를 펼쳐 등록하고, 모든 답변에 공통인 자료는 아래 ‘질문 전체 안내’에 등록합니다. 제품 대표이미지는 ‘제품 구성’에서 별도 등록합니다.</p><small>현재 편집: ${S.e(p.productName)} → ${S.e(nm(q))} · 질문 ${S.e(q.key)}</small></div><div class="pm-question-labels pms-form-grid one">${S.customerLabel(q)}${S.field("고객에게 물어볼 질문", "question", q.question || nm(q), "text", 'maxlength="300"')}${S.textarea("고객 튜토리얼·도움말", "guide", q.guide || "", 1000)}${S.helpDisplaySelect("helpDisplay", q.helpDisplay)}</div><div class="pms-check-grid">${S.check("반드시 답변", "required", q.required)}${!hidden ? S.check("기본 흐름에서 질문 표시", "visible", q.visible) : ""}${q.control === "NUMBER" ? S.check("앞 분기에서 표시할 입력 묶음을 반드시 지정", "requireRule", q.requireRule) : ""}</div>${q.control === "NUMBER" ? '<p class="pms-help">서랍·여닫이·혼합처럼 서로 다른 입력 묶음 중 하나를 앞 답변으로 정한다면 ‘앞 분기에서 표시할 입력 묶음을 반드시 지정’을 체크하세요. 앞 질문을 건너뛰어 모든 수량 필드가 함께 노출되는 경로는 검증에서 막습니다.</p><div data-number-grouping></div>' : ""}${!hidden && !q.visible ? '<p class="pms-help">기본 질문에서는 생략됩니다. 앞 답변에서 이 질문으로 ‘질문 표시’ 연결을 설정하면 조건이 맞을 때 나타납니다.</p>' : ""}<div data-numeric-choice-panel></div><div class="pms-actions pms-section"><strong>${choice ? "선택 가능한 답변" : "입력받을 항목"}</strong><button data-add>+ ${choice ? "답변" : "입력 필드"}</button></div>${rows.map((x, i) => `<details class="pm-answer-editor" ${i === openRow ? "open" : ""}><summary>${i + 1}. <strong data-row-title="${i}">${S.e(x.labels?.management || (choice ? "새 답변" : "새 입력 필드"))}</strong><small data-row-asset-count="${i}">${attachmentCount(x)}</small>${q.control === "NUMBER" ? `<small>${x.bundleKey ? "묶음 입력" : "독립 입력"}</small>` : ""}</summary><div class="pm-answer-body">${S.labels(x, prefix + i, false)}${q.control === "NUMBER" ? S.field("입력 예시 (placeholder · 선택사항)", prefix + i + ".placeholder", x.placeholder || "", "text", 'inputmode="decimal" maxlength="40"') : ""}${!choice ? `<div data-field-preview="${i}">${S.fieldLabelSample(x)}</div>` : '<p class="pms-help">이 이름은 고객의 선택지와 생산팀·관리팀의 선택 결과 앞에 표시됩니다.</p>'}${choice ? `<div class="pms-form-grid one">${S.textarea("이 답변 선택 시 고객 안내메시지", prefix + i + ".guide", x.guide || "", 2000)}${S.helpDisplaySelect(prefix + i + ".helpDisplay", x.helpDisplay)}</div>` : '<p class="pms-help">숫자 범위·입력 유무별 안내는 ‘조건별 안내메시지’ 단계에서 설정합니다.</p>'}${!choice ? S.helpDisplaySelect(prefix + i + ".helpDisplay", x.helpDisplay) : ""}${S.field("내부 value · 저장·분기 연결용 고유값", prefix + i + ".key", x.key, "text", 'maxlength="80" pattern="[A-Za-z0-9_-]+"')}<p class="pms-help">내부 value는 고객에게 표시되지 않습니다. 이미 연결한 항목의 value를 바꾸면 연결·입력제한도 다시 확인해야 합니다.</p><div class="pms-actions"><button data-remove="${i}">이 ${choice ? "답변" : "입력 필드"} 삭제</button></div><section class="pms-section"><p class="pms-help">${choice ? "선택 전 각 옵션 옆" : "이 입력칸 옆"}에서 보여 줄 자료입니다. ${choice ? "프로세스 전체 최대 200개" : "필드별 최대 20개, 프로세스 전체 최대 200개"}까지 등록할 수 있습니다.</p><div data-row-files="${i}">${S.files(fs(x.assetIds), !readOnly, attachmentOptions(x))}</div></section></div></details>`).join("")}<section class="pms-section"><h3>질문 전체 안내 이미지·파일</h3><div data-q-files>${S.files(fs(q.assetIds), !readOnly, attachmentOptions(q))}</div></section><div class="pms-actions pms-section"><button type="button" data-common-settings>${S.group(q.groupId)?.definitionLocked ? "공통 그룹 정보 (조회)" : "공통 그룹 이름·안내·파일 수정"}</button></div><p class="pms-help">공통 그룹 자료는 이 그룹을 사용하는 다른 제품에도 함께 표시됩니다. 이 제품의 특정 옵션 자료는 위의 해당 선택지에 등록해 주세요.</p>${S.media(S.group(q.groupId)?.assets || [], "모든 제품에서 함께 쓰는 그룹 안내자료")}`;
+          box.innerHTML = `<div class="pms-help pm-process-asset-guide"><strong>이미지를 넣을 위치를 먼저 확인해 주세요.</strong><p>특정 옵션만 설명하는 자료는 해당 선택지를 펼쳐 등록하고, 모든 답변에 공통인 자료는 아래 ‘질문 전체 안내’에 등록합니다. 제품 대표이미지는 ‘제품 구성’에서 별도 등록합니다.</p><small>현재 편집: ${S.e(p.productName)} → ${S.e(nm(q))}</small></div><div class="pm-question-labels pms-form-grid one">${S.customerLabel(q)}${S.field("고객에게 물어볼 질문", "question", q.question || nm(q), "text", 'maxlength="300"')}${S.textarea("고객 튜토리얼·도움말", "guide", q.guide || "", 1000)}${S.helpDisplaySelect("helpDisplay", q.helpDisplay)}</div><div class="pms-check-grid">${S.check("반드시 답변", "required", q.required)}${!hidden ? S.check("기본 흐름에서 질문 표시", "visible", q.visible) : ""}${q.control === "NUMBER" ? S.check("앞 분기에서 표시할 입력 묶음을 반드시 지정", "requireRule", q.requireRule) : ""}</div>${q.control === "NUMBER" ? '<p class="pms-help">서랍·여닫이·혼합처럼 서로 다른 입력 묶음 중 하나를 앞 답변으로 정한다면 ‘앞 분기에서 표시할 입력 묶음을 반드시 지정’을 체크하세요. 앞 질문을 건너뛰어 모든 수량 필드가 함께 노출되는 경로는 검증에서 막습니다.</p><div data-number-grouping></div>' : ""}${!hidden && !q.visible ? '<p class="pms-help">기본 질문에서는 생략됩니다. 앞 답변에서 이 질문으로 ‘질문 표시’ 연결을 설정하면 조건이 맞을 때 나타납니다.</p>' : ""}<div data-numeric-choice-panel></div><div class="pms-actions pms-section"><strong>${choice ? "선택 가능한 답변" : "입력받을 항목"}</strong><button data-add>+ ${choice ? "답변" : "입력 필드"}</button></div>${rows.map((x, i) => `<details class="pm-answer-editor" ${i === openRow ? "open" : ""}><summary>${i + 1}. <strong data-row-title="${i}">${S.e(x.labels?.management || (choice ? "새 답변" : "새 입력 필드"))}</strong><small data-row-asset-count="${i}">${attachmentCount(x)}</small>${q.control === "NUMBER" ? `<small>${x.bundleKey ? "묶음 입력" : "독립 입력"}</small>` : ""}</summary><div class="pm-answer-body">${S.labels(x, prefix + i, false)}${q.control === "NUMBER" ? S.field("입력 예시 (placeholder · 선택사항)", prefix + i + ".placeholder", x.placeholder || "", "text", 'inputmode="decimal" maxlength="40"') : ""}${!choice ? `<div data-field-preview="${i}">${S.fieldLabelSample(x)}</div>` : '<p class="pms-help">이 이름은 고객의 선택지와 생산팀·관리팀의 선택 결과 앞에 표시됩니다.</p>'}${choice ? `<div class="pms-form-grid one">${S.textarea("이 답변 선택 시 고객 안내메시지", prefix + i + ".guide", x.guide || "", 2000)}${S.helpDisplaySelect(prefix + i + ".helpDisplay", x.helpDisplay)}</div>` : '<p class="pms-help">숫자 범위·입력 유무별 안내는 ‘조건별 안내메시지’ 단계에서 설정합니다.</p>'}${!choice ? S.helpDisplaySelect(prefix + i + ".helpDisplay", x.helpDisplay) : ""}${S.internalValue(x.key)}<div class="pms-actions"><button data-remove="${i}">이 ${choice ? "답변" : "입력 필드"} 삭제</button></div><section class="pms-section"><p class="pms-help">${choice ? "선택 전 각 옵션 옆" : "이 입력칸 옆"}에서 보여 줄 자료입니다. ${choice ? "프로세스 전체 최대 200개" : "필드별 최대 20개, 프로세스 전체 최대 200개"}까지 등록할 수 있습니다.</p><div data-row-files="${i}">${S.files(fs(x.assetIds), !readOnly, attachmentOptions(x))}</div></section></div></details>`).join("")}<section class="pms-section"><h3>질문 전체 안내 이미지·파일</h3><div data-q-files>${S.files(fs(q.assetIds), !readOnly, attachmentOptions(q))}</div></section><div class="pms-actions pms-section"><button type="button" data-common-settings>${S.group(q.groupId)?.definitionLocked ? "공통 그룹 정보 (조회)" : "공통 그룹 이름·안내·파일 수정"}</button></div><p class="pms-help">공통 그룹 자료는 이 그룹을 사용하는 다른 제품에도 함께 표시됩니다. 이 제품의 특정 옵션 자료는 위의 해당 선택지에 등록해 주세요.</p>${S.media(S.group(q.groupId)?.assets || [], "모든 제품에서 함께 쓰는 그룹 안내자료")}`;
           S.arithmetic.choicePanel(S.$("[data-numeric-choice-panel]", box), q, questionProcess(), draw, readOnly);
           if (q.control === "NUMBER") S.renderNumberGrouping(S.$("[data-number-grouping]", box), q, draw, readOnly);
           S.bind(box, q, (path) => {
-            const fieldPath = /^fields\.(\d+)\.labels\./.exec(path);
+            const fieldPath = /^fields\.(\d+)\.(?:labels\.|placeholder$|unit$)/.exec(path);
             if (fieldPath) S.$(`[data-field-preview="${fieldPath[1]}"]`, box).innerHTML = S.fieldLabelSample(q.fields[Number(fieldPath[1])]);
             const m = /^(?:choices|fields)\.(\d+)\.labels\.management$/.exec(
               path,
@@ -622,13 +624,13 @@
         } else
           box.innerHTML = S.registeredQuestion(q, fs, S.group(q.groupId), questionProcess()) + `<p>${q.numberCases.length}개 범위 조건 · ${hidden ? "고정 사양 저장" : "고객 답변"}</p>${qs().indexOf(original) < qs().length - 1 ? '<label class="pms-check"><input type="checkbox" data-continue-question checked>완성 후 다음 질문을 이어서 설정</label>' : ""}`;
         if (readOnly) S.$$("input,select,textarea,button:not([data-notice-edit]):not([data-limit-edit]):not([data-map-edit]),.pms-handle", box).forEach((el) => { if (!el.matches("[data-pm-image]")) el.disabled = true; });
-        S.$("[data-back]", body)?.addEventListener("click", () => {
+        S.$("[data-back]", d)?.addEventListener("click", () => {
           if (title === "고정 사양 입력")
             q.preset = S.readAnswer(box, q, q.preset);
           step--;
           draw();
         });
-        S.$("[data-next]", body).onclick = (e) =>
+        S.$("[data-next]", d).onclick = (e) =>
           S.run(e.currentTarget, async () => {
             if (readOnly) { if (step === titles.length - 1) d.close(); else { step++; draw(); } return; }
             if (title === "가능한 답변 등록") {
@@ -661,10 +663,10 @@
                 const prefix = S.isChoice(q.control) ? "choices." : "fields.";
                 if (!/^[A-Za-z0-9_-]{1,80}$/.test(row.key || ""))
                   errors[prefix + i + ".key"] =
-                    "내부 value는 영문·숫자·밑줄·하이픈으로 1~80자 입력해 주세요. 예: width 또는 color_white.";
+                    "내부 식별값이 올바르지 않습니다. 해당 항목과 연결된 설정을 확인해 주세요.";
                 else if (keys.has(row.key)) {
                   errors[prefix + i + ".key"] =
-                    "같은 내부 value가 이미 있습니다. 서로 다른 값을 사용해 주세요. 예: width / height.";
+                    "내부 식별값이 중복되었습니다. 해당 항목과 연결된 설정을 확인해 주세요.";
                   errors[prefix + keys.get(row.key) + ".key"] =
                     "이 내부 value가 다른 항목과 중복됩니다. 각 항목은 독립된 value가 필요합니다.";
                 } else keys.set(row.key, i);
@@ -916,6 +918,7 @@
           '<button data-next class="primary">' +
           (step === 3 ? "구조 확인 후 연결" : "다음") +
           "</button></div>";
+        S.dialogStageFooter(d);
         const box = S.$("[data-content]", body);
         if (step === 0) {
           if (S.isChoice(source.control))
@@ -1024,13 +1027,13 @@
             ) +
             `<div class="pm-rule-summary"><strong>시작: ${S.e(nm(source))}</strong><span>${S.e(conditionText(source, conditions))}</span><strong>대상: ${S.e(nm(target))}</strong><span>${S.e(effect === "ALLOW" ? "표시할 답변: " + targetChoices.map((k) => (S.isChoice(target.control) ? target.choices : target.fields).find((c) => c.key === k)?.labels.management || k).join(" / ") : effect === "HIDE" ? "이 질문을 건너뜁니다" : effect === "SHOW" ? "이 질문을 표시합니다" : "질문 변경: " + questionText)}</span></div>` +
             '<p class="pms-help"><strong>연결은 차례로 작성할 수 있습니다.</strong> 이 단계에서는 참조·순서·묶음 구조를 확인해 연결을 추가합니다. 모든 연결을 만든 뒤 ‘전체 경로 검증’에서 빠진 분기·겹침·건너뜀·입력제한 충돌을 검사해야 등록을 완료할 수 있습니다.</p>';
-        S.$("[data-back]", body)?.addEventListener("click", () => {
+        S.$("[data-back]", d)?.addEventListener("click", () => {
           if (step === 3) ruleName = S.$('[data-path="ruleName"]', box).value;
           if (step === 2 && effect === "ALLOW") targetChoices = target.control === "NUMBER" ? S.readNumberBundleChecks(box, target) : S.$$("[data-result]:checked", box).map((x) => x.value);
           step--;
           rp();
         });
-        S.$("[data-next]", body).onclick = (e) =>
+        S.$("[data-next]", d).onclick = (e) =>
           S.run(e.currentTarget, async () => {
             if (step === 0) {
               if (S.isChoice(source.control)) {
