@@ -205,6 +205,27 @@ public final class DispatchBulkDtos {
 
     @Data
     @NoArgsConstructor
+    public static class DirectDeliveryPreviewRequest {
+        private List<Long> orderIds = new ArrayList<>();
+        /** Both manual shipping and company-direct shipping use this common date. */
+        private LocalDate preferredDeliveryDate;
+    }
+
+    @Data
+    @NoArgsConstructor
+    public static class RegionHandlerMatchRequest {
+        private Long deliveryMethodId;
+        private String zipCode;
+        private String roadAddress;
+        private String doName;
+        private String siName;
+        private String guName;
+    }
+
+    public record RegionHandlerMatchResponse(Long deliveryHandlerId, String deliveryHandlerName, String message) {}
+
+    @Data
+    @NoArgsConstructor
     public static class DirectDeliveryPreviewRow {
         private Long orderId;
         private Long deliveryMethodId;

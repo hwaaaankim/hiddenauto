@@ -43,9 +43,15 @@ public class AdminOrderManagementController {
     }
 
     @PostMapping("/direct-delivery-preview")
-    public List<DirectDeliveryPreviewRow> directDeliveryPreview(@RequestBody OrderManagementPreviewRequest request,
+    public List<DirectDeliveryPreviewRow> directDeliveryPreview(@RequestBody DirectDeliveryPreviewRequest request,
             @AuthenticationPrincipal PrincipalDetails principal) {
-        return service.getAdminDirectDeliveryPreview(request.getOrderIds(), principal.getMember());
+        return service.getAdminDirectDeliveryPreview(request.getOrderIds(), request.getPreferredDeliveryDate(), principal.getMember());
+    }
+
+    @PostMapping("/region-handler")
+    public RegionHandlerMatchResponse regionHandler(@RequestBody RegionHandlerMatchRequest request,
+            @AuthenticationPrincipal PrincipalDetails principal) {
+        return service.findAdminRegionHandler(request, principal.getMember());
     }
 
     @PostMapping

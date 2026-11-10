@@ -2,6 +2,8 @@ package com.dev.HiddenBATHAuto.service.dispatch;
 
 import com.dev.HiddenBATHAuto.service.dispatch.DispatchDeliveryAddressPolicy.AddressInput;
 import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.DirectDeliveryPreviewRow;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.RegionHandlerMatchRequest;
+import com.dev.HiddenBATHAuto.dto.dispatch.DispatchBulkDtos.RegionHandlerMatchResponse;
 import com.dev.HiddenBATHAuto.service.productOrderAdd.DeliveryHandlerAutoAssignService;
 import com.dev.HiddenBATHAuto.utils.CompanyDefaultDeliveryAddress;
 import java.io.ByteArrayOutputStream;
@@ -368,7 +370,7 @@ public class DispatchTeamService {
     /** Read-only proposals: apply and save never re-randomize the reviewed handler. */
     @Transactional(readOnly = true)
     public List<DirectDeliveryPreviewRow> getAdminDirectDeliveryPreview(
-            List<Long> orderIds, Member actor) {
+            List<Long> orderIds, LocalDate preferredDeliveryDate, Member actor) {
         validateAdmin(actor);
         List<DispatchOrderRowDto> selected = orderManagementPreview(orderIds, true);
         List<DeliveryMethod> directMethods = deliveryMethodRepository.findAll().stream()
@@ -411,12 +413,32 @@ public class DispatchTeamService {
                     row.setDeliveryHandlerId(handler.getId());
                     row.setDeliveryHandlerName(memberLabel(handler));
                 } else notes.add("업체 행정구역에 일치하는 배송담당자가 없습니다. 적용 후 담당자를 직접 선택해야 저장할 수 있습니다.");
-                if (order.getPreferredDeliveryDate() == null) notes.add("출고일을 입력해야 저장할 수 있습니다.");
+                if (preferredDeliveryDate == null && order.getPreferredDeliveryDate() == null) notes.add("출고일을 입력해야 저장할 수 있습니다.");
             } else notes.add("승인 전·취소 상태는 기존 정책에 따라 담당자를 배정하지 않습니다.");
             row.setMessage(String.join(" ", notes));
             result.add(row);
         }
         return result;
+    }
+
+    @Transactional(readOnly = true)
+    public RegionHandlerMatchResponse findAdminRegionHandler(RegionHandlerMatchRequest request, Member actor) {
+        validateAdmin(actor);
+        if (request == null || request.getDeliveryMethodId() == null)
+            throw new IllegalArgumentException("배송수단을 먼저 선택해 주세요.");
+        DeliveryMethod method = deliveryMethodRepository.findById(request.getDeliveryMethodId())
+                .orElseThrow(() -> new IllegalArgumentException("배송수단을 찾을 수 없습니다."));
+        if (!DeliveryMethodAssignmentPolicy.allowsHandler(method))
+            throw new IllegalArgumentException("선택한 배송수단에는 담당자를 배정하지 않습니다.");
+        if (cleanInput(request.getZipCode()) == null || cleanInput(request.getRoadAddress()) == null
+                || cleanInput(request.getDoName()) == null)
+            throw new IllegalArgumentException("공통 주소를 먼저 검색해 주세요. 우편번호·주소·시도 정보가 필요합니다.");
+        Member handler = deliveryHandlerAutoAssignService.findRandomDeliveryHandler(
+                cleanInput(request.getDoName()), cleanInput(request.getSiName()), cleanInput(request.getGuName())).orElse(null);
+        if (handler == null)
+            return new RegionHandlerMatchResponse(null, "", "검색한 주소의 행정구역에 배정된 담당자가 없습니다. 담당자를 직접 선택해 주세요.");
+        return new RegionHandlerMatchResponse(handler.getId(), memberLabel(handler),
+                "행정구역 기준 담당자를 선택했습니다. 아래 적용 버튼을 눌러 발주에 반영해 주세요.");
     }
 
     private void validateAdmin(Member actor) {

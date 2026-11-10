@@ -10,7 +10,7 @@
     if(!response.ok)throw Error(result.message||(response.status===400?'변경 요청을 읽을 수 없습니다. 화면을 새로고침한 뒤 다시 시도해 주세요.':'발주관리 처리에 실패했습니다.'));return result;
   }
   const ids=()=>[...new Set([...document.querySelectorAll('.task-list-order-checkbox:checked:not(:disabled),.admin-task-list-second-bulk-checkbox:checked:not(:disabled)')].map(c=>Number(c.value)).filter(n=>n>0))];
-  let rows=[],drafts=[],options,busy=false,dialog,area,changedAddress=null;
+  let rows=[],drafts=[],options,busy=false,dialog,area,changedAddress=null,matchedBulkHandler=false;
   const sync=()=>launch.disabled=busy||!ids().length;
   document.addEventListener('change',sync);document.addEventListener('click',sync);sync();
   const method=id=>options.methods.find(m=>m.id===Number(id));
@@ -33,9 +33,29 @@
   function syncBulkHandler(){
     const select=dialog.querySelector('[data-bulk-handler]'),selected=dialog.querySelector('[data-bulk-method]').value;
     const count=drafts.filter(d=>eligible(d)&&(selected?handlerAllowed(method(selected)):canAssign(d))).length;
-    select.disabled=busy||!count;if(!count)select.value='';
+    select.disabled=busy||!count;if(!count){select.value='';matchedBulkHandler=false;dialog.querySelector('[data-match-status]').textContent='현재 배송수단·발주 상태에는 담당자를 배정하지 않습니다.';}
+    dialog.querySelector('[data-match-handler]').disabled=busy||!changedAddress||!selected||!handlerAllowed(method(selected))||!count;
+    dialog.querySelector('[data-clear-address]').disabled=busy||!changedAddress;
     dialog.querySelector('[data-bulk-handler-hint]').textContent=count?`배정 가능한 ${count}건에만 적용합니다.`:'선택 수단·발주 상태에는 담당자를 배정하지 않습니다.';
     dialog.querySelector('[data-routing-hint]').textContent=routingHint();
+  }
+  function applyShippingSettings(settings){
+    drafts.forEach(d=>{
+      if(settings.methodId)d.deliveryMethodId=settings.methodId;
+      if(!canAssign(d))d.deliveryHandlerId='';else if(settings.handlerId)d.deliveryHandlerId=settings.handlerId;
+      if(settings.date)d.preferredDeliveryDate=settings.date;
+      if(settings.address){d.address={...settings.address};d.searched=true;}
+    });
+  }
+  function applyDirectProposals(proposals,date){
+    drafts.forEach(d=>{
+      const p=proposals.get(d.orderId);
+      d.deliveryMethodId=p.deliveryMethodId;
+      d.deliveryHandlerId=canAssign(d)?p.deliveryHandlerId||'':'';
+      d.address=Object.fromEntries(['zipCode','doName','siName','guName','roadAddress','jibunAddress','detailAddress'].map(k=>[k,p[k]||'']));
+      d.searched=true;
+      if(date)d.preferredDeliveryDate=date;
+    });
   }
   function paint(){
     // Reflect the same assignment policy in the row, review and submitted request.
@@ -54,7 +74,7 @@
     if(!window.daum?.Postcode)throw Error('주소검색을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.');
     const targetDialog=dialog;
     new window.daum.Postcode({oncomplete:data=>{
-      if(dialog!==targetDialog||!targetDialog.open||!targetDialog.isConnected)return;
+      if(dialog!==targetDialog||!targetDialog.open||!targetDialog.isConnected||busy)return;
       const sig=(data.sigungu||'').trim().split(/\s+/),first=sig[0]||'',city=/(시|군)$/.test(first);
       done({zipCode:data.zonecode||'',doName:data.sido||'',siName:city?first:'',guName:city?sig.slice(1).join(' '):sig.join(' '),roadAddress:data.roadAddress||data.autoRoadAddress||data.address||'',jibunAddress:data.jibunAddress||data.autoJibunAddress||'',detailAddress:data.buildingName?'('+data.buildingName+')':''});
     }}).open();
@@ -72,17 +92,25 @@
     if(busy||!ids().length)return;busy=true;sync();
     try{
       [options,rows]=await Promise.all([api('/options'),api('/preview',{orderIds:ids()})]);
-      drafts=rows.map(r=>({orderId:r.orderId,deliveryMethodId:r.deliveryMethodId,deliveryHandlerId:r.deliveryHandlerId||'',preferredDeliveryDate:r.preferredDeliveryDateText||'',ordererName:r.ordererName||'',ordererPhone:r.ordererPhone||'',adminMemo:r.adminMemoValue??'',address:actual(r),searched:false}));changedAddress=null;
+      drafts=rows.map(r=>({orderId:r.orderId,deliveryMethodId:r.deliveryMethodId,deliveryHandlerId:r.deliveryHandlerId||'',preferredDeliveryDate:r.preferredDeliveryDateText||'',ordererName:r.ordererName||'',ordererPhone:r.ordererPhone||'',adminMemo:r.adminMemoValue??'',address:actual(r),searched:false}));changedAddress=null;matchedBulkHandler=false;
       dialog?.remove();dialog=document.createElement('dialog');dialog.className='admin-bulk-order-dialog';
       dialog.innerHTML=`<header class="order-bulk-head"><div><h4>선택 발주 일괄변경 <span>${rows.length}건</span></h4><p>변경 내용 확인 후 저장해야 반영됩니다.</p></div><button type="button" class="btn btn-sm btn-light" data-close aria-label="저장하지 않고 닫기"><i class="ri-close-line" aria-hidden="true"></i> 닫기</button></header>
-        <div class="order-bulk-body"><section class="order-bulk-settings"><h5>공통으로 적용할 항목</h5><div class="row g-2"><label class="col-md-4">일괄 배송수단<select class="form-select" data-bulk-method>${opts(options.methods,'')}</select></label><label class="col-md-4">일괄 배송담당자<select class="form-select" data-bulk-handler>${opts(options.handlers,'')}</select><small data-bulk-handler-hint></small></label><label class="col-md-4">일괄 출고일<input type="date" class="form-control" data-bulk-date></label></div>
-
+        <div class="order-bulk-body"><section class="order-bulk-settings"><h5>배송 정보 일괄 적용</h5>
+        <label class="d-block">공통 출고일<input type="date" class="form-control" data-bulk-date></label><p class="order-bulk-routing">아래 두 방식에서 같은 출고일을 사용합니다. 날짜를 비워두면 각 발주의 현재 출고일을 유지합니다. 입력한 뒤 원하는 방식의 적용 버튼을 눌러 주세요.</p>
+        <section class="order-bulk-destination"><h5>주소·배송수단·담당자 직접 설정</h5>
+        <div class="order-bulk-actions"><button type="button" class="btn btn-sm btn-outline-primary" data-address><i class="ri-map-pin-line" aria-hidden="true"></i> 1. 공통 주소 검색</button><button type="button" class="btn btn-sm btn-outline-secondary" data-clear-address disabled>검색 주소 선택 해제</button></div>
+        <div data-bulk-address-preview class="order-bulk-address-preview" role="status"><p>주소를 검색하면 아래 적용 버튼으로 전체 발주에 반영할 수 있습니다. 검색하지 않으면 각 발주의 현재 주소를 유지합니다.</p></div>
+        <label class="w-100">일괄 상세주소<input class="form-control" data-bulk-detail placeholder="주소 검색 후 동·호수 등을 입력하세요" disabled></label>
+        <div class="row g-2 mt-2"><label class="col-md-6">2. 배송수단<select class="form-select" data-bulk-method>${opts(options.methods,'')}</select><small>선택하지 않으면 각 발주의 수단을 유지합니다.</small></label>
+        <label class="col-md-6">3. 배송담당자<select class="form-select" data-bulk-handler>${opts(options.handlers,'')}</select><small data-bulk-handler-hint></small></label></div>
+        <div class="order-bulk-actions"><button type="button" class="btn btn-sm btn-outline-primary" data-match-handler disabled>검색 주소의 행정구역으로 담당자 찾기</button></div>
+        <p data-match-status class="order-bulk-routing" role="status" aria-live="polite">공통 주소와 배정 가능한 배송수단을 선택하면 담당자를 찾을 수 있습니다. 직접 선택도 가능합니다. 같은 우선순위 후보가 여러 명이면 기존 자동배정 기준으로 한 명을 선택합니다.</p>
+        <p data-routing-hint class="order-bulk-routing"></p><p class="order-bulk-routing">설정한 주소·수단·담당자·공통 출고일을 한 번에 적용합니다. 설정하지 않은 항목은 유지하며, 담당자 비대상 수단·상태는 배정을 해제합니다.</p>
+        <button type="button" class="btn btn-sm btn-primary" data-apply>주소·배송수단·담당자·출고일 전체에 적용</button></section>
+        <section class="order-bulk-destination"><h5>업체 주소 기준 직배송 자동변경</h5><p>각 발주를 직배송으로 변경하고 해당 업체 기본 주소와 지역 담당자를 자동으로 설정합니다. 위에서 선택한 공통 출고일을 함께 적용합니다. 직접 설정 영역의 주소·수단·담당자는 사용하지 않습니다.</p><button type="button" class="btn btn-sm btn-outline-primary" data-direct-preview>직배송·업체 주소·담당자 미리보기</button><div data-direct-review class="order-bulk-review" hidden></div></section></section>
         <section class="order-bulk-destination"><h5>주문자 정보 일괄 적용</h5><div class="row g-2"><label class="col-md-6">일괄 주문자 이름<input class="form-control" maxlength="50" data-bulk-orderer-name placeholder="적용할 이름"></label><label class="col-md-6">일괄 주문자 연락처<input type="tel" class="form-control" maxlength="30" data-bulk-orderer-phone placeholder="적용할 연락처"></label></div><p class="order-bulk-routing">입력한 항목만 전체 발주에 덮어씁니다. 빈칸은 기존 값을 유지합니다. 아래에서 개별 수정할 수 있으며, 최종 저장 전까지 서버에 반영되지 않습니다.</p><div class="order-bulk-actions"><button type="button" class="btn btn-sm btn-outline-primary" data-apply-orderer>주문자 정보 전체에 적용</button><button type="button" class="btn btn-sm btn-outline-secondary" data-reset-orderer="all">전체 주문자 정보 되돌리기</button></div><small>되돌리기는 창을 열었을 때의 이름·연락처만 복원합니다. 변경한 배송수단·주소·담당자·출고일은 유지됩니다.</small></section>
         <section class="order-bulk-destination"><h5>비고 일괄 적용</h5><textarea class="form-control" rows="2" data-bulk-memo placeholder="전체 발주에 적용할 관리자 비고"></textarea><p class="order-bulk-routing">입력한 비고로 전체를 덮어씁니다. 비고를 지우려면 ‘전체 비고 비우기’를 사용하세요. 적용 후 개별 수정할 수 있습니다.</p><div class="order-bulk-actions"><button type="button" class="btn btn-sm btn-outline-primary" data-apply-memo>비고 전체에 적용</button><button type="button" class="btn btn-sm btn-outline-secondary" data-clear-memo>전체 비고 비우기</button><button type="button" class="btn btn-sm btn-outline-secondary" data-reset-memo="all">전체 비고 되돌리기</button></div></section>
-        <section class="order-bulk-destination"><h5>업체 기본 주소로 직배송 일괄변경</h5><p>각 발주의 업체 기본 주소와 행정구역 담당자를 조회합니다. 미리보기에서 적용한 뒤에도 아래에서 개별 수정하거나 공통 설정으로 덮어쓸 수 있습니다. 최종 저장 전에는 서버에 반영되지 않습니다.</p><button type="button" class="btn btn-sm btn-outline-primary" data-direct-preview>직배송 일괄변경</button><div data-direct-review class="order-bulk-review" hidden></div></section>
         <p data-orderer-status class="order-bulk-routing" role="status" aria-live="polite"></p>
-        <div data-bulk-address-preview class="order-bulk-address-preview" role="status"><p>아직 공통 주소를 검색하지 않았습니다. 아래 각 발주의 현재 주소는 그대로 유지됩니다.</p></div>
-        <label class="w-100">일괄 상세주소<input class="form-control" data-bulk-detail placeholder="주소 검색 후 동·호수 등을 입력하세요" disabled></label><p data-routing-hint class="order-bulk-routing"></p><div class="order-bulk-actions"><button type="button" class="btn btn-sm btn-outline-primary" data-apply>수단·담당자·출고일 적용</button><button type="button" class="btn btn-sm btn-outline-primary" data-address><i class="ri-map-pin-line" aria-hidden="true"></i> 일괄 주소 검색</button><button type="button" class="btn btn-sm btn-outline-primary" data-apply-address disabled>검색한 주소를 전체에 적용</button></div></section>
         <div data-alert class="alert alert-danger" role="alert" hidden></div><div data-rows></div><div data-review class="order-bulk-review" hidden></div></div>
         <footer class="order-bulk-foot"><span>닫으면 저장하지 않은 변경은 취소됩니다.</span><button type="button" class="btn btn-sm btn-light" data-close>닫기</button><button type="button" class="btn btn-sm btn-primary" data-save>변경 내용 확인</button></footer>`;
       document.body.append(dialog);area=dialog.querySelector('[data-rows]');busy=false;paint();dialog.showModal();
@@ -92,8 +120,21 @@
       dialog.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>{if(!busy)dialog.close();});dialog.addEventListener('cancel',ev=>{if(busy)ev.preventDefault();});
       const openedDialog=dialog;dialog.addEventListener('close',()=>{if(dialog===openedDialog){changedAddress=null;drafts=[];}openedDialog.remove();sync();});
       dialog.addEventListener('input',resetReview);
-      dialog.addEventListener('change',ev=>{capture();resetReview();if(ev.target.dataset.field==='deliveryMethodId'){drafts.forEach(d=>{if(!canAssign(d))d.deliveryHandlerId='';});paint();}else if(ev.target.matches('[data-bulk-method]'))syncBulkHandler();});
-      dialog.querySelector('[data-apply]').onclick=()=>{capture();const m=dialog.querySelector('[data-bulk-method]').value,h=dialog.querySelector('[data-bulk-handler]').value,date=dialog.querySelector('[data-bulk-date]').value;drafts.forEach(d=>{if(m)d.deliveryMethodId=m;if(!canAssign(d))d.deliveryHandlerId='';else if(h)d.deliveryHandlerId=h;if(date)d.preferredDeliveryDate=date;});paint();resetReview();};
+      dialog.addEventListener('change',ev=>{capture();resetReview();if(ev.target.dataset.field==='deliveryMethodId'){drafts.forEach(d=>{if(!canAssign(d))d.deliveryHandlerId='';});paint();}else if(ev.target.matches('[data-bulk-method]'))syncBulkHandler();else if(ev.target.matches('[data-bulk-handler]')){matchedBulkHandler=false;dialog.querySelector('[data-match-status]').textContent='담당자 선택을 직접 변경했습니다. 적용 버튼을 눌러 반영해 주세요.';}});
+      const commonDate=()=>{
+        const input=dialog.querySelector('[data-bulk-date]');
+        if(!input.checkValidity())throw Error('공통 출고일을 올바르게 입력해 주세요.');
+        return input.value;
+      };
+      dialog.querySelector('[data-apply]').onclick=()=>{
+        if(busy)return;
+        try{
+          capture();const methodId=dialog.querySelector('[data-bulk-method]').value,handlerId=dialog.querySelector('[data-bulk-handler]').value,date=commonDate();
+          if(!methodId&&!handlerId&&!date&&!changedAddress){alert('적용할 주소·배송수단·담당자·출고일 중 하나 이상을 설정해 주세요.');return;}
+          applyShippingSettings({methodId,handlerId,date,address:changedAddress?{...changedAddress,detailAddress:dialog.querySelector('[data-bulk-detail]').value}:null});
+          paint();ordererStatus('설정한 배송 정보와 공통 출고일을 편집 목록에 적용했습니다. 아래에서 개별 수정 후 최종 저장해 주세요.');
+        }catch(err){alert(err.message);}
+      };
       const ordererStatus=message=>{dialog.querySelector('[data-orderer-status]').textContent=message;dialog.querySelector('[data-alert]').hidden=true;resetReview();};
       dialog.querySelector('[data-apply-memo]').onclick=()=>{
         const memo=dialog.querySelector('[data-bulk-memo]').value;
@@ -107,28 +148,27 @@
         paint();ordererStatus('비고를 창을 열었을 때의 값으로 되돌렸습니다.');
       });
       dialog.querySelector('[data-direct-preview]').onclick=async()=>{
-        if(busy)return;capture();resetReview();busy=true;
+        if(busy)return;
+        let selectedDate;try{selectedDate=commonDate();}catch(err){alert(err.message);return;}
+        capture();resetReview();busy=true;
         const controls=[...dialog.querySelectorAll('button,input,select,textarea')].map(el=>[el,el.disabled]);
         controls.forEach(([el])=>el.disabled=true);
         try{
-          const proposals=await api('/direct-delivery-preview',{orderIds:drafts.map(d=>d.orderId)});
+          const proposals=await api('/direct-delivery-preview',{orderIds:drafts.map(d=>d.orderId),preferredDeliveryDate:selectedDate||null});
           if(proposals.length!==drafts.length||drafts.some(d=>!proposals.some(p=>p.orderId===d.orderId)))throw Error('미리보기 발주 목록이 일치하지 않습니다. 다시 조회해 주세요.');
           directProposals=new Map(proposals.map(p=>[p.orderId,p]));
           const blocked=proposals.filter(p=>!p.applicable).length;
           const panel=dialog.querySelector('[data-direct-review]');
-          panel.innerHTML='<h5>직배송 변경 미리보기</h5><p>현재 편집 중인 값 → 업체 기준 변경값입니다. 출고일·주문자·비고는 유지됩니다. 같은 업체는 이번 조회에서 같은 담당자를 사용합니다.</p>'+drafts.map(d=>{
+          panel.innerHTML='<h5>직배송 변경 미리보기</h5><p>현재 편집 중인 값 → 업체 기준 변경값입니다. 공통 출고일: '+e(selectedDate||'각 발주의 현재 출고일 유지')+'. 주문자·비고는 유지하며 같은 업체는 이번 조회에서 같은 담당자를 사용합니다.</p>'+drafts.map(d=>{
             const p=directProposals.get(d.orderId);
-            return `<section><strong>#${d.orderId} · ${e(p.companyName||'업체 없음')}</strong><p>배송수단: ${e(method(d.deliveryMethodId)?.name)} → ${e(method(p.deliveryMethodId)?.name)}<br>담당자: ${e(options.handlers.find(h=>h.id===Number(d.deliveryHandlerId))?.name||'없음')} → ${e(p.deliveryHandlerName||'미배정')}</p><p>현재 주소: ${e(d.address.roadAddress)} ${e(d.address.detailAddress)}</p>${addressHtml(p)}<p>상세주소: ${e(p.detailAddress)||'없음'}</p>${p.message?`<p class="${p.applicable?'text-warning':'text-danger'}">${e(p.message)}</p>`:''}</section>`;
+            return `<section><strong>#${d.orderId} · ${e(p.companyName||'업체 없음')}</strong><p>배송수단: ${e(method(d.deliveryMethodId)?.name)} → ${e(method(p.deliveryMethodId)?.name)}<br>담당자: ${e(options.handlers.find(h=>h.id===Number(d.deliveryHandlerId))?.name||'없음')} → ${e(p.deliveryHandlerName||'미배정')}</p><p>출고일: ${e(d.preferredDeliveryDate||'미등록')} → ${e(selectedDate||d.preferredDeliveryDate||'미등록')}</p><p>현재 주소: ${e(d.address.roadAddress)} ${e(d.address.detailAddress)}</p>${addressHtml(p)}<p>상세주소: ${e(p.detailAddress)||'없음'}</p>${p.message?`<p class="${p.applicable?'text-warning':'text-danger'}">${e(p.message)}</p>`:''}</section>`;
           }).join('')+`<p>${blocked?`${blocked}건의 업체 주소를 보완한 후 다시 조회해 주세요. 전체 적용은 보류됩니다.`:'적용하면 아래 편집 목록에 반영됩니다. 담당자 미배정 건은 저장 전에 직접 선택해 주세요.'}</p><div class="order-bulk-actions"><button type="button" class="btn btn-sm btn-primary" data-direct-apply ${blocked?'disabled':''}>미리보기 내용 적용</button><button type="button" class="btn btn-sm btn-outline-secondary" data-direct-cancel>취소</button></div>`;
           panel.hidden=false;
           panel.querySelector('[data-direct-cancel]').onclick=resetReview;
           panel.querySelector('[data-direct-apply]').onclick=()=>{
             if(busy||!directProposals||[...directProposals.values()].some(p=>!p.applicable))return;
-            capture();drafts.forEach(d=>{
-              const p=directProposals.get(d.orderId);d.deliveryMethodId=p.deliveryMethodId;d.deliveryHandlerId=p.deliveryHandlerId||'';
-              d.address=Object.fromEntries(['zipCode','doName','siName','guName','roadAddress','jibunAddress','detailAddress'].map(k=>[k,p[k]||'']));d.searched=true;
-            });
-            paint();ordererStatus('직배송·업체 기본 주소·지역 담당자를 편집 목록에 적용했습니다. 개별 수정 또는 공통 덮어쓰기 후 최종 저장해 주세요.');
+            capture();applyDirectProposals(directProposals,selectedDate);
+            paint();ordererStatus('직배송·업체 기본 주소·지역 담당자와 공통 출고일을 편집 목록에 적용했습니다. 개별 수정 또는 공통 덮어쓰기 후 최종 저장해 주세요.');
           };
           panel.scrollIntoView({block:'nearest'});
         }catch(err){alert(err.message);}finally{busy=false;controls.forEach(([el,disabled])=>el.disabled=disabled);sync();}
@@ -145,9 +185,44 @@
         if(all){dialog.querySelector('[data-bulk-orderer-name]').value='';dialog.querySelector('[data-bulk-orderer-phone]').value='';}
         paint();ordererStatus(all?'전체 발주의 주문자 정보를 창을 열었을 때의 값으로 되돌렸습니다. 아직 저장하지 않았습니다.':'선택한 발주의 주문자 정보를 창을 열었을 때의 값으로 되돌렸습니다. 아직 저장하지 않았습니다.');
       });
-      area.onclick=ev=>{const b=ev.target.closest('[data-search]');if(b)try{capture();postcode(a=>{drafts[Number(b.dataset.search)].address=a;drafts[Number(b.dataset.search)].searched=true;paint();resetReview();});}catch(err){alert(err.message);}};
-      dialog.querySelector('[data-address]').onclick=()=>{try{postcode(a=>{changedAddress=a;dialog.querySelector('[data-bulk-address-preview]').innerHTML=addressHtml(a);dialog.querySelector('[data-bulk-detail]').value=a.detailAddress;dialog.querySelector('[data-bulk-detail]').disabled=false;dialog.querySelector('[data-apply-address]').disabled=false;resetReview();});}catch(err){alert(err.message);}};
-      dialog.querySelector('[data-apply-address]').onclick=()=>{if(!changedAddress)return;capture();drafts.forEach(d=>{d.address={...changedAddress,detailAddress:dialog.querySelector('[data-bulk-detail]').value};d.searched=true;});paint();resetReview();};
+      area.onclick=ev=>{const b=ev.target.closest('[data-search]');if(b)try{capture();postcode(a=>{capture();drafts[Number(b.dataset.search)].address=a;drafts[Number(b.dataset.search)].searched=true;paint();resetReview();});}catch(err){alert(err.message);}};
+      const clearMatchedHandler=()=>{
+        if(matchedBulkHandler)dialog.querySelector('[data-bulk-handler]').value='';
+        matchedBulkHandler=false;
+        dialog.querySelector('[data-match-status]').textContent='주소가 변경되었습니다. 새 주소로 담당자를 다시 찾거나 직접 선택해 주세요.';
+      };
+      dialog.querySelector('[data-address]').onclick=()=>{
+        if(busy)return;
+        try{postcode(a=>{
+          clearMatchedHandler();changedAddress=a;
+          dialog.querySelector('[data-bulk-address-preview]').innerHTML=addressHtml(a);
+          dialog.querySelector('[data-bulk-detail]').value=a.detailAddress;
+          dialog.querySelector('[data-bulk-detail]').disabled=false;
+          syncBulkHandler();resetReview();
+        });}catch(err){alert(err.message);}
+      };
+      dialog.querySelector('[data-clear-address]').onclick=()=>{
+        if(busy)return;clearMatchedHandler();changedAddress=null;
+        dialog.querySelector('[data-bulk-address-preview]').innerHTML='<p>주소를 일괄 변경하지 않습니다. 편집 목록의 현재 주소를 유지합니다.</p>';
+        dialog.querySelector('[data-bulk-detail]').value='';dialog.querySelector('[data-bulk-detail]').disabled=true;
+        syncBulkHandler();resetReview();
+      };
+      dialog.querySelector('[data-match-handler]').onclick=async()=>{
+        if(busy||!changedAddress)return;
+        const selected=method(dialog.querySelector('[data-bulk-method]').value);
+        if(!selected||!handlerAllowed(selected)){alert('담당자를 배정할 수 있는 배송수단을 먼저 선택해 주세요.');return;}
+        resetReview();busy=true;
+        const controls=[...dialog.querySelectorAll('button,input,select,textarea')].map(el=>[el,el.disabled]);
+        controls.forEach(([el])=>el.disabled=true);
+        try{
+          const result=await api('/region-handler',{deliveryMethodId:selected.id,zipCode:changedAddress.zipCode,roadAddress:changedAddress.roadAddress,doName:changedAddress.doName,siName:changedAddress.siName,guName:changedAddress.guName});
+          if(result.deliveryHandlerId&&!options.handlers.some(h=>h.id===Number(result.deliveryHandlerId)))throw Error('조회된 담당자가 선택 목록에 없습니다. 창을 다시 열어 최신 담당자 목록을 확인해 주세요.');
+          dialog.querySelector('[data-bulk-handler]').value=result.deliveryHandlerId?String(result.deliveryHandlerId):'';
+          matchedBulkHandler=!!result.deliveryHandlerId;
+          dialog.querySelector('[data-match-status]').textContent=[changedAddress.doName,changedAddress.siName,changedAddress.guName].filter(Boolean).join(' ')+' → '+(result.deliveryHandlerName||'미매칭')+'. '+result.message;
+          dialog.querySelector('[data-alert]').hidden=true;
+        }catch(err){alert(err.message);}finally{busy=false;controls.forEach(([el,disabled])=>el.disabled=disabled);syncBulkHandler();sync();}
+      };
       dialog.querySelector('[data-save]').onclick=async()=>{
         if(busy)return;capture();const review=dialog.querySelector('[data-review]');
         try{
@@ -155,7 +230,7 @@
           if(review.hidden){review.innerHTML='<h5>저장할 변경 내용</h5>'+drafts.map((d,i)=>`<section><strong>#${d.orderId}</strong> ${e(rows[i].deliveryMethodName)} → ${e(method(d.deliveryMethodId)?.name)} / 담당자 ${e(rows[i].deliveryHandlerName||'없음')} → ${e(options.handlers.find(h=>h.id===Number(d.deliveryHandlerId))?.name||'없음')} / 출고일 ${e(rows[i].preferredDeliveryDateText||'미등록')} → ${e(d.preferredDeliveryDate||'유지')}<p>기존: ${e(actual(rows[i]).roadAddress)} ${e(actual(rows[i]).detailAddress)}</p><strong>${destination(d)}에 반영</strong>${addressHtml(d.address)}<p>상세: ${e(d.address.detailAddress)||'없음'}</p><p>주문자 이름: ${e(rows[i].ordererName||'미등록')} → ${e(d.ordererName.trim()||'미등록')}<br>주문자 연락처: ${e(rows[i].ordererPhone||'미등록')} → ${e(d.ordererPhone.trim()||'미등록')}</p><p style="white-space:pre-wrap">비고: ${e(rows[i].adminMemoValue||'없음')} → ${e(d.adminMemo||'없음')}</p></section>`).join('');review.hidden=false;dialog.querySelector('[data-save]').textContent='확인한 내용 저장';review.scrollIntoView({block:'nearest'});return;}
           busy=true;dialog.querySelectorAll('button,input,select,textarea').forEach(el=>el.disabled=true);
           const result=await api('',{items:drafts.map(payload)});window.alert(result.updatedCount+'건을 저장했습니다.');location.reload();
-        }catch(err){busy=false;dialog.querySelectorAll('button,input,select,textarea').forEach(el=>el.disabled=false);dialog.querySelector('[data-apply-address]').disabled=!changedAddress;dialog.querySelector('[data-bulk-detail]').disabled=!changedAddress;paint();alert(err.message);}
+        }catch(err){busy=false;dialog.querySelectorAll('button,input,select,textarea').forEach(el=>el.disabled=false);dialog.querySelector('[data-bulk-detail]').disabled=!changedAddress;paint();alert(err.message);}
       };
     }catch(err){window.alert(err.message);}finally{busy=false;sync();}
   };
