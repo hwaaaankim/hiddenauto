@@ -2897,3 +2897,15 @@
 @keyframes pm-faq-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: translateY(8px) scale(.96); } }
 @media(max-width:600px) { .pm-faq-float.pm-help-icon { right: 14px; bottom: max(14px,env(safe-area-inset-bottom)); padding: 11px 15px !important; } .pms-dialog.pms.pm-faq-dialog { max-width: calc(100vw - 20px); border-radius: 15px; } .pm-faq-panel-content { padding-left: 18px; } .pm-faq-dialog .pms-dialog-foot > * { flex: 1 1 auto; text-align: center; } }
 @media(prefers-reduced-motion:reduce) { .pms-dialog.pms.pm-faq-dialog,.pms-dialog.pms.pm-faq-dialog.pm-faq-closing { animation: none; } .pm-faq-panel,.pm-faq-chevron,.pm-faq-float.pm-help-icon { transition: none; } }
+
+/* Optional numeric expressions: one focused editor, keyboard and drag controls. */
+.pm-expression-editor { display:grid; gap:16px; padding:18px; border:1px solid #dce3ec; border-radius:14px; background:#f9fbfe; }
+.pm-expression-editor > label { display:grid; gap:8px; }
+.pm-expression-tokens { display:flex; flex-wrap:wrap; align-items:center; gap:10px; min-height:86px; padding:16px; border:2px dashed #bccbdc; border-radius:12px; background:#fff; }
+.pm-expression-token { display:inline-flex; gap:8px; align-items:center; padding:8px 12px; border:1px solid #b4c7df; border-radius:9px; background:#edf4ff; cursor:grab; }
+.pm-expression-token b { overflow-wrap:anywhere; }
+.pm-expression-token button { padding:3px 7px; min-width:28px; }
+.pm-expression-palette button { background:#fff; border:1px solid #aec0d8; }
+.pm-expression-editor .pms-actions { flex-wrap:wrap; align-items:end; }
+.pm-expression-editor input { max-width:180px; }
+@media(max-width:640px) { .pm-expression-editor {padding:12px;} .pm-expression-token {max-width:100%;} }

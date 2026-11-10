@@ -47,6 +47,9 @@
       (term.conditions || []).filter(c => c.groupKey === group.groupKey).forEach(c => referenced.add(c.fieldKey));
       (term.adjustments || []).filter(a => a.groupKey === group.groupKey).forEach(a => referenced.add(a.axis?.fieldKey));
     }
+    for (const other of groups) if (flattened.some(t => t.groupKey === other.groupKey && t.fieldKeys?.includes('__numeric_value')))
+      for (const c of other.choices || []) for (const token of c.numericValue?.expression || [])
+        if (token.kind === 'FIELD' && token.groupKey === group.groupKey) referenced.add(token.fieldKey);
     return { group, fields, used: fields.filter(f => referenced.has(f.key)) };
   });
   S.pricingInputBindingMessage = row => `${row.group.label}: 이 그룹 또는 현재 표시된 숫자 입력묶음에 연결된 가격계산이 없습니다. 다른 숫자 그룹·다른 입력묶음의 항에 조건별 가격표를 여러 개 등록해도 이 입력이 자동 연결되지는 않습니다. 이 그룹의 입력묶음에 별도 항을 등록하거나, 프로세스에서 공통 숫자 입력 하나를 사용하는 구성으로 맞춰 주세요.`;
@@ -115,6 +118,7 @@
         const q = state.question;
         if (!state.visible && !q.fixed) { delete merged[q.key]; continue; }
         if (q.fixed || !draft[q.key]) continue;
+        if (!state.errors?.length) { merged[q.key] = S.copy(state.answer); continue; }
         if (S.isChoice(q.control)) merged[q.key] = { choices: (draft[q.key].choices || []).filter((value) => state.allowed.includes(value)), fields: {} };
         else {
           const fields = new Set((q.fields || []).map((f) => f.key));
@@ -274,7 +278,7 @@
       S.$('[data-price-overview="terms"]', root).textContent = `${definition.terms.filter(t => !F.isFactor(t)).length}개 금액 항 · ${definition.terms.filter(F.isFactor).length}개 배율 항`;
       S.$('[data-price-term-empty]', root).hidden = shown > 0 || !definition.terms.length;
     }
-    function typesFor(g) { return g.control === "NUMBER" ? "숫자 입력묶음" : S.controls[g.control] || g.control; }
+    function typesFor(g) { return g.control === "NUMBER" ? (g.choices?.some(c => c.numericValue) ? "단일선택 · 계산용 숫자" : "숫자 입력묶음") : S.controls[g.control] || g.control; }
     function summary(term) {
       const g = group(term.groupKey), b = g?.bundles?.find((b) => b.key === term.bundleKey);
       const selected = (term.fieldKeys || []).map((k) => label(b?.fields.find((f) => f.key === k)) || k);
@@ -316,6 +320,9 @@
       });
     }
     function relatedEditor(owner, adjustmentKey = null) {
+      const question = process().questions.find(q => q.key === owner.groupKey);
+      if (question?.control === 'CHECKBOX') return S.toast('다중선택에는 가격 연관식을 등록할 수 없습니다.');
+      if (S.arithmetic.numeric(question)) return branchEditor(owner);
       const existingRelated = owner.adjustments?.find(a => a.key === adjustmentKey);
       if(F.isFactor(owner))return;
       const base = group(owner.groupKey), used = new Set(owner.fieldKeys || []);
@@ -354,6 +361,7 @@
       });
     }
     function factorEditor(term, linkKey = null) {
+      if (group(term.groupKey)?.control === "CHECKBOX") return S.toast("다중선택에는 가격 연관식을 등록할 수 없습니다.");
       const original = JSON.stringify(definition.terms);
       return F.open({ term, terms: definition.terms, groups: context.groups, process: process(), linkKey,
         diagnose: context.ready ? (terms, signal) => api(product.id, '/diagnose?draft=true', 'POST', { definition: { ...S.copy(definition), terms, schemaFingerprint: context.schemaFingerprint }, answers: {} }, signal) : null,
@@ -395,7 +403,7 @@
     }
     function renderTerms() {
       renderDraftNotices();
-      S.$('[data-price-terms]', root).innerHTML = definition.terms.map((term, i) => `<article class="pm-price-term ${F.isFactor(term) ? 'is-factor' : ''}" data-price-term-card="${i}"><div class="pm-price-term-number">${i + 1}</div><div class="pm-price-term-copy"><header><strong>${e(term.name)}</strong>${S.badge(F.isFactor(term) ? '배율 전용 · 합계에 더하지 않음' : term.optionPricing ? '숫자 범위별 옵션 금액' : term.branches?.length ? '조건별 계산' : types[term.type], F.isFactor(term) ? 'blue' : '')}</header><p>${e(group(term.groupKey)?.label || '현재 구성에서 삭제된 그룹')} · ${term.branches?.length ? `조건별 계산 ${term.branches.length}개 · 한 항으로 합산` : e(summary(term))}</p>${term.optionTarget ? `<small>가격 대상: ${e(group(term.optionTarget.groupKey)?.label || term.optionTarget.groupKey)} · ${e(label(group(term.optionTarget.groupKey)?.choices?.find(c => c.key === term.optionTarget.choiceKey)))}</small>` : ''}${term.conditions?.length ? `<small>적용 조건 · ${term.match === 'ANY' ? '하나 이상 일치' : '모두 일치'}: ${term.conditions.map(c => e(conditionText(c))).join(term.match === 'ANY' ? ' 또는 ' : ' 그리고 ')}</small>` : ''}${F.isFactor(term) ? `<small>연결된 항: ${F.parents(definition.terms, term.key).map(t => e(t.name)).join(', ') || '없음 · 금액 항의 × 배율 연결에서 연결하세요'}</small>` : ''}${adjustmentCards(term)}<div class="pm-factor-links">${F.links(term).map(link => `<section><span>× <strong>${e(link.name)}</strong> · ${link.aggregation === 'SUM' ? '선택값의 합' : link.aggregation === 'PRODUCT' ? '선택값의 곱' : '조건에 맞는 값 1개'}</span><small>${link.termKeys.map(id => e(definition.terms.find(t => t.key === id)?.name || '삭제된 항')).join(' / ')}</small><div class="pms-actions"><button type="button" data-factor-edit="${e(term.key)}" data-factor-link="${e(link.key)}">연결 수정</button><button type="button" data-factor-unlink="${e(term.key)}" data-factor-link="${e(link.key)}">연결 해제</button></div></section>`).join('')}</div></div><div class="pms-actions"><button type="button" data-term-move="${i}" data-direction="-1" aria-label="${e(term.name)} 위로" ${i ? '' : 'disabled'}>↑</button><button type="button" data-term-move="${i}" data-direction="1" aria-label="${e(term.name)} 아래로" ${i < definition.terms.length - 1 ? '' : 'disabled'}>↓</button>${!F.isFactor(term) ? `<button type="button" data-term-adjustment="${e(term.key)}" ${(term.adjustments || []).length >= 20 ? 'disabled title="한 항의 조건별 계산은 최대 20개입니다. 아래 기존 조건을 수정하거나 삭제하세요."' : ''}>조건 연결(고급)</button>` : ''}${!F.isFactor(term) && group(term.groupKey)?.control === 'NUMBER' ? `<button type="button" data-term-branches="${e(term.key)}">조건별 가격표 ${term.branches?.length || 0}개</button>` : ''}${!F.isFactor(term) ? `<button type="button" data-term-related="${e(term.key)}" class="primary">연관식 추가</button>` : ''}<button type="button" data-term-factor="${e(term.key)}">수량·배율 연결(고급)</button><button type="button" data-term-edit="${i}">조회·수정</button><button type="button" data-term-duplicate="${i}">복사해서 새 항</button><button type="button" data-term-remove="${i}" class="danger pm-icon-remove" aria-label="${e(term.name)} 항 삭제">×</button></div></article>`).join('') || '<div class="pms-empty">상단의 입력묶음 또는 ‘항 생성’을 눌러 금액 항을 만든 뒤 필요한 배율을 연결하세요.</div>';
+      S.$('[data-price-terms]', root).innerHTML = definition.terms.map((term, i) => `<article class="pm-price-term ${F.isFactor(term) ? 'is-factor' : ''}" data-price-term-card="${i}"><div class="pm-price-term-number">${i + 1}</div><div class="pm-price-term-copy"><header><strong>${e(term.name)}</strong>${S.badge(F.isFactor(term) ? '배율 전용 · 합계에 더하지 않음' : term.optionPricing ? '숫자 범위별 옵션 금액' : term.branches?.length ? '조건별 계산' : types[term.type], F.isFactor(term) ? 'blue' : '')}</header><p>${e(group(term.groupKey)?.label || '현재 구성에서 삭제된 그룹')} · ${term.branches?.length ? `조건별 계산 ${term.branches.length}개 · 한 항으로 합산` : e(summary(term))}</p>${term.optionTarget ? `<small>가격 대상: ${e(group(term.optionTarget.groupKey)?.label || term.optionTarget.groupKey)} · ${e(label(group(term.optionTarget.groupKey)?.choices?.find(c => c.key === term.optionTarget.choiceKey)))}</small>` : ''}${term.conditions?.length ? `<small>적용 조건 · ${term.match === 'ANY' ? '하나 이상 일치' : '모두 일치'}: ${term.conditions.map(c => e(conditionText(c))).join(term.match === 'ANY' ? ' 또는 ' : ' 그리고 ')}</small>` : ''}${F.isFactor(term) ? `<small>연결된 항: ${F.parents(definition.terms, term.key).map(t => e(t.name)).join(', ') || '없음 · 금액 항의 × 배율 연결에서 연결하세요'}</small>` : ''}${adjustmentCards(term)}<div class="pm-factor-links">${F.links(term).map(link => `<section><span>× <strong>${e(link.name)}</strong> · ${link.aggregation === 'SUM' ? '선택값의 합' : link.aggregation === 'PRODUCT' ? '선택값의 곱' : '조건에 맞는 값 1개'}</span><small>${link.termKeys.map(id => e(definition.terms.find(t => t.key === id)?.name || '삭제된 항')).join(' / ')}</small><div class="pms-actions"><button type="button" data-factor-edit="${e(term.key)}" data-factor-link="${e(link.key)}">연결 수정</button><button type="button" data-factor-unlink="${e(term.key)}" data-factor-link="${e(link.key)}">연결 해제</button></div></section>`).join('')}</div></div><div class="pms-actions"><button type="button" data-term-move="${i}" data-direction="-1" aria-label="${e(term.name)} 위로" ${i ? '' : 'disabled'}>↑</button><button type="button" data-term-move="${i}" data-direction="1" aria-label="${e(term.name)} 아래로" ${i < definition.terms.length - 1 ? '' : 'disabled'}>↓</button>${!F.isFactor(term) && group(term.groupKey)?.control !== "CHECKBOX" ? `<button type="button" data-term-adjustment="${e(term.key)}" ${(term.adjustments || []).length >= 20 ? 'disabled title="한 항의 조건별 계산은 최대 20개입니다. 아래 기존 조건을 수정하거나 삭제하세요."' : ''}>조건 연결(고급)</button>` : ''}${!F.isFactor(term) && group(term.groupKey)?.control === 'NUMBER' ? `<button type="button" data-term-branches="${e(term.key)}">조건별 가격표 ${term.branches?.length || 0}개</button>` : ''}${!F.isFactor(term) && group(term.groupKey)?.control !== "CHECKBOX" ? `<button type="button" data-term-related="${e(term.key)}" class="primary">연관식 추가</button>` : ''}${group(term.groupKey)?.control !== "CHECKBOX" ? `<button type="button" data-term-factor="${e(term.key)}">수량·배율 연결(고급)</button>` : ""}<button type="button" data-term-edit="${i}">조회·수정</button><button type="button" data-term-duplicate="${i}">복사해서 새 항</button><button type="button" data-term-remove="${i}" class="danger pm-icon-remove" aria-label="${e(term.name)} 항 삭제">×</button></div></article>`).join('') || '<div class="pms-empty">상단의 입력묶음 또는 ‘항 생성’을 눌러 금액 항을 만든 뒤 필요한 배율을 연결하세요.</div>';
       filterTerms();
       S.$$('[data-term-related]', root).forEach(b=>b.onclick=()=>relatedEditor(definition.terms.find(t=>t.key===b.dataset.termRelated)));
       S.$$('[data-term-branches]', root).forEach(b => b.onclick = () => branchEditor(definition.terms.find(t => t.key === b.dataset.termBranches)));
@@ -474,6 +482,7 @@
       S.$("[data-price-test-status]", root).textContent = evaluation.complete ? "현재 프로세스 입력 검증 완료" : "필수 답변과 입력 제한을 확인해 주세요.";
       S.$$("[data-price-answer]", box).forEach((inputBox) => {
         const q = evaluation.questions.find((s) => s.question.key === inputBox.dataset.priceAnswer).question;
+        S.bindEqualInputs(inputBox, q, process(), () => { collectAnswers(); return answers; });
         const update = () => {
           clearTimeout(testTimer); result = null; clearResult("입력값을 변경했습니다. 가격계산을 다시 눌러 주세요.");
           // Preserve every field on screen before applying a changed upstream choice.
@@ -540,6 +549,7 @@
         S.$('[data-test-use]', dialog).disabled = !calculation?.complete;
         S.$$('[data-single-answer]', area).forEach(box => {
           const q = localEvaluation.questions.find(s => s.question.key === box.dataset.singleAnswer).question;
+          S.bindEqualInputs(box, q, process(), () => { collect(); return localAnswers; });
           const invalidate = () => { localSequence++; calculation = null; S.$('[data-test-use]', dialog).disabled = true; S.$('[data-single-result]', area).textContent = '입력이 변경되었습니다. 다시 계산해 주세요.'; };
           box.addEventListener('input', invalidate); box.addEventListener('change', invalidate);
           S.answerFileEvents(box, q, S.copy(localAnswers[q.key] || {}), assetMap, { onChange: a => { localAnswers[q.key] = S.copy(a); invalidate(); }, onError: error => S.toast(error.message), isCurrent: () => dialog.open && box.isConnected });
@@ -871,7 +881,7 @@
           const error = priceErrors(); if (error.length) throw Error(error.join("\n"));
           await downloadExcel({ role: factor() ? "FACTOR" : "PRICE", dimensions: term.type === "MATRIX_2D" ? 2 : 1, title: term.name, xLabel: label(fields().find((f) => f.key === term.xAxis.fieldKey)), yLabel: label(fields().find((f) => f.key === term.yAxis?.fieldKey)), xOperator: term.xAxis.operator, yOperator: term.yAxis?.operator, xHeaders: term.xAxis.headers, yHeaders: term.yAxis?.headers || [], amounts: term.values, xOperators: term.xAxis.operators || [], yOperators: term.yAxis?.operators || [], xOutsidePolicy: term.xAxis.outsidePolicy || "ERROR", yOutsidePolicy: term.yAxis?.outsidePolicy || "ERROR", xZeroThrough: term.xAxis.zeroThrough ?? null, yZeroThrough: term.yAxis?.zeroThrough ?? null });
         }));
-        if (!factor() && g()?.control !== "NUMBER" && term.type === "FIXED" && stage === 1) S.optionRanges.bind({ body, term, questions: process().questions, draw, error: editorError, ui: tableUi });
+        if (!factor() && g()?.control === "RADIO" && term.type === "FIXED" && stage === 1) S.optionRanges.bind({ body, term, questions: process().questions, draw, error: editorError, ui: tableUi });
         if (term.type.startsWith("MATRIX") && stage === 1) S.priceTable.bind({ body, term, draw, error: editorError, ui: tableUi, fields: fields() });
         S.$$('[data-axis-free]',body).forEach(input=>input.onchange=()=>{const axis=term[input.dataset.axisFree==='x'?'xAxis':'yAxis'];axis.zeroThrough=input.checked?axis.headers[0]:null;history.record();draw();});
         S.$("[data-term-match]", body)?.addEventListener("change", (event) => { term.match = event.target.value; });

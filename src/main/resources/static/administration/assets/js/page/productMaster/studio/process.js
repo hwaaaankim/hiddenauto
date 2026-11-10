@@ -830,6 +830,7 @@
         const state = visible[cursor];
         if (!state) return;
         const inputBox = S.$("#pms-chat-input", body);
+        S.bindEqualInputs(inputBox, state.question, process, answers);
         S.$$("input[type=file]", inputBox).forEach(
           (input) =>
             (input.onchange = () =>

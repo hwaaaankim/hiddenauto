@@ -368,6 +368,8 @@ public class ProductStudioExtensionService {
                               + " "
                               + text(f.unit()))
                   .collect(Collectors.joining(" / "));
+      if(choice(q.control()) && map(value.fields()).containsKey(ProductStudioArithmetic.VALUE))
+        display += " · 계산값: " + value.fields().get(ProductStudioArithmetic.VALUE);
       specs.add(new SpecLine(q.labels().management(), display));
     }
     return new ActualView(

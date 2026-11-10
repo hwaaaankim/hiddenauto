@@ -637,6 +637,7 @@
     if (selected.nonStandard || selected.status === 'DISCONTINUED' || !standardState.products.some(p => p.id === selected.id)) throw Error('현재 구성에 맞는 규격제품을 다시 확인해 주세요.');
     standardProduct = selected;
     target.innerHTML = `<section class="hb-quote"><span class="hb-eyebrow">YOUR CONFIGURATION</span><h2>선택하신 제품이 완성되었습니다.</h2><strong class="hb-selected-name">${e(selected.productName)}</strong>${selected.description ? `<p class="hb-info-description">${e(selected.description)}</p>` : ''}<dl class="hb-meta"><dt>제품코드</dt><dd>${e(selected.catalogCode)}</dd><dt>생산기간</dt><dd>${selected.productionHours == null ? '미등록' : e(S.productionTime(selected.productionHours))}</dd><dt>등록 상태</dt><dd>${e(S.status[selected.status] || selected.status)}</dd></dl><div class="hb-total">${e(money(selected.unitPrice))}</div><small>선택한 옵션에 일치하는 실제 규격제품의 등록 단가</small>${S.media(list(selected.assets).filter(a=>!a.image),'제품 첨부파일')}${standardGuidance(selected)}<p class="hb-result-note">배송비·할인·결제는 연결 전이며 주문은 저장되지 않습니다.</p>${standardState.steps.length ? '<button type="button" id="hb-standard-restart">옵션 다시 구성하기</button>' : ''}</section>`;
+    S.confirmationTest(target.querySelector('.hb-quote'), selected.process);
     const restart = document.getElementById('hb-standard-restart');
     if (restart) restart.onclick = () => resetStandard(standardState.steps[0].groupId);
     await reveal(target.querySelector('.hb-quote'), placeholder._hbHeight); void installFaq();
@@ -816,6 +817,7 @@
     answers[q.key] = answers[q.key] || S.copy(state.answer);
     node.querySelector('.hb-question-body').innerHTML = `${S.help(q, list(q.assetIds).map(id => assets.get(id)).filter(Boolean), "질문 참고자료")}<div id="hb-input" data-control="${e(q.control)}">${S.inputAnswer(q, answers[q.key], false, assets)}</div><div id="hb-guides"></div><div id="hb-question-errors" class="hb-question-errors" role="alert">${attemptedKey === q.key ? state.errors.map(e).join('<br>') : ''}</div><button type="button" class="hb-next" id="hb-answer-next">선택 완료 · 다음으로</button>`;
     const box = node.querySelector('#hb-input');
+    S.bindEqualInputs(box, q, product.process, answers);
     box.querySelectorAll('input[aria-required],textarea[aria-required]').forEach(input => { input.required = !!state.required && input.getAttribute('aria-required') === 'true'; });
     // Choice and dimension counts are based on the registered question, not label guesses.
     const grid = box.querySelector('.pm-answer-choices');
@@ -935,6 +937,7 @@
       if (pendingRoute) return;
       if (!calculation.complete) throw Error(list(calculation.errors).join('\n') || '가격계산을 완료하지 못했습니다.');
       target.innerHTML = `<section class="hb-quote"><span class="hb-eyebrow">YOUR CONFIGURATION</span><h2>나만의 구성이 완성되었습니다.</h2><div class="hb-total">${e(money(calculation.total))}</div><small>저장된 가격식으로 계산한 구성 가격</small><details><summary>가격계산 내역 확인</summary>${list(calculation.terms).map(t => `<div class="hb-term"><span>${e(t.name)}${t.applied ? '' : ' · 적용 안 됨'}</span><span>${t.role === 'FACTOR' ? e(t.amount) + '배' : e(money(t.amount))}</span></div><p class="hb-term-why">${e(t.explanation)}</p>${list(t.multipliers).map(m => `<p class="hb-term-why">${e(m.name)}: ${e(m.value)}배 (${list(m.terms).map(f => e(f.name) + ' ' + e(f.value)).join(' / ')})</p>`).join('')}${list(t.adjustments).map(a => `<p class="hb-term-why">${e(a.name)}: ${e(a.before)} → ${e(a.after)} · ${e(a.range)}</p>`).join('')}`).join('')}</details><p class="hb-result-note">제품 구성 확인용 결과입니다. 배송비·할인·결제는 연결 전이며 주문은 저장되지 않습니다.</p><button id="hb-restart-config">옵션 다시 구성하기</button></section>`;
+      S.confirmationTest(target.querySelector('.hb-quote'), product.process);
       document.getElementById('hb-restart-config').onclick = () => resetQuestion(list(product.process?.questions).find(q => !q.fixed)?.key);
       await reveal(target.querySelector('.hb-quote'), placeholder._hbHeight);
     } catch (err) {

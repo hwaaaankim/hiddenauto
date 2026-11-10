@@ -81,8 +81,8 @@ final class ProductPricingValidationPlan {
         value = BigDecimal.ZERO;
         Question q = part.process().questions().stream().filter(x -> x.key().equals(term.groupKey())).findFirst().orElseThrow();
         for (String field : term.fieldKeys()) {
-          Field f = q.fields().stream().filter(x -> x.key().equals(field)).findFirst().orElseThrow();
-          BigDecimal maximum = maximum(q, f);
+          Field f = ProductPricingEngine.pricingFields(q).stream().filter(x -> x.key().equals(field)).findFirst().orElseThrow();
+          BigDecimal maximum = ProductStudioArithmetic.numeric(q) ? ProductStudioArithmetic.maximum(part.process(), q) : maximum(q, f);
           value = capped(value.add(maximum.multiply(term.rates().get(field))));
         }
       } else value = term.values().stream().flatMap(List::stream).max(BigDecimal::compareTo).orElse(BigDecimal.ZERO);
@@ -168,6 +168,11 @@ final class ProductPricingValidationPlan {
           if (!text(limit.sourceKey()).isBlank()) needed.add(limit.sourceKey());
           list(limit.cases()).forEach(c -> list(c.conditions()).forEach(x -> needed.add(x.groupKey())));
         }
+        for (Question q : process.questions()) if (needed.contains(q.key()))
+          for (Choice c : list(q.choices())) if (c.numericValue() != null)
+            ProductStudioArithmetic.references(c.numericValue().expression()).forEach(t -> needed.add(t.groupKey()));
+        for (InputLimit limit : list(process.inputLimits())) if (needed.contains(limit.targetKey()))
+          ProductStudioArithmetic.references(limit.equalTo()).forEach(t -> needed.add(t.groupKey()));
         expanded = needed.size() != before;
       } while (expanded);
       // Keep every field in a needed question. Field-level/SUM constraints and numeric
@@ -184,7 +189,7 @@ final class ProductPricingValidationPlan {
           .filter(l -> needed.contains(l.targetKey())).toList();
       // Number-case/notice text changes no price or permitted input. Their own consistency
       // was checked on the full process; retaining their predicates would multiply work.
-      Process projected = new Process(process.schemaVersion(), projectedQuestions, rules, limits, List.of());
+      Process projected = new Process(process.schemaVersion(), projectedQuestions, rules, limits, List.of(), process.confirmationMessage());
       Map<String, Answer> answers = new LinkedHashMap<>();
       map(fixed).forEach((key, value) -> { if (needed.contains(key)) answers.put(key, value); });
       String name = selected.stream().filter(t -> ProductPricingEngine.role(t) == TermRole.PRICE)

@@ -29,15 +29,19 @@ public final class ProductPricingEngine {
     for (Question q : list(process.questions())) {
       if (!impactGroups.contains(q.groupId())) continue;
       Map<String, List<Field>> grouped = new LinkedHashMap<>();
-      if (q.control() == Control.NUMBER) for (Field f : list(q.fields()))
+      if (q.control() == Control.NUMBER || ProductStudioArithmetic.numeric(q)) for (Field f : ProductStudioArithmetic.numeric(q) ? List.of(ProductStudioArithmetic.valueField(process,q)) : list(q.fields()))
         grouped.computeIfAbsent(bundleKey(f), k -> new ArrayList<>()).add(f);
       List<Bundle> bundles = grouped.entrySet().stream().map(e -> new Bundle(e.getKey(),
           e.getValue().stream().map(f -> f.labels().customer()).collect(Collectors.joining(" / ")),
           List.copyOf(e.getValue()))).toList();
-      result.add(new PricingGroup(q.groupId(), q.key(), label(q), q.control(), bundles,
+      result.add(new PricingGroup(q.groupId(), q.key(), label(q), ProductStudioArithmetic.numeric(q) ? Control.NUMBER : q.control(), bundles,
           List.copyOf(list(q.choices()))));
     }
     return List.copyOf(result);
+  }
+
+  public static List<Field> pricingFields(Question q) {
+    return ProductStudioArithmetic.numeric(q) ? List.of(ProductStudioArithmetic.valueField()) : list(q.fields());
   }
 
   /** Numeric inputs may price their own term, an option range, or a conditional term. */
@@ -67,6 +71,7 @@ public final class ProductPricingEngine {
       Set<String> referenced = new HashSet<>();
       for (Term term : list(definition == null ? null : definition.terms()))
         referenced.addAll(numericFieldReferences(term, group.groupKey()));
+      referenced.addAll(expressionReferences(groups, definition, group.groupKey()));
       if (fields.stream().anyMatch(field -> referenced.contains(field.key()))) continue;
       String names = fields.stream().map(field -> field.labels().customer()).collect(Collectors.joining(" / "));
       issues.add(new Issue(draft ? "WARNING" : "ERROR", "PRICE_NUMERIC_GROUP_UNUSED", group.label(),
@@ -81,11 +86,41 @@ public final class ProductPricingEngine {
     return List.copyOf(issues);
   }
 
+  private static Set<String> expressionReferences(List<PricingGroup> groups, Definition definition, String source) {
+    Set<String> result = new HashSet<>();
+    for (PricingGroup group : groups) if(list(group.choices()).stream().anyMatch(c -> c.numericValue()!=null)
+        && list(definition == null ? null : definition.terms()).stream().anyMatch(t -> !numericFieldReferences(t, group.groupKey()).isEmpty()))
+      for (Choice choice : group.choices()) if(choice.numericValue()!=null)
+        ProductStudioArithmetic.references(choice.numericValue().expression()).stream().filter(t -> source.equals(t.groupKey()))
+            .forEach(t -> result.add(t.fieldKey()));
+    return result;
+  }
+
+  /** New checkbox relations are forbidden; immutable previously saved calculations remain usable. */
+  public static List<String> newRelationErrors(Process process, Definition next, Definition previous) {
+    Set<String> checkboxes = process.questions().stream().filter(q -> q.control()==Control.CHECKBOX).map(Question::key).collect(Collectors.toSet());
+    List<Term> old = list(previous==null?null:previous.terms());
+    List<String> errors = new ArrayList<>();
+    for(Term term : list(next==null?null:next.terms())) {
+      if(old.stream().anyMatch(t -> t.equals(term))) continue;
+      if(checkboxes.contains(term.groupKey()) && (role(term)==TermRole.FACTOR || term.optionPricing()!=null
+          || !list(term.branches()).isEmpty() || !list(term.adjustments()).isEmpty() || !list(term.multipliers()).isEmpty())
+          || term.optionTarget()!=null && checkboxes.contains(term.optionTarget().groupKey())
+          || list(term.multipliers()).stream().flatMap(link -> list(link.termKeys()).stream())
+              .anyMatch(key -> list(next.terms()).stream().anyMatch(factor -> key.equals(factor.key()) && checkboxes.contains(factor.groupKey()))))
+        errors.add(term.name()+": 다중선택에는 가격 연관식을 새로 등록·변경할 수 없습니다. 단일선택을 사용해 주세요.");
+      errors.addAll(newRelationErrors(process, new Definition(1,"",list(term.branches()),Map.of()),
+          new Definition(1,"",old.stream().filter(t -> t.key().equals(term.key())).flatMap(t -> list(t.branches()).stream()).toList(),Map.of())));
+    }
+    return errors;
+  }
+
   public static Map<String, Set<String>> numericReferences(List<PricingGroup> groups, Definition definition) {
     Map<String, Set<String>> result = new LinkedHashMap<>();
     for (PricingGroup group : groups) if (group.control() == Control.NUMBER) {
       Set<String> fields = new LinkedHashSet<>();
       for (Term term : list(definition == null ? null : definition.terms())) fields.addAll(numericFieldReferences(term, group.groupKey()));
+      fields.addAll(expressionReferences(groups, definition, group.groupKey()));
       result.put(group.groupKey(), Set.copyOf(fields));
     }
     return result;
@@ -139,6 +174,7 @@ public final class ProductPricingEngine {
         require(term.type() != null, "계산 유형을 선택해 주세요.");
         PricingGroup group = byGroup.get(term.groupKey());
         require(group != null, "가격영향 그룹에 포함되지 않은 질문입니다.");
+
         require("ALL".equals(term.match()) || "ANY".equals(term.match()), "조건 결합은 ALL 또는 ANY입니다.");
         require(list(term.conditions()).size() <= 20, "항 조건은 최대 20개입니다.");
         for (Condition condition : list(term.conditions())) validateCondition(condition, questions);
@@ -345,42 +381,9 @@ public final class ProductPricingEngine {
     BigDecimal total = results.stream().filter(result -> result.role() == TermRole.PRICE
         && result.applied() && result.amount() != null).map(TermResult::amount)
         .reduce(BigDecimal.ZERO, BigDecimal::add);
-    Set<String> applied = results.stream().filter(TermResult::applied).map(TermResult::key).collect(Collectors.toSet());
-    List<Term> tables = definition.terms().stream().filter(t -> role(t) == TermRole.PRICE && matrix(t) && applied.contains(t.key())).toList();
-    for (int i = 0; i < tables.size(); i++) for (int j = i + 1; j < tables.size(); j++) {
-      Term a = tables.get(i), b = tables.get(j);
-      // A conditional family has its own exactly-one check below. Reporting the
-      // same overlap again at every numeric boundary can hide other missing paths.
-      if (a.branchScope() != null && b.branchScope() != null
-          && Objects.equals(a.branchScope().ownerKey(), b.branchScope().ownerKey())) continue;
-      if (!a.groupKey().equals(b.groupKey()) || !Objects.equals(a.optionTarget(), b.optionTarget())) continue;
-      List<String> shared = a.fieldKeys().stream().filter(b.fieldKeys()::contains).toList();
-      if (shared.isEmpty()) continue;
-      Question q = states.get(a.groupKey()).question();
-      String values = shared.stream().map(k -> fieldLabel(q, k) + "=" + map(evaluated.answers().get(a.groupKey()).fields()).get(k))
-          .collect(Collectors.joining(", "));
-      errors.add("가격표 중복: ‘" + a.name() + "’와 ‘" + b.name() + "’가 같은 입력(" + values
-          + ")에 동시에 적용됩니다. 같은 가격 대상의 같은 숫자에는 가격표 한 개만 적용되어야 합니다. 중복 표를 삭제하거나 적용 조건을 겹치지 않게 나누세요. 예: W 600 이하 / W 600 초과.");
-    }
-    record TableScope(String groupKey, String fieldKey, OptionTarget target) {}
-    Map<TableScope, List<Term>> scopes = new LinkedHashMap<>();
-    for (Term term : definition.terms()) if (role(term) == TermRole.PRICE && matrix(term) && term.branchScope() == null) for (String field : term.fieldKeys())
-      scopes.computeIfAbsent(new TableScope(term.groupKey(), field, term.optionTarget()), k -> new ArrayList<>()).add(term);
-    for (Map.Entry<TableScope, List<Term>> entry : scopes.entrySet()) {
-      TableScope scope = entry.getKey(); QuestionState state = states.get(scope.groupKey());
-      Answer answer = evaluated.answers().get(scope.groupKey());
-      if (state == null || !state.visible() && !state.question().fixed() || !state.errors().isEmpty()
-          || !state.allowed().contains(scope.fieldKey()) || answer == null || !map(answer.fields()).containsKey(scope.fieldKey())) continue;
-      if (scope.target() != null) {
-        QuestionState target = states.get(scope.target().groupKey());
-        if (target == null || !target.visible() && !target.question().fixed()
-            || !list(target.answer().choices()).contains(scope.target().choiceKey())) continue;
-      }
-      if (entry.getValue().stream().noneMatch(t -> applied.contains(t.key()))) errors.add(
-          "가격표 범위 누락: " + fieldLabel(state.question(), scope.fieldKey()) + "=" + answer.fields().get(scope.fieldKey())
-              + "에서 적용되는 가격표가 없습니다: " + entry.getValue().stream().map(Term::name).collect(Collectors.joining(" / "))
-              + ". 허용 입력 범위를 빠짐없이 나누세요. 예: 600 이하 / 600 초과. 무료 구간은 0원 가격표로 명시하세요.");
-    }
+    // Independent PRICE terms are additions, including two tables on the same input.
+    // Only an explicit conditional family is mutually exclusive. Coverage diagnostics
+    // explain independent overlap/gaps and the editor requires review before saving.
     ProductPricingBranches.coverageIssues(definition, evaluated, results).stream().map(Issue::message).forEach(errors::add);
     if (total.compareTo(MAX_MONEY) > 0) errors.add("최종가격이 허용 범위를 벗어났습니다. 계산 합계: "
         + total.toPlainString() + "원 / 허용 한도: " + MAX_MONEY.toPlainString() + "원. 각 항의 입력 수량·단가와 동시 적용 조건을 확인해 주세요.");
@@ -485,7 +488,7 @@ public final class ProductPricingEngine {
     if (source == null) return "계산에 연결한 입력 그룹을 찾을 수 없습니다.";
     if (!(source.visible() || source.question().fixed())) return "현재 분기에서 계산에 연결한 질문이 표시되지 않습니다.";
     if (!source.errors().isEmpty()) return "연결한 질문의 입력 오류를 먼저 수정해 주세요: " + String.join(" / ", source.errors());
-    if (source.question().control() == Control.NUMBER
+    if ((source.question().control() == Control.NUMBER || ProductStudioArithmetic.numeric(source.question()))
         && !source.allowed().containsAll(term.fieldKeys())) return "현재 분기에서 이 항의 숫자 입력 항목이 허용되지 않습니다.";
     if (choice(source.question().control())) {
       List<String> selected = list(source.answer().choices());
@@ -517,7 +520,7 @@ public final class ProductPricingEngine {
   }
 
   private static String fieldLabel(Question question, String key) {
-    return list(question.fields()).stream().filter(f -> f.key().equals(key))
+    return pricingFields(question).stream().filter(f -> f.key().equals(key))
         .map(f -> f.labels().customer()).findFirst().orElse(key);
   }
 

@@ -294,6 +294,7 @@
       <div class="pms-actions"><button type="button" class="primary" id="pm-answer-next">${completed.length + 1 === visible.length ? "구성 완료 · 결과 확인" : "다음 질문"}</button></div></article>`;
     content.insertAdjacentHTML("beforeend", S.teamPreview(product, evaluation));
     const box = S.$("#pm-answer-input", content);
+    S.bindEqualInputs(box, q, product.process, answers);
     const initialAnswer = answers[q.key] || S.copy(state.answer);
     answers[q.key] = initialAnswer;
     let currentState = state;

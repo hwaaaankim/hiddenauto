@@ -81,6 +81,8 @@ public class ProductPricingService {
     Process process = process(p);
     requireReady(p, process);
     Definition definition = request.definition();
+    List<String> relationErrors = ProductPricingEngine.newRelationErrors(process, definition, read(p));
+    if (!relationErrors.isEmpty()) throw new IllegalArgumentException(String.join(" / ", relationErrors));
     requireFingerprint(p, process, definition);
     List<String> errors = ProductPricingEngine.validate(process, pricingGroups(p, process), definition);
     if (!errors.isEmpty()) throw new IllegalArgumentException(String.join(" / ", errors));
@@ -125,6 +127,9 @@ public class ProductPricingService {
 
   public Validation diagnose(Long id, com.dev.HiddenBATHAuto.dto.productmaster.ProductPricingDtos.EvaluateRequest request, boolean draft) {
     if (request == null || request.definition() == null) throw new IllegalArgumentException("검증할 가격계산식이 필요합니다.");
+    ProductMaster relationProduct = require(id);
+    List<String> relationErrors = ProductPricingEngine.newRelationErrors(process(relationProduct), request.definition(), read(relationProduct));
+    if (!relationErrors.isEmpty()) throw new IllegalArgumentException(String.join(" / ", relationErrors));
     ProductMaster p = require(id);
     Process process = process(p);
     requireReadyFast(p, process);

@@ -429,7 +429,7 @@ public class ProductStudioService {
       p.setNameTokensJson(json.write(plan.tokens()));
       addComponents(p, v);
       products.saveAndFlush(p);
-      p.setStudioProcessJson(json.write(defaultProcess(v)));
+      p.setStudioProcessJson(json.write(ProductStudioArithmetic.confirmation(defaultProcess(v), row.confirmationMessage())));
       bindInputFiles(v, actor);
       assets.attach("PRODUCT", p.getId(), row.assetIds(), actor);
       if (row.initialStock() > 0)
@@ -675,9 +675,9 @@ public class ProductStudioService {
         list(copied.inputLimits()).stream().map(l -> new InputLimit(l.key(), l.name(), l.targetKey(),
             l.fieldKeys(), l.aggregation(), l.min(), l.max(), l.sourceKey(), list(l.cases()).stream()
                 .map(c -> new LimitCase(c.key(), c.name(), list(c.conditions()).stream()
-                    .map(v -> remapFixedCondition(v, oldFixed, newFixed)).toList(), c.min(), c.max())).toList())).toList(),
+                    .map(v -> remapFixedCondition(v, oldFixed, newFixed)).toList(), c.min(), c.max())).toList(), l.equalTo())).toList(),
         list(copied.notices()).stream().map(n -> new InputNotice(n.key(), n.targetKey(), n.fieldKey(), n.message(), n.mode(),
-            list(n.conditions()).stream().map(c -> remapFixedCondition(c, oldFixed, newFixed)).toList(), n.helpDisplay())).toList());
+            list(n.conditions()).stream().map(c -> remapFixedCondition(c, oldFixed, newFixed)).toList(), n.helpDisplay())).toList(), copied.confirmationMessage());
   }
 
   private Condition remapFixedCondition(
@@ -944,7 +944,7 @@ public class ProductStudioService {
       // Ordinary name/description/FAQ/file edits do not become blocked composition edits
       // merely because the existing product is still an unfinished draft.
       nextProcess = new Process(2, ProductStudioProcessSubset.mergeQuestions(storedProcess.questions(),
-          defaultProcess(selected).questions(), false), storedProcess.rules(), storedProcess.inputLimits(), storedProcess.notices());
+          defaultProcess(selected).questions(), false), storedProcess.rules(), storedProcess.inputLimits(), storedProcess.notices(), storedProcess.confirmationMessage());
       processChanged = !json.write(storedProcess).equals(json.write(nextProcess));
     } else if (p.isNonStandard()) {
       ProductMaster proposedProduct = new ProductMaster();
@@ -1007,7 +1007,8 @@ public class ProductStudioService {
     p.setProductName(edit.productName().trim());
     p.setDescription(text(edit.description()));
     boolean retainsPricedOrder = false;
-    if (!custom) p.setStudioProcessJson(json.write(defaultProcess(selected)));
+    if (!custom) p.setStudioProcessJson(json.write(ProductStudioArithmetic.confirmation(defaultProcess(selected),
+        edit.confirmationMessage() == null ? readProcess(p).confirmationMessage() : edit.confirmationMessage())));
     else {
       Process proposed = nextProcess;
       retainsPricedOrder = pricing.getObject().isMediaOnlyProcessChange(p, proposed);
@@ -1222,7 +1223,7 @@ public class ProductStudioService {
                 q.preset(), q.helpDisplay()));
     }
     return new Process(process.schemaVersion(), normalized, list(process.rules()),
-        list(process.inputLimits()), list(process.notices()));
+        list(process.inputLimits()), list(process.notices()), process.confirmationMessage());
   }
 
   public Validation validateProcess(Long id, Process process) {
@@ -1435,7 +1436,7 @@ public class ProductStudioService {
             .ifPresent(v -> ids.addAll(v.assets().stream().map(AssetView::id).toList()));
         choices.add(
             new Choice(
-                c.key(), customer(c.labels()), null, ids.stream().distinct().toList(), c.guide(), c.helpDisplay()));
+                c.key(), customer(c.labels()), null, ids.stream().distinct().toList(), c.guide(), c.helpDisplay(), c.numericValue()));
       }
       safe.add(
           new Question(
@@ -1472,14 +1473,14 @@ public class ProductStudioService {
                               f.maxFileMB(),
                               f.guide(),
                               f.bundleKey(),
-                              list(f.assetIds()), f.helpDisplay()))
+                              list(f.assetIds()), f.helpDisplay(), f.placeholder()))
                   .toList(),
               questionAssets.stream().distinct().toList(),
               q.numberCases(),
               q.preset(), q.helpDisplay()));
     }
     return new Process(process.schemaVersion(), safe, List.of(),
-        list(process.inputLimits()), list(process.notices()));
+        list(process.inputLimits()), list(process.notices()), process.confirmationMessage());
   }
 
   private Labels customer(Labels labels) {

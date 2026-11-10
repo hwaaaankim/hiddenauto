@@ -30,11 +30,12 @@ public final class ProductStudioProcessSubset {
     List<InputLimit> limits = list(source.inputLimits()).stream()
         .filter(l -> keys.contains(l.targetKey())
             && (l.sourceKey() == null || l.sourceKey().isBlank() || keys.contains(l.sourceKey()))
-            && list(l.cases()).stream().allMatch(c -> conditionsPresent(c.conditions(), keys)))
+            && list(l.cases()).stream().allMatch(c -> conditionsPresent(c.conditions(), keys))
+            && ProductStudioArithmetic.references(l.equalTo()).stream().allMatch(t -> keys.contains(t.groupKey())))
         .toList();
     List<InputNotice> notices = list(source.notices()).stream()
         .filter(n -> keys.contains(n.targetKey()) && conditionsPresent(n.conditions(), keys)).toList();
-    return new Process(source.schemaVersion(), questions, rules, limits, notices);
+    return new Process(source.schemaVersion(), questions, rules, limits, notices, source.confirmationMessage());
   }
 
   public static boolean hasRemovedElements(Process source, Process retained) {
@@ -84,6 +85,11 @@ public final class ProductStudioProcessSubset {
         for (Condition condition : list(c.conditions()))
           checkBefore(order, byKey, condition.groupKey(), limit.targetKey(), "입력제한 " + limit.name(), issues);
     }
+    for (Question q : process.questions()) for (Choice c : list(q.choices())) if(c.numericValue()!=null)
+      for (ArithmeticToken token : ProductStudioArithmetic.references(c.numericValue().expression()))
+        checkBefore(order, byKey, token.groupKey(), q.key(), "계산용 숫자 [" + c.labels().customer() + "]", issues);
+    for (InputLimit limit : list(process.inputLimits())) for (ArithmeticToken token : ProductStudioArithmetic.references(limit.equalTo()))
+      checkBefore(order, byKey, token.groupKey(), limit.targetKey(), "합계 일치 [" + limit.name() + "]", issues);
     return issues;
   }
 

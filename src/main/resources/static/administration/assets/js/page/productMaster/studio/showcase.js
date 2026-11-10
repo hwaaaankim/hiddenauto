@@ -207,7 +207,7 @@
   S.answerText = function (q, answer = {}, assets = new Map(), audience = 'customer') {
     const audienceLabel = x => x?.labels?.[audience] || x?.labels?.customer || x?.key || '';
     if (S.isChoice(q.control))
-      return (answer.choices || []).map((key) => audienceLabel(q.choices?.find((c) => c.key === key)) || key).join(", ") || "선택 안 함";
+      return ((answer.choices || []).map((key) => audienceLabel(q.choices?.find((c) => c.key === key)) || key).join(", ") || "선택 안 함") + (answer.fields?.__numeric_value != null ? " · 계산값: " + answer.fields.__numeric_value : "");
     return (q.fields || []).filter((f) => present(answer.fields?.[f.key])).map((f) => {
       const value = answer.fields[f.key];
       const text = Array.isArray(value)
@@ -456,6 +456,7 @@
         ${(p.nameTokens || []).map((t, i) => `<div><dt>제품명 규칙 ${i + 1}</dt><dd>${S.e(groups.get(t.groupId)?.labels?.management || t.groupId)} · 구분자 ${S.e(JSON.stringify(t.before || ""))} · 앞 문자 ${S.e(JSON.stringify(t.prefix || ""))} · 뒤 문자 ${S.e(JSON.stringify(t.suffix || ""))}</dd></div>`).join("")}</dl></details>` : ""}
     </div>`;
     S.bindMedia(root);
+    if ((summary && (!quote || quote.complete)) || (!p.nonStandard && !admin)) S.confirmationTest(root.querySelector(".pm-selection-grid")?.parentElement || root, p.process);
     const context = () => ({ product: { name: p.productName, code: p.catalogCode }, productionHours: p.productionHours, unitPrice: p.unitPrice,
       selections: questions.map((q) => ({ groupKey: q.key, groupName: label(q), answer: answer(q) })), answers: summary?.answers || p.fixedAnswers || {} });
     S.$$("[data-pm-faq]", root).forEach((b) => { b.onclick = () => S.showProductFaq(faq, context); });

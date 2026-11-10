@@ -45,6 +45,7 @@ public final class ProductPricingCoverage {
       return new Validation(false, false, 0, List.copyOf(issues));
     }
     definition = ProductPricingBranches.expand(definition);
+    issues.addAll(ProductStudioArithmetic.priceRanges(process, definition));
     // A projection may omit unrelated questions, but must never hide an invalid original
     // process. The full process is checked first, including SUM bounds and unreachable rules.
     Budget budget = new Budget();
@@ -77,6 +78,12 @@ public final class ProductPricingCoverage {
       scenarios += probe.scenarios;
       hit.addAll(probe.hitTerms);
       ProductPricingValidationPlan.Bound bound = ProductPricingValidationPlan.conservativeBound(part);
+      boolean derivedQuantity=part.definition().terms().stream().anyMatch(t -> t.type()==TermType.MULTIPLY
+          && part.process().questions().stream().anyMatch(q -> q.key().equals(t.groupKey()) && ProductStudioArithmetic.numeric(q)));
+      if(derivedQuantity && (bound.unsafeIntermediate() || bound.total().compareTo(ProductPricingEngine.MAX_MONEY)>0))
+        advisories.put("derived-money:"+part.name(),new Issue("WARNING","PRICE_EXPRESSION_MONEY_REVIEW",part.name(),
+            "연동 수식의 구간 내부 금액은 대표 경계 입력보다 커질 수 있습니다. 보수적 최대 금액이 시스템 한도를 넘을 수 있으나 실제 초과로 단정하지 않습니다. 실제 입력범위·단가·배율을 확인하고 등록할 수 있습니다. 실행 중 한도 초과 금액은 차단합니다.",
+            "terms."+part.definition().terms().get(0).key()));
       // Predicate witnesses are exact for table/fixed amounts. A raw numeric quantity
       // coupled by a SUM limit can attain its product maximum inside a predicate cell.
       if (bound.sumCoupledQuantity()) {
@@ -263,6 +270,9 @@ public final class ProductPricingCoverage {
       for (Question question : process.questions()) if (checkboxFactors.contains(question.key()))
         for (Choice option : list(question.choices())) pricePredicates.add(new Condition(question.key(),
             null, Operator.EQ, List.of(option.key()), null, null, null, false, false));
+      for (Question q : process.questions()) if (ProductStudioArithmetic.numeric(q))
+        for (Choice c : q.choices()) pricePredicates.add(new Condition(q.key(), null, Operator.EQ,
+            List.of(c.key()), null, null, null, false, false));
       for (Term term : definition.terms()) {
         for (PriceAdjustment a : list(term.adjustments())) if (a.values().stream().anyMatch(AdjustmentValue::useInput) || a.above().useInput()) multipliedFields.add(a.groupKey()+":"+a.axis().fieldKey());
         pricePredicates.addAll(list(term.conditions()));
@@ -397,11 +407,11 @@ public final class ProductPricingCoverage {
     private Process withPredicates(List<Condition> predicates) {
       List<InputNotice> notices = new ArrayList<>(list(process.notices()));
       int index = 0;
-      for (Condition predicate : new LinkedHashSet<>(predicates)) notices.add(new InputNotice(
+      for (Condition predicate : new LinkedHashSet<>(predicates)) if (!ProductStudioArithmetic.VALUE.equals(predicate.fieldKey())) notices.add(new InputNotice(
           "PRICE_PROBE_" + index++, predicate.groupKey(), predicate.fieldKey(), "price validation",
           "CONDITIONAL", List.of(predicate)));
       return new Process(process.schemaVersion(), process.questions(), process.rules(),
-          process.inputLimits(), notices);
+          process.inputLimits(), notices, process.confirmationMessage());
     }
 
     private void check(Map<String, Answer> answers) {
@@ -464,7 +474,7 @@ public final class ProductPricingCoverage {
       String signature = term.key() + ":" + key;
       if (!rangeIssues.add(signature)) return;
       QuestionState state = evaluation.questions().stream().filter(s -> s.question().key().equals(term.groupKey())).findFirst().orElseThrow();
-      Field field = state.question().fields().stream().filter(f -> f.key().equals(axis.fieldKey())).findFirst().orElseThrow();
+      Field field = ProductStudioArithmetic.numeric(state.question()) ? ProductStudioArithmetic.valueField(process,state.question()) : ProductPricingEngine.pricingFields(state.question()).stream().filter(f -> f.key().equals(axis.fieldKey())).findFirst().orElseThrow();
       boolean lower = ProductPricingEngine.lowerAxis(axis);
       int at = lower ? 0 : axis.headers().size() - 1;
       String boundary = axis.headers().get(at).toPlainString();
@@ -500,7 +510,13 @@ public final class ProductPricingCoverage {
         String message = active.isEmpty()
             ? "이 입력에서는 연결한 가격 항이 모두 제외됩니다: " + names + ". 빠진 조건·구간이 아닌지 확인하세요. 예: 600 이하 다음을 602 이상으로 만들면 601이 빠집니다. 의도한 무료 분기는 0원 항으로 명시할 수 있습니다."
             : "같은 입력에 " + active.size() + "개 항이 동시에 적용되어 모두 더해집니다: " + names
-                + ". 구간별 대체 가격이면 경계·선택 조건을 겹치지 않게 수정하세요. 예: 600 이하 / 600 이상은 600에서 중복됩니다. 기본금+추가금이면 정상입니다.";
+                + ". 구간별 대체 가격이면 경계·선택 조건을 겹치지 않게 수정하세요. 예: 600 이하 / 600 이상은 600에서 중복됩니다. 기본금+추가금이면 정상입니다. 0원 항은 다른 항의 금액을 취소하지 않습니다. 무료 대체 조건을 원하면 하나의 조건별 계산 안에서 분리하세요.";
+        if(active.size()>1) {
+          Set<String> activeKeys=active.stream().map(Term::key).collect(Collectors.toSet());
+          List<TermResult> addends=calculation.terms().stream().filter(t -> activeKeys.contains(t.key()) && t.amount()!=null).toList();
+          message += " 이 재현 입력의 항별 금액: " + addends.stream().map(t -> t.name()+" "+t.amount().toPlainString()+"원").collect(Collectors.joining(" + "))
+              + " = " + addends.stream().map(TermResult::amount).reduce(BigDecimal.ZERO,BigDecimal::add).toPlainString()+"원.";
+        }
         advisories.put(signature, new Issue("WARNING", code, scope.label(), message + " 실제 재현 입력: " + example(evaluation.answers())));
       }
     }

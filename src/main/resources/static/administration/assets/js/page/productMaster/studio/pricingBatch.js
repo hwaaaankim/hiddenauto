@@ -106,7 +106,7 @@
     }
     function rowHtml(row) {
       const numeric = row.kind !== 'choice' || !['SKIP', 'FIXED'].includes(row.mode), source = sources[row.source];
-      const allowed = row.kind === 'pair' ? ['SKIP', 'MATRIX_2D'] : ['SKIP', 'FIXED', ...(row.kind !== 'choice' || sources.length ? ['MULTIPLY', 'MATRIX_1D', ...(row.kind === 'choice' && sources.some(s => s.bundle.fields.length >= 2) ? ['MATRIX_2D'] : [])] : [])];
+      const allowed = group()?.control === 'CHECKBOX' ? ['SKIP','FIXED'] : row.kind === 'pair' ? ['SKIP', 'MATRIX_2D'] : ['SKIP', 'FIXED', ...(row.kind !== 'choice' || sources.length ? ['MULTIPLY', 'MATRIX_1D', ...(row.kind === 'choice' && sources.some(s => s.bundle.fields.length >= 2) ? ['MATRIX_2D'] : [])] : [])];
       let controls = `<label><span>계산 방식</span><select data-batch-mode="${row.id}">${allowed.map(v => opt(v, row.kind === 'choice' && v === 'FIXED' ? '고정·숫자 범위별 금액' : types[v], row.mode)).join('')}</select></label>`;
       if (row.mode === 'SKIP') controls += '<div class="pms-control-field"><span class="pms-field-label">설정 안내</span><p class="pm-batch-control-note">기존 항은 유지됩니다. 새로 추가할 항목의 계산 방식을 선택하세요.</p></div>';
       else {

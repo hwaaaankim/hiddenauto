@@ -60,7 +60,7 @@ public final class ProductStudioCompositionPolicy {
 
   private static Process merge(Process retained, Process defaults, boolean reorder) {
     return new Process(2, ProductStudioProcessSubset.mergeQuestions(retained.questions(), defaults.questions(), reorder),
-        retained.rules(), retained.inputLimits(), retained.notices());
+        retained.rules(), retained.inputLimits(), retained.notices(), retained.confirmationMessage());
   }
 
   private static Assessment assess(Process candidate, Process retained, Set<Long> existing,
@@ -70,7 +70,7 @@ public final class ProductStudioCompositionPolicy {
     // Only newly added, independent questions are pending. Existing unfinished questions are not
     // silently replaced by dummy choices/fields to make validation pass.
     Process projection = new Process(candidate.schemaVersion(), candidate.questions().stream()
-        .filter(q -> existing.contains(q.groupId())).toList(), candidate.rules(), candidate.inputLimits(), candidate.notices());
+        .filter(q -> existing.contains(q.groupId())).toList(), candidate.rules(), candidate.inputLimits(), candidate.notices(), candidate.confirmationMessage());
     Map<String, Answer> oldFixed = fixedFor(retained, beforeFixed), newFixed = fixedFor(projection, afterFixed);
     Validation validation = validate(projection, newFixed);
     boolean unchanged = projection.equals(retained) && oldFixed.equals(newFixed);

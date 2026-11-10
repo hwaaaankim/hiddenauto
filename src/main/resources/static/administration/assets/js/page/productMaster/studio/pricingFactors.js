@@ -138,7 +138,7 @@
       if (group?.control !== 'NUMBER' || !source) throw Error('수량·배율로 사용할 숫자 입력 항목을 선택해 주세요.');
       created = [{ ...base(), type: 'MULTIPLY', amount: null, rates: { [fieldKey]: '1' } }]; aggregation = 'EXACT_ONE';
     } else if (mode === 'CHOICE') {
-      if (!['RADIO', 'CHECKBOX'].includes(group?.control) || !group.choices?.length) throw Error('배수를 연결할 선택형 질문을 선택해 주세요.');
+      if (!['RADIO'].includes(group?.control) || !group.choices?.length) throw Error('배수를 연결할 선택형 질문을 선택해 주세요.');
       if (group.control === 'CHECKBOX' && !['SUM', 'PRODUCT'].includes(aggregation)) throw Error('체크박스에서 여러 옵션을 선택했을 때 값을 더할지 곱할지 직접 선택해 주세요.');
       if (group.control === 'RADIO') aggregation = 'EXACT_ONE';
       created = group.choices.map(choice => ({ ...base(), name: (title + ' · ' + label(choice)).slice(0, 120), amount: F.value(values[choice.key]), choiceKeys: [choice.key] }));
@@ -379,7 +379,7 @@
   };
   F.sourceAvailability = (term, terms, groups, process = {}) => {
     const numeric = groups.filter(g => g.control === 'NUMBER' && g.bundles?.some(b => b.fields?.length));
-    const choices = groups.filter(g => ['RADIO', 'CHECKBOX'].includes(g.control) && g.choices?.length);
+    const choices = groups.filter(g => ['RADIO'].includes(g.control) && g.choices?.length);
     const byGroup = new Map(groups.map(g => [g.groupKey, g]));
     const byQuestion = new Map((process.questions || []).map(q => [q.key, q]));
     const validSource = t => {
@@ -403,7 +403,7 @@
     return { numeric, choices, existing };
   };
   F.open = ({ term, terms, groups, process, diagnose, apply, onTest, linkKey = null }) => {
-    const initial = S.copy(terms), existing = F.links(term).find(l => l.key === linkKey), sourceGroups = groups.filter(g => ['NUMBER', 'RADIO', 'CHECKBOX'].includes(g.control));
+    const initial = S.copy(terms), existing = F.links(term).find(l => l.key === linkKey), sourceGroups = groups.filter(g => ['NUMBER', 'RADIO'].includes(g.control));
     const available = F.sourceAvailability(term, initial, sourceGroups, process), descriptor = F.sourceDescription(term, groups, process);
     const currentLinks = F.links(term).filter(l => l.key !== linkKey);
     const adjustments = term.adjustments || [], adjustedResult = descriptor.result + (adjustments.length ? '에 조건별 계산(' + adjustments.map(a => a.name).join(' → ') + ')까지 적용한 금액' : '');

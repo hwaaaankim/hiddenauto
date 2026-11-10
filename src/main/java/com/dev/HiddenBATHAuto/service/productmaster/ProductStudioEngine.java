@@ -153,6 +153,8 @@ public final class ProductStudioEngine {
           text(f.namePart()).length() <= 160 && text(f.unit()).length() <= 20,
           "필드 이름 구성 문자 또는 단위가 너무 깁니다.");
       if (type == Control.NUMBER) {
+        require(text(f.placeholder()).isBlank() || text(f.placeholder()).length() <= 40
+            && text(f.placeholder()).matches("-?[0-9]+(?:\\.[0-9]+)?"), "placeholder는 빈칸 또는 숫자로 입력해 주세요.");
         for (BigDecimal n : Arrays.asList(f.min(), f.max(), f.step()))
           require(
               n == null || (n.abs().compareTo(new BigDecimal("1000000000")) <= 0 && n.scale() <= 3),
@@ -351,6 +353,7 @@ public final class ProductStudioEngine {
       }
     }
     if (issues.isEmpty()) ProductStudioConstraints.structure(process, issues);
+    if (issues.isEmpty()) issues.addAll(ProductStudioArithmetic.structure(process));
     return issues;
   }
 
@@ -434,9 +437,20 @@ public final class ProductStudioEngine {
           List<String> selected = list(raw.choices()).stream().filter(allowed::contains).distinct().toList();
           if (q.control() == Control.RADIO && selected.size() > 1) { errors.add("하나만 선택해 주세요."); selected = List.of(); }
           clean = new Answer(selected, Map.of());
+          if (ProductStudioArithmetic.numeric(q) && selected.size() == 1) {
+            try {
+              String selectedKey = selected.get(0);
+              Choice selectedChoice = q.choices().stream().filter(c -> c.key().equals(selectedKey)).findFirst().orElseThrow();
+              BigDecimal value = ProductStudioArithmetic.evaluate(selectedChoice.numericValue().expression(), normalized);
+              if (value.signum() < 0) throw new IllegalArgumentException("계산용 숫자값은 0 이상이어야 합니다.");
+              clean = new Answer(selected, Map.of(ProductStudioArithmetic.VALUE, value));
+              allowed.add(ProductStudioArithmetic.VALUE);
+            } catch (IllegalArgumentException ex) { errors.add("의존성 충돌: " + ex.getMessage()); }
+          }
           if (required && selected.isEmpty()) errors.add("보기를 선택해 주세요.");
         } else {
           Map<String, Object> values = new LinkedHashMap<>();
+          raw = ProductStudioConstraints.completePair(projection.sums(), raw);
           for (Field f : projection.fields()) {
             Object value = map(raw.fields()).get(f.key());
             if (absent(value)) {
@@ -559,6 +573,15 @@ public final class ProductStudioEngine {
     }
   }
 
+  public static List<Issue> questionStructure(Question q) {
+    if(q==null)return List.of(new Issue("ERROR","QUESTION","질문","질문 정보를 입력해 주세요."));
+    List<Choice> choices=list(q.choices()).stream().map(c -> c==null?null:new Choice(c.key(),c.labels(),c.namePart(),c.assetIds(),c.guide(),c.helpDisplay())).toList();
+    Question shape=new Question(q.key(),q.groupId(),q.labels(),q.control(),q.fixed(),q.visible(),q.required(),q.requireRule(),q.question(),q.guide(),choices,q.fields(),q.assetIds(),q.numberCases(),q.preset(),q.helpDisplay());
+    List<Issue> issues=new ArrayList<>(structure(new Process(2,List.of(shape),List.of())));
+    if(issues.isEmpty())issues.addAll(ProductStudioArithmetic.localStructure(q));
+    return issues;
+  }
+
   public static Validation validate(Process process, Map<String, Answer> fixed) {
     return validate(process, fixed, Set.of());
   }
@@ -604,6 +627,7 @@ public final class ProductStudioEngine {
     issues.addAll(validateNumberCases(process));
     issues.addAll(ProductStudioConstraints.coverage(process));
     if (!issues.isEmpty()) return new Validation(false, false, 0, issues);
+    issues.addAll(ProductStudioArithmetic.advisories(process));
     Probe probe = new Probe(process, fixed, issues, pending, observer);
     probe.walk(0, new LinkedHashMap<>(map(fixed)));
     if (!probe.exhaustive)
@@ -710,6 +734,9 @@ public final class ProductStudioEngine {
         Map<String, Answer> next = new LinkedHashMap<>(answers);
         next.put(q.key(), a);
         QuestionState tested = evaluateChecked(process, next).questions().get(index);
+        if (ProductStudioArithmetic.numeric(q)) for(String error : tested.errors())
+          if(error.contains("의존성 충돌")) issue(issues,"ERROR","NUMERIC_CHOICE_PATH",label(q),
+              error + " 선택: " + a.choices() + " / " + example(process, answers),q.key());
         if (tested.errors().isEmpty()) {
           hasValid = true;
           if (observer != null) observer.accept(tested, next);
@@ -844,7 +871,7 @@ public final class ProductStudioEngine {
       if (q.control() == Control.RADIO) {
         for (String key : allowed) {
           Answer a = new Answer(List.of(key), Map.of());
-          projected.putIfAbsent(signature(predicates, a), a);
+          projected.putIfAbsent(ProductStudioArithmetic.numeric(q) ? key : signature(predicates, a), a);
         }
       } else {
         Map<String, List<String>> optionClasses = new LinkedHashMap<>();
@@ -876,6 +903,13 @@ public final class ProductStudioEngine {
     rows.add(new LinkedHashMap<>());
     for (Field f : list(q.fields())) {
       List<Object> domain = domain(q, f, p);
+      if (q.control() == Control.NUMBER && ProductStudioArithmetic.references(p, q.key(), f.key())
+          && f.min() != null && f.max() != null) {
+        BigDecimal step = f.step() == null ? BigDecimal.ONE : f.step();
+        BigDecimal middle = f.max().subtract(f.min()).divide(step.multiply(new BigDecimal("2")), 0, RoundingMode.FLOOR)
+            .multiply(step).add(f.min());
+        if (!domain.contains(middle)) domain.add(middle);
+      }
       if (!required || !f.required()) domain.add(null);
       List<Condition> predicates =
           predicates(p).stream()
@@ -884,7 +918,7 @@ public final class ProductStudioEngine {
       Map<String, Object> projected = new LinkedHashMap<>();
       for (Object value : domain) {
         Answer a = value == null ? empty() : new Answer(List.of(), Map.of(f.key(), value));
-        String signature = signature(predicates, a);
+        String signature = signature(predicates, a) + (ProductStudioArithmetic.references(p, q.key(), f.key()) ? ":" + value : "");
         if (!projected.containsKey(signature)) projected.put(signature, value);
       }
       domain = new ArrayList<>(projected.values());

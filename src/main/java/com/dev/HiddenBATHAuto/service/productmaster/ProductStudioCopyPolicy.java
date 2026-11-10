@@ -25,6 +25,9 @@ public final class ProductStudioCopyPolicy {
       if (!missing.isEmpty()) reasons.add("분기 ‘" + rule.name() + "’에 필요한 질문 제외: "
           + missing.stream().map(k -> label(source, k)).collect(Collectors.joining(", ")));
     }
+    for (Question q : retained.questions()) for (Choice c : list(q.choices())) if(c.numericValue()!=null)
+      for (ArithmeticToken t : ProductStudioArithmetic.references(c.numericValue().expression())) if(!keys.contains(t.groupKey()))
+        reasons.add("계산용 숫자 ‘" + c.labels().customer() + "’에 필요한 앞 질문 ‘" + label(source, t.groupKey()) + "’도 함께 복사해 주세요.");
     int cases = 0;
     for (Question q : retained.questions()) {
       Question original = source.questions().stream().filter(x -> x.key().equals(q.key())).findFirst().orElseThrow();
@@ -59,12 +62,16 @@ public final class ProductStudioCopyPolicy {
       Process defaults) {
     if (!options) return defaults;
     Process retained = ProductStudioProcessSubset.retain(source, included);
+    Set<String> retainedKeys = retained.questions().stream().map(Question::key).collect(Collectors.toSet());
+    for (Question q : retained.questions()) for (Choice c : list(q.choices())) if(c.numericValue()!=null)
+      if(ProductStudioArithmetic.references(c.numericValue().expression()).stream().anyMatch(t -> !retainedKeys.contains(t.groupKey())))
+        throw new IllegalArgumentException("계산용 숫자가 참조하는 앞 질문을 함께 복사하거나 옵션 복사를 해제해 주세요: " + c.labels().customer());
     if (branches) return retained;
     // A question formerly shown/required only through a branch must be usable in the linear draft.
     List<Question> questions = retained.questions().stream().map(q -> new Question(q.key(), q.groupId(),
         q.labels(), q.control(), q.fixed(), q.fixed() ? q.visible() : true, q.required(), false,
         q.question(), q.guide(), q.choices(), q.fields(), q.assetIds(), q.numberCases(), q.preset(), q.helpDisplay())).toList();
-    return new Process(retained.schemaVersion(), questions, List.of(), retained.inputLimits(), retained.notices());
+    return new Process(retained.schemaVersion(), questions, List.of(), retained.inputLimits(), retained.notices(), retained.confirmationMessage());
   }
 
   /** Every direct numeric/choice/condition/correction reference, including nested price branches. */
@@ -94,10 +101,14 @@ public final class ProductStudioCopyPolicy {
         list(r.conditions()).forEach(c -> add(keys, c.groupKey()));
       for (InputLimit l : list(process.inputLimits())) if (keys.contains(l.targetKey())) {
         add(keys, l.sourceKey());
+        ProductStudioArithmetic.references(l.equalTo()).forEach(t -> add(keys, t.groupKey()));
         list(l.cases()).forEach(c -> list(c.conditions()).forEach(v -> add(keys, v.groupKey())));
       }
-      for (Question q : list(process.questions())) if (keys.contains(q.key()))
+      for (Question q : list(process.questions())) if (keys.contains(q.key())) {
         list(q.numberCases()).forEach(c -> list(c.conditions()).forEach(v -> add(keys, v.groupKey())));
+        for (Choice c : list(q.choices())) if (c.numericValue() != null)
+          ProductStudioArithmetic.references(c.numericValue().expression()).forEach(t -> add(keys, t.groupKey()));
+      }
       for (InputNotice n : list(process.notices())) if (keys.contains(n.targetKey()))
         list(n.conditions()).forEach(c -> add(keys, c.groupKey()));
       changed = keys.size() != count;
@@ -141,7 +152,7 @@ public final class ProductStudioCopyPolicy {
     if (before == null || after == null) return false;
     java.util.function.Function<Process, Object> canonicalOrder = p -> ProductPricingCompatibility.canonical(
         ProductStudioMedia.withoutProcessAssets(new Process(p.schemaVersion(), p.questions().stream()
-            .sorted(Comparator.comparing(Question::key)).toList(), p.rules(), p.inputLimits(), p.notices())));
+            .sorted(Comparator.comparing(Question::key)).toList(), p.rules(), p.inputLimits(), p.notices(), p.confirmationMessage())));
     return Objects.equals(canonicalOrder.apply(before), canonicalOrder.apply(after));
   }
 

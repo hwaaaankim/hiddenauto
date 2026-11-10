@@ -59,7 +59,30 @@ public final class ProductStudioDtos {
       Integer maxFileMB,
       String guide,
       String bundleKey,
+      List<String> assetIds, String helpDisplay, String placeholder) {
+    public Field(
+      String key,
+      Labels labels,
+      String namePart,
+      boolean required,
+      boolean allowNegative,
+      BigDecimal min,
+      BigDecimal max,
+      BigDecimal step,
+      Integer minLength,
+      Integer maxLength,
+      String format,
+      String unit,
+      List<String> extensions,
+      Integer minFiles,
+      Integer maxFiles,
+      Integer maxFileMB,
+      String guide,
+      String bundleKey,
       List<String> assetIds, String helpDisplay) {
+      this(key, labels, namePart, required, allowNegative, min, max, step, minLength, maxLength, format, unit, extensions, minFiles, maxFiles, maxFileMB, guide, bundleKey, assetIds, helpDisplay, null);
+    }
+
     public Field(
       String key,
       Labels labels,
@@ -130,8 +153,17 @@ public final class ProductStudioDtos {
     }
   }
 
+  /** Infix tokens; no script evaluation. References use stable question/field keys. */
+  public record ArithmeticToken(String kind, String groupKey, String fieldKey, BigDecimal value) {}
+  public record NumericValue(List<ArithmeticToken> expression) {}
+
   public record Choice(
+      String key, Labels labels, String namePart, List<String> assetIds, String guide, String helpDisplay, NumericValue numericValue) {
+    public Choice(
       String key, Labels labels, String namePart, List<String> assetIds, String guide, String helpDisplay) {
+      this(key, labels, namePart, assetIds, guide, helpDisplay, null);
+    }
+
     public Choice(
       String key, Labels labels, String namePart, List<String> assetIds, String guide) {
       this(key, labels, namePart, assetIds, guide, "ALWAYS");
@@ -369,7 +401,18 @@ public final class ProductStudioDtos {
       List<String> assetIds,
       BigDecimal productionHours,
       BigDecimal unitPrice,
+      Long faqTopicId, String confirmationMessage) {
+    public RegistrationRow(
+      String key,
+      String productName,
+      int initialStock,
+      List<String> assetIds,
+      BigDecimal productionHours,
+      BigDecimal unitPrice,
       Long faqTopicId) {
+      this(key, productName, initialStock, assetIds, productionHours, unitPrice, faqTopicId, null);
+    }
+
     public RegistrationRow(
         String key, String productName, int initialStock, List<String> assetIds) {
       this(key, productName, initialStock, assetIds, null, null, null);
@@ -389,7 +432,21 @@ public final class ProductStudioDtos {
       List<String> assetIds,
       BigDecimal productionHours,
       BigDecimal unitPrice,
+      Long faqTopicId, String confirmationMessage) {
+    public ProductEdit(
+      Long version,
+      String productName,
+      String description,
+      String status,
+      List<Variant> variants,
+      List<NameToken> nameTokens,
+      List<String> assetIds,
+      BigDecimal productionHours,
+      BigDecimal unitPrice,
       Long faqTopicId) {
+      this(version, productName, description, status, variants, nameTokens, assetIds, productionHours, unitPrice, faqTopicId, null);
+    }
+
     public ProductEdit(
         Long version,
         String productName,
@@ -543,7 +600,13 @@ public final class ProductStudioDtos {
 
   public record InputLimit(
       String key, String name, String targetKey, List<String> fieldKeys, String aggregation,
-      BigDecimal min, BigDecimal max, String sourceKey, List<LimitCase> cases) {}
+      BigDecimal min, BigDecimal max, String sourceKey, List<LimitCase> cases, List<ArithmeticToken> equalTo) {
+    public InputLimit(
+      String key, String name, String targetKey, List<String> fieldKeys, String aggregation,
+      BigDecimal min, BigDecimal max, String sourceKey, List<LimitCase> cases) {
+      this(key, name, targetKey, fieldKeys, aggregation, min, max, sourceKey, cases, null);
+    }
+}
 
   public record InputNotice(
       String key, String targetKey, String fieldKey, String message, String mode,
@@ -555,7 +618,13 @@ public final class ProductStudioDtos {
 
   public record Process(
       int schemaVersion, List<Question> questions, List<Rule> rules,
+      List<InputLimit> inputLimits, List<InputNotice> notices, String confirmationMessage) {
+    public Process(
+      int schemaVersion, List<Question> questions, List<Rule> rules,
       List<InputLimit> inputLimits, List<InputNotice> notices) {
+      this(schemaVersion, questions, rules, inputLimits, notices, null);
+    }
+
     public Process(int schemaVersion, List<Question> questions, List<Rule> rules) {
       this(schemaVersion, questions, rules, List.of(), List.of());
     }

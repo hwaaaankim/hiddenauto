@@ -190,7 +190,7 @@ public class ProductStorefrontService {
     }
     return new Field(f.key(), f.labels(), f.namePart(), required, f.allowNegative(), min, max,
         f.step(), f.minLength(), f.maxLength(), f.format(), f.unit(), f.extensions(), f.minFiles(),
-        f.maxFiles(), f.maxFileMB(), f.guide(), f.bundleKey(), f.assetIds(), f.helpDisplay());
+        f.maxFiles(), f.maxFileMB(), f.guide(), f.bundleKey(), f.assetIds(), f.helpDisplay(), f.placeholder());
   }
 
   private StandardQuestion question(GroupView g, List<ProductMaster> scope,

@@ -60,14 +60,14 @@ final class ProductStudioConstraints {
             "입력제한은 개별값(EACH) 또는 합계(SUM) 방식입니다.");
         if ("SUM".equals(l.aggregation())) {
           check(wanted.size() >= 2, "합계 제한은 입력 필드 두 개 이상이 필요합니다.");
-          Set<String> bundles = wanted.stream().map(k -> text(fieldsByKey(target).get(k).bundleKey()))
-              .collect(Collectors.toSet());
-          check(bundles.size() == 1 && !bundles.contains(""), "합계 대상 필드는 하나의 묶음으로 그룹화해 주세요.");
-          String bundle = bundles.iterator().next();
-          check(target.fields().stream().filter(f -> bundle.equals(f.bundleKey())).allMatch(f -> wanted.contains(f.key())),
-              "합계 제한에는 해당 묶음의 모든 필드를 포함해 주세요.");
+
         }
-        if (text(l.sourceKey()).isBlank()) {
+        if (l.equalTo() != null) {
+          check("SUM".equals(l.aggregation()), "합계 일치는 합계 방식에서만 설정할 수 있습니다.");
+          check(text(l.sourceKey()).isBlank() && list(l.cases()).isEmpty() && l.min() == null && l.max() == null,
+              "합계 일치식과 최소·최대 조건은 같은 제한에 섞을 수 없습니다. 별도 제한으로 추가해 주세요.");
+          ProductStudioArithmetic.validate(p, l.targetKey(), l.equalTo());
+        } else if (text(l.sourceKey()).isBlank()) {
           bounds(l.min(), l.max());
           check(list(l.cases()).isEmpty(), "직접 입력 제한에는 앞 질문의 조건을 넣을 수 없습니다.");
         } else {
@@ -95,6 +95,13 @@ final class ProductStudioConstraints {
           check(sourceFields.size() <= 1, "한 입력제한은 앞 숫자 질문의 한 필드를 기준으로 구간을 나눠 주세요.");
         }
       } catch (IllegalArgumentException ex) { error(issues, "INPUT_LIMIT", at, ex.getMessage()); }
+    }
+    List<InputLimit> pairs=list(p.inputLimits()).stream().filter(l -> l!=null && l.equalTo()!=null && list(l.fieldKeys()).size()==2).toList();
+    for(int i=0;i<pairs.size();i++) for(int j=0;j<i;j++) {
+      InputLimit a=pairs.get(i), b=pairs.get(j);
+      if(Objects.equals(a.targetKey(),b.targetKey()) && !Collections.disjoint(a.fieldKeys(),b.fieldKeys()))
+        error(issues,"INPUT_LIMIT",a.name(),"두 항목 자동계산 제한의 필드가 겹칩니다: " + b.name()
+            + ". 같은 필드는 하나의 합계 일치식에서 자동계산하도록 설정해 주세요.");
     }
     keys.clear();
     for (InputNotice n : list(p.notices())) {
@@ -193,7 +200,7 @@ final class ProductStudioConstraints {
   static Field bound(Field f, BigDecimal min, BigDecimal max) {
     return new Field(f.key(), f.labels(), f.namePart(), f.required(), f.allowNegative(), min, max,
         f.step(), f.minLength(), f.maxLength(), f.format(), f.unit(), f.extensions(), f.minFiles(),
-        f.maxFiles(), f.maxFileMB(), f.guide(), f.bundleKey(), f.assetIds(), f.helpDisplay());
+        f.maxFiles(), f.maxFileMB(), f.guide(), f.bundleKey(), f.assetIds(), f.helpDisplay(), f.placeholder());
   }
   private static BigDecimal greater(BigDecimal a, BigDecimal b) { return a == null ? b : b == null ? a : a.max(b); }
   private static BigDecimal lesser(BigDecimal a, BigDecimal b) { return a == null ? b : b == null ? a : a.min(b); }
@@ -211,6 +218,12 @@ final class ProductStudioConstraints {
         errors.add("의존성 충돌: 합계 제한 [" + l.name() + "]의 일부 필드만 표시됩니다. 묶음 전체를 분기에 연결해 주세요."); continue;
       }
       BigDecimal min = l.min(), max = l.max();
+      if (l.equalTo() != null) {
+        try {
+          min = max = ProductStudioArithmetic.evaluate(l.equalTo(), answers);
+          if (min.stripTrailingZeros().scale() > 3) throw new IllegalArgumentException("합계 일치 결과는 소수 셋째 자리 이하여야 합니다. 식 또는 입력 간격을 확인해 주세요.");
+        } catch (IllegalArgumentException ex) { errors.add("의존성 충돌: 합계 제한 [" + l.name() + "] " + ex.getMessage()); continue; }
+      }
       if (!text(l.sourceKey()).isBlank()) {
         Question source = p.questions().stream().filter(x -> x.key().equals(l.sourceKey())).findFirst().orElseThrow();
         if (!visited.contains(l.sourceKey())) {
@@ -327,39 +340,61 @@ final class ProductStudioConstraints {
     }
     Map<String, Object> values = new LinkedHashMap<>();
     row.forEach((k, c) -> { if (c.min() != null) values.put(k, c.min()); });
-    Map<String, List<Bound>> bundles = new LinkedHashMap<>();
-    for (Bound b : sums) bundles.computeIfAbsent(String.join("|", new TreeSet<>(b.limit().fieldKeys())), k -> new ArrayList<>()).add(b);
-    for (List<Bound> group : bundles.values()) {
-      List<Cell> cells = group.get(0).limit().fieldKeys().stream().map(row::get).toList();
-      long present = cells.stream().filter(c -> c.min() != null).count();
-      if (present == 0) continue;
-      if (present != cells.size()) return;
-      BigDecimal min = null, max = null;
-      for (Bound b : group) { min = greater(min, b.min()); max = lesser(max, b.max()); }
-      if (min != null && max != null && min.compareTo(max) > 0) return;
-      if (!solve(cells, 0, BigDecimal.ZERO, min, max, values, budget)) return;
+    List<Bound> active = new ArrayList<>();
+    for(Bound b:sums) {
+      long present=b.limit().fieldKeys().stream().filter(k -> row.get(k).min()!=null).count();
+      if(present==0)continue;
+      if(present!=b.limit().fieldKeys().size())return;
+      active.add(b);
     }
+    if(!joint(new ArrayList<>(row.values()),active,0,values,budget))return;
     result.add(new Answer(List.of(), values));
   }
-  private static boolean solve(List<Cell> cells, int index, BigDecimal total, BigDecimal min,
-      BigDecimal max, Map<String, Object> values, SearchBudget budget) {
-    if (++budget.used > MAX_SCENARIOS) { budget.exceeded = true; return false; }
-    if (index == cells.size()) return (min == null || total.compareTo(min) >= 0) && (max == null || total.compareTo(max) <= 0);
-    Cell cell = cells.get(index);
-    BigDecimal restMin = BigDecimal.ZERO, restMax = BigDecimal.ZERO;
-    for (int i = index + 1; i < cells.size(); i++) { restMin = restMin.add(cells.get(i).min()); restMax = restMax.add(cells.get(i).max()); }
-    BigDecimal lo = cell.min(), hi = cell.max();
-    if (min != null) lo = lo.max(min.subtract(total).subtract(restMax));
-    if (max != null) hi = hi.min(max.subtract(total).subtract(restMin));
-    BigDecimal step = cell.field().step() == null ? BigDecimal.ONE : cell.field().step();
-    lo = lo.subtract(cell.min()).divide(step, 0, RoundingMode.CEILING).multiply(step).add(cell.min());
-    for (BigDecimal value = lo; value.compareTo(hi) <= 0; value = value.add(step)) {
-      values.put(cell.field().key(), value);
-      if (solve(cells, index + 1, total.add(value), min, max, values, budget)) return true;
-      if (budget.exceeded) return false;
+  /** Solve all sum constraints together, including partially overlapping selections. */
+  private static boolean joint(List<Cell> cells, List<Bound> sums, int index,
+      Map<String, Object> values, SearchBudget budget) {
+    if (++budget.used > MAX_SCENARIOS) {budget.exceeded=true;return false;}
+    if(index==cells.size()) return sumErrors(sums,new Answer(List.of(),values),true).isEmpty();
+    Cell cell=cells.get(index);
+    if(cell.min()==null) return joint(cells,sums,index+1,values,budget);
+    BigDecimal lo=cell.min(),hi=cell.max();
+    for(Bound bound:sums) if(bound.limit().fieldKeys().contains(cell.field().key())) {
+      BigDecimal restMin=BigDecimal.ZERO,restMax=BigDecimal.ZERO;
+      for(String key:bound.limit().fieldKeys()) if(!key.equals(cell.field().key())) {
+        Cell other=cells.stream().filter(c -> c.field().key().equals(key)).findFirst().orElseThrow();
+        if(other.min()==null) return false;
+        int position=cells.indexOf(other);
+        if(position<index) {BigDecimal n=number(values.get(key));restMin=restMin.add(n);restMax=restMax.add(n);}
+        else {restMin=restMin.add(other.min());restMax=restMax.add(other.max());}
+      }
+      if(bound.min()!=null)lo=lo.max(bound.min().subtract(restMax));
+      if(bound.max()!=null)hi=hi.min(bound.max().subtract(restMin));
     }
-    return false;
+    BigDecimal step=cell.field().step()==null?BigDecimal.ONE:cell.field().step();
+    lo=lo.subtract(cell.min()).divide(step,0,RoundingMode.CEILING).multiply(step).add(cell.min());
+    for(BigDecimal n=lo;n.compareTo(hi)<=0;n=n.add(step)) {
+      values.put(cell.field().key(),n);
+      if(joint(cells,sums,index+1,values,budget))return true;
+      if(budget.exceeded)return false;
+    }
+    values.remove(cell.field().key());return false;
   }
+
+  /** Fill only the missing partner; two supplied values must still pass exact validation. */
+  static Answer completePair(List<Bound> sums, Answer raw) {
+    Map<String, Object> fields = new LinkedHashMap<>(map(raw.fields()));
+    for (Bound b : sums) if (b.limit().equalTo() != null && b.limit().fieldKeys().size() == 2
+        && b.min() != null && b.max() != null && b.min().compareTo(b.max()) == 0) {
+      String a = b.limit().fieldKeys().get(0), c = b.limit().fieldKeys().get(1);
+      boolean hasA = fields.get(a) != null && !fields.get(a).toString().isBlank();
+      boolean hasC = fields.get(c) != null && !fields.get(c).toString().isBlank();
+      if (hasA == hasC) continue;
+      try { fields.put(hasA ? c : a, b.min().subtract(number(fields.get(hasA ? a : c)))); }
+      catch (RuntimeException ignored) { /* Normal numeric validation reports malformed user input. */ }
+    }
+    return new Answer(raw.choices(), fields);
+  }
+
   static List<String> sumErrors(List<Bound> sums, Answer answer, boolean required) {
     List<String> errors = new ArrayList<>();
     for (Bound b : sums) {

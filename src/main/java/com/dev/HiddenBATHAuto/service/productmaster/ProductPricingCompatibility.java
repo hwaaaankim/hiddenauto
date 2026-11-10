@@ -58,7 +58,11 @@ public final class ProductPricingCompatibility {
       Map<String, Object> result = new TreeMap<>();
       try {
         for (java.lang.reflect.RecordComponent component : value.getClass().getRecordComponents())
-          if (!"helpDisplay".equals(component.getName())) result.put(component.getName(), canonical(component.getAccessor().invoke(value)));
+          if (!Set.of("helpDisplay", "placeholder", "confirmationMessage").contains(component.getName())) {
+            Object item = component.getAccessor().invoke(value);
+            if (item == null && Set.of("numericValue", "equalTo").contains(component.getName())) continue;
+            result.put(component.getName(), canonical(item));
+          }
       } catch (ReflectiveOperationException ex) {
         throw new IllegalStateException("가격 설정의 구조를 읽을 수 없습니다.", ex);
       }
@@ -116,7 +120,7 @@ public final class ProductPricingCompatibility {
           f.required(), f.allowNegative(), f.min(), f.max(), f.step(), f.minLength(), f.maxLength(), f.format(), f.unit(),
           f.extensions(), f.minFiles(), f.maxFiles(), f.maxFileMB(), null,
           text(f.bundleKey()).isBlank() ? null : keys.b(q.key(), f.bundleKey()), List.of())).toList();
-      List<Choice> choices = list(q.choices()).stream().map(c -> new Choice(keys.c(q.key(), c.key()), c.labels(), c.namePart(), List.of(), null)).toList();
+      List<Choice> choices = list(q.choices()).stream().map(c -> new Choice(keys.c(q.key(), c.key()), c.labels(), c.namePart(), List.of(), null, c.helpDisplay(), c.numericValue() == null ? null : new NumericValue(mapExpression(c.numericValue().expression(), keys)))).toList();
       List<NumberCase> cases = new ArrayList<>();
       for (int i = 0; i < list(q.numberCases()).size(); i++) {
         NumberCase c = q.numberCases().get(i);
@@ -142,14 +146,19 @@ public final class ProductPricingCompatibility {
         cases.add(new LimitCase("case" + j, "case" + j, list(c.conditions()).stream().map(keys::condition).toList(), c.min(), c.max()));
       }
       limits.add(new InputLimit("limit" + i, "limit" + i, keys.q(limit.targetKey()), list(limit.fieldKeys()).stream().map(k -> keys.f(limit.targetKey(), k)).toList(),
-          limit.aggregation(), limit.min(), limit.max(), keys.q(limit.sourceKey()), cases));
+          limit.aggregation(), limit.min(), limit.max(), keys.q(limit.sourceKey()), cases, mapExpression(limit.equalTo(), keys)));
     }
     List<InputNotice> notices = new ArrayList<>();
     for (int i = 0; i < list(process.notices()).size(); i++) {
       InputNotice n = process.notices().get(i);
       notices.add(new InputNotice("notice" + i, keys.q(n.targetKey()), keys.f(n.targetKey(), n.fieldKey()), n.message(), n.mode(), list(n.conditions()).stream().map(keys::condition).toList()));
     }
-    return new Process(process.schemaVersion(), questions, rules, limits, notices);
+    return new Process(process.schemaVersion(), questions, rules, limits, notices, process.confirmationMessage());
+  }
+
+  private static List<ArithmeticToken> mapExpression(List<ArithmeticToken> expression, KeyMap keys) {
+    return expression == null ? null : expression.stream().map(t -> new ArithmeticToken(t.kind(),
+        keys.q(t.groupKey()), keys.f(t.groupKey(), t.fieldKey()), t.value())).toList();
   }
 
   private static Answer mapAnswer(String question, Answer answer, KeyMap keys) {

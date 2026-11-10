@@ -205,7 +205,8 @@
             'min="0" step="0.01"',
           )
         : "") +
-      S.select("연결할 FAQ 주제", "faqTopicId", m.faqTopicId ?? "", faqOptions);
+      S.select("연결할 FAQ 주제", "faqTopicId", m.faqTopicId ?? "", faqOptions) +
+      (!nonStandard ? S.textarea("마지막 확인창 문구 (선택사항 · 빈칸이면 바로 진행)", "confirmationMessage", m.confirmationMessage || "", 2000) : "");
 
     let selected = detail
       ? S.copy(product.variants)
@@ -243,6 +244,7 @@
       productionHours: product?.productionHours ?? 0,
       unitPrice: product?.unitPrice ?? 0,
       faqTopicId: product?.faqTopicId ?? null,
+      confirmationMessage: product?.process?.confirmationMessage || "",
     };
     root.innerHTML =
       '<div class="pms-triple"><section class="pms-panel"><div class="pms-panel-title"><h2>구성 가능한 그룹</h2></div><div class="pms-toolbar"><input id="pms-palette-filter" placeholder="그룹 검색"></div><div id="pms-palette" class="pms-palette"></div></section><section class="pms-panel"><div class="pms-panel-title"><div><h2>제품 구성 · 질문 순서</h2><small>그룹을 드래그하여 추가·순서 변경 · 필수 3개 포함 최대 100개</small></div><button id="pms-name-rule">제품명 구성</button></div><div id="pms-selected" class="pms-selected"></div></section><section class="pms-panel"><div class="pms-panel-title"><h2>' +
@@ -543,6 +545,7 @@
               version: product.version,
               ...model,
               faqTopicId: model.faqTopicId ? Number(model.faqTopicId) : null,
+              confirmationMessage: model.confirmationMessage || "",
               variants: selected,
               nameTokens: tokens,
               assetIds: productFiles.map((f) => f.id),
@@ -654,6 +657,7 @@
               productionHours: model.productionHours,
               unitPrice: nonStandard ? null : model.unitPrice,
               faqTopicId: model.faqTopicId ? Number(model.faqTopicId) : null,
+              confirmationMessage: model.confirmationMessage || "",
               files: [],
               removed: false,
             })),
@@ -716,6 +720,7 @@
             productionHours: targets[0]?.productionHours ?? 0,
             unitPrice: targets[0]?.unitPrice ?? 0,
             faqTopicId: targets[0]?.faqTopicId ?? null,
+            confirmationMessage: targets[0]?.confirmationMessage || "",
           };
           const d = S.dialog(
             "생산기간 · 단가 · FAQ 연결",
@@ -730,6 +735,7 @@
             targets.forEach((r) =>
               Object.assign(r, m, {
                 faqTopicId: m.faqTopicId ? Number(m.faqTopicId) : null,
+                confirmationMessage: m.confirmationMessage || "",
               }),
             );
             d.close();
@@ -815,6 +821,7 @@
                 productionHours: r.productionHours,
                 unitPrice: nonStandard ? null : r.unitPrice,
                 faqTopicId: r.faqTopicId ? Number(r.faqTopicId) : null,
+                confirmationMessage: r.confirmationMessage || "",
                 assetIds: r.files.map((f) => f.id),
               })),
             });
