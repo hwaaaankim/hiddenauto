@@ -46,7 +46,7 @@
     const position = questions.findIndex(q => q.key === owner.groupKey);
     const sources = questions.slice(0, position).filter(q => q.control === "RADIO" && q.choices?.length && !q.fixed);
     // Existing advanced/numeric conditions remain editable even without a simple radio source.
-    if (!sources.length && !questions.slice(0, position).some(q => q.control === "NUMBER") && !draft.branches?.length) return S.toast("앞에 조건으로 사용할 숫자 또는 단일선택 질문을 등록해 주세요.");
+    if (!sources.length && !questions.slice(0, position).some(q => ["NUMBER","CHECKBOX"].includes(q.control)) && !draft.branches?.length) return S.toast("앞에 조건으로 사용할 숫자 또는 선택형 질문을 등록해 주세요.");
     draft.branches ??= []; draft.conditions ??= []; draft.match = "ALL";
     let step = 0, checking = false;
     const completed = new Set(draft.branches.filter(b => { try { S.pricingBatch.validate(b); return true; } catch { return false; } }).map(b => b.key));
