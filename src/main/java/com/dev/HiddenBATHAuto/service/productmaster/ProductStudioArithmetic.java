@@ -221,7 +221,8 @@ public final class ProductStudioArithmetic {
     List<Issue> result=new ArrayList<>();
     for(var term:definition.terms()) {
       Question owner=process.questions().stream().filter(q -> q.key().equals(term.groupKey())).findFirst().orElse(null);
-      if(owner==null || !numeric(owner) || term.xAxis()==null || !VALUE.equals(term.xAxis().fieldKey()) || term.xAxis().usesEdgeOutside())continue;
+      var valueAxis = term.xAxis() != null && VALUE.equals(term.xAxis().fieldKey()) ? term.xAxis() : term.yAxis();
+      if(owner==null || !numeric(owner) || valueAxis==null || !VALUE.equals(valueAxis.fieldKey()) || valueAxis.usesEdgeOutside())continue;
       Process scoped=process;
       if("ALL".equals(term.match())) {
         List<Question> questions=new ArrayList<>();
@@ -260,8 +261,8 @@ public final class ProductStudioArithmetic {
           continue;
         }
         try {
-          if(!term.xAxis().zeroAt(range.min()))ProductPricingEngine.index(term.xAxis(),range.min());
-          if(!term.xAxis().zeroAt(range.max()))ProductPricingEngine.index(term.xAxis(),range.max());
+          if(!valueAxis.zeroAt(range.min()))ProductPricingEngine.index(valueAxis,range.min());
+          if(!valueAxis.zeroAt(range.max()))ProductPricingEngine.index(valueAxis,range.max());
         }catch(IllegalArgumentException ex) {
           result.add(new Issue("WARNING","PRICE_EXPRESSION_RANGE_REVIEW",term.name(),"선택 ‘"+option.labels().customer()+"’의 계산식 범위 검증: 앞 숫자 질문의 최소·최대와 이 항의 조건으로 계산한 보수적 범위는 "
               +range.min().stripTrailingZeros().toPlainString()+" ~ "+range.max().stripTrailingZeros().toPlainString()

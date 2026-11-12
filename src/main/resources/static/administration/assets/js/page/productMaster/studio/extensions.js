@@ -3,7 +3,10 @@
   const esc = S.e,
     path = (id) => "/admin/product-master/products/" + id;
   S.copyProductDialog = async function (product) {
-    const p = await S.request("/products/" + product.id);
+    const [p, categories, candidates, assignments] = await Promise.all([
+      S.request("/products/" + product.id), S.request("/subcategories"),
+      S.request("/subcategories/candidates"), S.request("/products/" + product.id + "/category-members")
+    ]);
     const optional = p.variants.filter(v => !S.isBase(S.group(v.groupId)));
     const fixed = S.copy(p.variants.filter(v => S.isBase(S.group(v.groupId))));
     fixed.forEach(v => { v.valueId = v.valueIds[0]; });
@@ -19,7 +22,7 @@
         return S.select(g.labels.management, "fixed." + i + ".valueId", String(v.valueId),
           Object.fromEntries(g.values.filter(o => o.active || v.valueIds.includes(o.id)).map(o => [o.id, o.labels.management])));
       }).join("")}</div>
-      <section class="pms-section"><h3>2. 가져올 질문·그룹</h3>
+      <div data-copy-members></div><section class="pms-section"><h3>2. 가져올 질문·그룹</h3>
       <p class="pms-help">기본은 전체 선택입니다. 선택에서 제외한 질문이 분기나 가격계산의 조건·대상에 필요한지 서버에서 확인합니다. 조건 일부만 잘라 적용 범위를 바꾸지 않습니다.</p>
       <div class="pms-actions"><button type="button" data-copy-select-all>전체 선택</button><button type="button" data-copy-select-none>비필수 질문 모두 제외</button></div>
       <div class="pms-check-grid">${optional.map((v, i) => {
@@ -37,7 +40,18 @@
       { foot: '<button type="button" data-copy class="primary" disabled>검증 중…</button>', onClose: () => { controller?.abort(); S.dirty = originalDirty; } });
     const m = { productName: p.productName + " 복사", fixed };
     S.bind(d, m, path => { if (path.startsWith("fixed.")) refreshPlan(); });
-    S.$$('[data-copy-subcategory]', d).forEach(input => input.onchange=()=>{ const index=Number(input.dataset.copySubcategory); fixed[index].valueIds=S.$$(`[data-copy-subcategory="${index}"]:checked`,d).map(el=>Number(el.value));refreshPlan(); });
+    S.$$('[data-copy-subcategory]', d).forEach(input => input.onchange=()=>{ const index=Number(input.dataset.copySubcategory); fixed[index].valueIds=S.$$(`[data-copy-subcategory="${index}"]:checked`,d).map(el=>Number(el.value));paintMembers();refreshPlan(); });
+    function categoryRows() {
+      const selected = fixed.find(v => S.group(v.groupId)?.role === "SUBCATEGORY");
+      return categories.filter(c => c.kind && selected?.valueIds.includes(c.id));
+    }
+    function paintMembers() {
+      const host = S.$("[data-copy-members]", d);
+      host.innerHTML = categoryRows().map(c => S.categoryChoices(c,
+        candidates.filter(m => m.kind === c.kind && c.members.includes(m.id)), assignments[c.id] || [])).join("");
+      S.bindCategoryChoices(host, (id, members) => { assignments[id] = members; });
+    }
+    paintMembers();
     function selectedIds() { return S.$$("[data-copy-include]:checked", d).map(el => Number(el.value)); }
     function payload() {
       return { productName: m.productName, sourceVersion: p.version, includedGroupIds: selectedIds(),
@@ -86,6 +100,11 @@
     S.$("[data-copy]", d).onclick = e => S.run(e.currentTarget, async () => {
       if (!plan) throw Error("복사할 구성 검증이 끝난 뒤 진행해 주세요.");
       const selected = payload();
+      selected.categoryMembers = Object.fromEntries(categoryRows().map(c => {
+        const members = assignments[c.id] || [];
+        if (!members.length) throw Error(c.name + "에 배정할 멤버를 선택해 주세요.");
+        return [c.id, members];
+      }));
       const saved = await S.request(`/products/${p.id}/copy`, "POST", selected);
       const lines = ["제품 복사를 완료했습니다. 원제품 #" + p.id + " → 새 제품 #" + saved.id,
         `비규격 옵션 ${selected.copyOptions ? "유지" : "제외"} · 프로세스 분기 ${selected.copyBranches ? "유지" : "제외"} · 가격계산식 ${selected.copyPricing ? "유지" : "제외"} · 테스트 입력 ${selected.copyTestAnswers ? "유지" : "제외"}`,

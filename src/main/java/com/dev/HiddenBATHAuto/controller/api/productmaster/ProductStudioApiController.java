@@ -27,6 +27,30 @@ public class ProductStudioApiController {
   private final ProductStorefrontService storefront;
   private final com.dev.HiddenBATHAuto.repository.productmaster.ProductMasterRepository products;
 
+  private final SubcategoryMembers categoryMembers;
+
+  @GetMapping("/subcategories")
+  public ApiResponse<?> subcategories() { return ApiResponse.ok(categoryMembers.categories()); }
+  @GetMapping("/subcategories/candidates")
+  public ApiResponse<?> candidates() { return ApiResponse.ok(categoryMembers.candidates()); }
+  @PutMapping("/products/{id}/subcategories")
+  public ApiResponse<?> updateCategories(@PathVariable Long id,@RequestBody ProductStudioService.CategoryUpdate edit,Principal actor) {
+    service.updateCategories(id,edit,actor.getName());
+    return ApiResponse.ok(true);
+  }
+  @GetMapping("/products/{id}/category-members")
+  public ApiResponse<?> assigned(@PathVariable Long id) { return ApiResponse.ok(categoryMembers.assigned(id)); }
+  @PutMapping("/subcategories/{id}")
+  public ApiResponse<?> saveCategory(@PathVariable Long id,@RequestBody SubcategoryMembers.Edit edit, Principal actor) {
+    categoryMembers.edit(id,edit,actor.getName());
+    return ApiResponse.ok(true);
+  }
+  @DeleteMapping("/subcategories/{id}")
+  public ApiResponse<?> deleteCategory(@PathVariable Long id,Principal actor) {
+    attributes.deleteValue(id,actor.getName(),true);
+    return ApiResponse.ok(true);
+  }
+
   @GetMapping("/summary")
   public ApiResponse<java.util.Map<String, Long>> summary() {
     return ApiResponse.ok(

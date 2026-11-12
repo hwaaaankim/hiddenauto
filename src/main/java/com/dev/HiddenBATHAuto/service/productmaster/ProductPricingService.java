@@ -117,7 +117,9 @@ public class ProductPricingService {
     // An explicit draft can test one term while editing. Only the stored formula must
     // still meet participation requirements after a shared group's price flag changes.
     if (request.definition() == null) requireSavedParticipation(p, process, definition);
-    return calculate(p, process, definition, request.answers(), request.definition() != null);
+    Map<String, Answer> answers = new LinkedHashMap<>(map(request.answers()));
+    answers.putAll(studio.fixedAnswers(p));
+    return ProductPricingEngine.preview(process, pricingGroups(p, process), definition, answers, request.definition() != null);
   }
 
   /** Draft diagnostics use the same process and price interpreters as saving and actual pricing. */
@@ -391,6 +393,20 @@ public class ProductPricingService {
         ? ProductPricingCompatibility.reconcileProcessMedia(current, before, proposed, fixed)
         : new Definition(current.schemaVersion(), fingerprint(proposed, fixed), current.terms(), current.testAnswers());
     if (updated != current) product.setStudioPriceJson(json.write(updated));
+  }
+
+  void reclassify(ProductMaster product, Process before, Process after, Map<String,Answer> oldFixed, String category) {
+    Definition current = read(product);
+    if (current == null) return;
+    if (!Objects.equals(current.schemaFingerprint(),fingerprint(before,oldFixed)))
+      throw new IllegalStateException("기존 가격식의 프로세스가 변경되었습니다. 가격식 검증 후 중분류를 변경해 주세요.");
+    Map<String,Answer> fixed=studio.fixedAnswers(product);
+    Map<String,Answer> tests=new LinkedHashMap<>(map(current.testAnswers()));
+    if(tests.containsKey(category)) tests.put(category,fixed.get(category));
+    Definition revised=new Definition(current.schemaVersion(),fingerprint(after,fixed),current.terms(),tests);
+    Validation check=ProductPricingCoverage.validateRegistration(after,pricingGroups(product,after),revised,fixed,false);
+    if (!check.valid() || !check.exhaustive()) throw new IllegalArgumentException("기존 가격식과 중분류 변경이 충돌합니다. " + check.issues());
+    product.setStudioPriceJson(json.write(revised));
   }
 
   public void assertProductChangeAllowed(ProductMaster product, List<Variant> proposed) {

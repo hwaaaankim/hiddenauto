@@ -7,6 +7,7 @@
   S.$("#pms-title").textContent =
     {
       groups: "그룹·옵션 관리",
+      subcategories: "중분류 관리",
       builder: "제품 조합 생성",
       standard: "규격 제품 관리",
       custom: "비규격 제품 관리",
@@ -46,7 +47,8 @@
       S.notice(e.message);
     }
     await S.catalog();
-    if (mode === "groups") await S.groupsPage(work);
+    if (mode === "subcategories") await S.subcategoriesPage(work);
+    else if (mode === "groups") await S.groupsPage(work);
     else if (mode === "builder") await S.builderPage(work);
     else if (mode === "detail") {
       const p = await S.request("/products/" + root.dataset.productId);

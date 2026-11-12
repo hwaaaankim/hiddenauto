@@ -376,7 +376,10 @@ public final class ProductStudioDtos {
       List<NameToken> nameTokens,
       int offset,
       int limit,
-      boolean nonStandard) {
+      boolean nonStandard, Map<Long,List<Long>> categoryMembers) {
+    public GenerateRequest(List<GroupSelection> groups,List<NameToken> nameTokens,int offset,int limit,boolean nonStandard) {
+      this(groups,nameTokens,offset,limit,nonStandard,null);
+    }
     public GenerateRequest(
         List<GroupSelection> groups, List<NameToken> nameTokens, int offset, int limit) {
       this(groups, nameTokens, offset, limit, false);
@@ -432,7 +435,11 @@ public final class ProductStudioDtos {
       List<String> assetIds,
       BigDecimal productionHours,
       BigDecimal unitPrice,
-      Long faqTopicId, String confirmationMessage) {
+      Long faqTopicId, String confirmationMessage, Map<Long,List<Long>> categoryMembers) {
+    public ProductEdit(Long version,String productName,String description,String status,List<Variant> variants,
+        List<NameToken> nameTokens,List<String> assetIds,BigDecimal productionHours,BigDecimal unitPrice,Long faqTopicId,String confirmationMessage) {
+      this(version,productName,description,status,variants,nameTokens,assetIds,productionHours,unitPrice,faqTopicId,confirmationMessage,null);
+    }
     public ProductEdit(
       Long version,
       String productName,

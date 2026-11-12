@@ -423,3 +423,22 @@ body.hb-store[data-motion=reduced] * { transition-duration:0ms!important;animati
 /* Multi-line product candidates must not inherit the shared one-line button height. */
 .hb-store .hb-model-choices>button{height:auto;min-height:112px;white-space:normal;line-height:1.6;justify-content:center}
 .hb-store .hb-model-choices>button>strong,.hb-store .hb-model-choices>button>span,.hb-store .hb-model-choices>button>small{flex:0 0 auto;display:block;width:100%;margin:0;white-space:normal;overflow-wrap:anywhere}
+
+@media (prefers-reduced-motion: no-preference) {
+  body.hb-store:not([data-motion=reduced]) .hb-loading:not([hidden]) .hb-loader-track {
+    position: relative;
+    overflow: hidden;
+  }
+  body.hb-store:not([data-motion=reduced]) .hb-loading:not([hidden]) .hb-loader-track::after {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 30%;
+    background: linear-gradient(90deg, transparent, var(--hb-gold), transparent);
+    animation: hb-request-active 1.3s linear infinite;
+  }
+}
+@keyframes hb-request-active {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(335%); }
+}

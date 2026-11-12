@@ -153,6 +153,8 @@ final class ProductPricingValidationPlan {
       Set<String> needed = new LinkedHashSet<>();
       for (Term term : selected) {
         needed.add(term.groupKey());
+        for (Axis axis : new Axis[]{term.xAxis(), term.yAxis()})
+          if (axis != null && axis.linked()) needed.add(axis.sourceGroup(term.groupKey()));
         list(term.conditions()).forEach(c -> needed.add(c.groupKey()));
         if (term.optionTarget() != null) needed.add(term.optionTarget().groupKey());
         if (term.optionPricing() != null) needed.add(term.optionPricing().groupKey());

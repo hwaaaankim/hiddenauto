@@ -17,6 +17,7 @@ public final class ProductStudioEngine {
 
   public static final int MAX_QUESTIONS = 100;
   public static final int MAX_RULES = 200;
+  static final int MAX_VALIDATION_VISITS = 100_000;
   public static final int MAX_SCENARIOS = 20_000;
   private static final Set<String> FORMATS = Set.of("ANY", "EMAIL", "PHONE", "ALPHANUMERIC");
 
@@ -58,6 +59,8 @@ public final class ProductStudioEngine {
   private static void issue(
       List<Issue> issues, String severity, String code, String at, String message, String target) {
     if (issues.size() >= 200) {
+      if ("ERROR".equals(severity) && issues.stream().noneMatch(i -> "ERROR".equals(i.severity())))
+        issues.set(199, new Issue(severity, code, at, message, target));
       if (issues.size() == 200)
         issues.add(
             new Issue(
@@ -366,11 +369,15 @@ public final class ProductStudioEngine {
   }
 
   private static Evaluation evaluateChecked(Process process, Map<String, Answer> submitted) {
+    return evaluatePrefix(process, submitted, process.questions().size());
+  }
+
+  static Evaluation evaluatePrefix(Process process, Map<String, Answer> submitted, int count) {
     Map<String, Answer> normalized = new LinkedHashMap<>();
     List<QuestionState> states = new ArrayList<>();
     List<String> allErrors = new ArrayList<>();
     Set<String> visited = new HashSet<>(), hidden = new HashSet<>(), hiddenFields = new HashSet<>();
-    for (Question q : process.questions()) {
+    for (Question q : process.questions().subList(0, count)) {
       boolean visible = q.visible(), required = q.required();
       LinkedHashSet<String> allowed = (choice(q.control())
           ? list(q.choices()).stream().map(Choice::key) : list(q.fields()).stream().map(Field::key))
@@ -636,13 +643,13 @@ public final class ProductStudioEngine {
           "ERROR",
           "LIMIT",
           "검증 범위",
-          "검증 한도 20,000개 상태를 초과했습니다. 조건 또는 질문을 나눠 다시 검증해 주세요. 미검증 상태로 등록완료할 수 없습니다.");
+          "검증 가능한 상태 또는 질문별 입력 조합 한도를 초과했습니다. 조건 또는 질문을 나눠 다시 검증해 주세요. 미검증 상태로 등록완료할 수 없습니다.");
     for (Rule r : list(process.rules()))
-      if (!probe.hitRules.contains(r.key()))
+      if (probe.exhaustive && !probe.hitRules.contains(r.key()))
         issue(issues, "ERROR", "UNREACHABLE_RULE", r.name(), "허용된 입력 범위에서 이 규칙에 도달하지 못했습니다.",
             r.actions().isEmpty() ? null : r.actions().get(0).targetKey());
     for (Question q : process.questions())
-      if (!q.fixed() && !probe.visibleQuestions.contains(q.key()))
+      if (probe.exhaustive && !q.fixed() && !probe.visibleQuestions.contains(q.key()))
         issue(issues, "WARNING", "UNREACHABLE_QUESTION", label(q),
             "이 질문이 표시되는 경로를 찾지 못했습니다. ‘" + label(q) + "’의 기본 표시 여부와 이 질문을 대상으로 하는 표시(SHOW) 분기를 확인하세요. "
                 + (list(process.rules()).stream().flatMap(r -> list(r.actions()).stream()).noneMatch(a -> q.key().equals(a.targetKey()) && a.effect() == Effect.SHOW)
@@ -661,21 +668,41 @@ public final class ProductStudioEngine {
     final List<Issue> issues;
     final Set<String> hitRules = new HashSet<>(), visibleQuestions = new HashSet<>();
     final Set<String> pending;
+    final Set<List<String>> arithmeticFailures = new HashSet<>();
     final java.util.function.BiConsumer<QuestionState, Map<String, Answer>> observer;
+    // A later question can distinguish earlier histories only through its rule,
+    // input-limit or arithmetic sources. Binding diagnostics need one witness per visible bundle.
+    final Map<String, Integer> lastUse = new HashMap<>();
+    final Map<Integer, Set<List<QuestionState>>> seen = new HashMap<>();
     long visits, leaves;
     boolean exhaustive = true;
 
-    Probe(Process p, Map<String, Answer> f, List<Issue> i, Set<String> pending,
+    Probe(Process p, Map<String, Answer> f, List<Issue> issueList, Set<String> pending,
         java.util.function.BiConsumer<QuestionState, Map<String, Answer>> observer) {
       process = p;
       fixed = map(f);
-      issues = i;
+      issues = issueList;
       this.pending = pending;
       this.observer = observer;
+      for (int i = 0; i < p.questions().size(); i++) {
+        Question target = p.questions().get(i);
+        final int index = i;
+        java.util.function.Consumer<String> use = key -> lastUse.merge(key, index, Math::max);
+        for (Rule rule : list(p.rules()))
+          if (list(rule.actions()).stream().anyMatch(a -> target.key().equals(a.targetKey())))
+            list(rule.conditions()).forEach(c -> use.accept(c.groupKey()));
+        for (InputLimit limit : list(p.inputLimits())) if (target.key().equals(limit.targetKey())) {
+          if (limit.sourceKey() != null) use.accept(limit.sourceKey());
+          ProductStudioArithmetic.references(limit.equalTo()).forEach(t -> use.accept(t.groupKey()));
+          list(limit.cases()).forEach(c -> list(c.conditions()).forEach(v -> use.accept(v.groupKey())));
+        }
+        for (Choice choice : list(target.choices())) if (choice.numericValue() != null)
+          ProductStudioArithmetic.references(choice.numericValue().expression()).forEach(t -> use.accept(t.groupKey()));
+      }
     }
 
     void walk(int index, Map<String, Answer> answers) {
-      if (++visits > MAX_SCENARIOS) {
+      if (++visits > MAX_VALIDATION_VISITS) {
         exhaustive = false;
         return;
       }
@@ -683,7 +710,12 @@ public final class ProductStudioEngine {
         leaves++;
         return;
       }
-      Evaluation evaluation = evaluateChecked(process, answers);
+      Evaluation evaluation = evaluatePrefix(process, answers, index + 1);
+      {
+        List<QuestionState> relevant = evaluation.questions().subList(0, index).stream()
+            .filter(row -> lastUse.getOrDefault(row.question().key(), -1) >= index).toList();
+        if (!seen.computeIfAbsent(index, ignored -> new HashSet<>()).add(relevant)) return;
+      }
       QuestionState state = evaluation.questions().get(index);
       Question q = state.question();
       hitRules.addAll(state.matchedRules());
@@ -733,10 +765,10 @@ public final class ProductStudioEngine {
       for (Answer a : samples) {
         Map<String, Answer> next = new LinkedHashMap<>(answers);
         next.put(q.key(), a);
-        QuestionState tested = evaluateChecked(process, next).questions().get(index);
+        QuestionState tested = evaluatePrefix(process, next, index + 1).questions().get(index);
         if (ProductStudioArithmetic.numeric(q)) for(String error : tested.errors())
-          if(error.contains("의존성 충돌")) issue(issues,"ERROR","NUMERIC_CHOICE_PATH",label(q),
-              error + " 선택: " + a.choices() + " / " + example(process, answers),q.key());
+          if(error.contains("의존성 충돌") && arithmeticFailures.add(List.of(q.key(), String.valueOf(a.choices()), error))) issue(issues,"ERROR","NUMERIC_CHOICE_PATH",label(q),
+              error + " 선택: " + answerExample(q, a) + " / " + example(process, answers) + " 참조한 숫자 필드의 허용 범위와 선택지 계산식을 확인해 주세요.",q.key());
         if (tested.errors().isEmpty()) {
           hasValid = true;
           if (observer != null) observer.accept(tested, next);

@@ -35,6 +35,9 @@ public final class ProductPricingDtos {
         List<Threshold> operators, OutsidePolicy outsidePolicy) {
       this(fieldKey, operator, headers, operators, outsidePolicy, null);
     }
+    public boolean linked() { return fieldKey != null && fieldKey.contains(":"); }
+    public String sourceGroup(String owner) { return linked() ? fieldKey.substring(0, fieldKey.indexOf(':')) : owner; }
+    public String sourceField() { return linked() ? fieldKey.substring(fieldKey.indexOf(':') + 1) : fieldKey; }
     public boolean zeroAt(BigDecimal value) { return zeroThrough != null && value.compareTo(zeroThrough) <= 0; }
     public Axis(String fieldKey, Threshold operator, List<BigDecimal> headers, List<Threshold> operators) {
       this(fieldKey, operator, headers, operators, null);

@@ -38,6 +38,7 @@ public class ProductStudioService {
   private final ProductMasterCodeService codes;
   private final ProductInventoryService inventory;
   private final ProductStudioDeletionService deletions;
+  private final SubcategoryMembers categoryMembers;
   private final ProductStudioJson json;
   // Deferred to avoid the pricing -> studio -> pricing constructor dependency cycle.
   private final ObjectProvider<ProductPricingService> pricing;
@@ -429,6 +430,7 @@ public class ProductStudioService {
       p.setNameTokensJson(json.write(plan.tokens()));
       addComponents(p, v);
       products.saveAndFlush(p);
+      categoryMembers.save(p.getId(), request.generation().categoryMembers() == null ? Map.of() : request.generation().categoryMembers());
       p.setStudioProcessJson(json.write(ProductStudioArithmetic.confirmation(defaultProcess(v), row.confirmationMessage())));
       bindInputFiles(v, actor);
       assets.attach("PRODUCT", p.getId(), row.assetIds(), actor);
@@ -600,6 +602,14 @@ public class ProductStudioService {
   public ProductView copyProduct(Long id, String name, List<Variant> fixed,
       List<Long> includedGroupIds, Long sourceVersion, boolean copyOptions, boolean copyBranches,
       boolean copyPricing, boolean copyTestAnswers, String actor) {
+    return copyProduct(id, name, fixed, includedGroupIds, sourceVersion, copyOptions, copyBranches,
+        copyPricing, copyTestAnswers, null, actor);
+  }
+
+  @Transactional
+  public ProductView copyProduct(Long id, String name, List<Variant> fixed,
+      List<Long> includedGroupIds, Long sourceVersion, boolean copyOptions, boolean copyBranches,
+      boolean copyPricing, boolean copyTestAnswers, Map<Long,List<Long>> members, String actor) {
     if (sourceVersion == null)
       throw new IllegalArgumentException("원제품의 최신 구성을 확인할 수 있도록 복사 창을 다시 열어 주세요.");
     ProductMaster source = products.findForUpdate(id).orElseThrow();
@@ -642,6 +652,12 @@ public class ProductStudioService {
     p.setLegacyUnallocatedStock(0);
     addComponents(p, merged);
     products.saveAndFlush(p);
+    if (members == null) {
+      categoryMembers.copy(source.getId(), p.getId());
+      categoryMembers.save(p.getId(), categoryMembers.assigned(p.getId()));
+    } else {
+      categoryMembers.save(p.getId(), members);
+    }
     // The JSON is stored on the new product. Question/option keys are scoped to that product,
     // so retaining them preserves every internal branch without sharing editable option rows.
     Process retainedProcess = setup.process();
@@ -704,6 +720,68 @@ public class ProductStudioService {
 
   public List<Variant> variants(ProductMaster p) {
     return json.list(p.getStudioDefinitionJson(), Variant.class);
+  }
+
+  public record CategoryUpdate(long version,List<Long> valueIds,Map<Long,List<Long>> members) {}
+
+  @Transactional
+  public void updateCategories(long id, CategoryUpdate edit, String actor) {
+    ProductMaster product = products.findForUpdate(id).orElseThrow();
+    ProductStudioAttributeService.version(edit.version(), product.getRowVersion());
+    List<Variant> old = variants(product);
+    Variant category = old.stream().filter(v -> attributes.require(v.groupId()).getSystemRole() == ProductAttributeRole.SUBCATEGORY)
+        .findFirst().orElseThrow(() -> new IllegalArgumentException("중분류 그룹이 없는 제품입니다."));
+    List<Long> ids = List.copyOf(edit.valueIds());
+    if (ids.isEmpty() || new HashSet<>(ids).size()!=ids.size()) throw new IllegalArgumentException("중분류를 중복 없이 선택해 주세요.");
+    if (!new HashSet<>(category.valueIds()).equals(new HashSet<>(ids))) {
+      ProductAttributeGroup group = attributes.require(category.groupId());
+      Set<Long> available = group.getValues().stream().filter(v -> v.isActive() || category.valueIds().contains(v.getId()))
+          .map(ProductAttributeValue::getId).collect(Collectors.toSet());
+      if (!available.containsAll(ids)) throw new IllegalArgumentException("사용할 수 없는 중분류가 포함되어 있습니다.");
+      Variant replacement = new Variant(group.getId(),ids,Map.of());
+      List<Variant> selected = old.stream().map(v -> v.groupId().equals(group.getId()) ? replacement : v).toList();
+      Process before = readProcess(product);
+      Map<String,Answer> previousFixed = fixedAnswers(product);
+      if (!product.isNonStandard()) {
+        String hash = identity(selected,false);
+        ProductMaster duplicate = duplicates(List.of(hash)).get(hash);
+        if (duplicate!=null && !duplicate.getId().equals(id)) throw new IllegalStateException("같은 구성이 이미 등록되어 있습니다. 제품 #" + duplicate.getId());
+        product.setStudioIdentity(hash);
+        product.setProductCode("PM2|" + hash);
+        product.setConfigurationHash(codes.configurationHash(product.getProductCode()));
+      }
+      product.getComponents().removeIf(c -> c.getGroup().getId().equals(group.getId()));
+      products.flush();
+      addComponents(product,List.of(replacement));
+      int order=0;
+      for (Variant variant:selected) for (ProductComponent c:product.getComponents())
+        if (variant.groupId().equals(c.getGroup().getId())) c.setSortOrder(order++);
+      Question updated = defaultProcess(List.of(replacement)).questions().get(0);
+      Process after = new Process(before.schemaVersion(),before.questions().stream().map(q -> q.groupId().equals(group.getId()) ? updated : q).toList(),
+          before.rules(),before.inputLimits(),before.notices(),before.confirmationMessage());
+      product.setStudioDefinitionJson(json.write(selected));
+      product.setStudioProcessJson(json.write(after));
+      if (product.getStatus()!=ProductMasterStatus.DRAFT) {
+        Validation check=validateProcess(product,after);
+        if (!check.valid() || !check.exhaustive()) throw new IllegalArgumentException("중분류 변경과 기존 질문 연결이 충돌합니다. " + check.issues());
+      } else if (list(before.rules()).stream().flatMap(r -> list(r.conditions()).stream()).anyMatch(c -> updated.key().equals(c.groupKey())))
+        throw new IllegalStateException("중분류를 사용하는 분기가 있습니다. 구성 수정에서 분기 연결을 확인해 주세요.");
+      pricing.getObject().reclassify(product,before,after,previousFixed,updated.key());
+      for (ProductActual actual : actuals.findByProductIdOrderByIdDesc(id)) {
+        Map<String,Answer> answers=json.read(actual.getAnswersJson(),new com.fasterxml.jackson.core.type.TypeReference<Map<String,Answer>>(){});
+        answers.put(updated.key(), fixedAnswers(product).get(updated.key()));
+        Evaluation result=ProductStudioEngine.evaluate(after,answers);
+        if(!result.complete() || !Objects.equals(result.answers(),answers) && !json.write(ProductStudioExtensionService.canonicalSpec(result.answers(),json))
+            .equals(json.write(ProductStudioExtensionService.canonicalSpec(answers,json))))
+          throw new IllegalStateException("실 제품 #" + actual.getId() + "의 기존 사양에 영향을 주는 중분류 변경입니다.");
+        actual.setAnswersJson(json.write(result.answers()));
+        actual.setSpecHash(codes.configurationHash(json.write(ProductStudioExtensionService.canonicalSpec(result.answers(),json))));
+      }
+    }
+    product.setUpdatedBy(actor);
+    product.setUpdatedAt(LocalDateTime.now());
+    products.flush();
+    categoryMembers.save(id,Objects.requireNonNull(edit.members()));
   }
 
   public ProductView detail(Long id) {
@@ -923,6 +1001,7 @@ public class ProductStudioService {
       p.setUpdatedAt(LocalDateTime.now());
       assets.attach("PRODUCT", id, edit.assetIds(), actor);
       products.flush();
+      categoryMembers.save(id,edit.categoryMembers());
       return view(p, true);
     }
     lockCustomGroups(list(edit.variants()));
@@ -1032,6 +1111,7 @@ public class ProductStudioService {
     p.setUpdatedAt(LocalDateTime.now());
     assets.attach("PRODUCT", id, edit.assetIds(), actor);
     products.flush();
+    categoryMembers.save(id,edit.categoryMembers() == null ? categoryMembers.assigned(id) : edit.categoryMembers());
     if (compositionReview != null && p.getStatus() == ProductMasterStatus.DRAFT && processChanged
         && !compositionReview.processRequired())
       compositionReview = new CompositionReview(compositionReview.outcome(), true,

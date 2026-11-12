@@ -199,18 +199,19 @@ public class ProductStudioExtensionService {
     return actuals.findByProductIdOrderByIdDesc(parent).stream().map(this::actualView).toList();
   }
 
-  private Object canonical(Object v) {
+  private Object canonical(Object v) { return canonicalSpec(v,json); }
+  static Object canonicalSpec(Object v,ProductStudioJson json) {
     if (v instanceof Map<?, ?> m) {
       Map<String, Object> x = new TreeMap<>();
-      m.forEach((k, val) -> x.put(k.toString(), canonical(val)));
+      m.forEach((k, val) -> x.put(k.toString(), canonicalSpec(val,json)));
       return x;
     }
     if (v instanceof Answer a)
-      return Map.of("choices", canonical(list(a.choices())), "fields", canonical(map(a.fields())));
+      return Map.of("choices", canonicalSpec(list(a.choices()),json), "fields", canonicalSpec(map(a.fields()),json));
     if (v instanceof Number n)
       return new BigDecimal(n.toString()).stripTrailingZeros().toPlainString();
     if (v instanceof List<?> l)
-      return l.stream().map(this::canonical).sorted(Comparator.comparing(json::write)).toList();
+      return l.stream().map(item -> canonicalSpec(item,json)).sorted(Comparator.comparing(json::write)).toList();
     return v;
   }
 

@@ -50,6 +50,8 @@ public final class ProductPricingEngine {
     if (term == null) return fields;
     for (Term branch : list(term.branches())) fields.addAll(numericFieldReferences(branch, groupKey));
     if (Objects.equals(groupKey, term.groupKey())) fields.addAll(list(term.fieldKeys()));
+    for (Axis axis : new Axis[]{term.xAxis(), term.yAxis()})
+      if (axis != null && axis.linked() && Objects.equals(groupKey, axis.sourceGroup(term.groupKey()))) fields.add(axis.sourceField());
     OptionRangePricing range = term.optionPricing();
     if (range != null && Objects.equals(groupKey, range.groupKey()) && range.axis() != null)
       fields.add(range.axis().fieldKey());
@@ -218,11 +220,21 @@ public final class ProductPricingEngine {
           }
           case MATRIX_1D, MATRIX_2D -> {
             int dimensions = term.type() == TermType.MATRIX_1D ? 1 : 2;
-            require(group.control() == Control.NUMBER && fields.size() == dimensions,
+            List<String> axisFields = new ArrayList<>(fields);
+            for (Axis axis : new Axis[]{term.xAxis(), term.yAxis()}) {
+              if (axis == null || !axis.linked()) continue;
+              Question external = questions.get(axis.sourceGroup(term.groupKey()));
+              require(dimensions == 2 && ProductStudioArithmetic.numeric(questions.get(term.groupKey()))
+                  && external != null && external.control() == Control.NUMBER && !external.fixed()
+                  && list(external.fields()).stream().anyMatch(f -> f.key().equals(axis.sourceField())),
+                  "이 제품의 숫자 입력 질문과 필드를 다시 선택해 주세요.");
+              axisFields.add(axis.fieldKey());
+            }
+            require(group.control() == Control.NUMBER && axisFields.size() == dimensions,
                 dimensions + "차원 가격표는 같은 입력묶음에서 " + dimensions + "개 항목을 선택해 주세요.");
-            validateAxis(term.xAxis(), fields, "X축");
+            validateAxis(term.xAxis(), axisFields, "X축");
             if (dimensions == 2) {
-              validateAxis(term.yAxis(), fields, "Y축");
+              validateAxis(term.yAxis(), axisFields, "Y축");
               require(!term.xAxis().fieldKey().equals(term.yAxis().fieldKey()), "X축과 Y축은 서로 다른 필드를 선택해 주세요.");
             } else require(term.yAxis() == null, "1차원 매트릭스에는 Y축이 없습니다.");
             int rows = dimensions == 2 ? term.yAxis().headers().size() : 1;
@@ -366,6 +378,53 @@ public final class ProductPricingEngine {
     return calculateValidated(process, definition, submitted);
   }
 
+  /** Interactive evaluation may arrive before a later matrix axis is answered.
+   * Publication, inventory and final quotations always use the strict evaluator. */
+  public static Calculation preview(Process process, List<PricingGroup> groups, Definition definition,
+      Map<String, Answer> answers, boolean draft) {
+    List<String> invalid = validate(process, groups, definition);
+    if (!invalid.isEmpty()) return new Calculation(null, false, invalid, List.of(), null);
+    Evaluation evaluation = ProductStudioEngine.evaluate(process, answers);
+    if (!evaluation.complete()) {
+      Map<String, QuestionState> states = evaluation.questions().stream()
+          .collect(Collectors.toMap(s -> s.question().key(), s -> s));
+      List<TermResult> waiting = new ArrayList<>();
+      List<Term> terms = ProductPricingBranches.expand(definition).terms();
+      boolean hasLinkedTable = terms.stream().anyMatch(term -> matrix(term)
+          && (term.xAxis().linked() || term.yAxis() != null && term.yAxis().linked()));
+      for (Term term : terms) {
+        if (!matrix(term) || inactiveReason(term, states.get(term.groupKey()), evaluation, states) != null) continue;
+        for (Axis axis : new Axis[]{term.xAxis(), term.yAxis()}) {
+          if (axis == null || !axis.linked()) continue;
+          QuestionState source = states.get(axis.sourceGroup(term.groupKey()));
+          if (source.visible() && source.allowed().contains(axis.sourceField())
+              && missingPreviewField(answers, source.question().key(), axis.sourceField())) {
+            waiting.add(new TermResult(term.key(), term.name(), false, null, label(source.question()) + " · "
+                + fieldLabel(source.question(), axis.sourceField()) + " 입력 대기"));
+          }
+        }
+      }
+      if (hasLinkedTable) {
+        List<String> errors = new ArrayList<>(evaluation.errors());
+        for (QuestionState state : evaluation.questions()) {
+          Answer raw = map(answers).get(state.question().key());
+          for (Field field : list(state.question().fields())) if (missingPreviewField(answers, state.question().key(), field.key()))
+            errors.remove(label(state.question()) + ": " + field.labels().customer() + ": 입력해 주세요.");
+          if (blank(raw)) errors.remove(label(state.question()) + ": 보기를 선택해 주세요.");
+        }
+        return new Calculation(null, false, List.copyOf(errors), List.copyOf(waiting), evaluation);
+      }
+    }
+    Calculation calculation = calculateValidated(process, definition, answers);
+    return draft ? calculation : checkInputBindings(calculation, groups, definition);
+  }
+
+  private static boolean missingPreviewField(Map<String,Answer> answers, String question, String field) {
+    Answer answer = map(answers).get(question);
+    Object value = answer == null ? null : map(answer.fields()).get(field);
+    return value == null || value instanceof String text && text.isBlank();
+  }
+
   /** Internal batch entry after validate() has succeeded for this exact process and definition. */
   public static Calculation calculateValidated(Process process, Definition definition, Map<String, Answer> submitted) {
     Definition storedDefinition = definition;
@@ -431,17 +490,17 @@ public final class ProductPricingEngine {
             explanation = String.join(" + ", pieces);
           }
           default -> {
-            BigDecimal x = input(evaluated.answers(), term.groupKey(), term.xAxis().fieldKey());
+            BigDecimal x = matrixInput(term, term.xAxis(), "X축", evaluated, states);
             int column = term.xAxis().zeroAt(x) ? 0 : index(term.xAxis(), x);
             boolean free = term.xAxis().zeroAt(x);
             int row = 0;
-            explanation = fieldLabel(state.question(), term.xAxis().fieldKey()) + " " + x.toPlainString()
+            explanation = fieldLabel(states.get(term.xAxis().sourceGroup(term.groupKey())).question(), term.xAxis().sourceField()) + " " + x.toPlainString()
                 + " → " + appliedLabel(term.xAxis(), x, column);
             if (term.type() == TermType.MATRIX_2D) {
-              BigDecimal y = input(evaluated.answers(), term.groupKey(), term.yAxis().fieldKey());
+              BigDecimal y = matrixInput(term, term.yAxis(), "Y축", evaluated, states);
               row = term.yAxis().zeroAt(y) ? 0 : index(term.yAxis(), y);
               free = free || term.yAxis().zeroAt(y);
-              explanation += ", " + fieldLabel(state.question(), term.yAxis().fieldKey()) + " " + y.toPlainString()
+              explanation += ", " + fieldLabel(states.get(term.yAxis().sourceGroup(term.groupKey())).question(), term.yAxis().sourceField()) + " " + y.toPlainString()
                   + " → " + appliedLabel(term.yAxis(), y, row);
             }
             amount = free ? BigDecimal.ZERO : term.values().get(row).get(column);
@@ -522,6 +581,24 @@ public final class ProductPricingEngine {
   private static String fieldLabel(Question question, String key) {
     return pricingFields(question).stream().filter(f -> f.key().equals(key))
         .map(f -> f.labels().customer()).findFirst().orElse(key);
+  }
+
+  private static BigDecimal matrixInput(Term term, Axis axis, String axisName, Evaluation evaluated,
+      Map<String, QuestionState> states) {
+    String key = axis.sourceGroup(term.groupKey());
+    if (axis.linked()) {
+      QuestionState source = states.get(key);
+      String question = label(source.question());
+      require(source.visible() && source.allowed().contains(axis.sourceField()),
+          axisName + "에 연결한 [" + question + "] 입력이 이 경로에서 생략됩니다. "
+          + "가격표의 적용 조건과 높이 등 숫자 입력의 표시 조건을 맞춰 주세요. "
+          + "설치 안 함처럼 무료인 선택은 별도 고정 0원 조건으로 지정할 수 있습니다.");
+      Answer answer = evaluated.answers().get(key);
+      require(answer != null && map(answer.fields()).get(axis.sourceField()) != null,
+          axisName + "에 연결한 [" + question + " · " + fieldLabel(source.question(), axis.sourceField())
+          + "] 값이 필요합니다. 적용 경로에서 입력을 필수로 설정하거나 항의 적용 조건을 확인해 주세요.");
+    }
+    return input(evaluated.answers(), key, axis.sourceField());
   }
 
   private static BigDecimal input(Map<String, Answer> answers, String group, String field) {

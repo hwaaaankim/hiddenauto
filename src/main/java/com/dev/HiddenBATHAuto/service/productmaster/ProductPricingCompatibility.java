@@ -95,6 +95,11 @@ public final class ProductPricingCompatibility {
         Question q = process.questions().get(index);
         String prefix = "q" + index;
         questions.put(q.key(), prefix);
+        if (ProductStudioArithmetic.numeric(q)) {
+          Field value = ProductStudioArithmetic.valueField();
+          fields.put(q.key() + ":" + value.key(), prefix + "_numeric");
+          bundles.put(q.key() + ":" + ProductPricingEngine.bundleKey(value), prefix + "_numericBundle");
+        }
         for (int i = 0; i < list(q.fields()).size(); i++) {
           Field f = q.fields().get(i);
           fields.put(q.key() + ":" + f.key(), prefix + "_f" + i);
@@ -194,8 +199,8 @@ public final class ProductPricingCompatibility {
     for (Term term : list(definition.terms())) {
       Map<String, BigDecimal> rates = new LinkedHashMap<>();
       map(term.rates()).forEach((k, v) -> rates.put(field.apply(term.groupKey(), k), v));
-      Axis x = term.xAxis() == null ? null : copyAxis(term.xAxis(), field.apply(term.groupKey(), term.xAxis().fieldKey()));
-      Axis y = term.yAxis() == null ? null : copyAxis(term.yAxis(), field.apply(term.groupKey(), term.yAxis().fieldKey()));
+      Axis x = term.xAxis() == null ? null : copyAxis(term.xAxis(), (term.xAxis().linked() ? question.apply(term.xAxis().sourceGroup(term.groupKey())) + ":" : "") + field.apply(term.xAxis().sourceGroup(term.groupKey()), term.xAxis().sourceField()));
+      Axis y = term.yAxis() == null ? null : copyAxis(term.yAxis(), (term.yAxis().linked() ? question.apply(term.yAxis().sourceGroup(term.groupKey())) + ":" : "") + field.apply(term.yAxis().sourceGroup(term.groupKey()), term.yAxis().sourceField()));
       String bundle = text(term.bundleKey()).isBlank() ? null : unqualified(requiredKey(targetBundle.get(from.b(term.groupKey(), term.bundleKey()))));
       OptionRangePricing pricing = term.optionPricing();
       OptionRangePricing mappedPricing = pricing == null ? null : new OptionRangePricing(

@@ -466,12 +466,17 @@ public class ProductStudioAttributeService {
 
   @Transactional
   public void deleteValue(Long id, String actor) {
+    deleteValue(id, actor, false);
+  }
+
+  @Transactional
+  public void deleteValue(Long id, String actor, boolean categoryManagement) {
     ProductAttributeValue value =
         values
             .findWithGroupById(id)
             .orElseThrow(() -> new NoSuchElementException("보기를 찾을 수 없습니다."));
-    if (value.getGroup().getSystemRole() == ProductAttributeRole.SUBCATEGORY)
-      throw new IllegalArgumentException("중분류 옵션은 개발자 관리 속성으로 삭제할 수 없습니다.");
+    if ((value.getGroup().getSystemRole() == ProductAttributeRole.SUBCATEGORY) != categoryManagement)
+      throw new IllegalArgumentException("해당 분류의 관리 화면에서 삭제해 주세요.");
     if (components.existsByValueId(id))
       throw new IllegalStateException("제품에서 사용하는 보기는 삭제할 수 없습니다. 비활성화를 사용해 주세요.");
     assets.attach("VALUE", id, List.of(), actor);

@@ -169,7 +169,7 @@ public final class ProductPricingCoverage {
             + (probe.limitDetail.isBlank() ? "" : probe.limitDetail + " ")
             + (tables.isBlank() ? "" : "검사 대상: " + tables + ". ")
             + (adjustments.isBlank() ? "" : "연결된 구간 보정: " + adjustments + ". ")
-            + "한 번의 가격 검증은 전체 묶음 합계 " + MAX_SCENARIOS + "개 상태로 제한하며, 검사 단계마다 15초 기준으로 중단 여부를 확인합니다. "
+            + "한 번의 가격 검증은 전체 묶음 합계 " + MAX_VALIDATION_VISITS + "개 상태로 제한하며, 검사 단계마다 45초 기준으로 중단 여부를 확인합니다. "
             + (budget.timedOut ? "검사 시간이 한도에 도달했습니다. " : "")
             + "작성 내용은 유지하고 항을 하나씩 확인하여 복잡한 표·조건의 위치를 찾으세요. "
             + "가격표의 불필요한 기준·중복 조건을 정리하거나 실제 주문에서 허용할 입력 범위·분기를 조정한 뒤 전체 검사를 다시 진행하세요. "
@@ -178,7 +178,7 @@ public final class ProductPricingCoverage {
 
   private static final class Budget {
     long visits;
-    final long deadline = System.nanoTime() + 15_000_000_000L;
+    final long deadline = System.nanoTime() + 45_000_000_000L;
     boolean timedOut;
     final Set<String> branchWitnesses = new HashSet<>();
     final Set<String> pathWitnesses = new HashSet<>();
@@ -187,7 +187,7 @@ public final class ProductPricingCoverage {
       return timedOut;
     }
     boolean next() {
-      if (++visits > MAX_SCENARIOS) return false;
+      if (++visits > MAX_VALIDATION_VISITS) return false;
       return (visits & 127) != 1 || !expired();
     }
   }
@@ -326,7 +326,7 @@ public final class ProductPricingCoverage {
       if (axis == null) return;
       for (int i = 0; i < list(axis.headers()).size(); i++) {
         Operator operator = Operator.valueOf(axis.operatorAt(i).name());
-        pricePredicates.add(numeric(question, axis.fieldKey(), operator, axis.headers().get(i)));
+        pricePredicates.add(numeric(axis.sourceGroup(question), axis.sourceField(), operator, axis.headers().get(i)));
       }
     }
 
@@ -338,7 +338,7 @@ public final class ProductPricingCoverage {
         return;
       }
       if (index == process.questions().size()) { check(submitted); return; }
-      Evaluation evaluation = ProductStudioEngine.evaluate(process, submitted);
+      Evaluation evaluation = ProductStudioEngine.evaluatePrefix(process, submitted, index + 1);
       QuestionState state = evaluation.questions().get(index);
       Question q = state.question();
       if (!state.visible() || q.fixed()) {
@@ -381,7 +381,7 @@ public final class ProductPricingCoverage {
       for (Answer answer : answers) {
         Map<String, Answer> next = new LinkedHashMap<>(submitted);
         next.put(q.key(), answer);
-        QuestionState tested = ProductStudioEngine.evaluate(process, next).questions().get(index);
+        QuestionState tested = ProductStudioEngine.evaluatePrefix(process, next, index + 1).questions().get(index);
         if (tested.errors().isEmpty()) { progressed = true; walk(index + 1, next); }
         if (!exhaustive) return;
       }
@@ -466,15 +466,15 @@ public final class ProductPricingCoverage {
 
     private void rangeIssue(Term term, Axis axis, String key, Evaluation evaluation) {
       if (axis == null || axis.usesEdgeOutside()) return;
-      Answer answer = evaluation.answers().get(term.groupKey());
-      Object raw = answer == null ? null : map(answer.fields()).get(axis.fieldKey());
+      Answer answer = evaluation.answers().get(axis.sourceGroup(term.groupKey()));
+      Object raw = answer == null ? null : map(answer.fields()).get(axis.sourceField());
       BigDecimal value = raw == null ? null : ProductStudioEngine.number(raw);
       if (value == null) return;
       try { ProductPricingEngine.index(axis, value); return; } catch (IllegalArgumentException outside) { /* Explain domain mismatch once per axis. */ }
       String signature = term.key() + ":" + key;
       if (!rangeIssues.add(signature)) return;
-      QuestionState state = evaluation.questions().stream().filter(s -> s.question().key().equals(term.groupKey())).findFirst().orElseThrow();
-      Field field = ProductStudioArithmetic.numeric(state.question()) ? ProductStudioArithmetic.valueField(process,state.question()) : ProductPricingEngine.pricingFields(state.question()).stream().filter(f -> f.key().equals(axis.fieldKey())).findFirst().orElseThrow();
+      QuestionState state = evaluation.questions().stream().filter(s -> s.question().key().equals(axis.sourceGroup(term.groupKey()))).findFirst().orElseThrow();
+      Field field = ProductStudioArithmetic.numeric(state.question()) ? ProductStudioArithmetic.valueField(process,state.question()) : ProductPricingEngine.pricingFields(state.question()).stream().filter(f -> f.key().equals(axis.sourceField())).findFirst().orElseThrow();
       boolean lower = ProductPricingEngine.lowerAxis(axis);
       int at = lower ? 0 : axis.headers().size() - 1;
       String boundary = axis.headers().get(at).toPlainString();

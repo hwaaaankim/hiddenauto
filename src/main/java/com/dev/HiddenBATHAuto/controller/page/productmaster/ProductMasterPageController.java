@@ -23,6 +23,9 @@ public class ProductMasterPageController {
     return "redirect:/admin/product-master/products";
   }
 
+  @GetMapping("/subcategories")
+  public String subcategories(Model m) { return page(m,"subcategories"); }
+
   @GetMapping("/groups")
   public String groups(Model m) {
     return page(m, "groups");
