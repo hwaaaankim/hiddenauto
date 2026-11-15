@@ -70,7 +70,7 @@
       const v = await (context.validateStructure || context.validate)(updated);
       const errors = (v.issues || []).filter((i) => i.severity === "ERROR");
       const issues = S.$('[data-advanced-issues]', body);
-      issues.innerHTML = (v.issues || []).map((i) => `<article class="pm-validation-issue ${i.severity === "ERROR" ? "pms-error" : ""}"><strong>${S.e(i.location)}</strong><p>${S.e(i.message)}</p>${S.errorAdvice?.(i.message) ? `<p>${S.e(S.errorAdvice(i.message))}</p>` : ""}</article>`).join("");
+      issues.innerHTML = (v.issues || []).map((i) => `<article class="pm-validation-issue ${i.severity === "ERROR" ? "pms-error" : ""}"><strong>${S.e(i.location)}</strong><p>${S.e(i.message)}</p>${S.errorAdvice?.(i.message, i.code, i.location) ? `<p>${S.e(S.errorAdvice(i.message, i.code, i.location))}</p>` : ""}</article>`).join("");
       if (!v.valid || !v.exhaustive) throw Error(errors.map((i) => `${i.location}: ${i.message}`).join("\n") || "전체 경로 검증을 완료하지 못했습니다. 조건을 확인해 주세요.");
       context.apply(updated);
       dialog.close();

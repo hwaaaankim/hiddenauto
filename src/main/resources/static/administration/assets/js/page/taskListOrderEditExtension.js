@@ -23,7 +23,7 @@
 	const REQUIRED_HANDLER_METHOD_NAMES = new Set(["직배송", "현장배송"]);
 	const PROHIBITED_HANDLER_METHOD_NAMES = new Set(["화물", "방문", "택배", "미배송"]);
 	const DAUM_POSTCODE_SCRIPT_ID = "admin-task-list-second-daum-postcode-script";
-	const DAUM_POSTCODE_SCRIPT_URL = "https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
+	const DAUM_POSTCODE_SCRIPT_URL = "https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
 
 	const PROVINCE_ALIASES = new Map([
 		["서울", "서울특별시"], ["서울시", "서울특별시"], ["서울특별시", "서울특별시"],

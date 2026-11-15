@@ -9,7 +9,7 @@
             i.location +
             ": " +
             i.message +
-            (S.errorAdvice(i.message) ? "\n" + S.errorAdvice(i.message) : ""),
+            (S.errorAdvice(i.message, i.code, i.location) ? "\n" + S.errorAdvice(i.message, i.code, i.location) : ""),
         )
         .join("\n");
   const checks = (xs, sel, tag) =>
@@ -157,7 +157,7 @@
                 i.message.includes(r.name + "]") ||
                 i.message.includes(" / " + r.name),
             );
-            return `<article class="pm-validation-issue ${i.severity === "ERROR" ? "pms-error" : ""}"><strong>${S.e(i.location)} · ${i.severity === "ERROR" ? "수정 필요" : "확인"}</strong><p>${S.e(i.message)}</p>${S.errorAdvice(i.message) ? `<p class="pm-fix-example">${S.e(S.errorAdvice(i.message))}</p>` : ""}<div class="pms-actions">${question ? `<button data-fix-question="${S.e(question.key)}">${S.e(nm(question))} 답변 수정</button>` : ""}${question && i.code === "UNREACHABLE_QUESTION" ? `<button data-fix-visibility="${S.e(question.key)}">이 질문의 표시 분기 확인</button>` : ""}${rules.map((r) => `<button data-fix-rule="${S.e(r.key)}">${S.e(r.name)} 연결 ${readOnly ? "조회" : "수정"}</button>`).join("")}${relatedLimits.map((l) => `<button data-fix-limit="${S.e(l.targetKey)}">${S.e(l.name)} 입력제한 ${readOnly ? "조회" : "수정"}</button>`).join("")}${relatedNotices.map((q) => `<button data-fix-notice="${S.e(q.key)}">조건별 안내 ${readOnly ? "조회" : "수정"}</button>`).join("")}</div></article>`;
+            return `<article class="pm-validation-issue ${i.severity === "ERROR" ? "pms-error" : ""}"><strong>${S.e(i.location)} · ${i.severity === "ERROR" ? "수정 필요" : "확인"}</strong><p>${S.e(i.message)}</p>${S.errorAdvice(i.message, i.code, i.location) ? `<p class="pm-fix-example">${S.e(S.errorAdvice(i.message, i.code, i.location))}</p>` : ""}<div class="pms-actions">${question ? `<button data-fix-question="${S.e(question.key)}">${S.e(nm(question))} 답변 수정</button>` : ""}${question && i.code === "UNREACHABLE_QUESTION" ? `<button data-fix-visibility="${S.e(question.key)}">이 질문의 표시 분기 확인</button>` : ""}${rules.map((r) => `<button data-fix-rule="${S.e(r.key)}">${S.e(r.name)} 연결 ${readOnly ? "조회" : "수정"}</button>`).join("")}${relatedLimits.map((l) => `<button data-fix-limit="${S.e(l.targetKey)}">${S.e(l.name)} 입력제한 ${readOnly ? "조회" : "수정"}</button>`).join("")}${relatedNotices.map((q) => `<button data-fix-notice="${S.e(q.key)}">조건별 안내 ${readOnly ? "조회" : "수정"}</button>`).join("")}</div></article>`;
           })
           .join("")}`;
         S.$$("[data-fix-visibility]", el).forEach(button => button.onclick = () => visibility(process.questions.find(q => q.key === button.dataset.fixVisibility)));

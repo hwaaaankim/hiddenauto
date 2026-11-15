@@ -763,11 +763,53 @@
     });
   };
   let errorSequence = 0;
-  S.errorAdvice = (message) => {
+  // Only offer named choices for direct, single-predicate SHOW rules.
+  // Other visibility rules and restrictions are still checked by the server.
+  S.branchRoutes = (process, branches) => {
+    const questions = process?.questions || [];
+    const names = obj => obj?.labels?.customer || obj?.labels?.management;
+    const result = new Set();
+    for (const id of new Set((branches || []).flatMap(b => (b.conditions || []).map(c => c.groupKey)))) {
+      const target = questions.find(q => q.key === id);
+      if (!target || target.fixed || target.visible) continue;
+      const groups = new Map();
+      for (const rule of process.rules || []) {
+        if (!rule.actions?.some(a => a.targetKey === id && a.effect === "SHOW") || rule.conditions?.length !== 1) continue;
+        const c = rule.conditions[0], source = questions.find(q => q.key === c.groupKey);
+        if (source?.control !== "RADIO" || c.operator !== "EQ" || !names(source)) continue;
+        const choices = groups.get(source.key) || new Set();
+        for (const v of source.choices || []) if (c.choiceKeys?.includes(v.key) && names(v)) choices.add(names(v));
+        if (choices.size) groups.set(source.key, choices);
+      }
+      for (const [key, choices] of groups) result.add("‘" + names(target) + "’ 질문 표시 연결: ‘" + names(questions.find(q=>q.key===key)) + "’ → " + [...choices].join(" / "));
+    }
+    return [...result];
+  };
+  S.branchAdvice = (issue, process, terms) => {
+    const owner = (terms || []).find(t => "terms." + t.key === issue.target);
+    const routes = S.branchRoutes(process, owner?.branches);
+    if (issue.code === "PRICE_BRANCH_GAP") return [
+      ...routes,
+      "이 항을 일부 경로에서만 계산한다면 ‘적용 경로 설정 → 적용 조건 추가’에서 해당 경로의 기준 질문과 답변을 선택하세요. ‘조건 반영 → 적용 조건 반영’을 누르면 기존 분기와 표를 유지하면서 이 항의 범위가 좁아집니다.",
+      "재현 경로에서도 금액이 필요하다면 ‘조건 묶음 추가’에서 그 경로에서 실제 묻는 질문을 고르고 계산식을 연결하세요. 무료로 정한 경로는 고정 0원을 지정할 수 있습니다."
+    ];
+    if (issue.code === "PRICE_BRANCH_OVERLAP") return ["재현 입력에서 동시에 맞은 묶음의 ‘상세 적용 조건’을 열어 공통으로 선택된 보기나 숫자 경계를 확인하세요. 하나만 적용할 가격이면 조건을 나누고, 두 금액을 모두 더해야 하면 각각 별도의 항으로 구성하세요."];
+    const advice = {
+      PRICE_UNREACHABLE_TERM: "이 항을 계산할 실제 주문을 하나 정한 뒤, 그 주문의 질문 표시 조건 → 항 전체 적용 조건 → 분기 조건 순서로 비교하세요. 세 단계가 같은 답변에서 함께 성립해야 합니다.",
+      PRICE_TABLE_GAP: "재현 입력의 축 값이 어느 행·열에도 속하지 않는지 확인하세요. 가격표 편집 → 적용 범위에서 경계 포함 여부와 표 밖 처리를 확인하고, 판매할 범위에 필요한 기준·금액을 추가하세요.",
+      PRICE_NUMERIC_PATH_UNUSED: "재현 경로에서 표시된 질문과 입력묶음을 확인하세요. 이 입력에 가격이 필요하면 해당 묶음에서 항을 추가하고, 이미 등록한 항이 있다면 적용 경로 조건을 비교하세요.",
+      PRICE_VALIDATION_LIMIT: "검사가 끝나지 않은 항·질문을 상세 근거에서 확인하세요. 같은 답변을 중복 검사하는 분기나 불필요한 표 기준을 정리한 후 전체 검사를 다시 실행하세요."
+    };
+    return advice[issue.code] ? [advice[issue.code]] : [];
+  };
+  S.errorAdvice = (message, code = "", location = "") => {
     const m = String(message || "");
     if (m.includes("수정 예시:")) return "";
+    if (/계산 결과는 ±10억/.test(m)) return "선택지의 값·식 설정에서 참조한 숫자 필드를 확인하세요. 재현값이 제작 범위를 넘으면 원본 필드의 최대값을 지정하고, 실제로 허용하는 치수라면 계산식의 단위와 연산을 확인하세요.";
+    if (code === "UNREACHABLE_RULE") return "연관관계 설정에서 ‘" + location + "’ 연결을 열고, 조건을 만족하는 보기가 앞 단계에서 허용되는지, 숫자 경계가 입력 범위 안인지 확인하세요.";
+    if (code === "UNREACHABLE_QUESTION") return "‘" + location + "’을 항상 물으면 기본 흐름에서 표시하고, 특정 답변에서만 물으면 그 답변에서 이 질문으로 ‘질문 표시’를 연결하세요.";
     if (/의존성|선행.*(생략|건너)|앞 질문.*(생략|건너)/.test(m))
-      return "수정 예시: 문 수량의 입력묶음을 ‘문의 종류’가 정한다면 그 질문을 건너뛸 수 없습니다. 앞 질문의 생략 연결을 해제하거나 영향을 받는 문 수량도 같은 경로에서 생략하세요. 사이즈로 입력 범위를 정하는 경우에도 사이즈 답변이 먼저 필요합니다.";
+      return "재현 경로의 원본 질문과 영향을 받는 질문을 확인하세요. 그 값을 사용해야 하면 원본 질문을 먼저 표시하고, 그 경로에서 입력을 받지 않으면 값을 사용하는 질문도 같은 조건에서 생략하세요.";
     if (/합계.*(충돌|범위|제한)|입력제한.*(충돌|모순)/.test(m))
       return "수정 예시: 혼합 수량의 합계 최대값이 4이면 여닫이 2 + 서랍 2는 가능하고 3 + 2는 불가능합니다. 개별 최대·최소와 합계 제한이 함께 충족되는지, 앞 답변의 모든 조건에 허용값을 등록했는지 확인해 주세요.";
     if (/범위 중복/.test(m))

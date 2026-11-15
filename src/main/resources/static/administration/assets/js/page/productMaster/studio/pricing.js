@@ -208,7 +208,7 @@
       };
       const issues = validation.issues || [], count = severity => issues.filter(i => i.severity === severity).length;
       const hints = {
-        PRICE_BRANCH_GAP: ['이 경로에 적용할 계산이 없습니다', '이 항의 전체 적용 조건과 각 분기의 답변 연결을 확인하세요.'],
+        PRICE_BRANCH_GAP: ['입력 질문은 표시되지만 일치하는 가격 분기가 0개입니다', '이 항의 전체 적용 조건과 각 분기의 답변 연결을 확인하세요.'],
         PRICE_BRANCH_OVERLAP: ['같은 입력에 여러 조건별 계산이 적용됩니다', '같은 항의 분기 답변과 추가 조건이 겹치는 부분을 수정하세요.'],
         PRICE_NUMERIC_GROUP_UNUSED: ['숫자 그룹이 가격계산에 연결되지 않았습니다', '아래 그룹 등록 버튼에서 실제 입력묶음에 항을 연결하세요.'],
         PRICE_NUMERIC_PATH_UNUSED: ['이 경로에서 보이는 입력묶음의 계산이 없습니다', '다른 그룹·묶음의 표를 늘리는 대신, 현재 표시되는 묶음에 연결하세요.'],
@@ -220,7 +220,8 @@
       };
       return `<div class="pm-price-check-summary"><strong>${validation.valid && validation.exhaustive ? '계산 오류 검사 완료' : '수정이 필요한 오류가 있습니다'}</strong><div>${S.badge('오류 ' + count('ERROR'), count('ERROR') ? 'red' : '')}${S.badge('확인 필요 ' + count('WARNING'), '')}${S.badge('안내 ' + count('INFO'), '')}</div><small>검사한 대표 상태 ${e(validation.scenarios)}개${validation.exhaustive ? '' : ' · 검사 미완료'}</small></div>${issues.some(i => ['PRICE_TERM_MONEY_LIMIT', 'PRICE_TOTAL_MONEY_LIMIT', 'PRICE_AXIS_RANGE'].includes(i.code)) ? processRangeHelp() : ''}${issues.length ? `<ul class="pm-price-diagnostic-list">${issues.map(issue => {
         const hint = hints[issue.code], message = String(issue.message || '');
-        return `<li data-diagnostic-severity="${e(issue.severity)}"><header><span class="pm-price-issue-kind">${issue.severity === 'ERROR' ? '오류' : issue.severity === 'WARNING' ? '확인 필요' : '안내'}</span><strong>${e(issue.location)}</strong></header>${hint ? `<h4>${e(hint[0])}</h4><p>${e(hint[1])}</p>` : ''}${hint || message.length > 320 ? `<details class="pm-price-issue-detail"><summary>재현 입력·상세 근거 보기</summary><p>${e(message)}</p></details>` : `<p>${e(message)}</p>`}<div class="pms-actions">${issueLink(issue)}</div></li>`;
+        const steps = S.branchAdvice(issue, process(), definition.terms);
+        return `<li data-diagnostic-severity="${e(issue.severity)}"><header><span class="pm-price-issue-kind">${issue.severity === 'ERROR' ? '오류' : issue.severity === 'WARNING' ? '확인 필요' : '안내'}</span><strong>${e(issue.location)}</strong></header>${hint ? `<h4>${e(hint[0])}</h4><p>${e(hint[1])}</p>` : ''}${steps.length ? `<p>${e(message)}</p><ol>${steps.map(step=>`<li>${e(step)}</li>`).join("")}</ol>` : hint || message.length > 320 ? `<details class="pm-price-issue-detail"><summary>재현 입력·상세 근거 보기</summary><p>${e(message)}</p></details>` : `<p>${e(message)}</p>`}<div class="pms-actions">${issueLink(issue)}</div></li>`;
       }).join('')}</ul>` : '<p class="pm-price-check-clear">조건 누락·중복·계산 범위 오류가 발견되지 않았습니다.</p>'}`;
     }
     async function diagnose() {
@@ -1053,8 +1054,8 @@
           const axis = relevant.target.endsWith('.xAxis.outsidePolicy') ? 'x' : 'y';
           return editorError(`${relevant.location}: ${relevant.message}`, `[data-axis-outside="${axis}"]`);
         }
-        editorError(errors.map(i => `${i.location}: ${i.message}`).join('\n'));
-        if (errors.some(i => ["PRICE_TERM_MONEY_LIMIT", "PRICE_TOTAL_MONEY_LIMIT", "PRICE_TABLE_GAP", "PRICE_BRANCH_GAP", "PRICE_AXIS_RANGE"].includes(i.code))) {
+        editorError(errors.map(i => [`${i.location}: ${i.message}`, ...S.branchAdvice(i, process(), definition.terms)].join("\n")).join('\n'));
+        if (errors.some(i => ["PRICE_TERM_MONEY_LIMIT", "PRICE_TOTAL_MONEY_LIMIT", "PRICE_TABLE_GAP", "PRICE_AXIS_RANGE"].includes(i.code))) {
           const target = S.$('[data-term-errors]', body);
           target.insertAdjacentHTML('beforeend', processRangeHelp());
           bindProcessRefresh(target);
