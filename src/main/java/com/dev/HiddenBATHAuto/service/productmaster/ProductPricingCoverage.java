@@ -15,6 +15,8 @@ import java.util.stream.Collectors;
  * dynamic bounds. Auxiliary predicates never change or persist the customer's process.
  */
 public final class ProductPricingCoverage {
+  private static final int MAX_PRICE_VISITS = 1_000_000;
+
   private ProductPricingCoverage() {}
 
   /** Draft editing permits unconnected groups; saving/copying requires participation per numeric group. */
@@ -165,11 +167,11 @@ public final class ProductPricingCoverage {
         .map(a -> a.name() + " (" + (a.axis().headers().size() + 1) + "개 더하기·곱하기 구간)")
         .collect(Collectors.joining(" / "));
     issues.add(new Issue("ERROR", "PRICE_VALIDATION_LIMIT", part.name(),
-        "독립된 가격 항은 나누어 검사했지만, ‘" + part.name() + "’의 연결된 입력·분기 검증을 완료하지 못했습니다. "
+        "다른 질문·분기에 같은 금액표를 사용해도 됩니다. 이번 중단 사유는 검증 한도입니다. ‘" + part.name() + "’의 연결된 입력·분기 검증을 완료하지 못했습니다. "
             + (probe.limitDetail.isBlank() ? "" : probe.limitDetail + " ")
             + (tables.isBlank() ? "" : "검사 대상: " + tables + ". ")
             + (adjustments.isBlank() ? "" : "연결된 구간 보정: " + adjustments + ". ")
-            + "한 번의 가격 검증은 전체 묶음 합계 " + MAX_VALIDATION_VISITS + "개 상태로 제한하며, 검사 단계마다 45초 기준으로 중단 여부를 확인합니다. "
+            + "한 번의 가격 검증은 전체 묶음 합계 " + MAX_PRICE_VISITS + "개 상태로 제한하며, 검사 단계마다 45초 기준으로 중단 여부를 확인합니다. "
             + (budget.timedOut ? "검사 시간이 한도에 도달했습니다. " : "")
             + "작성 내용은 유지하고 항을 하나씩 확인하여 복잡한 표·조건의 위치를 찾으세요. "
             + "가격표의 불필요한 기준·중복 조건을 정리하거나 실제 주문에서 허용할 입력 범위·분기를 조정한 뒤 전체 검사를 다시 진행하세요. "
@@ -187,7 +189,7 @@ public final class ProductPricingCoverage {
       return timedOut;
     }
     boolean next() {
-      if (++visits > MAX_VALIDATION_VISITS) return false;
+      if (++visits > MAX_PRICE_VISITS) return false;
       return (visits & 127) != 1 || !expired();
     }
   }
@@ -238,6 +240,7 @@ public final class ProductPricingCoverage {
     final Definition definition;
     final List<Issue> issues;
     final List<Condition> pricePredicates = new ArrayList<>();
+    final Process priceBoundaries;
     final Set<String> multipliedFields = new HashSet<>();
     final Set<String> hitTerms = new HashSet<>();
     final Map<String, Issue> advisories = new LinkedHashMap<>();
@@ -316,10 +319,39 @@ public final class ProductPricingCoverage {
           if (term.type() == TermType.MULTIPLY) multipliedFields.add(term.groupKey() + ":" + field);
         }
         if (term.type() == TermType.MATRIX_1D || term.type() == TermType.MATRIX_2D) {
-          axis(term.groupKey(), term.xAxis());
-          if (term.type() == TermType.MATRIX_2D) axis(term.groupKey(), term.yAxis());
+          matrixAxis(term, term.xAxis(), false);
+          if (term.type() == TermType.MATRIX_2D) matrixAxis(term, term.yAxis(), true);
         }
       }
+      priceBoundaries = withPredicates(pricePredicates);
+    }
+
+    private void matrixAxis(Term term, Axis axis, boolean rowAxis) {
+      String group = axis.sourceGroup(term.groupKey());
+      String field = axis.sourceField();
+      if (axis.zeroThrough() != null)
+        pricePredicates.add(numeric(group, field, Operator.LE, axis.zeroThrough()));
+      // The outside edge must remain observable even when its price equals its neighbour.
+      // Internal boundaries matter only if crossing them changes some cell on the other axis.
+      int direction = ProductPricingEngine.lowerAxis(axis) ? -1 : 1;
+      for (int i = 0; i < axis.headers().size(); i++) {
+        int adjacent = i + direction;
+        if (adjacent >= 0 && adjacent < axis.headers().size()
+            && equalSlices(term.values(), rowAxis, i, adjacent)) continue;
+        Operator operator = Operator.valueOf(axis.operatorAt(i).name());
+        pricePredicates.add(numeric(group, field, operator, axis.headers().get(i)));
+      }
+    }
+
+    private static boolean equalSlices(List<List<BigDecimal>> values, boolean rows, int i, int j) {
+      if (rows) {
+        for (int col = 0; col < values.get(i).size(); col++)
+          if (values.get(i).get(col).compareTo(values.get(j).get(col)) != 0) return false;
+      } else {
+        for (List<BigDecimal> row : values)
+          if (row.get(i).compareTo(row.get(j)) != 0) return false;
+      }
+      return true;
     }
 
     private void axis(String question, Axis axis) {
@@ -390,8 +422,10 @@ public final class ProductPricingCoverage {
     }
 
     private Process sampling(Question q) {
+      if (list(q.fields()).stream().noneMatch(f -> multipliedFields.contains(q.key() + ":" + f.key())))
+        return priceBoundaries;
       List<Condition> predicates = new ArrayList<>(pricePredicates);
-      Process boundaries = withPredicates(predicates);
+      Process boundaries = priceBoundaries;
       // Raw quantities vary inside a predicate cell. Preserve both grid endpoints of
       // every table/condition interval, not only the global min/max: W * factor(W)
       // can peak at an interior threshold when the following interval has a lower

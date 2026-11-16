@@ -81,7 +81,7 @@
   S.pricingPage = async function (root, product) {
     let draftWarnings = [], groupSearch = "", groupFilter = "all", termSearch = "";
     const api = async (...args) => {
-      const response = await S.request(`/products/${args[0]}/pricing${args[1] || ""}`, args[2] || "GET", args[3], args[4]);
+      const response = await S.request(`/products/${args[0]}/pricing${args[1] || ""}`, args[2] || "GET", args[3], args[4], args[5]);
       if (args[1]?.startsWith("/diagnose?draft=true") && args[3]?.definition?.schemaFingerprint === context?.schemaFingerprint) {
         draftWarnings = (response.issues || []).filter(i => ["PRICE_TERM_MONEY_LIMIT", "PRICE_TOTAL_MONEY_LIMIT", "PRICE_TABLE_GAP", "PRICE_BRANCH_GAP", "PRICE_BRANCH_OVERLAP", "PRICE_AXIS_RANGE", "PRICE_UNREACHABLE_TERM", "UNREACHABLE_QUESTION", "PRICE_CHOICE_GROUP_UNUSED", "PRICE_NUMERIC_PATH_UNUSED", "PRICE_NUMERIC_GROUP_UNUSED"].includes(i.code));
         renderDraftNotices();
@@ -324,7 +324,7 @@
       return S.pricingBranches.open({ owner, process: process(), terms: definition.terms.concat(extraTerms), currentTerms: () => definition.terms.concat(extraTerms),
         conditionText, summary, single,
         edit: (term, done, scope) => editTerm(null, '', '', term, done, scope),
-        diagnose: terms => api(product.id, '/diagnose?draft=true', 'POST', { definition: { ...S.copy(definition), terms, schemaFingerprint: context.schemaFingerprint }, answers: {} }),
+        diagnose: terms => api(product.id, '/diagnose?draft=true', 'POST', { definition: { ...S.copy(definition), terms, schemaFingerprint: context.schemaFingerprint }, answers: {} }, undefined, { validationStep: "2/3 · 주문 경로와 조건별 가격표를 서버에서 검증하고 있습니다." }),
         apply: (draft, next) => { if (onApply) onApply(draft); else applyTerms(next); }
       });
     }

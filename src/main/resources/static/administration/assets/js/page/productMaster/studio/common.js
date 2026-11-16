@@ -97,7 +97,7 @@
   // Native modal dialog stays above other modal editors and blocks duplicate input.
   // Reference counting keeps the overlay visible until every overlapping request finishes.
   let busyCount = 0, busyDialog = null, busyTimer = null;
-  S.busyStart = (label = "요청을 처리하고 있습니다.") => {
+  S.busyStart = (label = "요청을 처리하고 있습니다.", elapsed = false) => {
     clearTimeout(busyTimer);
     busyCount++;
     if (!busyDialog) {
@@ -112,13 +112,26 @@
       };
       document.body.append(busyDialog);
     }
-    busyDialog.querySelector("[data-busy-label]").textContent = label;
+    const labelNode = busyDialog.querySelector("[data-busy-label]");
+    const detail = busyDialog.querySelector(".pms-busy-card > span");
+    const owner = Symbol();
+    detail._owner = owner;
+    labelNode.textContent = label;
+    const started = performance.now();
+    const tick = () => {
+      if (detail._owner === owner) detail.textContent = "서버 응답 대기 · " + Math.floor((performance.now() - started) / 1000) + "초 경과";
+    };
+    detail.setAttribute("aria-live", "off");
+    detail.textContent = "완료될 때까지 잠시 기다려 주세요.";
+    if (elapsed) tick();
+    const timer = elapsed ? setInterval(tick, 1000) : null;
     busyDialog.querySelector("[data-busy-cancel-upload]").hidden = !S.pendingUploads;
     if (busyDialog.open) busyDialog.close();
     busyDialog.showModal();
     let ended = false;
     return () => {
       if (ended) return; ended = true;
+      clearInterval(timer);
       busyCount = Math.max(0, busyCount - 1);
       busyDialog.querySelector("[data-busy-cancel-upload]").hidden = !S.pendingUploads;
       if (!busyCount) busyTimer = setTimeout(() => {
@@ -146,10 +159,14 @@
         opts.body = JSON.stringify(body);
       }
     }
-    const finish = options.quiet ? () => {} : S.busyStart(body instanceof FormData ? "파일을 업로드하고 있습니다."
+    const pricingCheck = /\/pricing\/diagnose(?:\?|$)/.test(path);
+    const pricingSave = method === "PUT" && path.endsWith("/pricing");
+    const finish = options.quiet ? () => {} : S.busyStart(pricingCheck ? (options.validationStep || "주문 경로·가격표 범위·최종 금액을 검증하고 있습니다.")
+      : pricingSave ? "최종 가격식을 다시 검증하고 저장하고 있습니다."
+      : body instanceof FormData ? "파일을 업로드하고 있습니다."
       : /copy-plan$/.test(path) ? "복사할 구성의 의존성을 확인하고 있습니다."
       : /\/copy$/.test(path) ? "제품의 구성과 연결 설정을 복사하고 있습니다."
-      : method === "GET" ? "정보를 불러오고 있습니다." : "변경사항을 처리하고 있습니다.");
+      : method === "GET" ? "정보를 불러오고 있습니다." : "변경사항을 처리하고 있습니다.", pricingCheck || pricingSave);
     try {
     const response = await fetch(
       path.startsWith("/") ? path : S.base + path,
