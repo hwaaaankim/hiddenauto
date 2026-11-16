@@ -223,41 +223,82 @@ public class ProductStudioAssetService {
     for (ProductStudioAsset original :
         repository.findByOwnerTypeAndOwnerIdOrderByCreatedAtAsc(type, from)) {
       if (included != null && !included.contains(original.getId())) continue;
-      ProductStudioAsset copy = new ProductStudioAsset();
-      copy.setId(UUID.randomUUID().toString());
-      copy.setOwnerType(type);
-      copy.setOwnerId(to);
-      copy.setOriginalName(original.getOriginalName());
-      copy.setContentType(original.getContentType());
-      copy.setFileSize(original.getFileSize());
-      copy.setDiskName(UUID.randomUUID() + "." + extension(original.getOriginalName()));
-      copy.setCreatedBy(actor);
-      copy.setCreatedAt(LocalDateTime.now());
-      Path target = path(copy);
-      // Register cleanup before copying so even a partially written file is removed on rollback.
-      org.springframework.transaction.support.TransactionSynchronizationManager
-          .registerSynchronization(
-              new org.springframework.transaction.support.TransactionSynchronization() {
-                @Override
-                public void afterCompletion(int status) {
-                  if (status != STATUS_COMMITTED)
-                    try {
-                      Files.deleteIfExists(target);
-                    } catch (java.io.IOException ignored) {
-                    }
-                }
-              });
-      try {
-        Files.copy(path(original), target);
-      } catch (java.io.IOException ex) {
-        throw new IllegalStateException("복사할 첨부파일 '" + original.getOriginalName() + "'을 읽지 못했습니다.", ex);
-      }
-      repository.save(copy);
+      ProductStudioAsset copy = duplicate(original, type, to, actor);
       // Replace complete JSON string values only: an ID embedded in guide text, or a
       // longer identifier with the same prefix, is not an attachment reference.
       if (result != null) result = result.replace("\"" + original.getId() + "\"", "\"" + copy.getId() + "\"");
     }
     return result;
+  }
+
+  private ProductStudioAsset duplicate(ProductStudioAsset original, String type, Long to, String actor) {
+    ProductStudioAsset copy = new ProductStudioAsset();
+    copy.setId(UUID.randomUUID().toString());
+    copy.setOwnerType(type);
+    copy.setOwnerId(to);
+    copy.setOriginalName(original.getOriginalName());
+    copy.setContentType(original.getContentType());
+    copy.setFileSize(original.getFileSize());
+    copy.setDiskName(UUID.randomUUID() + "." + extension(original.getOriginalName()));
+    copy.setCreatedBy(actor);
+    copy.setCreatedAt(LocalDateTime.now());
+    Path target = path(copy);
+    // Register cleanup before copying so even a partially written file is removed on rollback.
+    org.springframework.transaction.support.TransactionSynchronizationManager
+        .registerSynchronization(
+            new org.springframework.transaction.support.TransactionSynchronization() {
+              @Override
+              public void afterCompletion(int status) {
+                if (status != STATUS_COMMITTED)
+                  try {
+                    Files.deleteIfExists(target);
+                  } catch (java.io.IOException ignored) {
+                  }
+              }
+            });
+    try {
+      Files.copy(path(original), target);
+    } catch (java.io.IOException ex) {
+      throw new IllegalStateException("복사할 첨부파일 '" + original.getOriginalName() + "'을 읽지 못했습니다.", ex);
+    }
+    repository.save(copy);
+    return copy;
+  }
+
+  private static final String PRICE_TEST = "PRICE_TEST";
+
+  private boolean availableForTest(ProductStudioAsset file, Long product, String actor) {
+    if (file == null) return false;
+    boolean allowed = (PRICE_TEST.equals(file.getOwnerType()) && product.equals(file.getOwnerId()))
+        || ("STAGED".equals(file.getOwnerType()) && Objects.equals(actor, file.getCreatedBy()));
+    return allowed && Files.isRegularFile(path(file)) && Files.isReadable(path(file));
+  }
+
+  public List<AssetView> priceTestViews(Collection<String> ids, Long product, String actor) {
+    return repository.findAllById(ids).stream().filter(a -> availableForTest(a, product, actor))
+        .map(this::view).toList();
+  }
+
+  public String keepPriceTestFile(String id, Long source, Long target, Field field, String actor) {
+    ProductStudioAsset file = repository.findById(id).orElse(null);
+    if (!availableForTest(file, source, actor)) {
+      if (!source.equals(target))
+        throw new IllegalArgumentException(field.labels().customer() + " 테스트 첨부를 복사할 수 없습니다. 원제품에서 첨부를 교체해 저장하거나, 제품 복사에서 테스트 답변을 제외해 주세요.");
+      throw new IllegalArgumentException(field.labels().customer() + " 첨부를 열 수 없습니다. 다시 첨부하고 저장해 주세요.");
+    }
+    if (!ProductStudioEngine.list(field.extensions()).contains(extension(file.getOriginalName()))
+        || file.getFileSize() > field.maxFileMB() * 1024L * 1024L)
+      throw new IllegalArgumentException(field.labels().customer() + " 파일 형식 또는 용량 제한을 확인해 주세요.");
+    if (PRICE_TEST.equals(file.getOwnerType()) && target.equals(file.getOwnerId())) return id;
+    return duplicate(file, PRICE_TEST, target, actor).getId();
+  }
+
+  public void removeReplacedTestFiles(Long product, Set<String> keep) {
+    for (ProductStudioAsset a : repository.findByOwnerTypeAndOwnerIdOrderByCreatedAtAsc(PRICE_TEST, product)) {
+      if (keep.contains(a.getId())) continue;
+      repository.delete(a);
+      afterCommit(path(a));
+    }
   }
 
   public ProductStudioAsset require(String id) {
@@ -305,6 +346,10 @@ public class ProductStudioAssetService {
   }
 
   public void validateAnswers(Process process, Map<String, Answer> answers, String actor) {
+    validateAnswers(process, answers, actor, null);
+  }
+
+  public void validateAnswers(Process process, Map<String, Answer> answers, String actor, Long priceTestProduct) {
     for (Question q : process.questions())
       if (q.control() == Control.FILE && !q.fixed())
         for (Field f : ProductStudioEngine.list(q.fields())) {
@@ -317,9 +362,17 @@ public class ProductStudioAssetService {
           if (raw == null) continue;
           if (!(raw instanceof List<?> ids)) throw new IllegalArgumentException("파일 답변이 잘못되었습니다.");
           for (Object id : ids) {
-            ProductStudioAsset a = require(String.valueOf(id));
-            if (!a.getOwnerType().equals("STAGED") || !a.getCreatedBy().equals(actor))
-              throw new IllegalArgumentException("현재 사용자가 업로드한 파일을 선택해 주세요.");
+            ProductStudioAsset a;
+            if (priceTestProduct != null) {
+              a = repository.findById(String.valueOf(id)).orElse(null);
+              if (!availableForTest(a, priceTestProduct, actor))
+                throw new IllegalArgumentException(q.question() + " · " + f.labels().customer()
+                    + " 첨부를 열 수 없습니다. 해당 파일을 제거하고 다시 첨부해 주세요.");
+            } else {
+              a = require(String.valueOf(id));
+              if (!a.getOwnerType().equals("STAGED") || !a.getCreatedBy().equals(actor))
+                throw new IllegalArgumentException("현재 사용자가 업로드한 파일을 선택해 주세요.");
+            }
             if (!ProductStudioEngine.list(f.extensions()).contains(extension(a.getOriginalName()))
                 || a.getFileSize() > f.maxFileMB() * 1024L * 1024L)
               throw new IllegalArgumentException(
@@ -345,7 +398,7 @@ public class ProductStudioAssetService {
 
   @Transactional
   public void deleteOwned(String type, Long ownerId) {
-    if (!Set.of("PRODUCT", "PROCESS", "ACTUAL").contains(type) || ownerId == null)
+    if (!Set.of("PRODUCT", "PROCESS", "ACTUAL", PRICE_TEST).contains(type) || ownerId == null)
       throw new IllegalArgumentException("삭제할 첨부파일 대상을 확인해 주세요.");
     for (ProductStudioAsset asset :
         repository.findByOwnerTypeAndOwnerIdOrderByCreatedAtAsc(type, ownerId)) {

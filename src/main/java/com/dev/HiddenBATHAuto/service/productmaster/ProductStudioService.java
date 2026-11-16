@@ -1435,6 +1435,10 @@ public class ProductStudioService {
   }
 
   public Evaluation evaluate(Long id, EvaluateRequest request, String actor) {
+    return evaluate(id, request, actor, false);
+  }
+
+  public Evaluation evaluate(Long id, EvaluateRequest request, String actor, boolean pricingTest) {
     if (request == null) throw new IllegalArgumentException("프로세스 입력 정보가 필요합니다.");
     ProductMaster p = require(id);
     Process process =
@@ -1442,7 +1446,7 @@ public class ProductStudioService {
     Map<String, Answer> answers = new LinkedHashMap<>(map(request.answers()));
     answers.putAll(fixedAnswers(p));
     Evaluation evaluated = ProductStudioEngine.evaluate(process, answers);
-    assets.validateAnswers(process, evaluated.answers(), actor);
+    assets.validateAnswers(process, evaluated.answers(), actor, pricingTest ? id : null);
     return evaluated;
   }
 

@@ -145,6 +145,7 @@ public class ProductStudioDeletionService {
           .setParameter("id", product.getId()).executeUpdate();
       assets.deleteOwned("PRODUCT", product.getId());
       assets.deleteOwned("PROCESS", product.getId());
+      assets.deleteOwned("PRICE_TEST", product.getId());
       entityManager.createQuery("delete from ProductDrawing d where d.product.id = :id")
           .setParameter("id", product.getId()).executeUpdate();
       // Only product components and input indexes cascade; shared groups/options never cascade.

@@ -129,16 +129,47 @@
       return merged;
     }
     window.addEventListener("pagehide", () => { active = false; cancelTest(); }, { once: true });
+    let fileWarnings = [];
+    async function restoreTestFiles() {
+      const inputs = [];
+      for (const q of process().questions) {
+        if (q.fixed || q.control !== "FILE") continue;
+        for (const f of q.fields || []) {
+          const ids = answers[q.key]?.fields?.[f.key];
+          if (Array.isArray(ids) && ids.length) inputs.push({ q, f, ids });
+        }
+      }
+      if (!inputs.length) return;
+      const available = new Map((await api(product.id, "/test-files")).map(file => [file.id, file]));
+      available.forEach((file, id) => assetMap.set(id, file));
+      for (const { q, f, ids } of inputs) {
+        const retained = ids.filter(id => available.has(id));
+        if (retained.length === ids.length) continue;
+        fileWarnings.push(`${q.question || label(q)} · ${label(f)} — 열 수 없는 첨부 ${ids.length - retained.length}개. 이 질문에서 파일을 다시 선택하고 테스트 후 저장해 주세요.`);
+        if (retained.length) answers[q.key].fields[f.key] = retained;
+        else delete answers[q.key].fields[f.key];
+      }
+    }
     async function load() {
       cancelTest(); context = await api(product.id, "/context");
       definition = S.copy(context.definition || emptyDefinition(context));
       definition.terms ??= []; definition.testAnswers ??= {};
       definition.schemaFingerprint = context.schemaFingerprint;
       answers = S.copy(definition.testAnswers); evaluation = null; result = null; S.dirty = false; paint();
-      if (context.ready) await evaluateProcess(true);
+      fileWarnings = [];
+      try {
+        await restoreTestFiles();
+        if (context.ready) await evaluateProcess(true);
+      } catch (error) {
+        fileWarnings.push("테스트 답변을 복원하지 못했습니다. " + error.message + " 페이지를 다시 열거나 테스트 초기화를 선택해 주세요.");
+      }
+      const notice = S.$("[data-file-warning]", root);
+      notice.hidden = !fileWarnings.length;
+      notice.querySelector("span").textContent = fileWarnings.join("\n");
     }
     function paint() {
       root.innerHTML = `<div class="pm-price-page"><section class="pms-panel pm-price-hero"><header class="pms-panel-title"><div><span class="pm-price-kicker">비규격 가격계산</span><strong>${e(product.productName)}</strong><small class="pm-price-product-code">${e(product.catalogCode || product.productCode)}</small></div><div class="pms-actions">${S.badge(context.registered ? "가격계산 등록됨" : "가격계산 미등록", context.registered ? "green" : "")}${context.stale ? S.badge("프로세스 변경 · 재검증 필요", "red") : ""}<a class="pms-button" href="/admin/product-master/non-standard">비규격 목록</a><a class="pms-button" href="/admin/product-master/products/${product.id}/process${product.actualCount ? "?mode=view" : ""}">프로세스 ${product.actualCount ? "조회" : "확인·수정"}</a></div></header><div class="pms-panel-body"><p class="pm-price-next-task"><strong>${!context.ready ? "먼저 프로세스 등록을 완료해 주세요." : context.stale ? "변경한 입력과 기존 가격 항의 연결을 확인해 주세요." : context.registered ? "등록된 항을 확인하고, 바꾼 내용만 다시 테스트·저장하세요." : "계산할 입력묶음이나 옵션을 선택해 첫 항을 만드세요."}</strong></p><nav class="pm-price-workflow" aria-label="가격계산 작업 위치"><button type="button" data-price-jump="groups"><b>01</b><span>입력·옵션 찾기<small data-price-overview="groups"></small></span></button><button type="button" data-price-jump="terms"><b>02</b><span>가격 항 작성<small data-price-overview="terms"></small></span></button><button type="button" data-price-jump="test"><b>03</b><span>현재 입력 테스트<small>한 사례의 금액 확인</small></span></button><button type="button" data-price-jump="diagnostics"><b>04</b><span>전체 검사·저장<small>다른 경로·표 경계 확인</small></span></button></nav><details class="pm-price-inline-help" data-price-workflow><summary>그룹·제품·프로세스·가격계산의 등록 순서</summary><ol><li>그룹으로 비규격 제품을 생성합니다.</li><li>이 제품의 프로세스에서 옵션·숫자 입력·묶음·분기를 등록합니다.</li><li>프로세스의 ‘검증 후 등록완료’를 실행합니다.</li><li>가격영향 그룹에 금액·조건을 연결하고 테스트·저장합니다.</li></ol><p>옵션이나 입력 항목을 추가하려면 상단의 프로세스 화면을 사용하세요. 이 화면은 등록된 입력으로 가격 항을 만듭니다.</p></details>${!context.ready ? `<div class="pms-alert"><strong>가격 항은 계속 편집할 수 있습니다. 계산·저장은 다음 사항을 먼저 해결하세요.</strong>${(context.issues || []).map((x) => `<p>${e(x)}</p>`).join("")}</div>` : ""}${context.stale ? '<div class="pms-alert"><strong>저장된 가격식과 현재 프로세스가 다릅니다.</strong><p>기존 항은 유지됩니다. 연결을 수정한 뒤 실제 입력 테스트와 전체 검사를 통과해 다시 저장해 주세요.</p></div>' : ""}</div></section>
+        <div data-file-warning class="pms-alert" role="status" hidden><strong>⚠ 테스트 첨부 확인</strong><p style="white-space:pre-line"><span></span></p><button type="button" class="pms-button" data-price-jump="test">테스트 입력으로 이동</button></div>
         ${branchLayoutsHelp}
         <section class="pms-panel" data-price-section="groups" tabindex="-1"><header class="pms-panel-title"><div><span class="pm-price-step">1</span><strong>가격에 연결할 입력·옵션</strong></div></header><div class="pms-panel-body"><p class="pm-price-section-intro">숫자는 계산할 <strong>입력묶음</strong>을, 선택형은 금액을 더할 <strong>옵션</strong>을 선택하세요.</p><div class="pm-price-group-tools"><label class="pm-price-search"><span>그룹·옵션 찾기</span><input type="search" data-price-group-search placeholder="예: 마구리, 심리스, 손잡이" value="${e(groupSearch)}"></label><div class="pm-price-filters" role="group" aria-label="그룹 표시 범위"><button type="button" data-price-group-filter="all">전체</button><button type="button" data-price-group-filter="number">숫자 입력</button><button type="button" data-price-group-filter="choice">선택 옵션</button><button type="button" data-price-group-filter="missing">미연결 숫자</button></div><span data-price-group-count role="status"></span></div><div data-price-participation role="status" aria-live="polite"></div><div class="pm-price-groups" data-price-groups></div><p class="pms-empty" data-price-group-empty hidden>일치하는 그룹이 없습니다. 검색어나 표시 범위를 바꿔 주세요.</p><details class="pm-price-inline-help"><summary>‘금액 항’과 ‘조건 연결’은 무엇이 다른가요?</summary><p>금액 항은 최종가격에 더할 돈을 계산합니다. 조건 연결은 다른 항이 언제 적용될지 정합니다. 심리스 컬러를 마구리 표의 조건으로 사용했더라도 컬러 자체의 추가금은 자동 등록되지 않습니다.</p><p>숫자 그룹마다 최소 한 입력을 가격 항·구간 금액·숫자 조건에 연결합니다. 모든 숫자를 사용할 필요는 없지만, 분기로 다른 묶음만 표시되는 경로도 계산이 연결돼야 합니다. 다른 제품의 금액은 이 화면의 수정으로 함께 변경되지 않습니다.</p></details></div></section>
         <section class="pms-panel" data-price-section="terms" tabindex="-1"><header class="pms-panel-title"><div><span class="pm-price-step">2</span><strong>가격을 구성하는 항</strong><span data-price-term-count class="pm-price-muted"></span></div><div class="pms-actions"><button type="button" class="primary" data-price-batch ${pricingGroups().length ? "" : "disabled"}>옵션별 일괄 설정</button><button type="button" data-price-add ${pricingGroups().length ? "" : "disabled"}>＋ 항 개별 생성</button></div></header><div class="pms-panel-body"><label class="pm-price-search pm-price-term-search"><span>등록된 항 찾기</span><input type="search" data-price-term-search placeholder="항 이름 또는 연결된 그룹" value="${e(termSearch)}"></label><div data-price-draft-notices role="status"></div><div data-price-terms></div><p class="pms-empty" data-price-term-empty hidden>검색한 항이 없습니다. 검색어를 지우면 전체 항이 다시 표시됩니다.</p></div></section>
@@ -479,7 +510,7 @@
     }
     async function evaluateProcess(first = false) {
       if (!first) collectAnswers();
-      const serial = ++sequence, draft = S.copy(answers), next = await S.request(`/products/${product.id}/evaluate`, "POST", { answers: draft });
+      const serial = ++sequence, draft = S.copy(answers), next = await S.request(`/products/${product.id}/pricing/test-process`, "POST", { answers: draft });
       if (serial !== sequence || !active) return null;
       evaluation = next; answers = mergeTestAnswers(next, draft); renderTest(); return next;
     }
@@ -503,7 +534,7 @@
             const focused = document.activeElement, fieldKey = focused?.dataset.answerField, choiceKey = focused?.dataset.answerChoice, questionKey = focused?.closest("[data-price-answer]")?.dataset.priceAnswer;
             const selection = focused?.selectionStart;
             try {
-              const draft = S.copy(answers), next = await S.request(`/products/${product.id}/evaluate`, "POST", { answers: draft });
+              const draft = S.copy(answers), next = await S.request(`/products/${product.id}/pricing/test-process`, "POST", { answers: draft });
               if (stamp !== sequence || !active) return;
               evaluation = next; answers = mergeTestAnswers(next, draft); renderTest();
               if (fieldKey && questionKey) { const scope = S.$$("[data-price-answer]", root).find((x) => x.dataset.priceAnswer === questionKey); const target = scope && S.$$("[data-answer-field]", scope).find((x) => x.dataset.answerField === fieldKey); target?.focus({ preventScroll: true }); if (selection != null && target?.type === "text") target.setSelectionRange(selection, selection); }
@@ -576,7 +607,7 @@
         calculation = next; if (next.evaluation) { localEvaluation = next.evaluation; localAnswers = mergeTestAnswers(next.evaluation, draft); } render(); options.onCalculated?.(next);
       });
       S.$('[data-test-use]', dialog).onclick = () => { if (!calculation?.complete) return; cancelTest(); answers = S.copy(localAnswers); evaluation = localEvaluation; result = null; renderTest(); clearResult('항 테스트의 입력값을 가져왔습니다. 모든 항을 반영한 뒤 전체 가격을 다시 계산해 주세요.'); dialog.close(); };
-      try { localEvaluation = await S.request(`/products/${product.id}/evaluate`, 'POST', { answers: localAnswers }); if (dialog.open) { localAnswers = mergeTestAnswers(localEvaluation, localAnswers); render(); } }
+      try { localEvaluation = await S.request(`/products/${product.id}/pricing/test-process`, 'POST', { answers: localAnswers }); if (dialog.open) { localAnswers = mergeTestAnswers(localEvaluation, localAnswers); render(); } }
       catch (error) { dialog.close(); throw error; }
     }
 

@@ -4,6 +4,8 @@ import com.dev.HiddenBATHAuto.dto.productmaster.ProductMasterDtos.ApiResponse;
 import com.dev.HiddenBATHAuto.dto.productmaster.ProductPricingDtos.*;
 import com.dev.HiddenBATHAuto.service.productmaster.ProductPricingService;
 import com.dev.HiddenBATHAuto.service.productmaster.ProductPricingWire;
+import com.dev.HiddenBATHAuto.service.productmaster.ProductStudioService;
+import com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioDtos;
 import java.security.Principal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -15,6 +17,18 @@ import org.springframework.web.bind.annotation.*;
 @PreAuthorize("hasRole('ADMIN')")
 public class ProductPricingController {
   private final ProductPricingService service;
+  private final ProductStudioService studio;
+
+  @GetMapping("/products/{id}/pricing/test-files")
+  public ApiResponse<Object> testFiles(@PathVariable Long id, Principal actor) {
+    return wire(service.savedTestFiles(id, actor.getName()));
+  }
+
+  @PostMapping("/products/{id}/pricing/test-process")
+  public ApiResponse<Object> testProcess(@PathVariable Long id, @RequestBody
+      ProductStudioDtos.EvaluateRequest request, Principal actor) {
+    return wire(studio.evaluate(id, request, actor.getName(), true));
+  }
   private static ApiResponse<Object> wire(Object value) {
     return ApiResponse.ok(ProductPricingWire.response(value));
   }
@@ -34,8 +48,8 @@ public class ProductPricingController {
     return wire(service.delete(id, version, actor.getName()));
   }
   @PostMapping("/products/{id}/pricing/evaluate")
-  public ApiResponse<Object> evaluate(@PathVariable Long id, @RequestBody EvaluateRequest request) {
-    return wire(service.evaluate(id, request));
+  public ApiResponse<Object> evaluate(@PathVariable Long id, @RequestBody EvaluateRequest request, Principal actor) {
+    return wire(service.evaluateTestPrice(id, request, actor.getName()));
   }
   @PostMapping("/products/{id}/pricing/diagnose")
   public ApiResponse<Object> diagnose(@PathVariable Long id, @RequestBody EvaluateRequest request,
