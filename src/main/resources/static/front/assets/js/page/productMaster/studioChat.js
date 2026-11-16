@@ -289,7 +289,7 @@
     target.innerHTML = `<article class="pms-bubble pm-current-question"><span class="pm-detail-eyebrow">QUESTION ${completed.length + 1}</span><h2 tabindex="-1">${S.e(q.question || q.labels.customer + "를 입력해 주세요.")}</h2>
       <div class="pms-actions">${S.badge(S.controls[q.control].split(" · ")[0], "blue")}${S.badge(state.required ? "필수 답변" : "선택사항")}</div>
       ${S.help(q, (q.assetIds || []).map(id=>assetMap.get(id)).filter(Boolean), q.labels.customer + " 가이드")}
-      <div id="pm-answer-input">${S.inputAnswer(q, answers[q.key] || state.answer, false, assetMap)}</div><div id="pm-answer-guides" aria-live="polite"></div>
+      <div id="pm-answer-input">${S.inputAnswer(q, answers[q.key] || state.answer, false, assetMap, admin)}</div><div id="pm-answer-guides" aria-live="polite"></div>
       <div id="pm-answer-errors" role="alert">${attempted.has(q.key) ? state.errors.map((e) => `<p class="pms-error">${S.e(e)}</p>`).join("") : ""}</div>
       <div class="pms-actions"><button type="button" class="primary" id="pm-answer-next">${completed.length + 1 === visible.length ? "구성 완료 · 결과 확인" : "다음 질문"}</button></div></article>`;
     content.insertAdjacentHTML("beforeend", S.teamPreview(product, evaluation));
@@ -336,7 +336,7 @@
     box.addEventListener("input", () => preview());
     box.addEventListener("change", () => preview());
     S.answerFileEvents(box, q, initialAnswer, assetMap, {
-      uploadPath: admin ? S.base + "/assets/stage" : `/product-spec/studio/${encodeURIComponent(token)}/upload`,
+      testOnly: admin, uploadPath: admin ? S.base + "/assets/stage" : `/product-spec/studio/${encodeURIComponent(token)}/upload`,
       isCurrent: () => box.isConnected && currentKey === q.key,
       onChange: (value) => { answers[q.key] = value; preview(); },
       onBusy: (busy) => {

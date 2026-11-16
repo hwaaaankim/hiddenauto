@@ -28,43 +28,8 @@ public class ProductPricingService {
   private final ProductStudioJson json;
   private final ProductStudioAssetService assets;
 
-  public List<AssetView> savedTestFiles(Long id, String actor) {
-    ProductMaster product = require(id);
-    Definition definition = read(product);
-    if (definition == null) return List.of();
-    Set<String> ids = new LinkedHashSet<>();
-    for (Question q : process(product).questions()) {
-      Answer answer = map(definition.testAnswers()).get(q.key());
-      if (q.control() != Control.FILE || q.fixed() || answer == null) continue;
-      for (Field f : list(q.fields()))
-        if (map(answer.fields()).get(f.key()) instanceof List<?> files)
-          files.forEach(file -> ids.add(String.valueOf(file)));
-    }
-    return assets.priceTestViews(ids, id, actor);
-  }
-
-  private Definition keepTestFiles(Process process, Definition definition, Map<String, Answer> tests,
-      Long source, Long target, String actor) {
-    Map<String, Answer> updated = new LinkedHashMap<>(map(tests));
-    Set<String> keep = new HashSet<>();
-    for (Question q : process.questions()) {
-      Answer answer = updated.get(q.key());
-      if (q.control() != Control.FILE || q.fixed() || answer == null) continue;
-      Map<String, Object> fields = new LinkedHashMap<>(map(answer.fields()));
-      for (Field f : list(q.fields())) {
-        if (!(fields.get(f.key()) instanceof List<?> files)) continue;
-        List<String> retained = new ArrayList<>();
-        for (Object file : files) {
-          String id = assets.keepPriceTestFile(String.valueOf(file), source, target, f, actor);
-          retained.add(id);
-          keep.add(id);
-        }
-        fields.put(f.key(), retained);
-      }
-      updated.put(q.key(), new Answer(answer.choices(), fields));
-    }
-    assets.removeReplacedTestFiles(target, keep);
-    return new Definition(definition.schemaVersion(), definition.schemaFingerprint(), definition.terms(), updated);
+  public Evaluation testProcess(Long id, Map<String, Answer> answers) {
+    return studio.evaluateTest(id, answers);
   }
   private final EntityManager entityManager;
 
@@ -129,9 +94,10 @@ public class ProductPricingService {
     requireCoverage(p, process, definition);
     Calculation test = calculate(p, process, definition, definition.testAnswers());
     if (!test.complete()) throw new IllegalArgumentException("테스트 입력을 완료하고 계산 결과를 확인해 주세요. " + String.join(" / ", test.errors()));
-    Definition clean = keepTestFiles(process, definition, test.evaluation().answers(), id, id, actor);
+    Definition clean = testFileCounts(process, new Definition(1, definition.schemaFingerprint(), definition.terms(), test.evaluation().answers()));
     p.setStudioPriceJson(json.write(clean));
     p.setUpdatedBy(actor);
+    assets.deleteOwned("PRICE_TEST", id);
     products.saveAndFlush(p);
     return context(p, false);
   }
@@ -140,18 +106,11 @@ public class ProductPricingService {
   public Context delete(Long id, Long version, String actor) {
     ProductMaster p = products.findForUpdate(id).orElseThrow(() -> new NoSuchElementException("제품을 찾을 수 없습니다."));
     ProductStudioAttributeService.version(version, p.getRowVersion());
-    assets.deleteOwned("PRICE_TEST", id);
     p.setStudioPriceJson(null);
     p.setUpdatedBy(actor);
+    assets.deleteOwned("PRICE_TEST", id);
     products.saveAndFlush(p);
     return context(id);
-  }
-
-  public Calculation evaluateTestPrice(Long id, com.dev.HiddenBATHAuto.dto.productmaster.ProductPricingDtos.EvaluateRequest request, String actor) {
-    Calculation result = evaluate(id, request);
-    if (result.evaluation() != null)
-      assets.validateAnswers(process(require(id)), result.evaluation().answers(), actor, id);
-    return result;
   }
 
   public Calculation evaluate(Long id, com.dev.HiddenBATHAuto.dto.productmaster.ProductPricingDtos.EvaluateRequest request) {
@@ -267,7 +226,7 @@ public class ProductPricingService {
     requireCoverage(target, targetProcess, copied);
     Calculation test = calculate(target, targetProcess, copied, copied.testAnswers());
     if (!test.complete()) throw new IllegalArgumentException("복사한 테스트 입력이 현재 프로세스에서 유효하지 않습니다. " + String.join(" / ", test.errors()));
-    target.setStudioPriceJson(json.write(keepTestFiles(targetProcess, copied, copied.testAnswers(), source.getId(), target.getId(), actor)));
+    target.setStudioPriceJson(json.write(testFileCounts(targetProcess, copied)));
     target.setUpdatedBy(actor);
   }
 
@@ -332,7 +291,7 @@ public class ProductPricingService {
       if (!test.complete()) throw new IllegalArgumentException("복사한 테스트 입력을 확인해 주세요. " + String.join(" / ", test.errors()));
       tests = test.evaluation().answers();
     }
-    target.setStudioPriceJson(json.write(keepTestFiles(targetProcess, copied, tests, source.getId(), target.getId(), actor)));
+    target.setStudioPriceJson(json.write(testFileCounts(targetProcess, new Definition(copied.schemaVersion(), copied.schemaFingerprint(), copied.terms(), tests))));
     target.setUpdatedBy(actor);
   }
 
@@ -490,7 +449,28 @@ public class ProductPricingService {
         : json.read(p.getStudioProcessJson(), Process.class);
   }
   private Definition read(ProductMaster p) {
-    return text(p.getStudioPriceJson()).isBlank() ? null : json.read(p.getStudioPriceJson(), Definition.class);
+    if (text(p.getStudioPriceJson()).isBlank()) return null;
+    return testFileCounts(process(p), json.read(p.getStudioPriceJson(), Definition.class));
+  }
+
+  // File-presence branches and minimum file counts must replay without an asset reference.
+  private Definition testFileCounts(Process process, Definition definition) {
+    Map<String, Answer> tests = new LinkedHashMap<>(map(definition.testAnswers()));
+    for (Question q : list(process.questions())) {
+      Answer answer = tests.get(q.key());
+      if (q.fixed() || q.control() != Control.FILE || answer == null) continue;
+      Map<String, Object> fields = new LinkedHashMap<>();
+      for (Field f : list(q.fields())) {
+        Object value = map(answer.fields()).get(f.key());
+        if (value instanceof List<?> files) {
+          List<String> slots = new ArrayList<>();
+          for (int i = 0; i < files.size(); i++) slots.add("test-file-count-" + (i + 1));
+          fields.put(f.key(), slots);
+        }
+      }
+      tests.put(q.key(), new Answer(List.of(), fields));
+    }
+    return new Definition(definition.schemaVersion(), definition.schemaFingerprint(), definition.terms(), tests);
   }
   private Set<Long> impactGroups(ProductMaster p) {
     return p.getComponents().stream().map(ProductComponent::getGroup).filter(g -> g.getSystemRole() != com.dev.HiddenBATHAuto.enums.productmaster.ProductAttributeRole.SUBCATEGORY && g.isPriceImpact())

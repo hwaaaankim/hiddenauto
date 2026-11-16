@@ -1435,10 +1435,14 @@ public class ProductStudioService {
   }
 
   public Evaluation evaluate(Long id, EvaluateRequest request, String actor) {
-    return evaluate(id, request, actor, false);
+    return evaluateInputs(id, request, actor, false);
   }
 
-  public Evaluation evaluate(Long id, EvaluateRequest request, String actor, boolean pricingTest) {
+  public Evaluation evaluateTest(Long id, Map<String, Answer> answers) {
+    return evaluateInputs(id, new EvaluateRequest(null, answers), null, true);
+  }
+
+  private Evaluation evaluateInputs(Long id, EvaluateRequest request, String actor, boolean test) {
     if (request == null) throw new IllegalArgumentException("프로세스 입력 정보가 필요합니다.");
     ProductMaster p = require(id);
     Process process =
@@ -1446,7 +1450,7 @@ public class ProductStudioService {
     Map<String, Answer> answers = new LinkedHashMap<>(map(request.answers()));
     answers.putAll(fixedAnswers(p));
     Evaluation evaluated = ProductStudioEngine.evaluate(process, answers);
-    assets.validateAnswers(process, evaluated.answers(), actor, pricingTest ? id : null);
+    if (!test) assets.validateAnswers(process, evaluated.answers(), actor);
     return evaluated;
   }
 
@@ -1573,7 +1577,7 @@ public class ProductStudioService {
 
   /** Customer test keeps draft access while using the same customer projection as the public flow. */
   public Evaluation evaluateCustomerPreview(Long id, Map<String, Answer> submitted, String actor) {
-    return customerEvaluation(evaluate(id, new EvaluateRequest(null, submitted), actor));
+    return customerEvaluation(evaluateTest(id, submitted));
   }
 
   public Evaluation evaluatePublic(String token, Map<String, Answer> submitted, String actor) {

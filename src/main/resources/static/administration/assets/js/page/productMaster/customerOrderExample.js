@@ -815,7 +815,7 @@
     node.querySelector('h2').textContent = q.question || q.labels.customer;
     node.querySelector('.hb-question-state').textContent = '선택 중';
     answers[q.key] = answers[q.key] || S.copy(state.answer);
-    node.querySelector('.hb-question-body').innerHTML = `${S.help(q, list(q.assetIds).map(id => assets.get(id)).filter(Boolean), "질문 참고자료")}<div id="hb-input" data-control="${e(q.control)}">${S.inputAnswer(q, answers[q.key], false, assets)}</div><div id="hb-guides"></div><div id="hb-question-errors" class="hb-question-errors" role="alert">${attemptedKey === q.key ? state.errors.map(e).join('<br>') : ''}</div><button type="button" class="hb-next" id="hb-answer-next">선택 완료 · 다음으로</button>`;
+    node.querySelector('.hb-question-body').innerHTML = `${S.help(q, list(q.assetIds).map(id => assets.get(id)).filter(Boolean), "질문 참고자료")}<div id="hb-input" data-control="${e(q.control)}">${S.inputAnswer(q, answers[q.key], false, assets, true)}</div><div id="hb-guides"></div><div id="hb-question-errors" class="hb-question-errors" role="alert">${attemptedKey === q.key ? state.errors.map(e).join('<br>') : ''}</div><button type="button" class="hb-next" id="hb-answer-next">선택 완료 · 다음으로</button>`;
     const box = node.querySelector('#hb-input');
     S.bindEqualInputs(box, q, product.process, answers);
     box.querySelectorAll('input[aria-required],textarea[aria-required]').forEach(input => { input.required = !!state.required && input.getAttribute('aria-required') === 'true'; });
@@ -859,7 +859,7 @@
     };
     box.addEventListener('input', updateGuidance); box.addEventListener('change', updateGuidance); showGuides();
     S.answerFileEvents(box, q, answers[q.key], assets, {
-      uploadPath: S.base + '/assets/stage', isCurrent: () => box.isConnected && currentQuestion === q.key,
+      testOnly: true, uploadPath: S.base + '/assets/stage', isCurrent: () => box.isConnected && currentQuestion === q.key,
       onChange: value => { S.dirty = false; answers[q.key] = value; showGuides(); queueMicrotask(() => compactQuestionMedia(node)); },
       onBusy: on => {
         uploadCount = Math.max(0, uploadCount + (on ? 1 : -1));

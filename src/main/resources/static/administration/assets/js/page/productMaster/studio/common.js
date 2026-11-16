@@ -579,7 +579,7 @@
   S.files = (files, editable = true, options = {}) => {
     const rows = (files || []).filter(Boolean), images = rows.filter((f) => f.image);
     const title = options.title || (editable ? "이미지·파일 등록" : "등록된 이미지·파일");
-    const saveLabel = options.saveLabel || (options.answerField ? "다음 질문을 누를 때 답변으로 반영됩니다." : "해당 저장 버튼을 눌러야 최종 반영됩니다.");
+    const saveLabel = options.testOnly ? "테스트 진행 시 파일은 저장되지 않습니다. 분기 재현을 위해 선택 개수만 기억합니다." : options.saveLabel || (options.answerField ? "다음 질문을 누를 때 답변으로 반영됩니다." : "해당 저장 버튼을 눌러야 최종 반영됩니다.");
     return `<section class="pm-upload-area ${editable ? "editable" : "readonly"}" aria-label="${S.e(title)}"><header class="pm-upload-heading"><div>${options.scopeLabel ? `<span class="pm-upload-owner" data-file-scope>${S.e(options.scopeLabel)}</span>` : ""}<strong>${S.e(title)}</strong><small>${rows.length}개 · 이미지를 누르면 확대해서 볼 수 있습니다.</small></div>${editable ? '<button type="button" data-cancel-files hidden>등록 변경 취소</button>' : ""}</header>${options.description ? `<p class="pms-help pm-upload-description">${S.e(options.description)}</p>` : ""}<div class="pms-files" data-pm-gallery="${S.e(JSON.stringify(images))}" data-pm-gallery-title="${S.e(title)}">${rows.map((f, i) => `<article class="pms-file">${f.image && f.url ? `<button type="button" class="pms-file-image" data-pm-image="${images.indexOf(f)}" aria-label="${S.e(f.name)} 미리보기 확대"><img src="${S.e(f.url)}" alt="${S.e(f.name)}" loading="lazy"></button>` : `<div class="pm-file-placeholder">${fileIcon}<span>${S.e((f.name || "파일").split(".").pop().toUpperCase())}</span></div>`}<div class="pm-file-copy">${f.url ? `<a href="${S.e(f.url)}${f.url.includes("?") ? "&" : "?"}download=true" target="_blank" rel="noopener">${S.e(f.name)}</a>` : `<strong>${S.e(f.name || "등록된 파일")}</strong>`}<small>${f.image ? "이미지 미리보기" : "첨부파일"}</small></div>${editable ? `<div class="pm-file-actions"><button type="button" data-replace-file="${i}" aria-label="${S.e(f.name)} 새 파일로 교체">교체</button><button type="button" data-remove-file="${i}" class="danger" aria-label="${S.e(f.name)} 등록 목록에서 삭제">삭제</button></div>` : ""}</article>`).join("")}${!rows.length ? `<div class="pm-upload-empty" ${editable ? 'tabindex="0" role="button" aria-label="파일 선택 또는 여기에 끌어 놓기"' : ""}>${fileIcon}<strong>${editable ? "등록할 이미지나 파일을 추가해 주세요." : "등록된 파일이 없습니다."}</strong>${editable ? "<span>이 영역을 누르거나 파일을 끌어 놓으세요.</span>" : ""}</div>` : ""}</div>${editable ? `<div class="pms-drop" tabindex="0" role="button" aria-label="이미지·파일 선택"><span class="pm-upload-add" aria-hidden="true">＋</span><span><strong>이미지·파일 선택</strong><small>클릭 또는 이 카드 안에 파일을 끌어 놓아 추가 · 여러 파일 선택 가능</small></span><input type="file" multiple hidden accept="${S.e(options.accept || fileAccept)}" ${options.answerField ? `data-answer-field="${S.e(options.answerField)}"` : ""}></div><input type="file" data-replace-picker hidden><p class="pms-help pm-upload-help">삭제·교체는 현재 등록 목록에만 적용됩니다. <strong>${S.e(saveLabel)}</strong> ‘등록 변경 취소’로 이 영역의 변경을 되돌릴 수 있습니다.</p><span class="pm-upload-status" role="status" aria-live="polite"></span>` : ""}${options.answerField ? `<small data-answer-files="${S.e(options.answerField)}">${rows.length ? rows.length + "개 파일 등록됨" : ""}</small>` : ""}</section>`;
   };
   S.fileEvents = (root, files, updated = () => {}, uploadPath = S.base + "/assets/stage", options = {}) => {
@@ -619,14 +619,17 @@
         if (!S.acceptsFile(file,input.accept)) return S.toast(`${file.name}: 허용된 파일 형식을 선택해 주세요.`);
         if (file.size > (options.maxFileMB ?? 20) * 1024 * 1024) return S.toast(`${file.name}: 파일당 ${options.maxFileMB ?? 20}MB 이하로 등록해 주세요.`);
       }
-      const selectedId = index == null ? null : files[index]?.id, body = new FormData();
-      selected.forEach((file) => body.append("files", file));
+      const selectedId = index == null ? null : files[index]?.id;
+      const body = options.testOnly ? null : new FormData();
+      if (body) selected.forEach((file) => body.append("files", file));
       const serial = ++state.serial;
       state.controller = new AbortController(); state.busy = true; root._pmsUploading = true; S.pendingUploads++;
       options.onBusy?.(true); refreshStatus();
       let failure = null;
       try {
-        const added = await S.api(uploadPath, "POST", body, state.controller.signal);
+        const added = options.testOnly ? selected.map(file => ({
+          id: "local-test-" + crypto.randomUUID(), name: file.name, image: false
+        })) : await S.api(uploadPath, "POST", body, state.controller.signal);
         if (serial !== state.serial || !root.isConnected || options.isCurrent?.() === false) return;
         if (!Array.isArray(added) || !added.length) throw Error("업로드한 파일을 확인해 주세요.");
         if (index == null) files.push(...added);
@@ -677,7 +680,7 @@
     return `<div class="pms-pager"><button data-${action}="0" ${page <= 0 ? "disabled" : ""}>FIRST</button><button data-${action}="${Math.max(0, page - 1)}" ${page <= 0 ? "disabled" : ""}>PREV</button>${Array.from({ length: Math.max(0, Math.min(5, total - start)) }, (_, i) => `<button data-${action}="${start + i}" class="${page === start + i ? "current" : ""}">${start + i + 1}</button>`).join("")}<button data-${action}="${page + 1}" ${page >= total - 1 ? "disabled" : ""}>NEXT</button><button data-${action}="${Math.max(0, total - 1)}" ${page >= total - 1 ? "disabled" : ""}>LAST</button></div>`;
   };
   S.labelSamples = (f) => `<div class="pm-live-sample"><strong>실제 표시 예시</strong><div class="pm-label-examples">${Object.entries({ customer: "고객", production: "생산팀", management: "관리팀" }).map(([key, name]) => `<span><small>${name} 화면</small><b>${S.e(f.labels?.[key] || "표시명")}</b> : <em>___</em>${f.unit ? ` <span>(${S.e(f.unit)})</span>` : ""}</span>`).join("")}</div><small>표시명은 입력칸 앞에, 단위는 입력한 값 뒤에 표시됩니다. 저장되는 숫자는 세 화면에서 같습니다.</small></div>`;
-  S.inputAnswer = (q, answer = {}, disabled = false, assets = new Map()) => {
+  S.inputAnswer = (q, answer = {}, disabled = false, assets = new Map(), testOnly = false) => {
     const choices = answer.choices || [], fields = answer.fields || {};
     const resolve = (id) => assets instanceof Map ? assets.get(id) : assets?.[id];
     if (S.isChoice(q.control)) {
@@ -696,8 +699,8 @@
       if (q.control === "TEXTAREA") input = `<textarea ${attr} rows="4" maxlength="${f.maxLength ?? 500}">${S.e(fields[f.key])}</textarea>`;
       else if (q.control === "FILE") {
         const ids = Array.isArray(fields[f.key]) ? fields[f.key] : [];
-        const list = ids.map((id) => resolve(id) || { id, name: "등록된 파일", image: false });
-        input = `<div data-answer-upload="${S.e(f.key)}">${S.files(list, !disabled, { answerField: f.key, accept: (f.extensions || []).map((x) => "." + x).join(",") })}</div><small>허용 형식: ${S.e((f.extensions || []).join(", "))} · 최대 ${f.maxFiles ?? 5}개 · 파일당 ${f.maxFileMB ?? 10}MB</small>`;
+        const list = ids.map((id) => resolve(id) || { id, name: testOnly ? "이전 테스트에서 선택한 파일" : "등록된 파일", image: false });
+        input = `<div data-answer-upload="${S.e(f.key)}">${S.files(list, !disabled, { testOnly, answerField: f.key, accept: (f.extensions || []).map((x) => "." + x).join(",") })}</div><small>허용 형식: ${S.e((f.extensions || []).join(", "))} · 최대 ${f.maxFiles ?? 5}개 · 파일당 ${f.maxFileMB ?? 10}MB</small>`;
       } else {
         const number = q.control === "NUMBER";
         input = `<div class="pm-answer-value"><input ${attr} type="${number ? "number" : "text"}" value="${S.e(fields[f.key])}" ${number && f.placeholder != null && String(f.placeholder) !== "" ? `placeholder="${S.e(f.placeholder)}"` : ""} ${number ? `step="${f.step ?? 1}" ${f.min != null ? `min="${f.min}"` : !f.allowNegative ? 'min="0"' : ""} ${f.max != null ? `max="${f.max}"` : ""}` : `maxlength="${f.maxLength ?? 500}"`}>${f.unit ? `<span class="pm-answer-unit">(${S.e(f.unit)})</span>` : ""}</div>`;
@@ -730,7 +733,7 @@
       const field = (q.fields || []).find((f) => f.key === upload.dataset.answerUpload);
       if (!field) return;
       const ids = Array.isArray(answer.fields?.[field.key]) ? answer.fields[field.key] : [];
-      const files = ids.map((id) => assets.get(id) || { id, name: "등록된 파일", image: false });
+      const files = ids.map((id) => assets.get(id) || { id, name: options.testOnly ? "이전 테스트에서 선택한 파일" : "등록된 파일", image: false });
       S.fileEvents(upload, files, () => {
         files.forEach((a) => assets.set(a.id, a));
         answer.fields ??= {}; answer.fields[field.key] = files.map((a) => a.id);
