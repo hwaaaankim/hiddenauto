@@ -104,6 +104,8 @@ logging:
     com.dev.HiddenBATHAuto.notification: DEBUG
 
 hiddenbath:
+  storefront:
+    preview-companies: "1405"
   product-drawing:
     # 프로젝트에 포함된 로컬 diagrams.net 편집기
     editor-url: "/administration/assets/libs/diagrams/index.html"
