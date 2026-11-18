@@ -4,6 +4,7 @@ import static com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioCustomerDtos
 import static com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioDtos.*;
 
 import com.dev.HiddenBATHAuto.model.productmaster.ProductMaster;
+import com.dev.HiddenBATHAuto.enums.productmaster.ProductMasterStatus;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -54,7 +55,7 @@ public class ProductStorefrontService {
     Map<String, List<SeriesCard>> categories = new LinkedHashMap<>();
     for (var entry : data.buckets()) {
       var matches = entry.getValue().stream()
-          .filter(p -> !activeOnly || "ACTIVE".equals(p.getStatus().name()))
+          .filter(p -> !activeOnly || p.getStatus() == ProductMasterStatus.ACTIVE)
           .filter(p -> term.isEmpty() || ("series".equals(subject)
               ? data.names().get(entry.getKey()).get("SERIES") : p.getProductName())
               .toLowerCase(Locale.ROOT).contains(term))
@@ -84,13 +85,32 @@ public class ProductStorefrontService {
       ProductStudioCustomerService.ShowroomData data, Long productId) {
     return data.buckets().stream().filter(entry -> entry.getValue().stream()
         .anyMatch(p -> p.getId().equals(productId))).findFirst()
-        .orElseThrow(() -> new NoSuchElementException("현재 표시할 수 없는 시리즈입니다. 컬렉션에서 다시 선택해 주세요."));
+        .orElseThrow(() -> new NoSuchElementException("시리즈를 표시할 수 없습니다. 제품의 분류 또는 옵션이 누락되었거나 비활성 상태일 수 있습니다."));
+  }
+
+  public ProductMaster requireCustomerProduct(Long id) {
+    ProductMaster product = studio.require(id);
+    if (product.getStatus() == ProductMasterStatus.DRAFT)
+      throw new IllegalArgumentException("아직 등록 중인 제품이라 고객 발주 화면에 공개되지 않았습니다.");
+    if (product.getStatus() == ProductMasterStatus.DISCONTINUED)
+      throw new IllegalArgumentException("단종된 제품이라 발주할 수 없습니다.");
+    if (product.getStatus() != ProductMasterStatus.ACTIVE)
+      throw new IllegalArgumentException("제품의 게시 상태를 확인해 주세요.");
+    if (product.getStudioDefinitionJson() == null || product.getStudioDefinitionJson().isBlank())
+      throw new IllegalArgumentException("제품의 분류와 옵션 구성이 등록되지 않았습니다.");
+    return product;
   }
 
   public SeriesDetail series(Long productId) {
-    ProductMaster anchor = studio.require(productId);
+    return series(productId, false);
+  }
+
+  public SeriesDetail series(Long productId, boolean activeOnly) {
+    ProductMaster anchor = activeOnly ? requireCustomerProduct(productId) : studio.require(productId);
     var data = customer.showroomData(anchor.isNonStandard());
     var entry = bucket(data, productId);
+    if (activeOnly) entry = Map.entry(entry.getKey(), entry.getValue().stream()
+        .filter(p -> p.getStatus() == ProductMasterStatus.ACTIVE).toList());
     // Standard prices are deliberately withheld until all configuration questions are answered.
     return new SeriesDetail(seriesCard(data, entry, anchor.isNonStandard()), studio.detail(productId),
         anchor.isNonStandard() ? entry.getValue().stream().map(p -> customer.card(p,
@@ -105,11 +125,12 @@ public class ProductStorefrontService {
     if (selections == null || selections.size() > 200 || selections.entrySet().stream()
         .anyMatch(e -> e.getKey() == null || e.getValue() == null || e.getValue().length() > 200))
       throw new IllegalArgumentException("규격 옵션 선택값을 확인해 주세요.");
-    if (studio.require(productId).isNonStandard())
+    ProductMaster anchor = activeOnly ? requireCustomerProduct(productId) : studio.require(productId);
+    if (anchor.isNonStandard())
       throw new IllegalArgumentException("비규격 제품은 제품별 맞춤 구성에서 선택해 주세요.");
     var data = customer.showroomData(false);
     List<ProductMaster> scope = bucket(data, productId).getValue();
-    if (activeOnly) scope = scope.stream().filter(p -> "ACTIVE".equals(p.getStatus().name())).toList();
+    if (activeOnly) scope = scope.stream().filter(p -> p.getStatus() == ProductMasterStatus.ACTIVE).toList();
     if (scope.isEmpty()) throw new NoSuchElementException("발주 가능한 제품이 없습니다.");
     // Saved product composition order, with later models' additional groups appended deterministically.
     Set<Long> ordered = new LinkedHashSet<>();

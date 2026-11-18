@@ -55,44 +55,41 @@ public class StorePreviewController {
     @GetMapping("/api/customer-series/{id}") @ResponseBody
     public Object series(@AuthenticationPrincipal PrincipalDetails principal, @PathVariable long id) {
         access.company(principal);
-        preview.active(id);
-        var data = storefront.series(id);
-        return ApiResponse.ok(new ProductStorefrontService.SeriesDetail(data.series(), data.representative(),
-                data.products().stream().filter(p -> "ACTIVE".equals(p.status())).toList()));
+        return ApiResponse.ok(storefront.series(id, true));
     }
 
     @PostMapping("/api/customer-series/{id}/configure") @ResponseBody
     public Object configure(@AuthenticationPrincipal PrincipalDetails principal, @PathVariable long id,
             @RequestBody Map<Long, String> options) {
         access.company(principal);
-        preview.active(id);
-        var c = storefront.configure(id, options, true);
-        return ApiResponse.ok(new ProductStorefrontService.Configuration(c.steps(), c.next(), c.totalGroups(),
-                c.remaining(), c.complete(), c.products().stream().filter(p -> "ACTIVE".equals(p.status())).toList(), c.display()));
+        return ApiResponse.ok(storefront.configure(id, options, true));
     }
 
     @GetMapping("/api/products/{id}") @ResponseBody
     public Object detail(@AuthenticationPrincipal PrincipalDetails principal, @PathVariable long id) {
         access.company(principal);
-        return ApiResponse.ok(preview.active(id));
+        return ApiResponse.ok(preview.orderable(id));
     }
 
     @PostMapping("/api/products/{id}/customer-evaluate") @ResponseBody
     public Object evaluate(@AuthenticationPrincipal PrincipalDetails principal, @PathVariable long id,
             @RequestBody Map<String, Answer> answers) {
         long company = access.company(principal);
-        preview.active(id);
+        preview.orderable(id);
         return ApiResponse.ok(studio.evaluateCustomerPreview(id, answers, preview.actor(company)));
     }
 
     @PostMapping("/api/products/{id}/pricing/evaluate") @ResponseBody
     public Object price(@AuthenticationPrincipal PrincipalDetails principal, @PathVariable long id,
             @RequestBody EvaluateRequest request) {
-        access.company(principal);
-        preview.active(id);
+        long company = access.company(principal);
+        preview.orderable(id);
         var verified = studio.evaluate(id,
                 new com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioDtos.EvaluateRequest(null, request.answers()),
-                preview.actor(access.company(principal)));
+                preview.actor(company));
+        if (!verified.complete()) {
+            throw new IllegalArgumentException("현재 분기의 필수 질문을 먼저 완료해 주세요.");
+        }
         return ApiResponse.ok(ProductPricingWire.response(prices.evaluate(id, new EvaluateRequest(null, verified.answers()))));
     }
 
@@ -100,7 +97,7 @@ public class StorePreviewController {
     public Object status(@AuthenticationPrincipal PrincipalDetails principal, @RequestBody StatusRequest request) {
         access.company(principal);
         if (request.productIds() == null || request.productIds().size() > 10) throw new IllegalArgumentException("제품을 확인해 주세요.");
-        request.productIds().forEach(preview::active);
+        request.productIds().forEach(preview::orderable);
         return ApiResponse.ok(ProductPricingWire.response(prices.status(request.productIds())));
     }
 

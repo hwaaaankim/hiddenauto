@@ -61,14 +61,20 @@ public class StorePreviewService {
 
     public String actor(long company) { return "SHOP_PREVIEW_COMPANY:" + company; }
 
-    public ProductView active(long id) {
+    public ProductView orderable(long id) {
+        storefront.requireCustomerProduct(id);
         var p = studio.detail(id);
-        if (!"ACTIVE".equals(p.status())) throw new NoSuchElementException("현재 발주할 수 없는 제품입니다.");
+        if (p.nonStandard() && (p.process() == null || p.process().questions() == null || p.process().questions().isEmpty()))
+            throw new IllegalArgumentException("비규격 제품의 질문 구성이 등록되지 않았습니다.");
         return p;
     }
 
     public Item item(Selection selection, long company, boolean bookmark) {
-        var p = active(selection.productId());
+        return item(selection, company, bookmark, false);
+    }
+
+    private Item item(Selection selection, long company, boolean bookmark, boolean legacyStamp) {
+        var p = orderable(selection.productId());
         Map<Long, String> options = selection.options() == null ? Map.of() : selection.options();
         Map<String, Answer> answers = selection.answers() == null ? Map.of() : selection.answers();
         BigDecimal price = p.unitPrice();
@@ -107,7 +113,8 @@ public class StorePreviewService {
             } else {
                 if (!evaluation.complete()) throw new IllegalArgumentException("제품 질문을 모두 완료해 주세요.");
                 var quote = prices.evaluate(p.id(), new EvaluateRequest(null, evaluation.answers()));
-                if (!quote.complete()) throw new IllegalArgumentException("등록된 가격식을 확인해 주세요.");
+                if (!quote.complete()) throw new IllegalArgumentException(quote.errors() == null || quote.errors().isEmpty()
+                        ? "등록된 가격식을 확인해 주세요." : String.join(" · ", quote.errors()));
                 price = quote.total();
             }
         } else {
@@ -124,11 +131,14 @@ public class StorePreviewService {
         }
         var clean = new Selection(p.id(), p.id(),
                 p.nonStandard() ? Map.of() : options, canonicalAnswers);
-        var stampData = Arrays.asList(clean, p.version(), p.process(), p.variants(), summary,
-                price == null ? null : price.stripTrailingZeros().toPlainString());
+        String priceKey = price == null ? null : price.stripTrailingZeros().toPlainString();
+        var stampData = legacyStamp
+                ? Arrays.asList(clean, p.version(), p.process(), p.variants(), summary, priceKey)
+                : Arrays.asList(clean, p.process(), p.variants(), summary, priceKey, p.productName(), p.productionHours());
+        String stamp = (legacyStamp ? "" : "configuration:") + hash(encode(stampData));
         String image = "/administration/assets/images/customer-order-example/"
                 + String.format(Locale.ROOT, "%02d.webp", (p.id() % 22) + 1);
-        return new Item(clean, hash(encode(stampData)), p.productName(), image, price, p.productionHours(),
+        return new Item(clean, stamp, p.productName(), image, price, p.productionHours(),
                 p.productionHours() == null ? null : StoreCheckoutPolicy.earliestDate(today(), p.productionHours(), holidays::contains),
                 p.nonStandard(), series, summary);
     }
@@ -141,15 +151,23 @@ public class StorePreviewService {
         Item current;
         try {
             current = item(previous.selection(), company, bookmark);
+            if (previous.stamp() != null && previous.stamp().matches("[a-f0-9]{64}")
+                    && item(previous.selection(), company, bookmark, true).stamp().equals(previous.stamp())) {
+                return current;
+            }
         } catch (IllegalArgumentException | NoSuchElementException e) {
-            throw new Changed();
+            throw new Changed(e.getMessage());
         }
         if (!current.stamp().equals(previous.stamp())) throw new Changed();
         return current;
     }
 
     public static class Changed extends RuntimeException {
-        public Changed() { super("해당제품의 정보가 변경되었습니다. 새로 선택해 주세요."); }
+        public Changed() { this(null); }
+        public Changed(String reason) {
+            super(reason == null || reason.isBlank() ? "제품 정보 또는 가격이 변경되었습니다. 다시 선택해 주세요."
+                    : "저장한 제품을 다시 확인해 주세요. " + reason);
+        }
     }
 
     public List<Saved> saved(long company) {
@@ -191,7 +209,10 @@ public class StorePreviewService {
                     || line.address().isBlank() || line.address().length() > 400) {
                 throw new IllegalArgumentException("품목과 배송 주소를 확인해 주세요.");
             }
-            if (p.earliest() == null || line.date() == null || line.date().isBefore(p.earliest())
+            if (p.earliest() == null) {
+                throw new IllegalArgumentException(p.name() + "의 생산기간이 등록되지 않았습니다. 관리자에게 문의해 주세요.");
+            }
+            if (line.date() == null || line.date().isBefore(p.earliest())
                     || !StoreCheckoutPolicy.isBusinessDay(line.date(), holidays::contains)) {
                 throw new IllegalArgumentException(p.name() + "의 희망 출고일을 확인해 주세요.");
             }
