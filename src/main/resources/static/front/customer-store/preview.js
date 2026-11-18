@@ -375,6 +375,12 @@
     const rows = stored('checkout', [], sessionStorage);
     if (!rows.length) { shell('발주하기', emptyList('선택한 발주 품목이 없습니다', '장바구니에서 발주할 품목을 선택해 주세요.', root + '?view=cart', '장바구니로 이동')); return; }
     const options = await call('/checkout');
+    if (!options.methods.length) {
+      shell('발주하기', emptyList('등록된 배송수단이 없습니다',
+        '관리자가 배송수단을 등록하면 발주를 진행할 수 있습니다. 선택한 품목은 유지됩니다.',
+        root + '?view=cart', '장바구니로 이동'));
+      return;
+    }
     const methods = '<option value="">배송수단 선택</option>' + options.methods.map(m =>
       '<option value="' + esc(m.id) + '">' + esc(m.name) + '</option>').join('');
     const shipping = '<label>배송수단<select name="method" required>' + methods + '</select></label>';
@@ -388,7 +394,7 @@
       '<button type="button" class="store-btn" id="store-bulk-open">배송 정보 일괄 적용</button>' +
       '<dialog class="store-bulk store-bulk-dialog" aria-labelledby="store-bulk-title"><h2 id="store-bulk-title">배송 정보 일괄 적용</h2>' +
       '<p>입력한 항목만 모든 품목에 적용합니다.</p><div class="store-fields">' + address + date + shipping +
-      '</div><div class="store-actions"><button type="button" class="store-btn" id="store-bulk-close">닫기</button>' +
+      '</div><p class="store-bulk-warning" role="status"></p><div class="store-actions"><button type="button" class="store-btn" id="store-bulk-close">닫기</button>' +
       '<button type="button" class="store-btn is-primary" id="store-apply">적용</button></div></dialog>' +
       '<form id="store-checkout"><div class="store-list">' + rows.map(row => '<article class="store-check-line"><div class="store-row">' +
       img(row.item) + '<div><strong>' + esc(row.item.name) + '</strong><div>' + won(row.item.price) +
@@ -453,9 +459,16 @@
       updateLineStatus(line);
     });
     main.querySelector('#store-apply').onclick = () => {
-      for (const name of ['address', 'date', 'method']) {
-        const value = bulk.querySelector('[name=' + name + ']').value.trim();
-        if (!value) continue;
+      const updates = ['address', 'date', 'method']
+        .map(name => [name, bulk.querySelector('[name=' + name + ']').value.trim()])
+        .filter(([, value]) => value);
+      if (!updates.length) {
+        bulk.querySelector('[name=address]').focus();
+        bulk.querySelector('.store-bulk-warning').textContent = '적용할 배송 정보를 한 가지 이상 입력해 주세요.';
+        return;
+      }
+      bulk.querySelector('.store-bulk-warning').textContent = '';
+      for (const [name, value] of updates) {
         for (const line of lines) {
           const target = line.querySelector('[name=' + name + ']');
           if (name === 'date') target._flatpickr.setDate(value, true);

@@ -20,14 +20,17 @@ public class ProductStorefrontService {
   private final ProductStudioAssetService assets;
   private final ProductMasterCodeService codes;
   private final ProductStudioJson json;
+  private final ProductPricingService pricing;
 
   public ProductStorefrontService(ProductStudioCustomerService customer, ProductStudioService studio,
-      ProductStudioAssetService assets, ProductMasterCodeService codes, ProductStudioJson json) {
+      ProductStudioAssetService assets, ProductMasterCodeService codes, ProductStudioJson json,
+      ProductPricingService pricing) {
     this.customer = customer;
     this.studio = studio;
     this.assets = assets;
     this.codes = codes;
     this.json = json;
+    this.pricing = pricing;
   }
 
   public record SeriesCard(String key, String categoryKey, String category, String series,
@@ -52,10 +55,14 @@ public class ProductStorefrontService {
   public List<Collection> collections(boolean nonStandard, String subject, String keyword, boolean activeOnly) {
     String term = keyword.strip().toLowerCase(Locale.ROOT);
     var data = customer.showroomData(nonStandard);
+    Set<Long> ready = activeOnly && nonStandard
+        ? priceReadyIds(data.buckets().stream().flatMap(entry -> entry.getValue().stream()).toList())
+        : Set.of();
     Map<String, List<SeriesCard>> categories = new LinkedHashMap<>();
     for (var entry : data.buckets()) {
       var matches = entry.getValue().stream()
-          .filter(p -> !activeOnly || p.getStatus() == ProductMasterStatus.ACTIVE)
+          .filter(p -> !activeOnly || (p.getStatus() == ProductMasterStatus.ACTIVE
+              && (!nonStandard || ready.contains(p.getId()))))
           .filter(p -> term.isEmpty() || ("series".equals(subject)
               ? data.names().get(entry.getKey()).get("SERIES") : p.getProductName())
               .toLowerCase(Locale.ROOT).contains(term))
@@ -98,7 +105,24 @@ public class ProductStorefrontService {
       throw new IllegalArgumentException("제품의 게시 상태를 확인해 주세요.");
     if (product.getStudioDefinitionJson() == null || product.getStudioDefinitionJson().isBlank())
       throw new IllegalArgumentException("제품의 분류와 옵션 구성이 등록되지 않았습니다.");
+    if (product.isNonStandard() && !priceReadyIds(List.of(product)).contains(id))
+      throw new IllegalArgumentException("현재 고객용으로 공개되지 않은 비규격 제품입니다.");
     return product;
+  }
+
+  private Set<Long> priceReadyIds(List<ProductMaster> candidates) {
+    List<Long> ids = candidates.stream()
+        .filter(product -> product.getStatus() == ProductMasterStatus.ACTIVE)
+        .map(ProductMaster::getId).distinct().toList();
+    Set<Long> ready = new HashSet<>();
+    // The shared price-status service accepts at most 200 IDs per request.
+    for (int start = 0; start < ids.size(); start += 200) {
+      var statuses = pricing.status(ids.subList(start, Math.min(start + 200, ids.size())));
+      for (var status : statuses) {
+        if (status.registered() && status.ready() && !status.stale()) ready.add(status.productId());
+      }
+    }
+    return ready;
   }
 
   public SeriesDetail series(Long productId) {
@@ -109,8 +133,14 @@ public class ProductStorefrontService {
     ProductMaster anchor = activeOnly ? requireCustomerProduct(productId) : studio.require(productId);
     var data = customer.showroomData(anchor.isNonStandard());
     var entry = bucket(data, productId);
-    if (activeOnly) entry = Map.entry(entry.getKey(), entry.getValue().stream()
-        .filter(p -> p.getStatus() == ProductMasterStatus.ACTIVE).toList());
+    if (activeOnly) {
+      Set<Long> ready = anchor.isNonStandard() ? priceReadyIds(entry.getValue()) : Set.of();
+      if (anchor.isNonStandard() && !ready.contains(productId))
+        throw new IllegalArgumentException("현재 고객용으로 공개되지 않은 비규격 제품입니다.");
+      entry = Map.entry(entry.getKey(), entry.getValue().stream()
+          .filter(p -> p.getStatus() == ProductMasterStatus.ACTIVE
+              && (!anchor.isNonStandard() || ready.contains(p.getId()))).toList());
+    }
     // Standard prices are deliberately withheld until all configuration questions are answered.
     return new SeriesDetail(seriesCard(data, entry, anchor.isNonStandard()), studio.detail(productId),
         anchor.isNonStandard() ? entry.getValue().stream().map(p -> customer.card(p,
