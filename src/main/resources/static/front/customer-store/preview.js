@@ -103,9 +103,9 @@
     write('checkout', lines, sessionStorage);
     location.href = root + '?view=checkout';
   }
-  function actions(host, selection, ready) {
+  function actions(host, selection, ready, confirmationMessage) {
     const wrapper = document.createElement('div');
-    wrapper.className = 'store-actions';
+    wrapper.className = 'store-actions store-product-actions';
     wrapper.innerHTML = button('order', '바로발주', true) + button('cart', '장바구니') +
       button('interest', '관심상품');
     host.append(wrapper);
@@ -114,6 +114,8 @@
       return;
     }
     bindButtons(wrapper, async action => {
+      const message = confirmationMessage?.trim();
+      if ((action === 'order' || action === 'cart') && message && !window.confirm(message)) return;
       const item = await quote(selection);
       if (action === 'cart') cartAdd([item]);
       if (action === 'interest') { await save(item, 'interest'); feedback('회사 관심상품에 저장했습니다.'); }

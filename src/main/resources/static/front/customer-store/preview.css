@@ -185,3 +185,28 @@ body.hb-store { display: flex; flex-direction: column; min-height: 100vh; min-he
   .store-list > article { transition: none; }
 }
 [data-motion=reduced] .store-list > article { transition: none; }
+
+/* Customer quote actions and the secondary option reset have separate rows. */
+.hb-store .hb-quote > .store-product-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: .5rem;
+  margin: 1rem 0 0;
+}
+.hb-store .store-product-actions > .store-btn { min-height: 44px; }
+.hb-store .hb-quote > :is(#hb-standard-restart, #hb-restart-config) {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin: .75rem 0 0;
+  color: var(--hb-muted);
+}
+@media (max-width: 480px) {
+  .hb-store .hb-quote > .store-product-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .hb-store .hb-quote .store-product-actions > .is-primary { grid-column: 1 / -1; }
+  .hb-store .hb-quote .store-product-actions > .store-btn { padding-inline: .45rem; }
+}
