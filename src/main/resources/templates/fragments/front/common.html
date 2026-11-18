@@ -36,15 +36,30 @@
 	</div>
 </th:block>
 <th:block th:fragment="autoHeaderMenu">
+    <th:block th:if="${@storePreviewAccess.allowed(#authentication?.principal)}">
+        <link rel="stylesheet" href="/front/customer-store/counts.css?v=1">
+        <script src="/front/customer-store/counts.js?v=1" defer></script>
+    </th:block>
 	<div class="header header-demo header-logo-center mb-3">
 		<a href="/index" class="header-logo">HIDDEN BATH</a>
 		<div id="header-icon-4-group">
 			<a class="header-icon header-icon-4" data-menu="menu-sidebar-left-4" href="#">
 				<i class="font-18 fas fa-bars"></i>
 			</a>
-			<a class="header-icon header-icon-3" th:if="${@storePreviewAccess.allowed(#authentication?.principal)}"
+			<a class="header-icon header-icon-3 store-count-link" th:if="${@storePreviewAccess.allowed(#authentication?.principal)}"
+                data-store-count="cart" th:attr="data-store-user=${@storePreviewAccess.company(#authentication.principal) + ':' + #authentication.principal.id}"
                 th:href="@{/customer/store-preview(view='cart')}" aria-label="장바구니" title="장바구니">
                 <i class="font-18 fa-solid fa-bag-shopping" aria-hidden="true"></i>
+            </a>
+            <a class="header-icon header-icon-5 store-count-link" th:if="${@storePreviewAccess.allowed(#authentication?.principal)}"
+                data-store-count="interest" th:attr="data-store-user=${@storePreviewAccess.company(#authentication.principal) + ':' + #authentication.principal.id}"
+                th:href="@{/customer/store-preview(view='interest')}" aria-label="관심상품" title="관심상품">
+                <i class="font-18 fa-solid fa-heart" aria-hidden="true"></i>
+            </a>
+            <a class="header-icon header-icon-6 store-count-link" th:if="${@storePreviewAccess.allowed(#authentication?.principal)}"
+                data-store-count="bookmark" th:attr="data-store-user=${@storePreviewAccess.company(#authentication.principal) + ':' + #authentication.principal.id}"
+                th:href="@{/customer/store-preview(view='bookmark')}" aria-label="즐겨찾기" title="즐겨찾기">
+                <i class="font-18 fa-solid fa-bookmark" aria-hidden="true"></i>
             </a>
             		</div>
 	</div>
@@ -101,15 +116,15 @@
                     <i class="fa fa-shopping-bag font-14 color-green-dark" aria-hidden="true"></i><span>발주하기</span>
                     <i class="fa fa-angle-right"></i>
                 </a>
-                <a th:if="${@storePreviewAccess.allowed(#authentication?.principal)}" th:href="@{/customer/store-preview(view='cart')}">
+                <a th:if="${@storePreviewAccess.allowed(#authentication?.principal)}" class="store-count-menu" data-store-count="cart" th:href="@{/customer/store-preview(view='cart')}">
                     <i class="fa-solid fa-bag-shopping font-14 color-green-dark" aria-hidden="true"></i><span>장바구니</span>
                     <i class="fa fa-angle-right" aria-hidden="true"></i>
                 </a>
-                <a th:if="${@storePreviewAccess.allowed(#authentication?.principal)}" th:href="@{/customer/store-preview(view='interest')}">
+                <a th:if="${@storePreviewAccess.allowed(#authentication?.principal)}" class="store-count-menu" data-store-count="interest" th:href="@{/customer/store-preview(view='interest')}">
                     <i class="fa-solid fa-heart font-14 color-green-dark" aria-hidden="true"></i><span>관심상품</span>
                     <i class="fa fa-angle-right" aria-hidden="true"></i>
                 </a>
-                <a th:if="${@storePreviewAccess.allowed(#authentication?.principal)}" th:href="@{/customer/store-preview(view='bookmark')}">
+                <a th:if="${@storePreviewAccess.allowed(#authentication?.principal)}" class="store-count-menu" data-store-count="bookmark" th:href="@{/customer/store-preview(view='bookmark')}">
                     <i class="fa-solid fa-bookmark font-14 color-green-dark" aria-hidden="true"></i><span>즐겨찾기</span>
                     <i class="fa fa-angle-right" aria-hidden="true"></i>
                 </a>
@@ -244,15 +259,15 @@
                     <i class="fa fa-shopping-bag font-14 color-green-dark" aria-hidden="true"></i><span>발주하기</span>
                     <i class="fa fa-angle-right"></i>
                 </a>
-                <a th:if="${@storePreviewAccess.allowed(#authentication?.principal)}" th:href="@{/customer/store-preview(view='cart')}">
+                <a th:if="${@storePreviewAccess.allowed(#authentication?.principal)}" class="store-count-menu" data-store-count="cart" th:href="@{/customer/store-preview(view='cart')}">
                     <i class="fa-solid fa-bag-shopping font-14 color-green-dark" aria-hidden="true"></i><span>장바구니</span>
                     <i class="fa fa-angle-right" aria-hidden="true"></i>
                 </a>
-                <a th:if="${@storePreviewAccess.allowed(#authentication?.principal)}" th:href="@{/customer/store-preview(view='interest')}">
+                <a th:if="${@storePreviewAccess.allowed(#authentication?.principal)}" class="store-count-menu" data-store-count="interest" th:href="@{/customer/store-preview(view='interest')}">
                     <i class="fa-solid fa-heart font-14 color-green-dark" aria-hidden="true"></i><span>관심상품</span>
                     <i class="fa fa-angle-right" aria-hidden="true"></i>
                 </a>
-                <a th:if="${@storePreviewAccess.allowed(#authentication?.principal)}" th:href="@{/customer/store-preview(view='bookmark')}">
+                <a th:if="${@storePreviewAccess.allowed(#authentication?.principal)}" class="store-count-menu" data-store-count="bookmark" th:href="@{/customer/store-preview(view='bookmark')}">
                     <i class="fa-solid fa-bookmark font-14 color-green-dark" aria-hidden="true"></i><span>즐겨찾기</span>
                     <i class="fa fa-angle-right" aria-hidden="true"></i>
                 </a>

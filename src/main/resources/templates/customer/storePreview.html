@@ -9,7 +9,8 @@
   <link rel="stylesheet" href="/administration/assets/css/page/productMaster/productShowcase.css?v=20261107-fullflow-2">
   <link rel="stylesheet" href="/administration/assets/css/page/productMaster/customerOrderExample.css?v=20261107-fullflow-3">
   <link rel="stylesheet" href="/administration/assets/libs/flatpickr/flatpickr.min.css">
-  <link rel="stylesheet" href="/front/customer-store/preview.css?v=20261118-reset">
+  <link rel="stylesheet" href="/front/customer-store/preview.css?v=20261118-list">
+  <link rel="stylesheet" href="/front/customer-store/counts.css?v=1">
 </head>
 <body class="hb-store" th:attr="data-store-user=${storeUser},data-store-token=${storeToken}">
   <a class="hb-skip" href="#hb-main">본문으로 이동</a>
@@ -20,9 +21,9 @@
       <span class="hb-wordmark-caption" aria-hidden="true"><span>T</span><span>H</span><span>E</span><span>&#160;</span><span>B</span><span>A</span><span>T</span><span>H</span><span>R</span><span>O</span><span>O</span><span>M</span><span>&#160;</span><span>C</span><span>O</span><span>L</span><span>L</span><span>E</span><span>C</span><span>T</span><span>I</span><span>O</span><span>N</span></span>
     </a>
     <nav class="hb-header-end" aria-label="저장 목록">
-      <a href="/customer/store-preview?view=cart"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h2l2 12h12l2-8H6m3 13h.01m8 0h.01"/></svg><span>장바구니</span></a>
-      <a href="/customer/store-preview?view=interest"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 8.5c0 4.5-8.8 9.5-8.8 9.5S3.2 13 3.2 8.5C3.2 4.4 8.8 3.2 12 7c3.2-3.8 8.8-2.6 8.8 1.5Z"/></svg><span>관심상품</span></a>
-      <a href="/customer/store-preview?view=bookmark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16l-6-4-6 4V4Z"/></svg><span>즐겨찾기</span></a>
+      <a class="store-count-link" data-store-count="cart" href="/customer/store-preview?view=cart"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h2l2 12h12l2-8H6m3 13h.01m8 0h.01"/></svg><span>장바구니</span></a>
+      <a class="store-count-link" data-store-count="interest" href="/customer/store-preview?view=interest"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 8.5c0 4.5-8.8 9.5-8.8 9.5S3.2 13 3.2 8.5C3.2 4.4 8.8 3.2 12 7c3.2-3.8 8.8-2.6 8.8 1.5Z"/></svg><span>관심상품</span></a>
+      <a class="store-count-link" data-store-count="bookmark" href="/customer/store-preview?view=bookmark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16l-6-4-6 4V4Z"/></svg><span>즐겨찾기</span></a>
     </nav>
   </header>
   <div class="hb-preview-note"><span>검증용 텍스트</span> 발주 결과는 저장되지 않으며 결제와 포인트 차감도 없습니다.</div>
@@ -44,7 +45,8 @@
     <script src="/administration/assets/js/page/productMaster/studio/arithmetic.js?v=20261110-modal-3"></script>
   <script src="/administration/assets/js/page/productMaster/studio/showcase.js?v=20261110-modal-3"></script>
   <script src="/administration/assets/libs/flatpickr/flatpickr.min.js"></script>
-  <script src="/front/customer-store/preview.js?v=20261118-reset"></script>
-  <script src="/front/customer-store/catalog.js?v=20261118-reset"></script>
+  <script src="/front/customer-store/counts.js?v=1" defer></script>
+  <script src="/front/customer-store/preview.js?v=20261118-list"></script>
+  <script src="/front/customer-store/catalog.js?v=20261118-list"></script>
 </body>
 </html>

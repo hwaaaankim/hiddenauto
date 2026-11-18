@@ -1,0 +1,21 @@
+.store-count-link { position: relative; }
+.store-count-badge {
+  display: inline-grid; place-items: center; vertical-align: super;
+  min-width: 1rem; min-height: 1rem; padding: 0 .2rem; box-sizing: border-box;
+  border-radius: 1rem; background: #6e542e; color: #fff;
+  font: 700 .625rem/1 system-ui, sans-serif; white-space: nowrap;
+}
+.store-count-badge.is-empty { background: #ebe7df; color: #554d40; }
+.header-icon .store-count-badge { position: absolute; top: .24rem; left: calc(50% + .27rem); }
+.header-logo-center .header-icon-5 { right: 90px; }
+.header-logo-center .header-icon-6 { right: 135px; }
+.store-count-menu .store-count-badge { margin-inline-start: .3rem; vertical-align: .27em; top: auto; }
+@media (max-width: 600px) {
+  .header-logo-center :is(.header-icon-3,.header-icon-5,.header-icon-6).store-count-link { width: 2rem; }
+  .header-logo-center .header-icon-3.store-count-link { right: 40px; }
+  .header-logo-center .header-icon-5 { right: 72px; }
+  .header-logo-center .header-icon-6 { right: 104px; }
+  .header-logo-center:has(.store-count-link) .header-logo {
+    left: .75rem; width: 123px !important; margin-left: 0; font-size: 1rem; text-align: left;
+  }
+}

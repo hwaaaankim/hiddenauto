@@ -142,6 +142,12 @@ public class StorePreviewController {
         return ApiResponse.ok(preview.check(body.item(), access.company(principal), body.bookmark()));
     }
 
+    @GetMapping("/api/counts") @ResponseBody
+    public Object counts(@AuthenticationPrincipal PrincipalDetails principal) {
+        return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore())
+                .body(ApiResponse.ok(preview.savedCounts(access.company(principal))));
+    }
+
     @GetMapping("/api/saved") @ResponseBody
     public Object saved(@AuthenticationPrincipal PrincipalDetails principal) {
         return ApiResponse.ok(preview.saved(access.company(principal)));

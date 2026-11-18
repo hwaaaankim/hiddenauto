@@ -170,6 +170,13 @@ public class StorePreviewService {
         }
     }
 
+    public Map<String, Long> savedCounts(long company) {
+        Map<String, Long> counts = new HashMap<>(Map.of("interest", 0L, "bookmark", 0L));
+        db.query("SELECT kind, COUNT(*) FROM tb_store_preview_saved WHERE company_id=? GROUP BY kind",
+                rs -> { counts.put(rs.getString(1), rs.getLong(2)); }, company);
+        return counts;
+    }
+
     public List<Saved> saved(long company) {
         return db.query("SELECT id, kind, note, payload, created_at FROM tb_store_preview_saved WHERE company_id=? ORDER BY id DESC",
                 (rs, i) -> new Saved(rs.getLong(1), rs.getString(2), rs.getString(3), decode(rs.getString(4)), rs.getTimestamp(5).toInstant().toString()), company);

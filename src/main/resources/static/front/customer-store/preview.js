@@ -16,6 +16,7 @@
   };
   const write = (name, value, storage = localStorage) => {
     storage.setItem(prefix + name, JSON.stringify(value));
+    if (name === 'cart') window.dispatchEvent(new Event('store:cart-changed'));
   };
   const cart = () => stored('cart', []);
   const params = () => new URLSearchParams(location.search);
@@ -59,7 +60,49 @@
     }
     return replaceAssetUrls(content.data ?? content);
   };
-  const call = (path, method, body) => S.api(S.base + path, method, body);
+  const call = async (path, method, body) => {
+    const data = await S.api(S.base + path, method, body);
+    if ((method === 'POST' && path === '/saved') || (method === 'DELETE' && path.startsWith('/saved/'))) {
+      window.dispatchEvent(new Event('store:saved-changed'));
+    }
+    return data;
+  };
+
+  const reduceMotion = () => document.body.dataset.motion === 'reduced' ||
+    matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const detailsAnimations = new WeakMap();
+  document.addEventListener('click', event => {
+    const summary = event.target.closest('details > summary:first-child');
+    if (!summary || event.target.closest('a, button, input, select, textarea') || event.defaultPrevented) return;
+    const details = summary.parentElement;
+    const previous = detailsAnimations.get(details);
+    if (reduceMotion() || !details.animate) {
+      if (previous) {
+        previous.animation.cancel();
+        detailsAnimations.delete(details);
+        details.open = previous.open;
+      }
+      return;
+    }
+    event.preventDefault();
+    const start = details.getBoundingClientRect().height;
+    const open = !(previous?.open ?? details.open);
+    previous?.animation.cancel();
+    details.open = open;
+    const end = details.getBoundingClientRect().height;
+    details.open = true;
+    const animation = details.animate(
+      [{height: start + 'px', boxSizing: 'border-box', overflow: 'clip'},
+       {height: end + 'px', boxSizing: 'border-box', overflow: 'clip'}],
+      {duration: 260, easing: 'cubic-bezier(.22,.61,.36,1)', fill: 'both'}
+    );
+    detailsAnimations.set(details, {animation, open});
+    animation.onfinish = () => {
+      details.open = open;
+      animation.cancel();
+      detailsAnimations.delete(details);
+    };
+  });
 
   function feedback(text, error = false) {
     let node = document.querySelector('#store-feedback');
@@ -76,13 +119,18 @@
     feedback.timer = setTimeout(() => { node.hidden = true; }, 5000);
   }
 
-  function bindButtons(host, callback) {
+  function bindButtons(host, callback, onSettled) {
     host.querySelectorAll('button[data-action]').forEach(el => {
       el.onclick = async () => {
+        el.dataset.busy = 'true';
         el.disabled = true;
         try { await callback(el.dataset.action); }
         catch (error) { feedback(error.message, true); }
-        finally { el.disabled = false; }
+        finally {
+          delete el.dataset.busy;
+          el.disabled = false;
+          onSettled?.();
+        }
       };
     });
   }
@@ -254,8 +302,11 @@
     };
     const renderRow = (row, i) => {
       const details = [
-        mode === 'cart' ? '수량 ' + (row.quantity || 1) + '개' : '',
+        row.item.custom ? '비규격' : '규격',
         row.item.series,
+        mode === 'cart' ? '수량 ' + (row.quantity || 1) + '개' : '',
+        row.item.productionDays == null ? '' : '생산기간 ' + row.item.productionDays + '일',
+        row.item.earliest ? '최초 가능일 ' + row.item.earliest : '',
         row.createdAt && new Date(row.createdAt).toLocaleString('ko-KR'),
         row.note
       ].filter(Boolean);
@@ -263,9 +314,10 @@
       return '<article class="store-row store-saved-row">' +
         (mode === 'bookmark' ? '' : '<input type="checkbox" data-index="' + i + '" aria-label="품목 선택">') +
         img(row.item) + '<div><button type="button" class="store-link" data-open="' + i + '">' + esc(row.item.name) +
-        '</button><div>' + (row.item.price == null ? '' : won(row.item.price)) + '</div>' +
-        (details.length || options.length ? '<details class="store-row-details"' +
-          '><summary>상세 정보</summary><div><small>' + esc(details.join(' · ')) + '</small>' +
+        '</button><div class="store-row-price">' + (row.item.price == null ? '구성 저장' : won(row.item.price)) + '</div>' +
+        '<p class="store-row-meta">' + details.map(text => '<span>' + esc(text) + '</span>').join('') + '</p>' +
+        (options.length || details.length ? '<details class="store-row-details' + (options.length ? '' : ' store-mobile-details') + '"' +
+          '><summary>상세 정보</summary><div><small class="store-row-mobile-meta">' + esc(details.join(' · ')) + '</small>' +
           (options.length ? '<ul>' + options.map(text => '<li>' + esc(text) + '</li>').join('') + '</ul>' : '') +
           '</div></details>' : '') +
         '</div><button class="store-icon" type="button" data-remove="' + i +
@@ -287,16 +339,22 @@
     if (mode !== 'bookmark' && rows.length) {
       const bar = document.createElement('div');
       bar.className = 'store-actions store-list-actions';
-      bar.innerHTML = '<label><input type="checkbox" id="store-select-all"> 표시된 품목 전체 선택</label>' +
+      bar.innerHTML = '<label><input type="checkbox" id="store-select-all"> 표시된 품목 전체 선택</label><span class="store-selection-count" role="status"></span>' +
         button('order', mode === 'interest' ? '바로 발주하기' : '발주하기', true) +
         (mode === 'interest' ? button('cart', '장바구니 담기') : '');
       host.querySelector('header').after(bar);
       const all = bar.querySelector('#store-select-all');
+      const selectedCount = bar.querySelector('.store-selection-count');
+      const actions = [...bar.querySelectorAll('[data-action]')];
       const checks = () => [...list.querySelectorAll('[data-index]')];
       updateAll = () => {
         const visibleChecks = checks();
         all.checked = visibleChecks.length > 0 && visibleChecks.every(el => el.checked);
-        all.indeterminate = !all.checked && visibleChecks.some(el => el.checked);
+        const count = visibleChecks.filter(el => el.checked).length;
+        all.indeterminate = !all.checked && count > 0;
+        const label = count + '개 선택';
+        if (selectedCount.textContent !== label) selectedCount.textContent = label;
+        actions.forEach(action => { action.disabled = !count || action.dataset.busy === 'true'; });
       };
       const updateSelection = el => {
         const key = keyOf(rows[Number(el.dataset.index)]);
@@ -324,7 +382,7 @@
         if (action === 'cart') cartAdd(valid.map(row => row.item));
         else startCheckout(valid.map(row => ({key: row.key || crypto.randomUUID(), item: row.item,
           quantity: row.quantity || 1, fromCart: mode === 'cart', savedId: mode === 'interest' ? row.id : undefined})));
-      });
+      }, updateAll);
     }
     function appendRows(from, to) {
       const template = document.createElement('template');
@@ -545,7 +603,7 @@
       '</dd><dt>검증용 포인트</dt><dd>−' + won(result.points) + '</dd><dt>최종 금액</dt><dd>' +
       won(result.payable) + '</dd></dl><a class="store-btn" href="' + root + '">컬렉션으로</a>');
     main.focus({preventScroll: true});
-    window.scrollTo({top: 0, behavior: 'smooth'});
+    window.scrollTo({top: 0, behavior: reduceMotion() ? 'instant' : 'smooth'});
   }
   async function view(mode) {
     if (!['cart', 'interest', 'bookmark', 'checkout'].includes(mode)) return false;
