@@ -179,7 +179,7 @@
     const state = document.querySelector('#store-search-state');
     state.hidden = !keyword;
     state.querySelector('p').textContent = keyword
-      ? (subject === 'series' ? '시리즈' : '제품명') + ' · ' + keyword + ' · ' + (resultCount ?? 0) + '건'
+      ? (subject === 'series' ? '시리즈' : '제품명') + ' · ' + keyword + ' · ' + (resultCount ?? 0) + '개 제품'
       : '';
     state.querySelector('a').href = root + (kind ? '?kind=custom' : '');
     const list = stored('recent', []);
@@ -231,8 +231,8 @@
       return null;
     }
   }
-  function emptyList(title, description, destination = root, label = '쇼핑몰 둘러보기') {
-    return '<section class="store-empty">' + icon('cart') + '<h2>' + esc(title) + '</h2><p>' +
+  function emptyList(title, description, destination = root, label = '쇼핑몰 둘러보기', symbol = 'cart') {
+    return '<section class="store-empty">' + icon(symbol) + '<h2>' + esc(title) + '</h2><p>' +
       esc(description) + '</p><a class="store-btn" href="' + esc(destination) + '">' + esc(label) + '</a></section>';
   }
   let listObserver;
@@ -269,7 +269,7 @@
     shell(names[mode], rows.length
       ? '<div class="store-list"></div><div class="store-more"><p role="status"></p>' +
         '<button type="button" class="store-btn" hidden>더보기</button></div>'
-      : emptyList('저장된 ' + names[mode] + ' 항목이 없습니다', hints[mode]));
+      : emptyList('저장된 ' + names[mode] + ' 항목이 없습니다', hints[mode], root, '쇼핑몰 둘러보기', mode));
     if (!rows.length) return;
 
     const host = main.querySelector('.store-page');
@@ -325,6 +325,10 @@
       const template = document.createElement('template');
       template.innerHTML = rows.slice(from, to).map((row, i) => renderRow(row, from + i)).join('');
       template.content.querySelectorAll('[data-index]').forEach(bindCheck);
+      if (from > 0) template.content.querySelectorAll('.store-saved-row').forEach((row, index) => {
+        row.classList.add('store-row-enter');
+        row.style.setProperty('--store-enter-delay', Math.min(index, 4) * 18 + 'ms');
+      });
       list.append(template.content);
       status.textContent = '전체 ' + rows.length + '개 중 ' + to + '개 표시';
       more.hidden = to >= rows.length;
@@ -388,7 +392,7 @@
       '<button type="button" class="store-btn is-primary" id="store-apply">적용</button></div></dialog>' +
       '<form id="store-checkout"><div class="store-list">' + rows.map(row => '<article class="store-check-line"><div class="store-row">' +
       img(row.item) + '<div><strong>' + esc(row.item.name) + '</strong><div>' + won(row.item.price) +
-      ' · 최초 가능일 ' + esc(row.item.earliest || '미등록') + '</div></div></div><details class="store-row-details store-check-details"><summary>수량 및 배송 정보</summary><div class="store-fields">' +
+      ' · 최초 가능일 ' + esc(row.item.earliest || '미등록') + '</div></div><span class="store-line-status"></span></div><details class="store-row-details store-check-details"><summary>수량 및 배송 정보</summary><div class="store-fields">' +
       '<label>수량<input type="number" name="quantity" min="1" max="99999" required value="' + esc(row.quantity || 1) + '"></label>' +
       address + date + shipping + '</div><small class="store-method-note" aria-live="polite"></small></details></article>').join('') +
       '</div><section class="store-payment"><h2>결제</h2><p>계좌결제 · 검증용</p><label>사용 포인트 <input type="number" name="points" value="0" min="0" max="' +
@@ -412,6 +416,24 @@
         }]});
     };
     pick(bulk, latest);
+    const updateLineStatus = line => {
+      const addressInput = line.querySelector('[name=address]');
+      const methodInput = line.querySelector('[name=method]');
+      const dateInput = line.querySelector('[name=date]');
+      const quantityInput = line.querySelector('[name=quantity]');
+      const complete = Boolean(addressInput.value.trim() && methodInput.value && dateInput.value && quantityInput.validity.valid);
+      const status = line.querySelector('.store-line-status');
+      status.textContent = complete ? '입력 완료' : '배송 정보 입력 필요';
+      status.classList.toggle('is-complete', complete);
+    };
+    form.addEventListener('input', event => {
+      const line = event.target.closest('.store-check-line');
+      if (line) updateLineStatus(line);
+    });
+    form.addEventListener('change', event => {
+      const line = event.target.closest('.store-check-line');
+      if (line) updateLineStatus(line);
+    });
     lines.forEach((line, i) => {
       pick(line, rows[i].item.earliest);
       const method = line.querySelector('[name=method]');
@@ -428,6 +450,7 @@
         method.value = String(draft.methodId);
         method.onchange();
       }
+      updateLineStatus(line);
     });
     main.querySelector('#store-apply').onclick = () => {
       for (const name of ['address', 'date', 'method']) {
@@ -439,6 +462,7 @@
           else { target.value = value; target.dispatchEvent(new Event('change')); }
         }
       }
+      lines.forEach(updateLineStatus);
       bulk.close();
       feedback('입력한 항목을 전체 품목에 적용했습니다.');
     };
