@@ -659,15 +659,11 @@
     if (pendingRoute) return;
     if (selected.nonStandard || selected.status === 'DISCONTINUED' || !standardState.products.some(p => p.id === selected.id)) throw Error('현재 구성에 맞는 규격제품을 다시 확인해 주세요.');
     standardProduct = selected;
-    target.innerHTML = `<section class="hb-quote"><span class="hb-eyebrow">YOUR CONFIGURATION</span><h2>선택하신 제품이 완성되었습니다.</h2><strong class="hb-selected-name">${e(selected.productName)}</strong>${selected.description ? `<p class="hb-info-description">${e(selected.description)}</p>` : ''}<dl class="hb-meta"><dt>제품코드</dt><dd>${e(selected.catalogCode)}</dd><dt>생산기간</dt><dd>${selected.productionHours == null ? '미등록' : e(String(selected.productionHours) + '일')}</dd><dt>등록 상태</dt><dd>${e((selected.status === 'OUT_OF_STOCK' ? '재고 없음 · 발주 가능' : S.status[selected.status]) || selected.status)}</dd></dl><div class="hb-total">${e(money(selected.unitPrice))}</div><small>선택한 옵션에 일치하는 실제 규격제품의 등록 단가</small>${S.media(list(selected.assets).filter(a=>!a.image),'제품 첨부파일')}${standardGuidance(selected)}<p class="hb-result-note">배송비·포인트는 발주 단계에서 검증합니다.</p>${standardState.steps.length ? '<button type="button" id="hb-standard-restart">옵션 다시 구성하기</button>' : ''}</section>`;
+    target.innerHTML = `<section class="hb-quote"><span class="hb-eyebrow">YOUR CONFIGURATION</span><h2>선택하신 제품이 완성되었습니다.</h2><strong class="hb-selected-name">${e(selected.productName)}</strong>${selected.description ? `<p class="hb-info-description">${e(selected.description)}</p>` : ''}<dl class="hb-meta"><dt>제품코드</dt><dd>${e(selected.catalogCode)}</dd><dt>생산기간</dt><dd>${selected.productionHours == null ? '미등록' : e(String(selected.productionHours) + '일')}</dd><dt>등록 상태</dt><dd>${e((selected.status === 'OUT_OF_STOCK' ? '재고 없음 · 발주 가능' : S.status[selected.status]) || selected.status)}</dd></dl><div class="hb-total">${e(money(selected.unitPrice))}</div><small>선택한 옵션에 일치하는 실제 규격제품의 등록 단가</small>${S.media(list(selected.assets).filter(a=>!a.image),'제품 첨부파일')}${standardGuidance(selected)}<p class="hb-result-note">배송비·포인트는 발주 단계에서 검증합니다.</p></section>`;
     store.actions(target.querySelector('.hb-quote'), {
       productId: selected.id, seriesId: seriesContext.series.productId, options: standardSelections
-    }, selected.unitPrice != null, selected.process?.confirmationMessage);
-    const restart = document.getElementById('hb-standard-restart');
-    if (restart) {
-      target.querySelector('.hb-quote').append(restart);
-      restart.onclick = () => resetStandard(standardState.steps[0].groupId);
-    }
+    }, selected.unitPrice != null, selected.process?.confirmationMessage,
+      standardState.steps.length ? () => resetStandard(standardState.steps[0].groupId) : null);
     await reveal(target.querySelector('.hb-quote'), placeholder._hbHeight); void installFaq();
     } catch (err) {
       target.innerHTML = `<section class="hb-quote"><h2>선택한 제품을 다시 확인해 주세요.</h2><p class="hb-question-errors">${e(err.message)}</p><button type="button" id="hb-standard-retry">제품·가격 다시 확인</button></section>`;
@@ -972,14 +968,12 @@
       const calculation = await request(`/products/${product.id}/pricing/evaluate`, 'POST', { answers: evaluation.answers });
       if (pendingRoute) return;
       if (!calculation.complete) throw Error(list(calculation.errors).join('\n') || '가격계산을 완료하지 못했습니다.');
-      target.innerHTML = `<section class="hb-quote"><span class="hb-eyebrow">YOUR CONFIGURATION</span><h2>나만의 구성이 완성되었습니다.</h2><div class="hb-total">${e(money(calculation.total))}</div><small>저장된 가격식으로 계산한 구성 가격</small><details><summary>검증용 텍스트 · 가격계산 내역</summary>${list(calculation.terms).map(t => `<div class="hb-term"><span>${e(t.name)}${t.applied ? '' : ' · 적용 안 됨'}</span><span>${t.role === 'FACTOR' ? e(t.amount) + '배' : e(money(t.amount))}</span></div><p class="hb-term-why">${e(t.explanation)}</p>${list(t.multipliers).map(m => `<p class="hb-term-why">${e(m.name)}: ${e(m.value)}배 (${list(m.terms).map(f => e(f.name) + ' ' + e(f.value)).join(' / ')})</p>`).join('')}${list(t.adjustments).map(a => `<p class="hb-term-why">${e(a.name)}: ${e(a.before)} → ${e(a.after)} · ${e(a.range)}</p>`).join('')}`).join('')}</details><p class="hb-result-note">제품 구성 확인용 결과입니다. 배송비·포인트는 발주 단계에서 검증합니다.</p><button id="hb-restart-config">옵션 다시 구성하기</button></section>`;
+      target.innerHTML = `<section class="hb-quote"><span class="hb-eyebrow">YOUR CONFIGURATION</span><h2>나만의 구성이 완성되었습니다.</h2><div class="hb-total">${e(money(calculation.total))}</div><small>저장된 가격식으로 계산한 구성 가격</small><details><summary>검증용 텍스트 · 가격계산 내역</summary>${list(calculation.terms).map(t => `<div class="hb-term"><span>${e(t.name)}${t.applied ? '' : ' · 적용 안 됨'}</span><span>${t.role === 'FACTOR' ? e(t.amount) + '배' : e(money(t.amount))}</span></div><p class="hb-term-why">${e(t.explanation)}</p>${list(t.multipliers).map(m => `<p class="hb-term-why">${e(m.name)}: ${e(m.value)}배 (${list(m.terms).map(f => e(f.name) + ' ' + e(f.value)).join(' / ')})</p>`).join('')}${list(t.adjustments).map(a => `<p class="hb-term-why">${e(a.name)}: ${e(a.before)} → ${e(a.after)} · ${e(a.range)}</p>`).join('')}`).join('')}</details><p class="hb-result-note">제품 구성 확인용 결과입니다. 배송비·포인트는 발주 단계에서 검증합니다.</p></section>`;
       store.actions(target.querySelector('.hb-quote'), {
         productId: product.id, seriesId: product.id,
         answers: Object.fromEntries(completed.filter(key => answers[key]).map(key => [key, answers[key]]))
-      }, true, product.process?.confirmationMessage);
-      const restart = document.getElementById('hb-restart-config');
-      target.querySelector('.hb-quote').append(restart);
-      restart.onclick = () => resetQuestion(list(product.process?.questions).find(q => !q.fixed)?.key);
+      }, true, product.process?.confirmationMessage,
+        () => resetQuestion(list(product.process?.questions).find(q => !q.fixed)?.key));
       await reveal(target.querySelector('.hb-quote'), placeholder._hbHeight);
     } catch (err) {
       target.innerHTML = `<section class="hb-quote"><h2>옵션 선택이 완료되었습니다.</h2><p class="hb-question-errors">${e(err.message)}</p><button id="hb-retry-price">가격계산 다시 시도</button><p class="hb-result-note">계산되지 않은 가격은 표시하지 않습니다.</p></section>`;

@@ -24,6 +24,7 @@
     interest: '<path d="M20.8 8.5c0 4.5-8.8 9.5-8.8 9.5S3.2 13 3.2 8.5C3.2 4.4 8.8 3.2 12 7c3.2-3.8 8.8-2.6 8.8 1.5Z"/>',
     bookmark: '<path d="M6 4h12v16l-6-4-6 4V4Z"/>',
     order: '<path d="M4 12h15m-6-6 6 6-6 6"/>',
+    reset: '<path d="M3 10a9 9 0 1 1 1.8 7.4M3 4v6h6"/>',
     close: '<path d="m6 6 12 12M18 6 6 18"/>'
   };
   const icon = key => '<svg viewBox="0 0 24 24" aria-hidden="true">' + icons[key] + '</svg>';
@@ -103,7 +104,7 @@
     write('checkout', lines, sessionStorage);
     location.href = root + '?view=checkout';
   }
-  function actions(host, selection, ready, confirmationMessage) {
+  function actions(host, selection, ready, confirmationMessage, reset) {
     const wrapper = document.createElement('div');
     wrapper.className = 'store-actions store-product-actions';
     wrapper.innerHTML = button('order', '바로발주', true) + button('cart', '장바구니') +
@@ -111,9 +112,7 @@
     host.append(wrapper);
     if (!ready) {
       wrapper.querySelectorAll('button').forEach(el => { el.disabled = true; });
-      return;
-    }
-    bindButtons(wrapper, async action => {
+    } else bindButtons(wrapper, async action => {
       const message = confirmationMessage?.trim();
       if ((action === 'order' || action === 'cart') && message && !window.confirm(message)) return;
       const item = await quote(selection);
@@ -121,6 +120,10 @@
       if (action === 'interest') { await save(item, 'interest'); feedback('회사 관심상품에 저장했습니다.'); }
       if (action === 'order') startCheckout([{key: crypto.randomUUID(), item, quantity: 1}]);
     });
+    if (reset) {
+      wrapper.insertAdjacentHTML('beforeend', button('reset', '옵션 다시 구성하기'));
+      wrapper.querySelector('[data-action="reset"]').onclick = reset;
+    }
   }
   function bookmark(host, selection) {
     const wrapper = document.createElement('div');
