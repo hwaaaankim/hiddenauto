@@ -45,10 +45,22 @@ public class ProductStorefrontService {
       int totalGroups, long remaining, boolean complete, List<ProductCard> products, List<DisplayRow> display) {}
 
   public List<Collection> collections(boolean nonStandard) {
+    return collections(nonStandard, "", "", false);
+  }
+
+  public List<Collection> collections(boolean nonStandard, String subject, String keyword, boolean activeOnly) {
+    String term = keyword.strip().toLowerCase(Locale.ROOT);
     var data = customer.showroomData(nonStandard);
     Map<String, List<SeriesCard>> categories = new LinkedHashMap<>();
     for (var entry : data.buckets()) {
-      SeriesCard card = seriesCard(data, entry, nonStandard);
+      var matches = entry.getValue().stream()
+          .filter(p -> !activeOnly || "ACTIVE".equals(p.getStatus().name()))
+          .filter(p -> term.isEmpty() || ("series".equals(subject)
+              ? data.names().get(entry.getKey()).get("SERIES") : p.getProductName())
+              .toLowerCase(Locale.ROOT).contains(term))
+          .toList();
+      if (matches.isEmpty()) continue;
+      SeriesCard card = seriesCard(data, Map.entry(entry.getKey(), matches), nonStandard);
       categories.computeIfAbsent(card.categoryKey(), k -> new ArrayList<>()).add(card);
     }
     return categories.entrySet().stream().map(entry ->
@@ -86,6 +98,10 @@ public class ProductStorefrontService {
   }
 
   public Configuration configure(Long productId, Map<Long, String> selections) {
+    return configure(productId, selections, false);
+  }
+
+  public Configuration configure(Long productId, Map<Long, String> selections, boolean activeOnly) {
     if (selections == null || selections.size() > 200 || selections.entrySet().stream()
         .anyMatch(e -> e.getKey() == null || e.getValue() == null || e.getValue().length() > 200))
       throw new IllegalArgumentException("규격 옵션 선택값을 확인해 주세요.");
@@ -93,6 +109,8 @@ public class ProductStorefrontService {
       throw new IllegalArgumentException("비규격 제품은 제품별 맞춤 구성에서 선택해 주세요.");
     var data = customer.showroomData(false);
     List<ProductMaster> scope = bucket(data, productId).getValue();
+    if (activeOnly) scope = scope.stream().filter(p -> "ACTIVE".equals(p.getStatus().name())).toList();
+    if (scope.isEmpty()) throw new NoSuchElementException("발주 가능한 제품이 없습니다.");
     // Saved product composition order, with later models' additional groups appended deterministically.
     Set<Long> ordered = new LinkedHashSet<>();
     scope.forEach(p -> data.definitions().get(p.getId()).forEach(v -> ordered.add(v.groupId())));

@@ -42,7 +42,11 @@
 			<a class="header-icon header-icon-4" data-menu="menu-sidebar-left-4" href="#">
 				<i class="font-18 fas fa-bars"></i>
 			</a>
-			<a class="header-icon header-icon-3" href="#" role="button"
+			<a class="header-icon header-icon-3" th:if="${@storePreviewAccess.allowed(#authentication?.principal)}"
+                th:href="@{/customer/store-preview(view='cart')}" aria-label="장바구니" title="장바구니">
+                <i class="font-18 fa-solid fa-bag-shopping" aria-hidden="true"></i>
+            </a>
+            <a class="header-icon header-icon-3" th:unless="${@storePreviewAccess.allowed(#authentication?.principal)}" href="#" role="button"
 				onclick="event.preventDefault(); alert('준비중입니다.');"
 				aria-label="장바구니 준비중" title="장바구니 준비중">
 				<i id="bag-icon" class="font-18 fa-solid fa-bag-shopping"></i><span id="cart-product-amount"></span>
@@ -98,7 +102,23 @@
 		<div class="divider divider-margins mb-n2"></div>
 		<div class="content">
 			<div class="list-group list-custom-large">
-				<a href="#" onclick="event.preventDefault(); alert('준비중입니다. 빠른 시일내에 찾아뵙겠습니다.');">
+				<a th:if="${@storePreviewAccess.allowed(#authentication?.principal)}" th:href="@{/customer/store-preview}">
+                    <i class="fa fa-shopping-bag font-14 color-green-dark" aria-hidden="true"></i><span>발주하기</span>
+                    <i class="fa fa-angle-right"></i>
+                </a>
+                <a th:if="${@storePreviewAccess.allowed(#authentication?.principal)}" th:href="@{/customer/store-preview(view='cart')}">
+                    <i class="fa-solid fa-bag-shopping font-14 color-green-dark" aria-hidden="true"></i><span>장바구니</span>
+                    <i class="fa fa-angle-right" aria-hidden="true"></i>
+                </a>
+                <a th:if="${@storePreviewAccess.allowed(#authentication?.principal)}" th:href="@{/customer/store-preview(view='interest')}">
+                    <i class="fa-solid fa-heart font-14 color-green-dark" aria-hidden="true"></i><span>관심상품</span>
+                    <i class="fa fa-angle-right" aria-hidden="true"></i>
+                </a>
+                <a th:if="${@storePreviewAccess.allowed(#authentication?.principal)}" th:href="@{/customer/store-preview(view='bookmark')}">
+                    <i class="fa-solid fa-bookmark font-14 color-green-dark" aria-hidden="true"></i><span>즐겨찾기</span>
+                    <i class="fa fa-angle-right" aria-hidden="true"></i>
+                </a>
+                <a th:unless="${@storePreviewAccess.allowed(#authentication?.principal)}" href="#" onclick="event.preventDefault(); alert('준비중입니다. 빠른 시일내에 찾아뵙겠습니다.');">
 					<span>준비중입니다.</span>
 					<strong>발주하기 기능은 현재 준비중입니다.</strong>
 					<i class="fa fa-angle-right"></i>
@@ -230,7 +250,23 @@
 
 			<div class="list-group list-custom-small list-icon-0">
 
-				<a href="#" onclick="event.preventDefault(); alert('준비중입니다. 빠른 시일내에 찾아뵙겠습니다.');">
+				<a th:if="${@storePreviewAccess.allowed(#authentication?.principal)}" th:href="@{/customer/store-preview}">
+                    <i class="fa fa-shopping-bag font-14 color-green-dark" aria-hidden="true"></i><span>발주하기</span>
+                    <i class="fa fa-angle-right"></i>
+                </a>
+                <a th:if="${@storePreviewAccess.allowed(#authentication?.principal)}" th:href="@{/customer/store-preview(view='cart')}">
+                    <i class="fa-solid fa-bag-shopping font-14 color-green-dark" aria-hidden="true"></i><span>장바구니</span>
+                    <i class="fa fa-angle-right" aria-hidden="true"></i>
+                </a>
+                <a th:if="${@storePreviewAccess.allowed(#authentication?.principal)}" th:href="@{/customer/store-preview(view='interest')}">
+                    <i class="fa-solid fa-heart font-14 color-green-dark" aria-hidden="true"></i><span>관심상품</span>
+                    <i class="fa fa-angle-right" aria-hidden="true"></i>
+                </a>
+                <a th:if="${@storePreviewAccess.allowed(#authentication?.principal)}" th:href="@{/customer/store-preview(view='bookmark')}">
+                    <i class="fa-solid fa-bookmark font-14 color-green-dark" aria-hidden="true"></i><span>즐겨찾기</span>
+                    <i class="fa fa-angle-right" aria-hidden="true"></i>
+                </a>
+                <a th:unless="${@storePreviewAccess.allowed(#authentication?.principal)}" href="#" onclick="event.preventDefault(); alert('준비중입니다. 빠른 시일내에 찾아뵙겠습니다.');">
 					<i class="fa fa-hourglass-half font-14 color-gray-dark"></i>
 					<span>발주하기</span>
 					<i class="fa fa-angle-right"></i>

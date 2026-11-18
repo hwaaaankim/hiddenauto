@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="_csrf" th:if="${_csrf != null}" th:content="${_csrf.token}">
+  <meta name="_csrf_header" th:if="${_csrf != null}" th:content="${_csrf.headerName}">
+  <title>HIDDENBATH · 발주하기</title>
+  <link rel="stylesheet" href="/administration/assets/css/page/productMaster/productStudio.css?v=20261110-modal-3">
+  <link rel="stylesheet" href="/administration/assets/css/page/productMaster/productShowcase.css?v=20261107-fullflow-2">
+  <link rel="stylesheet" href="/administration/assets/css/page/productMaster/customerOrderExample.css?v=20261107-fullflow-3">
+  <link rel="stylesheet" href="/administration/assets/libs/flatpickr/flatpickr.min.css">
+  <link rel="stylesheet" href="/front/customer-store/preview.css">
+</head>
+<body class="hb-store" th:attr="data-store-user=${storeUser},data-store-token=${storeToken}">
+  <a class="hb-skip" href="#hb-main">본문으로 이동</a>
+  <header class="hb-header">
+    <nav class="hb-header-start" aria-label="컬렉션 메뉴"><a href="/customer/store-preview">쇼핑몰</a><a href="/index">히든오토</a></nav>
+    <a class="hb-brand" href="/customer/store-preview" aria-label="히든바스 스토어 홈">
+      <span class="hb-wordmark" aria-hidden="true">HIDDEN<span>BATH</span></span>
+      <span class="hb-wordmark-caption" aria-hidden="true"><span>T</span><span>H</span><span>E</span><span>&#160;</span><span>B</span><span>A</span><span>T</span><span>H</span><span>R</span><span>O</span><span>O</span><span>M</span><span>&#160;</span><span>C</span><span>O</span><span>L</span><span>L</span><span>E</span><span>C</span><span>T</span><span>I</span><span>O</span><span>N</span></span>
+    </a>
+    <nav class="hb-header-end" aria-label="저장 목록">
+      <a href="/customer/store-preview?view=cart"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h2l2 12h12l2-8H6m3 13h.01m8 0h.01"/></svg><span>장바구니</span></a>
+      <a href="/customer/store-preview?view=interest"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 8.5c0 4.5-8.8 9.5-8.8 9.5S3.2 13 3.2 8.5C3.2 4.4 8.8 3.2 12 7c3.2-3.8 8.8-2.6 8.8 1.5Z"/></svg><span>관심상품</span></a>
+      <a href="/customer/store-preview?view=bookmark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16l-6-4-6 4V4Z"/></svg><span>즐겨찾기</span></a>
+    </nav>
+  </header>
+  <div class="hb-preview-note"><span>검증용 텍스트</span> 테스트 업체 전용입니다. 발주 결과는 저장되지 않으며 결제와 포인트 차감도 없습니다.</div>
+  <div id="hb-error" class="hb-error" role="alert" hidden></div>
+  <div id="store-search" class="store-search">
+    <form action="/customer/store-preview" method="get" role="search">
+      <input type="hidden" name="kind" value="">
+      <label><span class="store-sr">검색 주제</span><select name="subject"><option value="name" th:selected="${subject == 'name'}">제품명</option><option value="series" th:selected="${subject == 'series'}">시리즈</option></select></label>
+      <label class="store-query"><span class="store-sr">검색어</span><input name="keyword" type="search" maxlength="100" placeholder="제품을 검색해 주세요" th:value="${keyword}" autocomplete="off"></label>
+      <button type="submit" aria-label="검색"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/></svg></button>
+    </form>
+    <div id="store-search-state" class="store-search-state" hidden><p role="status"></p><a href="/customer/store-preview">검색 초기화</a></div>
+    <details id="store-recent" hidden><summary>최근 검색어</summary><ul></ul></details>
+  </div>
+  <main id="hb-main" tabindex="-1"></main>
+  <footer class="hb-footer"><div class="hb-brand">HIDDEN<span>BATH</span></div><small>히든바스 발주 검증</small><button id="hb-motion-toggle" class="hb-motion-toggle" type="button" aria-pressed="false">모션 줄이기</button></footer>
+  <div id="hb-loading" class="hb-loading" role="status" aria-live="polite" aria-label="불러오는 중" hidden><div class="hb-loader"><span>HIDDENBATH</span><div class="hb-loader-track"><i></i></div><p id="hb-loading-label">제품을 불러오는 중입니다.</p></div></div>
+  <script src="/administration/assets/js/page/productMaster/studio/common.js?v=20261116-transient"></script>
+    <script src="/administration/assets/js/page/productMaster/studio/arithmetic.js?v=20261110-modal-3"></script>
+  <script src="/administration/assets/js/page/productMaster/studio/showcase.js?v=20261110-modal-3"></script>
+  <script src="/administration/assets/libs/flatpickr/flatpickr.min.js"></script>
+  <script src="/front/customer-store/preview.js"></script>
+  <script src="/front/customer-store/catalog.js"></script>
+</body>
+</html>

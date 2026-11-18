@@ -1,0 +1,92 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko" data-layout="twocolumn" data-sidebar="light"
+      data-sidebar-size="lg" data-preloader="disable">
+<head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
+<body class="twocolumn-panel">
+<div id="layout-wrapper">
+    <header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
+    <div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
+    <div th:replace="~{fragments/administration/common :: autoAdminSideMenu}"></div>
+    <div class="vertical-overlay"></div>
+    <main class="main-content">
+        <div class="page-content">
+            <section class="container-fluid store-delivery">
+                <h4 class="mb-3"><i class="ri-truck-line me-2" aria-hidden="true"></i>쇼핑몰 배송수단 관리</h4>
+                <div th:if="${success}" class="alert alert-success" role="status" th:text="${success}"></div>
+                <div th:if="${error}" class="alert alert-danger" role="alert" th:text="${error}"></div>
+                <details class="card mb-3" open>
+                    <summary class="card-header"><i class="ri-add-circle-line me-2" aria-hidden="true"></i>배송수단 등록</summary>
+                    <form method="post" th:action="@{/admin/store-delivery-methods/save}" class="card-body delivery-form">
+                        <div th:replace="~{:: fields(null)}"></div>
+                    </form>
+                </details>
+                <h5 class="mb-2">등록된 배송수단 <span class="badge bg-light text-dark" th:text="${#lists.size(methods)}"></span></h5>
+                <p class="text-muted" th:if="${#lists.isEmpty(methods)}">등록된 배송수단이 없습니다.</p>
+                <details th:each="item : ${methods}" class="card mb-2">
+                    <summary class="card-header delivery-row">
+                        <strong th:text="${item.name}"></strong>
+                        <span th:text="|배송비 ${#numbers.formatInteger(item.deliveryFee, 1, 'COMMA')}원|"></span>
+                        <span th:text="|포장비 ${#numbers.formatInteger(item.packingFee, 1, 'COMMA')}원|"></span>
+                        <span class="delivery-edit"><i class="ri-edit-line me-1" aria-hidden="true"></i>수정</span>
+                    </summary>
+                    <div class="card-body">
+                        <p class="delivery-description text-muted" th:if="${!#strings.isEmpty(item.description)}" th:text="${item.description}"></p>
+                        <form method="post" th:action="@{/admin/store-delivery-methods/save}" class="delivery-form">
+                            <input name="id" type="hidden" th:value="${item.id}">
+                            <input name="version" type="hidden" th:value="${item.version}">
+                            <div th:replace="~{:: fields(${item})}"></div>
+                        </form>
+                        <form method="post" th:action="@{/admin/store-delivery-methods/delete}"
+                              onsubmit="return confirm('이 배송수단을 삭제하시겠습니까?');" class="mt-2">
+                            <input name="id" type="hidden" th:value="${item.id}">
+                            <input name="version" type="hidden" th:value="${item.version}">
+                            <input name="formToken" type="hidden" th:value="${formToken}">
+                            <button class="btn btn-sm btn-outline-danger"><i class="ri-delete-bin-line me-1" aria-hidden="true"></i>삭제</button>
+                        </form>
+                    </div>
+                </details>
+            </section>
+        </div>
+        <footer th:replace="~{fragments/administration/common :: autoAdminFooter}"></footer>
+    </main>
+</div>
+<th:block th:replace="~{fragments/administration/common :: autoAdminSetting}"></th:block>
+<th:block th:replace="~{fragments/administration/common :: authAdminScript}"></th:block>
+<template th:remove="all">
+    <th:block th:fragment="fields(method)">
+        <input name="formToken" type="hidden" th:value="${formToken}">
+        <div class="delivery-fields">
+            <label>배송수단명<input class="form-control form-control-sm" name="name" maxlength="100" required th:value="${method?.name}"></label>
+            <label>배송비 (원)<input class="form-control form-control-sm" name="deliveryFee" type="number" min="0" max="2147483647" required th:value="${method == null ? 0 : method.deliveryFee}"></label>
+            <label>포장비 (원)<input class="form-control form-control-sm" name="packingFee" type="number" min="0" max="2147483647" required th:value="${method == null ? 0 : method.packingFee}"></label>
+            <label class="delivery-desc">설명<textarea class="form-control form-control-sm" name="description" rows="2" maxlength="1000" th:text="${method?.description}"></textarea></label>
+        </div>
+        <button class="btn btn-sm btn-primary mt-2"><i class="ri-check-line me-1" aria-hidden="true"></i>저장</button>
+    </th:block>
+</template>
+<style>
+    .store-delivery { max-width: 960px; }
+    .store-delivery summary { cursor: pointer; list-style: none; transition: background-color .2s ease; }
+    .store-delivery summary:hover { background-color: var(--vz-light); }
+    .store-delivery summary::-webkit-details-marker { display: none; }
+    .delivery-fields, .delivery-row { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: .65rem; align-items: center; }
+    .delivery-fields label { min-width: 0; margin: 0; }
+    .delivery-desc { grid-column: 1 / -1; }
+    .store-delivery .delivery-row { grid-template-columns: 2fr 1fr 1fr auto; }
+    .delivery-edit { justify-self: end; white-space: nowrap; }
+    .delivery-description { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .store-delivery details[open] > .card-body { animation: delivery-enter .24s ease-out both; }
+    @keyframes delivery-enter { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+    @media (max-width: 570px) {
+        .delivery-fields, .store-delivery .delivery-row { grid-template-columns: 1fr 1fr; }
+        .delivery-fields label:first-child { grid-column: 1 / -1; }
+        .delivery-row strong { grid-column: 1; grid-row: 1; }
+        .delivery-edit { grid-column: 2; grid-row: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .store-delivery summary { transition: none; }
+        .store-delivery details[open] > .card-body { animation: none; }
+    }
+</style>
+</body>
+</html>
