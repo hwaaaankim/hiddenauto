@@ -104,7 +104,7 @@
     };
   });
 
-  function feedback(text, error = false) {
+  function feedback(text, error = false, showCart = false) {
     let node = document.querySelector('#store-feedback');
     if (!node) {
       node = document.createElement('p');
@@ -113,10 +113,16 @@
       document.body.append(node);
     }
     node.textContent = text;
+    if (showCart) {
+      const shortcut = document.createElement('a');
+      shortcut.href = root + '?view=cart';
+      shortcut.textContent = '장바구니 보기';
+      node.append(' ', shortcut);
+    }
     node.classList.toggle('is-error', error);
     node.hidden = false;
     clearTimeout(feedback.timer);
-    feedback.timer = setTimeout(() => { node.hidden = true; }, 5000);
+    feedback.timer = setTimeout(() => { if (!node.matches(':focus-within')) node.hidden = true; }, showCart ? 8500 : 5000);
   }
 
   function bindButtons(host, callback, onSettled) {
@@ -140,13 +146,20 @@
 
   function cartAdd(items) {
     const existing = cart();
+    const originalCount = existing.length;
     for (const item of items) {
       if (existing.some(record => record.item.stamp === item.stamp)) continue;
       if (existing.length >= 100) throw new Error('장바구니에는 최대 100개 구성을 담을 수 있습니다.');
       existing.push({key: crypto.randomUUID(), item, quantity: 1, fromCart: true});
     }
+    const added = existing.length - originalCount;
+    if (!added) {
+      feedback('이미 장바구니에 담긴 구성입니다.');
+      return;
+    }
     write('cart', existing);
-    feedback('장바구니에 담았습니다.');
+    const skipped = items.length - added;
+    feedback(skipped ? added + '개 담았습니다. 이미 담긴 구성 ' + skipped + '개는 제외했습니다.' : '장바구니에 담았습니다.', false, true);
   }
   function startCheckout(lines) {
     write('checkout', lines, sessionStorage);
@@ -289,12 +302,14 @@
       esc(description) + '</p><a class="store-btn" href="' + esc(destination) + '">' + esc(label) + '</a></section>';
   }
   let listObserver;
-  async function listPage(mode, limit = 10, selectedKeys = new Set()) {
+  async function listPage(mode, limit = 10, selectedKeys = new Set(), focusIndex) {
     listObserver?.disconnect();
     const names = {cart: '장바구니', interest: '관심상품', bookmark: '즐겨찾기'};
     const rows = mode === 'cart' ? cart() : (await call('/saved')).filter(row => row.kind === mode);
     let displayed = Math.min(limit, rows.length);
     const keyOf = row => mode === 'cart' ? row.key : row.id;
+    const rowKeys = new Set(rows.map(keyOf));
+    for (const key of selectedKeys) if (!rowKeys.has(key)) selectedKeys.delete(key);
     const hints = {
       cart: '제품 옵션을 구성한 뒤 장바구니에 담아 주세요.',
       interest: '관심 있는 구성을 제품 상세에서 저장해 주세요.',
@@ -327,7 +342,10 @@
       ? '<div class="store-list"></div><div class="store-more"><p role="status"></p>' +
         '<button type="button" class="store-btn" hidden>더보기</button></div>'
       : emptyList('저장된 ' + names[mode] + ' 항목이 없습니다', hints[mode], root, '쇼핑몰 둘러보기', mode));
-    if (!rows.length) return;
+    if (!rows.length) {
+      if (focusIndex != null) main.querySelector('.store-empty a')?.focus({preventScroll: true});
+      return;
+    }
 
     const host = main.querySelector('.store-page');
     const list = host.querySelector('.store-list');
@@ -350,9 +368,14 @@
       updateAll = () => {
         const visibleChecks = checks();
         all.checked = visibleChecks.length > 0 && visibleChecks.every(el => el.checked);
-        const count = visibleChecks.filter(el => el.checked).length;
+        const selected = visibleChecks.filter(el => el.checked);
+        const count = selected.length;
         all.indeterminate = !all.checked && count > 0;
-        const label = count + '개 선택';
+        const subtotal = selected.reduce((total, el) => {
+          const row = rows[Number(el.dataset.index)];
+          return total + Number(row.item.price || 0) * (row.quantity || 1);
+        }, 0);
+        const label = count + '개 선택' + (count ? ' · 상품금액 ' + won(subtotal) : '');
         if (selectedCount.textContent !== label) selectedCount.textContent = label;
         actions.forEach(action => { action.disabled = !count || action.dataset.busy === 'true'; });
       };
@@ -403,15 +426,18 @@
       action.disabled = true;
       try {
         if (action.hasAttribute('data-remove')) {
-          const row = rows[Number(action.dataset.remove)];
+          const index = Number(action.dataset.remove);
+          const row = rows[index];
           if (mode === 'cart') removeCart([row.key]);
           else await call('/saved/' + row.id, 'DELETE');
           selectedKeys.delete(keyOf(row));
-          await listPage(mode, displayed, selectedKeys);
+          await listPage(mode, displayed, selectedKeys, index);
+          feedback('목록에서 삭제했습니다.');
         } else {
-          const row = await verifyRow(rows[Number(action.dataset.open)], mode);
+          const index = Number(action.dataset.open);
+          const row = await verifyRow(rows[index], mode);
           if (row) restore(row);
-          else await listPage(mode, displayed, selectedKeys);
+          else await listPage(mode, displayed, selectedKeys, index);
         }
       } catch (error) { feedback(error.message, true); }
       finally { action.disabled = false; }
@@ -425,6 +451,10 @@
       if (displayed >= rows.length) listObserver?.disconnect();
     };
     appendRows(0, displayed);
+    if (focusIndex != null) {
+      const index = Math.min(focusIndex, displayed - 1);
+      list.querySelector('[data-open="' + index + '"]')?.focus({preventScroll: true});
+    }
     more.onclick = () => loadMore(true);
     if (!more.hidden && 'IntersectionObserver' in window) {
       listObserver = new IntersectionObserver(entries => {

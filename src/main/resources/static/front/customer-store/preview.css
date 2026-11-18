@@ -236,3 +236,4 @@ body.hb-store { display: flex; flex-direction: column; min-height: 100vh; min-he
   .hb-store .hb-header-end .store-count-link svg { width: .8rem; flex: 0 0 .8rem; }
 }
 .store-selection-count { color: var(--store-muted); font-size: .8rem; white-space: nowrap; }
+#store-feedback a { color: inherit; font-weight: 650; text-underline-offset: .2em; white-space: nowrap; }
