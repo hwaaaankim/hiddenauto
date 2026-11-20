@@ -353,7 +353,7 @@
   }
   function setupProduct(next) {
     gallerySequence++; galleryAnimation?.cancel(); removeFaq();
-    product = next; product._isAdminTest = true; kind = next.nonStandard;
+    product = next; product._isAdminTest = false; kind = next.nonStandard;
     answers = {}; completed = []; evaluation = null; currentQuestion = null;
     assets = new Map([...list(product.processAssets), ...list(product.assets), ...list(product.groups).flatMap(g => [...list(g.assets), ...list(g.values).flatMap(v => list(v.assets))])].map(a => [a.id, a]));
     const registered = [];
@@ -450,10 +450,6 @@
     stage.addEventListener('touchend', ev => { const dx = ev.changedTouches[0].clientX - touchStart; if (touchStart != null && Math.abs(dx) > 45) changeSlide(galleryRequested + (dx < 0 ? 1 : -1)); touchStart = null; }, { passive: true });
     bindDetailFocus();
   }
-  function teamComparison(rows) {
-    const cell = (row, role) => `<td><strong>${e(row.group?.[role] || row.group?.customer)}</strong><p>${e(row.answer?.[role] || row.answer?.customer || '아직 선택하지 않음')}</p></td>`;
-    return `<section class="hb-team-preview"><h3>검증용 텍스트 · 팀별 표시 확인</h3><p>고객에게 보이는 질문과 각 화면의 그룹명·선택값·입력값을 비교합니다.</p><small class="hb-team-hint">표를 좌우로 밀어 각 화면의 표시 내용을 확인해 주세요.</small><div class="hb-team-scroll"><table><thead><tr><th>고객 질문</th><th>고객 화면</th><th>생산팀 화면</th><th>관리팀 화면</th></tr></thead><tbody>${rows.map(row => `<tr><th>${e(row.question || row.group?.customer)}</th>${cell(row,'customer')}${cell(row,'production')}${cell(row,'management')}</tr>`).join('') || '<tr><td colspan="4">선택 가능한 질문이 없습니다.</td></tr>'}</tbody></table></div></section>`;
-  }
   function updateTeamPreview(result = evaluation, standardDisplay = null) {
     const config = document.getElementById('hb-config');
     if (!config) return;
@@ -464,12 +460,13 @@
       const signature = JSON.stringify([rows,settings]);
       if (host.dataset.options !== signature) {
         host.dataset.options = signature;
-        const roles = {customer:"고객",production:"생산팀",management:"관리팀"};
-        host.innerHTML = Object.entries(roles).map(([key,label]) => {
-          const terms = S.summaryRows(rows,settings,key).filter(row=>row.answer?.[key])
-            .map(row=>e(row.group?.[key])+" · "+e(row.answer[key]));
-          return terms.length ? "<p><strong>"+label+"</strong> "+terms.join(" | ")+"</p>" : "";
-        }).join("") + "<details><summary>전체 질문과 답변</summary>"+teamComparison(rows)+"</details>";
+        const terms = S.summaryRows(rows, settings, 'customer')
+          .filter(row => row.answer?.customer)
+          .map(row => e(row.group?.customer) + ' · ' + e(row.answer.customer));
+        const details = rows.map(row => `<div><dt>${e(row.question || row.group?.customer)}</dt><dd>${e(row.answer?.customer || '아직 선택하지 않음')}</dd></div>`).join('');
+        host.innerHTML = (terms.length ? '<p class="store-compact-summary">' + terms.join(' | ') + '</p>' : '')
+          + (details ? '<details><summary>전체 질문과 답변</summary><dl class="store-answer-detail">' + details + '</dl></details>' : '');
+
       }
     };
     if (standardState) { render(list(standardDisplay || standardState.display)); return; }

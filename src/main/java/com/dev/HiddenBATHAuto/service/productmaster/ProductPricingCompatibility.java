@@ -16,6 +16,13 @@ public final class ProductPricingCompatibility {
     return hash(Map.of("process", process, "fixedAnswers", fixed));
   }
 
+  // R5 included inactive new fields in the hash. Recognize that exact layout only
+  // when no numeric default was enabled (R5 did not hash its value).
+  static boolean matchesR5(String stored, Process process, Map<String, Answer> fixed) {
+    if (list(process.questions()).stream().flatMap(q -> list(q.fields()).stream()).anyMatch(Field::useDefault)) return false;
+    return stored != null && stored.equals(hash(Map.of("process", process, "fixedAnswers", fixed), true));
+  }
+
   /** Keep the stored pricing identity current only for an otherwise identical media-only edit. */
   public static Definition reconcileProcessMedia(Definition definition, Process current,
       Process proposed, Map<String, Answer> fixed) {
@@ -37,31 +44,41 @@ public final class ProductPricingCompatibility {
         "fixedAnswers", mapAnswers(fixed, keys), "priceGroups", impactGroups.stream().sorted().toList()));
   }
   private static String hash(Object value) {
+    return hash(value, false);
+  }
+  private static String hash(Object value, boolean r5) {
     try {
       return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-          .digest(encode(canonical(value)).getBytes(StandardCharsets.UTF_8)));
+          .digest(encode(canonical(value, r5)).getBytes(StandardCharsets.UTF_8)));
     } catch (java.security.NoSuchAlgorithmException ex) {
       throw new IllegalStateException("가격 설정 해시를 생성할 수 없습니다.", ex);
     }
   }
   public static Object canonical(Object value) {
+    return canonical(value, false);
+  }
+  private static Object canonical(Object value, boolean r5) {
     if (value == null) return null;
     if (value instanceof Map<?, ?> source) {
       Map<String, Object> result = new TreeMap<>();
-      source.forEach((key, item) -> result.put(key.toString(), canonical(item)));
+      source.forEach((key, item) -> result.put(key.toString(), canonical(item, r5)));
       return result;
     }
-    if (value instanceof Collection<?> items) return items.stream().map(ProductPricingCompatibility::canonical).toList();
+    if (value instanceof Collection<?> items) return items.stream().map(item -> canonical(item, r5)).toList();
     if (value instanceof Number number) return new BigDecimal(number.toString()).stripTrailingZeros().toPlainString();
     if (value instanceof Enum<?> item) return item.name();
     if (value.getClass().isRecord()) {
       Map<String, Object> result = new TreeMap<>();
       try {
         for (java.lang.reflect.RecordComponent component : value.getClass().getRecordComponents())
-          if (!Set.of("helpDisplay", "placeholder", "confirmationMessage").contains(component.getName())) {
+          if (!Set.of("helpDisplay", "confirmationMessage").contains(component.getName())) {
+            String key = component.getName();
+            if ("placeholder".equals(key) && (r5 || !(value instanceof Field field && field.useDefault()))) continue;
             Object item = component.getAccessor().invoke(value);
             if (item == null && Set.of("numericValue", "equalTo").contains(component.getName())) continue;
-            result.put(component.getName(), canonical(item));
+            if (!r5 && value instanceof Field && "useDefault".equals(key) && Boolean.FALSE.equals(item)) continue;
+            if (!r5 && value instanceof Choice && "excludes".equals(key) && (item == null || ((List<?>) item).isEmpty())) continue;
+            result.put(key, canonical(item, r5));
           }
       } catch (ReflectiveOperationException ex) {
         throw new IllegalStateException("가격 설정의 구조를 읽을 수 없습니다.", ex);

@@ -750,7 +750,7 @@
   };
   S.summaryButton = (host, product) => {
     const open = document.createElement("button");
-    open.type = "button"; open.textContent = "주체별 표기 옵션관리"; host.prepend(open);
+    open.className = "pms-summary-trigger"; open.type = "button"; open.textContent = "주체별 표기 옵션관리"; host.append(open);
     open.onclick = () => {
       const groups = product.groups.map(g => ({groupId:g.id,labels:g.labels}));
       const roles = {customer:"고객",production:"생산팀",management:"관리팀"};
@@ -760,17 +760,30 @@
         lists[role] = S.summaryRows(groups,rules.map(rule=>({...rule,visible:true})),role)
           .map(group => ({...group,visible:rules.find(rule=>rule.groupId===group.groupId)?.visible ?? true}));
       }
-      const dialog = S.dialog("주체별 표기 옵션관리",'<label>표시 대상<select data-role></select></label><div data-options></div><button type="button" class="primary" data-save>저장</button>');
+      const dialog = S.dialog("주체별 표기 옵션관리",'<label class="pms-summary-role"><span>표시 대상</span><select data-role></select></label><div class="pms-summary-list"><div class="pms-summary-columns" aria-hidden="true"><span>표시</span><span>질문명</span><span>순서 변경</span></div><div data-options></div></div>', {wide:false, foot:'<button type="button" class="primary" data-save>표기 설정 저장</button>'});
+      dialog.classList.add("pms-summary-dialog");
       const selector = dialog.querySelector("[data-role]");
       for (const [role,name] of Object.entries(roles)) selector.add(new Option(name,role));
       function paint() {
         const role = selector.value, list = lists[role], host = dialog.querySelector("[data-options]");
-        host.innerHTML = list.map((g,i)=>`<div class="pms-row"><label class="pms-check"><input type="checkbox" data-visible="${i}" ${g.visible?"checked":""}>${S.e(g.labels[role])}</label><button type="button" data-up="${i}" aria-label="위로" ${i===0?"disabled":""}>↑</button><button type="button" data-down="${i}" aria-label="아래로" ${i===list.length-1?"disabled":""}>↓</button></div>`).join("");
+        host.innerHTML = list.map((group, index) => {
+          const name = S.e(group.labels?.[role] || group.labels?.customer || "질문 " + group.groupId);
+          const id = dialog.getAttribute("aria-labelledby") + "-visible-" + index;
+          return `<div class="pms-summary-row">
+            <input id="${id}" type="checkbox" data-visible="${index}" ${group.visible ? "checked" : ""}>
+            <label for="${id}">${name}</label>
+            <div class="pms-summary-moves">
+              <button type="button" data-up="${index}" aria-label="${name} 위로 이동" ${index === 0 ? "disabled" : ""}></button>
+              <button type="button" data-down="${index}" aria-label="${name} 아래로 이동" ${index === list.length - 1 ? "disabled" : ""}></button>
+            </div></div>`;
+        }).join("");
         host.onchange = event => {if(event.target.matches("[data-visible]")) list[Number(event.target.dataset.visible)].visible = event.target.checked;};
         host.onclick = event => {
           const button = event.target.closest("[data-up],[data-down]"); if(!button) return;
           const i=Number(button.dataset.up ?? button.dataset.down), j=i+(button.hasAttribute("data-up")?-1:1);
           [list[i],list[j]]=[list[j],list[i]];paint();
+          const row = host.children[j];
+          (row.querySelector(button.hasAttribute("data-up") ? "[data-up]:enabled" : "[data-down]:enabled") || row.querySelector("input")).focus();
         };
       }
       selector.onchange=paint;paint();

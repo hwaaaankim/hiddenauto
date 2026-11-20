@@ -330,6 +330,10 @@ public class OrderUpdateService {
 		}, () -> order.setProductCategory(null));
 
 		if (transfer && "ORDER".equals(companyScope)) {
+            Company targetCompany = companyRepository.findById(companyId.orElseThrow())
+                    .orElseThrow(() -> new IllegalArgumentException("변경할 업체를 찾을 수 없습니다."));
+            Member representative = findRepresentativeMember(targetCompany)
+                    .orElseThrow(() -> new IllegalStateException("선택한 업체에 등록된 대표회원이 없습니다."));
             Task destination = new Task();
             destination.setManagedBy(source.getManagedBy());
             destination.setStatus(source.getStatus());
@@ -339,9 +343,11 @@ public class OrderUpdateService {
             destination.setTotalPrice(Math.toIntExact((long)order.getTotalAmount() + order.getPackingCost() + order.getDeliveryCost()));
             source.setTotalPrice(Math.toIntExact((long)source.getTotalPrice() - originalLineTotal));
             source.setUpdatedAt(LocalDateTime.now());
+            destination.setRequestedBy(representative);
             order.setTask(taskRepository.save(destination));
+        } else {
+            updateRequesterIfNeeded(order, normalizeId(companyId), transfer ? Optional.empty() : normalizeId(requesterMemberId));
         }
-        updateRequesterIfNeeded(order, normalizeId(companyId), transfer ? Optional.empty() : normalizeId(requesterMemberId));
 		updateOrderItemOptionJson(order, optionJson);
 
 		order.setOrdererName(normalizeNullableText(ordererName));

@@ -260,3 +260,18 @@ body.hb-store { display: flex; flex-direction: column; min-height: 100vh; min-he
   .hb-store .store-list-actions {gap:.6rem;flex-wrap:wrap;}
   .hb-store :is(.store-product-actions,.store-bookmark) .store-btn { min-width:0;flex:1 1 7rem; }
 }
+
+.hb-store .store-selection-count {display:inline-flex;align-items:center;gap:.75rem;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.hb-store .store-subtotal {display:inline-flex;align-items:baseline;gap:.4rem;padding-inline-start:.75rem;border-inline-start:1px solid var(--store-line)}
+.hb-store .store-subtotal strong {font-size:1.1rem;color:var(--store-ink,#272521)}
+.hb-store .store-bookmark form:not([hidden]) {display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:.5rem;grid-column:1/-1}
+.hb-store .store-bookmark form label {margin:0}
+.hb-store .store-bookmark form :is(input,button) {height:44px;margin:0;box-sizing:border-box}
+@media (max-width:36rem) {
+  .hb-store .store-list-actions > label {flex-basis:100%}
+  .hb-store .store-selection-count {flex-basis:100%}
+}
+.store-answer-detail {margin:.5rem 0;border:1px solid var(--store-line);border-radius:5px}
+.store-answer-detail > div {display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:.75rem;align-items:center;padding:.6rem .8rem}
+.store-answer-detail > div + div {border-top:1px solid var(--store-line)}
+.store-answer-detail :is(dt,dd) {margin:0;overflow-wrap:anywhere}

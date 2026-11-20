@@ -2985,3 +2985,37 @@
  .pms .pm-numeric-choice-examples { grid-template-columns: minmax(0,1fr); }
  .pms .pm-numeric-choice-option { flex-wrap: wrap; }
 }
+
+.pms.pms-summary-dialog {
+  --move-size: 36px;
+  --summary-columns: 36px minmax(0,1fr) calc(2 * var(--move-size) + 4px);
+  width: min(36rem, calc(100vw - 24px));
+  border-radius: 5px;
+}
+.pms.pms-summary-dialog .pms-summary-role {
+  display: grid; grid-template-columns: auto minmax(0,12rem); align-items: center;
+  justify-content: space-between; gap: 12px; margin: 0 0 14px;
+}
+.pms.pms-summary-dialog .pms-summary-role > span {margin:0;line-height:1.4}
+.pms.pms-summary-dialog .pms-summary-role select {width:100%;height:38px;margin:0;border-radius:5px}
+.pms-summary-list {border:1px solid #cbd4df;border-radius:5px;overflow:hidden}
+.pms-summary-list :is(.pms-summary-columns,.pms-summary-row) {
+  display:grid;grid-template-columns:var(--summary-columns);gap:8px;align-items:center;padding:6px 10px;
+}
+.pms-summary-columns {background:#f2f5f9;color:#435268;font-size:12px;font-weight:600}
+.pms-summary-columns span:not(:nth-child(2)) {text-align:center}
+.pms-summary-row {min-height:49px;box-sizing:border-box;border-top:1px solid #dfe5ed}
+.pms.pms-summary-dialog .pms-summary-row > input {justify-self:center;width:16px;height:16px;min-height:0;margin:0}
+.pms.pms-summary-dialog .pms-summary-row > label {
+  display:block;min-width:0;margin:0;padding:0;overflow-wrap:anywhere;line-height:1.45;cursor:pointer;
+}
+.pms-summary-moves {display:grid;grid-template-columns:repeat(2,var(--move-size));gap:4px}
+.pms.pms-summary-dialog .pms-summary-moves button {
+  box-sizing:border-box;display:grid;place-items:center;width:var(--move-size);height:var(--move-size);
+  min-width:0;min-height:0;margin:0;padding:0;border:1px solid #bfcbd9;border-radius:5px;background:white;color:#334861;
+}
+.pms-summary-moves button::before {content:"";width:8px;height:8px;border:solid currentColor;border-width:1.6px 1.6px 0 0;transform:translateY(2px) rotate(-45deg)}
+.pms-summary-moves [data-down]::before {transform:translateY(-2px) rotate(135deg)}
+.pms.pms-summary-dialog .pms-summary-moves button:disabled {color:#9da8b5;background:#f5f7fa;border-color:#e2e6eb}
+.pms.pms-summary-dialog .pms-summary-moves button:enabled:hover {background:#edf3fb;border-color:#809aba}
+.pms .pms-summary-trigger {display:inline-flex;align-items:center;justify-content:center;border-radius:5px}

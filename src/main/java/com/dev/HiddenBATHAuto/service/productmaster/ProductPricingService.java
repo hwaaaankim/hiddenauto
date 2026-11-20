@@ -450,7 +450,15 @@ public class ProductPricingService {
   }
   private Definition read(ProductMaster p) {
     if (text(p.getStudioPriceJson()).isBlank()) return null;
-    return testFileCounts(process(p), json.read(p.getStudioPriceJson(), Definition.class));
+    Process process = process(p);
+    Definition stored = json.read(p.getStudioPriceJson(), Definition.class);
+    var fixed = studio.fixedAnswers(p);
+    String current = fingerprint(process, fixed);
+    if (!Objects.equals(current, stored.schemaFingerprint())
+        && ProductPricingCompatibility.matchesR5(stored.schemaFingerprint(), process, fixed)) {
+      stored = new Definition(stored.schemaVersion(), current, stored.terms(), stored.testAnswers());
+    }
+    return testFileCounts(process, stored);
   }
 
   // File-presence branches and minimum file counts must replay without an asset reference.

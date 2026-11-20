@@ -52,9 +52,11 @@
       options.body = JSON.stringify(body);
     }
     const response = await fetch(path, options);
-    const content = await response.json().catch(() => ({}));
-    if (!response.ok || content.success === false || response.redirected) {
-      const error = new Error(content.message || '요청을 처리하지 못했습니다. 다시 시도해 주세요.');
+    const content = await response.json().catch(() => null);
+    if (!response.ok || !content || content.success === false || response.redirected) {
+      const error = new Error(content?.message || (response.redirected || response.status === 401 || response.status === 403
+        ? '로그인 상태가 변경되었습니다. 고객 계정으로 다시 로그인해 주세요.'
+        : '서버 응답을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.'));
       error.status = response.status;
       throw error;
     }
@@ -359,7 +361,7 @@
     if (mode !== 'bookmark' && rows.length) {
       const bar = document.createElement('div');
       bar.className = 'store-actions store-list-actions';
-      bar.innerHTML = '<label><input type="checkbox" id="store-select-all"> 표시된 품목 전체 선택</label><span class="store-selection-count" role="status"></span>' +
+      bar.innerHTML = '<label><input type="checkbox" id="store-select-all"> 표시된 품목 전체 선택</label><span class="store-selection-count" role="status"><span data-count></span><span class="store-subtotal">상품금액 <strong data-total></strong></span></span>' +
         button('order', mode === 'interest' ? '바로 발주하기' : '발주하기', true) +
         (mode === 'interest' ? button('cart', '장바구니 담기') : '');
       host.querySelector('header').after(bar);
@@ -377,8 +379,8 @@
           const row = rows[Number(el.dataset.index)];
           return total + Number(row.item.price || 0) * (row.quantity || 1);
         }, 0);
-        const label = count + '개 선택' + (count ? ' · 상품금액 ' + won(subtotal) : '');
-        if (selectedCount.textContent !== label) selectedCount.textContent = label;
+        selectedCount.querySelector('[data-count]').textContent = count + '개 선택';
+        selectedCount.querySelector('[data-total]').textContent = won(subtotal);
         actions.forEach(action => { action.disabled = !count || action.dataset.busy === 'true'; });
       };
       const updateSelection = el => {
@@ -614,6 +616,10 @@
         }
         const result = await call('/checkout', 'POST', {lines: payload.map(({key, item, quantity, address, date, methodId}) =>
           ({key, item, quantity, address, date, methodId})), points: Number(form.elements.points.value)});
+        if (!Array.isArray(result?.lines) || result.lines.length !== payload.length ||
+            result.lines.some((line, index) => !line?.item || line.key !== payload[index].key)) {
+          throw new Error('서버가 요청한 품목의 발주 검증 결과를 반환하지 않았습니다. 입력 내용을 유지합니다.');
+        }
         resultPage(result);
         const used = rows.filter(row => row.fromCart).map(row => row.key);
         if (used.length) removeCart(used);
