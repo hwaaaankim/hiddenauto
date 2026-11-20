@@ -30,7 +30,7 @@ public class StorePreviewController {
     private final ProductPricingService prices;
     private final ProductStudioAssetService assets;
     private final ProductStudioExtensionService extension;
-    private final StoreDeliveryMethodRepository methods;
+    private final com.dev.HiddenBATHAuto.repository.auth.CompanyDeliveryAddressRepository addresses;
 
     @GetMapping({"", "/series/{id}", "/products/{id}"})
     public String page(@AuthenticationPrincipal PrincipalDetails principal, HttpSession session, Model model,
@@ -172,7 +172,9 @@ public class StorePreviewController {
     @GetMapping("/api/checkout") @ResponseBody
     public Object checkoutOptions(@AuthenticationPrincipal PrincipalDetails principal) {
         long company = access.company(principal);
-        return ApiResponse.ok(Map.of("methods", methods.findAllByOrderByIdAsc(), "points", preview.balance(company),
+        return ApiResponse.ok(Map.of("methods", StoreShipping.METHODS, "companyAddress", preview.companyAddress(company),
+                "addresses", addresses.findByCompany_IdOrderByIdAsc(company).stream().map(a -> new StorePreviewService.Address(
+                    a.getZipCode(), a.getDoName(), a.getSiName(), a.getGuName(), a.getRoadAddress(), null, a.getDetailAddress())).toList(), "points", preview.balance(company),
                 "holidays", preview.holidays().stream().map(Object::toString).toList()));
     }
 

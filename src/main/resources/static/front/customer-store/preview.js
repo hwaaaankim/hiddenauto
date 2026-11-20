@@ -293,8 +293,7 @@
     try { return {...row, item: await check(row.item, viewName === 'bookmark')}; }
     catch (error) {
       if (error.status !== 409) throw error;
-      if (viewName === 'cart') removeCart([row.key]);
-      else await call('/saved/' + row.id, 'DELETE');
+      // 구성 변경 시에도 사용자가 삭제하기 전까지 저장한 항목을 보존합니다.
       feedback(error.message, true);
       return null;
     }
@@ -318,11 +317,12 @@
       bookmark: '비규격 제품을 구성하다가 즐겨찾기에 저장해 주세요.'
     };
     const renderRow = (row, i) => {
+      if (!row.item?.selection) return '<article class="store-row store-saved-row"><div><strong>저장 구성 확인 필요</strong><p>이 항목의 옵션을 복원할 수 없습니다.</p><p>' + esc(row.note || '') + '</p></div><button type="button" class="store-btn" data-remove="' + i + '">삭제</button></article>';
       const details = [
         row.item.custom ? '비규격' : '규격',
         row.item.series,
         mode === 'cart' ? '수량 ' + (row.quantity || 1) + '개' : '',
-        row.item.productionDays == null ? '' : '생산기간 ' + row.item.productionDays + '일',
+        row.item.productionDays == null || row.item.productionDays < 0 ? '생산기간 미설정 · 기본 2영업일 적용' : '생산기간 ' + row.item.productionDays + '일',
         row.item.earliest ? '최초 가능일 ' + row.item.earliest : '',
         row.createdAt && new Date(row.createdAt).toLocaleString('ko-KR'),
         row.note
@@ -468,6 +468,21 @@
     }
   }
 
+  function checkoutOptions(item) {
+    const answers = Array.isArray(item.summary) ? item.summary : [];
+    if (!answers.length) return '<p class="store-no-options">선택 옵션 없음</p>';
+    const compact = item.compactSummary ?? answers;
+    const summary = compact.slice(0, 2).join(' | ');
+    return (summary ? '<p class="store-option-preview">' + esc(summary) + '</p>' : '') +
+      '<details class="store-config-detail"><summary>선택 옵션 전체 보기 (' + answers.length + ')</summary>' +
+      '<dl class="store-answer-detail">' + answers.map(answer => {
+        const text = String(answer);
+        const split = text.indexOf(' · ');
+        return '<div><dt>' + esc(split < 0 ? '옵션' : text.slice(0, split)) +
+          '</dt><dd>' + esc(split < 0 ? text : text.slice(split + 3)) + '</dd></div>';
+      }).join('') + '</dl></details>';
+  }
+
   async function checkoutPage(previous = new Map()) {
     const rows = stored('checkout', [], sessionStorage);
     if (!rows.length) { shell('발주하기', emptyList('선택한 발주 품목이 없습니다', '장바구니에서 발주할 품목을 선택해 주세요.', root + '?view=cart', '장바구니로 이동')); return; }
@@ -481,45 +496,97 @@
     const methods = '<option value="">배송수단 선택</option>' + options.methods.map(m =>
       '<option value="' + esc(m.id) + '">' + esc(m.name) + '</option>').join('');
     const shipping = '<label>배송수단<select name="method" required>' + methods + '</select></label>';
-    const address = '<label>배송 주소<input name="address" maxlength="400" readonly placeholder="주소 검색으로 선택"></label><button type="button" class="store-btn" data-address-search>주소 검색</button><label>상세주소<input name="addressDetail" maxlength="180" placeholder="건물명, 동·호수"></label>';
+    const contactFields = [['orderer','주문자 이름'],['phone','주문자 연락처'],['manager','현장 담당자 이름'],['managerPhone','현장 담당자 연락처']];
+    const contacts = '<details class="store-contacts"><summary>주문자 · 현장 담당자 정보</summary><div class="store-fields">' +
+      contactFields.map(([key,label]) => '<label>' + label + '<input name="' + key + '" maxlength="60" type="' + (key.toLowerCase().includes('phone') ? 'tel' : 'text') + '"></label>').join('') + '</div></details>';
+    const address = '<label>배송 주소<input name="address" readonly placeholder="배송지를 선택해 주세요"></label><button type="button" class="store-btn" data-address-search>주소 검색</button><button type="button" class="store-btn" data-address-book>업체 주소록</button><label>상세주소<input name="addressDetail" maxlength="180" placeholder="건물명, 동·호수"></label>';
+    const addressLabel = a => a ? [a.zip, a.road || a.jibun].filter(Boolean).join(' ') : '';
+    const addressBook = '<dialog class="store-address-book"><h2>업체 주소록</h2><div></div><button type="button" class="store-btn" data-close>닫기</button></dialog>';
     const date = '<label>희망 출고일<input type="text" name="date" placeholder="날짜 선택" required readonly></label>';
     const dates = rows.map(row => row.item.earliest);
     const latest = dates.every(Boolean) ? dates.sort().at(-1) : null;
-    shell('발주하기', '<details class="store-validation"><summary>검증용 텍스트 · 발주 규칙</summary>' +
+    shell('발주하기', '<div class="store-bulk-launch"><div><strong>전체 ' + rows.length +
+      '개 품목</strong><p>공통 배송 정보를 적용한 뒤 각 품목에서 따로 변경할 수 있습니다.</p></div>' +
+      '<button type="button" class="store-btn" id="store-bulk-open">배송 · 연락처 일괄 적용</button></div><details class="store-validation"><summary>배송일과 비용 산정 기준</summary>' +
       '<p>오늘을 제외한 영업일로 계산합니다. 예를 들어 1.5일은 2영업일로 올립니다. 주말과 등록된 공휴일은 선택할 수 없습니다. 일괄 출고일은 품목별 가능일 중 가장 늦은 날짜부터 선택할 수 있습니다.</p>' +
-      '<p>희망 출고일과 배송수단이 같으면 배송비와 포장비를 각각 한 번 부과합니다. 포인트는 상품금액에만 적용됩니다. 발주 결과는 저장되지 않습니다.</p></details>' +
-      '<button type="button" class="store-btn" id="store-bulk-open">배송 정보 일괄 적용</button>' +
-      '<dialog class="store-bulk store-bulk-dialog" aria-labelledby="store-bulk-title"><h2 id="store-bulk-title">배송 정보 일괄 적용</h2>' +
-      '<p>입력한 항목만 모든 품목에 적용합니다.</p><div class="store-fields">' + address + date + shipping +
+      '<p>희망 출고일, 배송수단, 배송 주소가 같으면 배송비와 포장비를 각각 한 번 부과합니다. 포인트는 상품금액에만 적용됩니다. 발주 결과는 저장되지 않습니다.</p></details>' +
+      '<dialog class="store-bulk store-bulk-dialog" aria-labelledby="store-bulk-title"><h2 id="store-bulk-title">배송 · 연락처 일괄 적용</h2>' +
+      '<p>이번에 입력한 항목만 모든 품목에 적용합니다. 직배송 품목은 업체 주소를 사용합니다.</p><div class="store-fields">' + shipping + address + date + contacts +
       '</div><p class="store-bulk-warning" role="status"></p><div class="store-actions"><button type="button" class="store-btn" id="store-bulk-close">닫기</button>' +
       '<button type="button" class="store-btn is-primary" id="store-apply">적용</button></div></dialog>' +
-      '<form id="store-checkout"><div class="store-list">' + rows.map(row => '<article class="store-check-line"><div class="store-row">' +
-      img(row.item) + '<div><strong>' + esc(row.item.name) + '</strong><div>' + won(row.item.price) +
-      ' · 최초 가능일 ' + esc(row.item.earliest || '미등록') + '</div></div><span class="store-line-status"></span></div><details class="store-row-details store-check-details"><summary>수량 및 배송 정보</summary><div class="store-fields">' +
+      '<form id="store-checkout"><div class="store-list">' + rows.map((row, index) => '<article class="store-check-line"><div class="store-row">' +
+      img(row.item) + '<div><strong>' + (index + 1) + '. ' + esc(row.item.name) + '</strong><div>' + won(row.item.price) +
+      ' · 최초 가능일 ' + esc(row.item.earliest || '미등록') + (row.item.productionDays == null || row.item.productionDays < 0 ? ' · 기본 생산기간 2영업일 적용' : '') + '</div></div><span class="store-line-status"></span></div>' +
+      checkoutOptions(row.item) + '<p class="store-line-overview"></p><details class="store-row-details store-check-details"><summary>수량 · 배송지 · 연락처 변경</summary><div class="store-fields">' +
       '<label>수량<input type="number" name="quantity" min="1" max="99999" required value="' + esc(row.quantity || 1) + '"></label>' +
-      address + date + shipping + '</div><small class="store-method-note" aria-live="polite"></small></details></article>').join('') +
+      shipping + address + date + contacts + '</div><small class="store-method-note" aria-live="polite"></small></details></article>').join('') +
       '</div><section class="store-payment"><h2>결제</h2><p>계좌결제 · 검증용</p><label>사용 포인트 <input type="number" name="points" value="0" min="0" max="' +
       esc(options.points) + '" required></label><small>보유 ' + won(options.points) + ' 상당</small></section>' +
-      '<button type="submit" class="store-btn is-primary">발주하기</button></form>');
+      '<button type="submit" class="store-btn is-primary">배송비 계산</button></form>' + addressBook);
     const form = main.querySelector('#store-checkout');
     const lines = [...form.querySelectorAll('.store-check-line')];
     const bulk = main.querySelector('.store-bulk');
+    const selectedAddress = new WeakMap();
+    function setAddress(node, value) {
+      selectedAddress.set(node, value || {});
+      node.querySelector('[name=address]').value = addressLabel(value);
+      node.querySelector('[name=addressDetail]').value = value?.detail || '';
+    }
+    const book = main.querySelector('.store-address-book');
+    book.querySelector('[data-close]').onclick = () => book.close();
     for (const container of [bulk, ...lines]) {
+      container.querySelector('[data-address-book]').onclick = () => {
+        const index = lines.indexOf(container);
+        book.querySelector('h2').textContent = index < 0 ? '전체 품목에 적용할 배송지' : (index + 1) + '. ' + rows[index].item.name + ' 배송지';
+        const list = book.querySelector('div');
+        list.replaceChildren();
+        const entries = [options.companyAddress, ...options.addresses].filter(a => a?.road || a?.jibun);
+        if (!entries.length) list.textContent = '등록된 업체 주소가 없습니다.';
+        for (const a of entries) {
+          const button = document.createElement('button');
+          button.type = 'button'; button.className = 'store-btn';
+          const title = document.createElement('strong');
+          title.textContent = a === options.companyAddress ? '업체 기본 주소' : '저장 배송지';
+          const street = document.createElement('span');
+          street.textContent = [addressLabel(a), a.detail].filter(Boolean).join(' ');
+          button.append(title, street);
+          button.onclick = () => { setAddress(container, a); book.close(); if (container !== bulk) updateLineStatus(container); };
+          list.append(button);
+        }
+        book.showModal();
+      };
       container.querySelector('[data-address-search]').onclick = () => {
-        if (!window.daum?.Postcode) return feedback('주소 검색을 불러오지 못했습니다. 페이지를 새로고침해 주세요.', true);
+        if (!window.daum?.Postcode) return feedback('주소 검색을 불러오지 못했습니다.', true);
         new window.daum.Postcode({oncomplete(data) {
-          const input = container.querySelector('[name=address]');
-          input.value = '[' + data.zonecode + '] ' + (data.userSelectedType === 'R' ? data.roadAddress : data.jibunAddress);
-          const detail = container.querySelector('[name=addressDetail]');
-          detail.value = '';
-          detail.focus();
-          input.dispatchEvent(new Event('change', {bubbles: true}));
+          const region = window.HiddenAutoAddressRegion.fromDaum(data);
+          setAddress(container, {zip:data.zonecode, province:region.doName, city:region.siName,
+            district:region.guName, road:data.roadAddress || data.autoRoadAddress,
+            jibun:data.jibunAddress || data.autoJibunAddress, detail:''});
+          container.querySelector('[name=addressDetail]').focus();
+          if (container !== bulk) updateLineStatus(container);
         }}).open();
       };
     }
+    function applyMethod(node) {
+      const direct = node.querySelector('[name=method]').value === '1';
+      if (direct) setAddress(node, options.companyAddress);
+      else if (node.dataset.direct === 'true') setAddress(node, null);
+      node.dataset.direct = String(direct);
+      node.querySelector('[name=addressDetail]').readOnly = direct;
+      node.querySelectorAll('[data-address-search],[data-address-book]').forEach(b => b.disabled = direct);
+    }
+    bulk.querySelector('[name=method]').onchange = () => applyMethod(bulk);
     const openBulk = main.querySelector('#store-bulk-open');
     main.querySelector('#store-bulk-close').onclick = () => bulk.close();
-    openBulk.onclick = () => bulk.showModal();
+    openBulk.onclick = () => {
+      bulk.querySelector('[name=method]').value = '';
+      applyMethod(bulk);
+      setAddress(bulk, null);
+      bulk.querySelector('[name=date]')._flatpickr.clear();
+      contactFields.forEach(([key]) => bulk.querySelector('[name=' + key + ']').value = '');
+      bulk.querySelector('.store-bulk-warning').textContent = '';
+      bulk.showModal();
+    };
     bulk.addEventListener('close', () => openBulk.focus());
     const holidays = new Set(options.holidays);
     const pick = (node, earliest) => {
@@ -539,6 +606,9 @@
       const quantityInput = line.querySelector('[name=quantity]');
       const complete = Boolean(addressInput.value.trim() && methodInput.value && dateInput.value && quantityInput.validity.valid);
       const status = line.querySelector('.store-line-status');
+      const overview = [quantityInput.value + '개', methodInput.selectedOptions[0]?.value ? methodInput.selectedOptions[0].text : '',
+        dateInput.value, [addressInput.value, line.querySelector('[name=addressDetail]').value].filter(Boolean).join(' ')];
+      line.querySelector('.store-line-overview').textContent = overview.filter(Boolean).join(' · ');
       status.textContent = complete ? '입력 완료' : '배송 정보 입력 필요';
       status.classList.toggle('is-complete', complete);
     };
@@ -556,11 +626,13 @@
       method.onchange = () => {
         const chosen = options.methods.find(value => String(value.id) === method.value);
         line.querySelector('.store-method-note').textContent = chosen ?
-          [chosen.description, '배송비 ' + won(chosen.deliveryFee), '포장비 ' + won(chosen.packingFee)].filter(Boolean).join(' · ') : '';
+          chosen.description : '';
+        applyMethod(line); updateLineStatus(line);
       };
       const draft = previous.get(rows[i].key);
       if (draft) {
-        line.querySelector('[name=address]').value = draft.baseAddress || draft.address;
+        setAddress(line, draft.address);
+        contactFields.forEach(([key]) => line.querySelector('[name='+key+']').value = draft.contacts?.[key] || '');
         line.querySelector('[name=addressDetail]').value = draft.addressDetail || '';
         line.querySelector('[name=quantity]').value = draft.quantity;
         line.querySelector('[name=date]')._flatpickr.setDate(draft.date, true);
@@ -570,7 +642,7 @@
       updateLineStatus(line);
     });
     main.querySelector('#store-apply').onclick = () => {
-      const updates = ['address', 'date', 'method']
+      const updates = ['method', 'address', 'date', ...contactFields.map(([key]) => key)]
         .map(name => [name, bulk.querySelector('[name=' + name + ']').value.trim()])
         .filter(([, value]) => value);
       if (!updates.length) {
@@ -579,11 +651,13 @@
         return;
       }
       bulk.querySelector('.store-bulk-warning').textContent = '';
-      if (updates.some(([name]) => name === 'address')) lines.forEach(line => { line.querySelector('[name=addressDetail]').value = bulk.querySelector('[name=addressDetail]').value; });
+
       for (const [name, value] of updates) {
         for (const line of lines) {
           const target = line.querySelector('[name=' + name + ']');
-          if (name === 'date') target._flatpickr.setDate(value, true);
+          if (name === 'address') {
+            if (line.querySelector('[name=method]').value !== '1') setAddress(line, {...selectedAddress.get(bulk), detail:bulk.querySelector('[name=addressDetail]').value});
+          } else if (name === 'date') target._flatpickr.setDate(value, true);
           else { target.value = value; target.dispatchEvent(new Event('change')); }
         }
       }
@@ -598,32 +672,40 @@
     form.onsubmit = async event => {
       event.preventDefault();
       const missing = lines.find(line => !line.querySelector('[name=address]').value.trim());
-      if (missing) { missing.querySelector('details').open = true; missing.querySelector('[data-address-search]').focus(); return feedback('배송 주소를 검색해 주세요.', true); }
+      if (missing) { missing.querySelector('.store-check-details').open = true; missing.querySelector('[data-address-search]').focus(); return feedback('배송 주소를 검색해 주세요.', true); }
       const submit = form.querySelector('button[type=submit]');
       submit.disabled = true;
       const payload = lines.map((line, i) => {
         const get = field => line.querySelector('[name=' + field + ']').value;
-        return {...rows[i], quantity: Number(get('quantity')), baseAddress: get('address'), addressDetail: get('addressDetail'), address: [get('address'), get('addressDetail').trim()].filter(Boolean).join(' '),
+        return {...rows[i], quantity: Number(get('quantity')), baseAddress: get('address'), addressDetail: get('addressDetail'), address: {...selectedAddress.get(line), detail:get('addressDetail').trim()}, contacts:Object.fromEntries(contactFields.map(([key]) => [key,get(key).trim()])),
           date: get('date'), methodId: Number(get('method'))};
       });
       try {
         const missingDate = payload.findIndex(row => !row.date);
         if (missingDate >= 0) {
           const line = lines[missingDate];
-          line.querySelector('details').open = true;
+          line.querySelector('.store-check-details').open = true;
           line.querySelector('[name=date]').focus();
           throw new Error('품목별 희망 출고일을 모두 선택해 주세요.');
         }
-        const result = await call('/checkout', 'POST', {lines: payload.map(({key, item, quantity, address, date, methodId}) =>
-          ({key, item, quantity, address, date, methodId})), points: Number(form.elements.points.value)});
+        const result = await call('/checkout', 'POST', {lines: payload.map(({key, item, quantity, address, contacts, date, methodId}) =>
+          ({key, item, quantity, address, contacts, date, methodId})), points: Number(form.elements.points.value)});
         if (!Array.isArray(result?.lines) || result.lines.length !== payload.length ||
             result.lines.some((line, index) => !line?.item || line.key !== payload[index].key)) {
           throw new Error('서버가 요청한 품목의 발주 검증 결과를 반환하지 않았습니다. 입력 내용을 유지합니다.');
         }
-        resultPage(result);
-        const used = rows.filter(row => row.fromCart).map(row => row.key);
-        if (used.length) removeCart(used);
-        sessionStorage.removeItem(prefix + 'checkout');
+        const dialog = document.createElement('dialog');
+        dialog.className = 'store-address-book';
+        dialog.innerHTML = '<h2>배송비 계산 결과</h2><p>상품 ' + won(result.products) + ' · 확정 운임 ' + won(result.delivery) + ' · 확정 포장비 ' + won(result.packing) + '</p>' +
+          (result.pending ? '<p>관리자 확인이 필요한 묶음이 있습니다.</p>' : '') +
+          '<button type="button" class="store-btn">입력 수정</button> <button type="button" class="store-btn is-primary">발주 확정 · 상세 검증</button>';
+        main.append(dialog);
+        const [edit, confirm] = dialog.querySelectorAll('button');
+        edit.onclick = () => dialog.close();
+        confirm.onclick = () => { dialog.close(); resultPage(result); };
+        dialog.addEventListener('close', () => dialog.remove(), {once:true});
+        dialog.showModal();
+        // 검증 단계에서는 장바구니와 발주 초안을 유지합니다.
       } catch (error) {
         if (error.status === 409) {
           const invalid = new Set();
@@ -648,14 +730,14 @@
   }
   function resultPage(result) {
     main.querySelectorAll('[name=date]').forEach(input => input._flatpickr?.destroy());
-    shell('발주 검증 결과', '<p class="store-validation">검증용 텍스트 · 결과가 저장되지 않으며 결제와 포인트 차감도 없습니다. 묶음 배송비와 포장비는 각 조합의 첫 품목에 표시합니다.</p>' +
+    shell('발주 검증 결과', '<p class="store-validation">발주 전 검증 결과입니다. 묶음 배송비와 포장비는 각 조합의 첫 품목에 표시합니다.</p>' +
       '<div class="store-list">' + result.lines.map(line => '<article class="store-row store-result">' + img(line.item) +
-      '<div><strong>' + esc(line.item.name) + '</strong><p>' + esc(line.address) + '</p><p>' +
+      '<div><strong>' + esc(line.item.name) + '</strong><p>' + esc([line.address.zip, line.address.road || line.address.jibun, line.address.detail].filter(Boolean).join(' ')) + '</p><p>' +
       esc(line.date) + ' · ' + esc(line.method) + '</p><p>상품 ' + won(line.item.price) + ' × ' +
-      esc(line.quantity) + '개 · 배송비 ' + won(line.delivery) + ' · 포장비 ' + won(line.packing) + '</p></div></article>').join('') +
+      esc(line.quantity) + '개 · 배송비 ' + (line.delivery == null ? '미확정' : won(line.delivery)) + ' · 포장비 ' + (line.packing == null ? '미확정' : won(line.packing)) + '</p><details><summary>계산 근거와 품목 상세</summary><p>' + esc(line.explanation) + '</p><p>대분류 ' + esc(line.item.category || '미지정') + (line.item.width == null ? '' : ' · 가로 ' + esc(line.item.width) + 'mm') + '</p><p>' + esc([line.address.province,line.address.city,line.address.district].filter(Boolean).join(' ')) + '</p><p>도로명 ' + esc(line.address.road || '미등록') + ' · 지번 ' + esc(line.address.jibun || '미등록') + '</p><p>' + esc((line.item.summary || []).join(' | ')) + '</p><p>주문자 ' + esc([line.contacts?.orderer,line.contacts?.phone].filter(Boolean).join(' ') || '미입력') + ' · 현장 담당자 ' + esc([line.contacts?.manager,line.contacts?.managerPhone].filter(Boolean).join(' ') || '미입력') + '</p></details></div></article>').join('') +
       '</div><dl class="store-totals"><dt>상품금액</dt><dd>' + won(result.products) +
       '</dd><dt>배송비</dt><dd>' + won(result.delivery) + '</dd><dt>포장비</dt><dd>' + won(result.packing) +
-      '</dd><dt>검증용 포인트</dt><dd>−' + won(result.points) + '</dd><dt>최종 금액</dt><dd>' +
+      '</dd><dt>검증용 포인트</dt><dd>−' + won(result.points) + '</dd><dt>' + (result.pending ? '현재 확정 금액 · 미확정 비용 별도' : '합계') + '</dt><dd>' +
       won(result.payable) + '</dd></dl><a class="store-btn" href="' + root + '">컬렉션으로</a>');
     main.focus({preventScroll: true});
     window.scrollTo({top: 0, behavior: reduceMotion() ? 'instant' : 'smooth'});

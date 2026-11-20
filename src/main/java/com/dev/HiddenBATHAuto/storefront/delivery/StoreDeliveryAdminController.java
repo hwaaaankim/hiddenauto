@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "hiddenbath.storefront.delivery-admin-enabled", havingValue = "true")
 @Controller
 @PreAuthorize("hasRole('ADMIN')")
 @RequestMapping("/admin/store-delivery-methods")

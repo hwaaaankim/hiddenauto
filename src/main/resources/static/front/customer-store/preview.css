@@ -275,3 +275,24 @@ body.hb-store { display: flex; flex-direction: column; min-height: 100vh; min-he
 .store-answer-detail > div {display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:.75rem;align-items:center;padding:.6rem .8rem}
 .store-answer-detail > div + div {border-top:1px solid var(--store-line)}
 .store-answer-detail :is(dt,dd) {margin:0;overflow-wrap:anywhere}
+.store-address-book {width:min(32rem,92vw);max-height:80vh;overflow:auto;padding:1.25rem;border:1px solid var(--store-line,#ccc);border-radius:5px}
+.store-address-book::backdrop {background:#17151166}
+.store-address-book > div {display:grid;gap:.5rem;margin:1rem 0}
+.store-address-book h2 {font-size:1.2rem;margin:0 0 1rem}
+.store-contacts {grid-column:1/-1;border:1px solid var(--store-line);padding:.75rem;border-radius:5px}
+.store-contacts summary {cursor:pointer;font-weight:600}
+.store-contacts[open] summary {margin-bottom:.75rem}
+.store-fields [data-address-book] {align-self:end}
+.store-bulk-launch {display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;background:white;border:1px solid var(--store-line);border-radius:5px;padding:1rem}
+.store-bulk-launch p {margin:.3rem 0 0}
+.store-config-detail,.store-option-preview,.store-no-options,.store-line-overview {margin:.5rem 1rem;overflow-wrap:anywhere}
+.store-config-detail summary {cursor:pointer;padding:.5rem 0;font-weight:600}
+.store-line-overview {border-top:1px solid var(--store-line);padding-top:.65rem;font-size:.9rem}
+.store-address-book > div .store-btn {height:auto;min-height:44px;display:grid;gap:.3rem;justify-content:start;text-align:left;white-space:normal;overflow-wrap:anywhere;padding:.65rem .85rem}
+.store-check-line .store-check-details .store-fields {grid-template-columns:repeat(2,minmax(0,1fr));align-items:end}
+.store-check-line .store-check-details .store-fields label {grid-column:auto;grid-row:auto}
+.store-check-line .store-check-details .store-fields label:has([name=address]),.store-check-line .store-check-details .store-fields label:has([name=addressDetail]) {grid-column:1/-1}
+@media(max-width:36rem){
+.store-bulk-launch .store-btn {width:100%}
+.store-check-line .store-fields input,.store-check-line .store-fields select {min-width:0;width:100%;box-sizing:border-box}
+}

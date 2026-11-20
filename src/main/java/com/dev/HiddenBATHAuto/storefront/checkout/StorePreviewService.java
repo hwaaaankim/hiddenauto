@@ -2,7 +2,6 @@ package com.dev.HiddenBATHAuto.storefront.checkout;
 
 import com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioDtos.Answer;
 import com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioDtos.ProductView;
-import com.dev.HiddenBATHAuto.repository.storefront.StoreDeliveryMethodRepository;
 import com.dev.HiddenBATHAuto.repository.auth.CompanyRepository;
 import com.dev.HiddenBATHAuto.service.productmaster.ProductStorefrontService;
 import com.dev.HiddenBATHAuto.service.productmaster.ProductStudioService;
@@ -28,35 +27,50 @@ import org.springframework.stereotype.Service;
 public class StorePreviewService {
     public record Selection(long productId, long seriesId, Map<Long, String> options, Map<String, Answer> answers) {}
     public record Item(Selection selection, String stamp, String name, String image, BigDecimal price,
-                       BigDecimal productionDays, @JsonFormat(shape = JsonFormat.Shape.STRING) LocalDate earliest, boolean custom, String series, List<String> summary, List<String> compactSummary) {}
+                       BigDecimal productionDays, @JsonFormat(shape = JsonFormat.Shape.STRING) LocalDate earliest, boolean custom, String series, List<String> summary, List<String> compactSummary, String category, BigDecimal width) {}
     public record Saved(long id, String kind, String note, Item item, String createdAt) {}
-    public record Line(String key, Item item, int quantity, String address, @JsonFormat(shape = JsonFormat.Shape.STRING) LocalDate date, long methodId) {}
+    public record Address(String zip, String province, String city, String district, String road, String jibun, String detail) {
+        String display() {
+            return java.util.stream.Stream.of(zip, road == null || road.isBlank() ? jibun : road, detail)
+                .filter(Objects::nonNull).map(String::strip).filter(v -> !v.isEmpty()).collect(java.util.stream.Collectors.joining(" "));
+        }
+        boolean valid() {
+            return zip != null && zip.matches("[0-9]{5}") && province != null && !province.isBlank()
+                && ((road != null && !road.isBlank()) || (jibun != null && !jibun.isBlank())) && display().length() <= 500;
+        }
+    }
+    public record Contacts(String orderer, String phone, String manager, String managerPhone) {}
+    public record Line(String key, Item item, int quantity, Address address, Contacts contacts, @JsonFormat(shape = JsonFormat.Shape.STRING) LocalDate date, long methodId) {}
     public record Checkout(List<Line> lines, BigDecimal points) {}
-    public record ResultLine(String key, Item item, int quantity, String address, @JsonFormat(shape = JsonFormat.Shape.STRING) LocalDate date, String method,
-                             BigDecimal delivery, BigDecimal packing) {}
+    public record ResultLine(String key, Item item, int quantity, Address address, Contacts contacts, @JsonFormat(shape = JsonFormat.Shape.STRING) LocalDate date, String method,
+                             Integer delivery, Integer packing, String explanation) {}
     public record Result(List<ResultLine> lines, BigDecimal products, BigDecimal delivery, BigDecimal packing,
-                         BigDecimal points, BigDecimal payable) {}
+                         BigDecimal points, BigDecimal payable, boolean pending) {}
     private final ProductStudioService studio;
     private final ProductStorefrontService storefront;
     private final ProductPricingService prices;
-    private final StoreDeliveryMethodRepository methods;
     private final CompanyRepository companies;
     private final ObjectMapper json;
     private final JdbcTemplate db;
     private final Set<LocalDate> holidays;
 
     public StorePreviewService(ProductStudioService studio, ProductStorefrontService storefront,
-            ProductPricingService prices, StoreDeliveryMethodRepository methods, CompanyRepository companies,
+            ProductPricingService prices, CompanyRepository companies,
             ObjectMapper json, @Qualifier("dataSource") DataSource source,
             @Value("${hiddenbath.storefront.holidays:}") String holidays) {
         this.studio = studio;
         this.storefront = storefront;
         this.prices = prices;
-        this.methods = methods;
         this.companies = companies;
         this.json = json.copy().registerModule(new JavaTimeModule()).enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
         this.db = new JdbcTemplate(source);
         this.holidays = new HashSet<>();
+        // 한국 월력요항. 임시공휴일은 외부 설정값으로 추가합니다.
+        String published = "2026-12-25 2027-01-01 2027-02-06 2027-02-07 2027-02-08 2027-02-09 2027-03-01 "
+                + "2027-05-01 2027-05-03 2027-05-05 2027-05-13 2027-06-06 2027-07-17 2027-07-19 "
+                + "2027-08-15 2027-08-16 2027-09-14 2027-09-15 2027-09-16 2027-10-03 2027-10-04 "
+                + "2027-10-09 2027-10-11 2027-12-25 2027-12-27";
+        Arrays.stream(published.split(" ")).map(LocalDate::parse).forEach(this.holidays::add);
         Arrays.stream(holidays.split(",")).map(String::strip).filter(s -> !s.isEmpty())
                 .map(LocalDate::parse).forEach(this.holidays::add);
     }
@@ -88,6 +102,17 @@ public class StorePreviewService {
                         .flatMap(v -> g.values().stream().filter(value -> v.valueIds().contains(value.id()))
                                 .map(value -> value.labels().customer()).findFirst()))
                 .orElse("");
+        String category = "";
+        Set<BigDecimal> widths = new HashSet<>();
+        for (var group : p.groups()) for (var variant : p.variants()) {
+            if (!group.id().equals(variant.groupId()) || variant.valueIds() == null) continue;
+            for (var value : group.values()) {
+                if (!variant.valueIds().contains(value.id())) continue;
+                String label = value.labels().customer();
+                if ("CATEGORY".equals(group.role())) category = label;
+                if (!p.nonStandard()) collectWidth(widths, group.labels().customer(), label);
+            }
+        }
         if (p.nonStandard()) {
             var evaluation = studio.evaluate(p.id(), new com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioDtos.EvaluateRequest(null, answers), actor(company));
             evaluation.questions().stream().filter(q -> q.visible() && !q.question().fixed()
@@ -103,6 +128,8 @@ public class StorePreviewService {
                         .map(choice -> choice.labels().customer()).forEach(values::add);
                 if (q.answer().fields() != null) q.question().fields().forEach(field -> {
                     Object value = q.answer().fields().get(field.key());
+                    if (value != null && (field.unit() == null || field.unit().isBlank() || "mm".equalsIgnoreCase(field.unit())))
+                        collectWidth(widths, field.labels().customer(), value.toString());
                     if (value instanceof List<?> files) values.add(field.labels().customer() + " " + files.size() + "개 파일");
                     else if (value != null) values.add(field.labels().customer() + " " + value);
                 });
@@ -156,8 +183,25 @@ public class StorePreviewService {
         }
         compact.addAll(byGroup.values());
         return new Item(clean, stamp, p.productName(), image, price, p.productionHours(),
-                p.productionHours() == null ? null : StoreCheckoutPolicy.earliestDate(today(), p.productionHours(), holidays::contains),
-                p.nonStandard(), series, summary, compact);
+                StoreCheckoutPolicy.earliestDate(today(), p.productionHours(), holidays::contains),
+                p.nonStandard(), series, summary, compact, Objects.toString(category, ""), widths.size() == 1 ? widths.iterator().next() : null);
+    }
+
+    private static void collectWidth(Set<BigDecimal> widths, String label, String value) {
+        if (label == null || value == null) return;
+        String number = value.strip();
+        if (Set.of("사이즈", "규격", "크기").contains(label.strip())) {
+            String[] parts = number.split("[*×xX]");
+            if (parts.length < 2) return;
+            number = parts[0].strip();
+        } else if (!Set.of("가로", "가로 사이즈", "가로사이즈", "폭", "너비", "W").contains(label.strip())) return;
+        if (number.matches("[0-9]+(?:[.][0-9]+)?(?: *mm)?"))
+            widths.add(new BigDecimal(number.replace("mm", "").strip()).stripTrailingZeros());
+    }
+
+    public Address companyAddress(long id) {
+        var c = companies.findById(id).orElseThrow();
+        return new Address(c.getZipCode(), c.getDoName(), c.getSiName(), c.getGuName(), c.getRoadAddress(), c.getJibunAddress(), c.getDetailAddress());
     }
 
     private LocalDate today() { return LocalDate.now(ZoneId.of("Asia/Seoul")); }
@@ -196,7 +240,15 @@ public class StorePreviewService {
 
     public List<Saved> saved(long company) {
         return db.query("SELECT id, kind, note, payload, created_at FROM tb_store_preview_saved WHERE company_id=? ORDER BY id DESC",
-                (rs, i) -> new Saved(rs.getLong(1), rs.getString(2), rs.getString(3), decode(rs.getString(4)), rs.getTimestamp(5).toInstant().toString()), company);
+                (rs, i) -> {
+                    Item savedItem;
+                    try {
+                        savedItem = decode(rs.getString(4));
+                    } catch (IllegalStateException error) {
+                        savedItem = null;
+                    }
+                    return new Saved(rs.getLong(1), rs.getString(2), rs.getString(3), savedItem, rs.getTimestamp(5).toInstant().toString());
+                }, company);
     }
 
     public void save(long company, String kind, String note, Item previous) {
@@ -225,32 +277,45 @@ public class StorePreviewService {
         List<StoreCheckoutPolicy.Line> order = new ArrayList<>();
         Set<String> keys = new HashSet<>();
         Set<StoreCheckoutPolicy.DeliveryGroup> seen = new HashSet<>();
-        var shipping = new HashMap<Long, com.dev.HiddenBATHAuto.model.storefront.StoreDeliveryMethod>();
-        methods.findAllByOrderByIdAsc().forEach(m -> shipping.put(m.getId(), m));
+        var items = new LinkedHashMap<String, Item>();
+        var groupByLine = new HashMap<String, StoreCheckoutPolicy.DeliveryGroup>();
+        var groupedProducts = new LinkedHashMap<StoreCheckoutPolicy.DeliveryGroup, List<StoreShipping.Product>>();
+        var addresses = new HashMap<String, Address>();
+        var direct = companyAddress(company);
         for (Line line : request.lines()) {
             Item p = check(line.item(), company, false);
-            if (line.quantity() > 99999 || line.key() == null || !keys.add(line.key()) || line.address() == null
-                    || line.address().isBlank() || line.address().length() > 400) {
-                throw new IllegalArgumentException("품목과 배송 주소를 확인해 주세요.");
-            }
-            if (p.earliest() == null) {
-                throw new IllegalArgumentException(p.name() + "의 생산기간이 등록되지 않았습니다. 관리자에게 문의해 주세요.");
-            }
-            if (line.date() == null || line.date().isBefore(p.earliest())
-                    || !StoreCheckoutPolicy.isBusinessDay(line.date(), holidays::contains)) {
+            Address address = line.methodId() == 1 ? direct : line.address();
+            if (line.quantity() < 1 || line.quantity() > 99999 || line.key() == null || !keys.add(line.key())
+                    || address == null || !address.valid())
+                throw new IllegalArgumentException(p.name() + "의 수량과 배송 주소를 확인해 주세요.");
+            if (line.date() == null || line.date().isBefore(p.earliest()) || !StoreCheckoutPolicy.isBusinessDay(line.date(), holidays::contains))
                 throw new IllegalArgumentException(p.name() + "의 희망 출고일을 확인해 주세요.");
-            }
-            var method = shipping.get(line.methodId());
-            if (method == null) throw new IllegalArgumentException("배송수단을 다시 선택해 주세요.");
-            var group = new StoreCheckoutPolicy.DeliveryGroup(line.date(), method.getId());
-            var fees = new StoreCheckoutPolicy.Fees(BigDecimal.valueOf(method.getDeliveryFee()), BigDecimal.valueOf(method.getPackingFee()));
-            order.add(new StoreCheckoutPolicy.Line(p.price(), line.quantity(), group, fees));
+            var group = new StoreCheckoutPolicy.DeliveryGroup(line.date(), line.methodId(), address.display().replaceAll("\\s+", " "));
+            items.put(line.key(), p);
+            addresses.put(line.key(), address);
+            groupByLine.put(line.key(), group);
+            groupedProducts.computeIfAbsent(group, ignored -> new ArrayList<>()).add(new StoreShipping.Product(p.category(), p.width(), line.quantity()));
+        }
+        var quotes = new HashMap<StoreCheckoutPolicy.DeliveryGroup, StoreShipping.Quote>();
+        boolean pending = false;
+        for (Line line : request.lines()) {
+            var group = groupByLine.get(line.key());
+            var address = addresses.get(line.key());
+            var quote = quotes.computeIfAbsent(group, g -> StoreShipping.quote(g.methodId(), address.province().startsWith("제주"), groupedProducts.get(g)));
+            var method = StoreShipping.METHODS.stream().filter(m -> m.id() == line.methodId()).findFirst().orElseThrow();
+            var p = items.get(line.key());
             boolean first = seen.add(group);
-            details.add(new ResultLine(line.key(), p, line.quantity(), line.address().strip(), line.date(), method.getName(),
-                    first ? fees.delivery() : BigDecimal.ZERO, first ? fees.packing() : BigDecimal.ZERO));
+            pending |= quote.delivery() == null;
+            var fees = new StoreCheckoutPolicy.Fees(BigDecimal.valueOf(Objects.requireNonNullElse(quote.delivery(), 0)),
+                    BigDecimal.valueOf(Objects.requireNonNullElse(quote.packing(), 0)));
+            order.add(new StoreCheckoutPolicy.Line(p.price(), line.quantity(), group, fees));
+            details.add(new ResultLine(line.key(), p, line.quantity(), address, line.contacts(), line.date(), method.name(),
+                    first || quote.delivery() == null ? quote.delivery() : Integer.valueOf(0),
+                    first || quote.packing() == null ? quote.packing() : Integer.valueOf(0),
+                    first ? quote.reason() : "같은 묶음의 첫 품목에 합산 · " + quote.reason()));
         }
         var total = StoreCheckoutPolicy.calculate(order, request.points(), BigDecimal.valueOf(balance(company)));
-        return new Result(details, total.products(), total.delivery(), total.packing(), total.points(), total.payable());
+        return new Result(details, total.products(), total.delivery(), total.packing(), total.points(), total.payable(), pending);
     }
 
     private Item decode(String value) {

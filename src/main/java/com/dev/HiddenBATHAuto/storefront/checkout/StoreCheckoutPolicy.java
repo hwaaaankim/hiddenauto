@@ -15,7 +15,7 @@ public final class StoreCheckoutPolicy {
     public static LocalDate earliestDate(LocalDate today, BigDecimal productionDays,
             Predicate<LocalDate> isHoliday) {
         if (productionDays == null || productionDays.signum() < 0) {
-            throw new IllegalArgumentException("제품의 생산기간을 확인해 주세요.");
+            productionDays = BigDecimal.valueOf(2);
         }
         int workingDays = productionDays.setScale(0, RoundingMode.CEILING).intValueExact();
         LocalDate date = today;
@@ -35,7 +35,7 @@ public final class StoreCheckoutPolicy {
         return date.getDayOfWeek().getValue() < 6 && !isHoliday.test(date);
     }
 
-    public record DeliveryGroup(LocalDate date, long methodId) {}
+    public record DeliveryGroup(LocalDate date, long methodId, String address) {}
 
     public record Fees(BigDecimal delivery, BigDecimal packing) {
         public Fees {
