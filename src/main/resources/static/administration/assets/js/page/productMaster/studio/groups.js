@@ -117,7 +117,7 @@
         guide: v.guide,
         helpDisplay: v.helpDisplay || "ALWAYS",
         active: v.active,
-        key: v.key,
+        key: v.key, excludes: v.excludes || [],
       }));
       valueFiles = new Map(
         (g?.values || []).map((v) => [v.id, S.copy(v.assets)]),
@@ -354,6 +354,29 @@
           S.dirty = true;
           paintValues();
         };
+        if (model.control === "CHECKBOX" && !model.nonStandard) {
+          const settings = document.createElement("button");settings.type="button";settings.textContent="동시 선택 제한 설정";
+          S.$("#pms-save-values",editor).before(settings);
+          settings.onclick=()=>{
+            const choices=draftValues.filter(v=>v.id && v.key);
+            if(choices.length<2) return S.toast("보기를 두 개 이상 저장한 후 기준 보기와 제한할 보기를 선택해 주세요.");
+            const dialog=S.dialog("동시 선택 제한 설정",'<label>1. 기준 보기<select></select></label><fieldset><legend>2. 함께 선택할 수 없는 보기</legend></fieldset><button type="button" data-done>적용</button>');
+            const copy=choices.map(c=>({...c,excludes:[...(c.excludes||[])]}));
+            const select=dialog.querySelector("select");copy.forEach(c=>select.add(new Option(c.labels.customer,c.key)));
+            function render(){
+              const host=dialog.querySelector("fieldset"),a=copy.find(c=>c.key===select.value);
+              host.querySelectorAll("label").forEach(el=>el.remove());
+              for(const b of copy.filter(c=>c!==a)){
+                const label=document.createElement("label"),box=document.createElement("input");box.type="checkbox";
+                box.checked=a.excludes.includes(b.key)||b.excludes.includes(a.key);
+                box.onchange=()=>{a.excludes=a.excludes.filter(k=>k!==b.key);b.excludes=b.excludes.filter(k=>k!==a.key);if(box.checked)a.excludes.push(b.key);};
+                label.className="pms-check";label.append(box,b.labels.customer);host.append(label);
+              }
+            }
+            select.onchange=render;render();
+            dialog.querySelector("[data-done]").onclick=()=>{choices.forEach((c,i)=>c.excludes=copy[i].excludes);S.dirty=true;dialog.close();S.toast("옵션 저장을 누르면 반영됩니다.");};
+          };
+        }
         S.$("#pms-save-values", editor).onclick = (e) =>
           S.run(e.currentTarget, async () => {
             if (!validateOptions(true)) return;
@@ -404,14 +427,14 @@
         S.$("#pms-values", editor),
         `/groups/${selected}/values`,
         "POST",
-        draftValues.map(({ id, version, labels, namePart, active, guide, helpDisplay }) => ({
+        draftValues.map(({ id, version, labels, namePart, active, guide, helpDisplay, excludes }) => ({
           id,
           version,
           labels,
           namePart,
           active,
           guide,
-          helpDisplay,
+          helpDisplay, excludes,
         })),
         "values.",
       );

@@ -124,8 +124,8 @@ public final class ProductPricingCompatibility {
       List<Field> fields = list(q.fields()).stream().map(f -> new Field(keys.f(q.key(), f.key()), f.labels(), f.namePart(),
           f.required(), f.allowNegative(), f.min(), f.max(), f.step(), f.minLength(), f.maxLength(), f.format(), f.unit(),
           f.extensions(), f.minFiles(), f.maxFiles(), f.maxFileMB(), null,
-          text(f.bundleKey()).isBlank() ? null : keys.b(q.key(), f.bundleKey()), List.of())).toList();
-      List<Choice> choices = list(q.choices()).stream().map(c -> new Choice(keys.c(q.key(), c.key()), c.labels(), c.namePart(), List.of(), null, c.helpDisplay(), c.numericValue() == null ? null : new NumericValue(mapExpression(c.numericValue().expression(), keys)))).toList();
+          text(f.bundleKey()).isBlank() ? null : keys.b(q.key(), f.bundleKey()), List.of(), "ALWAYS", f.useDefault() ? f.placeholder() : null, f.useDefault())).toList();
+      List<Choice> choices = list(q.choices()).stream().map(c -> new Choice(keys.c(q.key(), c.key()), c.labels(), c.namePart(), List.of(), null, c.helpDisplay(), c.numericValue() == null ? null : new NumericValue(mapExpression(c.numericValue().expression(), keys)), list(c.excludes()).stream().map(key -> keys.c(q.key(), key)).sorted().toList())).toList();
       List<NumberCase> cases = new ArrayList<>();
       for (int i = 0; i < list(q.numberCases()).size(); i++) {
         NumberCase c = q.numberCases().get(i);

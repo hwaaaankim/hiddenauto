@@ -8,6 +8,8 @@ import com.dev.HiddenBATHAuto.service.productmaster.ProductStorefrontService;
 import com.dev.HiddenBATHAuto.service.productmaster.ProductStudioService;
 import com.dev.HiddenBATHAuto.service.productmaster.ProductPricingService;
 import com.dev.HiddenBATHAuto.dto.productmaster.ProductPricingDtos.EvaluateRequest;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import java.math.BigDecimal;
@@ -26,11 +28,11 @@ import org.springframework.stereotype.Service;
 public class StorePreviewService {
     public record Selection(long productId, long seriesId, Map<Long, String> options, Map<String, Answer> answers) {}
     public record Item(Selection selection, String stamp, String name, String image, BigDecimal price,
-                       BigDecimal productionDays, LocalDate earliest, boolean custom, String series, List<String> summary) {}
+                       BigDecimal productionDays, @JsonFormat(shape = JsonFormat.Shape.STRING) LocalDate earliest, boolean custom, String series, List<String> summary, List<String> compactSummary) {}
     public record Saved(long id, String kind, String note, Item item, String createdAt) {}
-    public record Line(String key, Item item, int quantity, String address, LocalDate date, long methodId) {}
+    public record Line(String key, Item item, int quantity, String address, @JsonFormat(shape = JsonFormat.Shape.STRING) LocalDate date, long methodId) {}
     public record Checkout(List<Line> lines, BigDecimal points) {}
-    public record ResultLine(String key, Item item, int quantity, String address, LocalDate date, String method,
+    public record ResultLine(String key, Item item, int quantity, String address, @JsonFormat(shape = JsonFormat.Shape.STRING) LocalDate date, String method,
                              BigDecimal delivery, BigDecimal packing) {}
     public record Result(List<ResultLine> lines, BigDecimal products, BigDecimal delivery, BigDecimal packing,
                          BigDecimal points, BigDecimal payable) {}
@@ -52,7 +54,7 @@ public class StorePreviewService {
         this.prices = prices;
         this.methods = methods;
         this.companies = companies;
-        this.json = json.copy().enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
+        this.json = json.copy().registerModule(new JavaTimeModule()).enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
         this.db = new JdbcTemplate(source);
         this.holidays = new HashSet<>();
         Arrays.stream(holidays.split(",")).map(String::strip).filter(s -> !s.isEmpty())
@@ -79,6 +81,7 @@ public class StorePreviewService {
         Map<String, Answer> answers = selection.answers() == null ? Map.of() : selection.answers();
         BigDecimal price = p.unitPrice();
         List<String> summary = new ArrayList<>();
+        Map<Long,String> byGroup = new LinkedHashMap<>();
         Map<String, Answer> canonicalAnswers = new TreeMap<>();
         String series = p.groups().stream().filter(g -> "SERIES".equals(g.role())).findFirst()
                 .flatMap(g -> p.variants().stream().filter(v -> g.id().equals(v.groupId())).findFirst()
@@ -103,7 +106,11 @@ public class StorePreviewService {
                     if (value instanceof List<?> files) values.add(field.labels().customer() + " " + files.size() + "개 파일");
                     else if (value != null) values.add(field.labels().customer() + " " + value);
                 });
-                if (!values.isEmpty()) summary.add(q.question().labels().customer() + " · " + String.join(" / ", values));
+                if (!values.isEmpty()) {
+                    String line = q.question().labels().customer() + " · " + String.join(" / ", values);
+                    summary.add(line);
+                    byGroup.put(q.question().groupId(),line);
+                }
             });
             if (bookmark) {
                 if (answers.isEmpty() || !canonicalAnswers.keySet().containsAll(answers.keySet())) {
@@ -124,7 +131,11 @@ public class StorePreviewService {
                 throw new IllegalArgumentException("규격 옵션과 제품을 다시 확인해 주세요.");
             }
             config.display().stream().filter(row -> row.answer() != null)
-                    .map(row -> row.group().customer() + " · " + row.answer().customer()).forEach(summary::add);
+                    .forEach(row -> {
+                        String line = row.group().customer() + " · " + row.answer().customer();
+                        summary.add(line);
+                        byGroup.put(row.groupId(),line);
+                    });
         }
         if (!bookmark && (price == null || price.signum() < 0)) {
             throw new IllegalArgumentException("발주 가능한 단가가 없습니다.");
@@ -138,9 +149,15 @@ public class StorePreviewService {
         String stamp = (legacyStamp ? "" : "configuration:") + hash(encode(stampData));
         String image = "/administration/assets/images/customer-order-example/"
                 + String.format(Locale.ROOT, "%02d.webp", (p.id() % 22) + 1);
+        List<String> compact = new ArrayList<>();
+        for (var setting : p.summaryOptions()) if ("customer".equals(setting.role())) {
+            String line = byGroup.remove(setting.groupId());
+            if (line != null && setting.visible()) compact.add(line);
+        }
+        compact.addAll(byGroup.values());
         return new Item(clean, stamp, p.productName(), image, price, p.productionHours(),
                 p.productionHours() == null ? null : StoreCheckoutPolicy.earliestDate(today(), p.productionHours(), holidays::contains),
-                p.nonStandard(), series, summary);
+                p.nonStandard(), series, summary, compact);
     }
 
     private LocalDate today() { return LocalDate.now(ZoneId.of("Asia/Seoul")); }

@@ -36,3 +36,5 @@ build/
 *.env
 docker-data/
 /src/main.zip
+
+/src/main/main.zip

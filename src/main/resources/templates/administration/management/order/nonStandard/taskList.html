@@ -233,6 +233,8 @@ keywordFields=${keywordFields},keywordMatch=${keywordMatch},deliveryMethodId=${d
 														</option>
 														<option value="100" th:selected="${pageSize == 100}">100개씩 보기
 														</option>
+<option value="150" th:selected="${pageSize == 150}">150개씩 보기</option>
+<option value="200" th:selected="${pageSize == 200}">200개씩 보기</option>
 													</select>
 												</div>
 											</div>
@@ -468,7 +470,8 @@ keywordFields=${keywordFields},keywordMatch=${keywordMatch},deliveryMethodId=${d
 																th:title="${row.productSummary}">
 
 																<!-- 제품명: 굵고 크게 표시 -->
-																<div class="order-product-titleline"><span data-keyword-field="product"
+																<div th:if="${row.quantity lt 0}"><sup class="badge bg-danger-subtle text-danger align-baseline">회수건</sup></div>
+															<div class="order-product-titleline"><span data-keyword-field="product"
 																	class="admin-task-list-second-product-name admin-task-list-second-product-highlight-target"
 																	th:text="${row.productName}">
 																	제품명
@@ -1152,7 +1155,7 @@ keywordFields=${keywordFields},keywordMatch=${keywordMatch},deliveryMethodId=${d
 		});
 	</script>
 	<script src="/administration/assets/js/page/taskList.js?v=20261104-manager-9"></script>
-	<script src="/administration/assets/js/page/taskListOrderEditExtension.js?v=20261115-cdn"></script>
+	<script src="/administration/assets/js/page/taskListOrderEditExtension.js?v=20261120-integrated"></script>
 
 <script src="/administration/assets/js/page/adminOrderManagement.js?v=20261110-shipping-flow-3"></script>
 <script src="/administration/assets/js/page/taskListConsole.js?v=20261103-manager-4"></script>

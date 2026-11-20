@@ -392,7 +392,7 @@
     fields
       .map(
         (f, i) =>
-          `<details class="pms-list-row pms-editor" ${S.editorAttrs(f.key, i === 0)} data-field-index="${i}"><summary class="pms-row-head"><span class="pms-handle" title="드래그하여 필드 순서를 변경합니다">⠿</span><strong data-editor-title>입력 ${i + 1} · ${S.e(f.labels?.management || "새 필드")}</strong><button type="button" class="pms-remove" data-remove-field="${i}">×</button></summary><div class="pms-editor-body">${S.labels(f, prefix + "." + i, true, f.namePart)}${S.internalValue(f.key)}${control === "NUMBER" ? S.field("입력 예시 (placeholder · 선택사항)", prefix + "." + i + ".placeholder", f.placeholder || "", "text", 'inputmode="decimal" maxlength="40"') : ""}${S.textarea("입력 시 안내메시지", prefix + "." + i + ".guide", f.guide || "", 2000)}${S.helpDisplaySelect(prefix + "." + i + ".helpDisplay", f.helpDisplay)}<div class="pms-form-grid ${control === "NUMBER" ? "pm-number-settings-grid" : "four"} pms-section">${S.checkField("입력 여부", "필수 입력", prefix + "." + i + ".required", f.required)}${control === "NUMBER" ? S.checkField("음수 입력", "음수 허용", prefix + "." + i + ".allowNegative", f.allowNegative) + S.field("단위", prefix + "." + i + ".unit", f.unit, "text", 'maxlength="20"') + S.field("입력 간격", prefix + "." + i + ".step", f.step, "number", 'min="0.001" step="0.001"') + S.field("최소값", prefix + "." + i + ".min", f.min, "number", 'step="0.001"') + S.field("최대값", prefix + "." + i + ".max", f.max, "number", 'step="0.001"') : control === "FILE" ? S.field("최소 개수", prefix + "." + i + ".minFiles", f.minFiles, "number", 'min="0" max="20"') + S.field("최대 개수", prefix + "." + i + ".maxFiles", f.maxFiles, "number", 'min="1" max="20"') + S.field("파일당 최대 MB", prefix + "." + i + ".maxFileMB", f.maxFileMB, "number", 'min="1" max="20"') : `${S.field("최소 글자 수", prefix + "." + i + ".minLength", f.minLength, "number", 'min="0" max="10000"')}${S.field("최대 글자 수", prefix + "." + i + ".maxLength", f.maxLength, "number", 'min="1" max="10000"')}${S.select("형식 검증", prefix + "." + i + ".format", f.format, { ANY: "제한 없음", EMAIL: "이메일", PHONE: "전화번호", ALPHANUMERIC: "영문·숫자" })}`}</div>${control === "FILE" ? `<div class="pms-check-grid" data-validation-path="${prefix}.${i}.extensions">${["jpg", "jpeg", "png", "gif", "webp", "pdf", "txt", "csv", "xlsx", "xls", "docx", "doc", "pptx", "ppt", "zip", "hwp", "hwpx"].map((ext) => `<label class="pms-check"><input type="checkbox" data-field-ext="${i}" value="${ext}" ${f.extensions.includes(ext) ? "checked" : ""}>${ext}</label>`).join("")}</div>` : ""}</div></details>`,
+          `<details class="pms-list-row pms-editor" ${S.editorAttrs(f.key, i === 0)} data-field-index="${i}"><summary class="pms-row-head"><span class="pms-handle" title="드래그하여 필드 순서를 변경합니다">⠿</span><strong data-editor-title>입력 ${i + 1} · ${S.e(f.labels?.management || "새 필드")}</strong><button type="button" class="pms-remove" data-remove-field="${i}">×</button></summary><div class="pms-editor-body">${S.labels(f, prefix + "." + i, true, f.namePart)}${S.internalValue(f.key)}${control === "NUMBER" ? S.field("입력 예시 (placeholder · 선택사항)", prefix + "." + i + ".placeholder", f.placeholder || "", "text", 'inputmode="decimal" maxlength="40"') + S.checkField("초기 입력값", "실제 기본값으로 설정", prefix + "." + i + ".useDefault", f.useDefault) : ""}${S.textarea("입력 시 안내메시지", prefix + "." + i + ".guide", f.guide || "", 2000)}${S.helpDisplaySelect(prefix + "." + i + ".helpDisplay", f.helpDisplay)}<div class="pms-form-grid ${control === "NUMBER" ? "pm-number-settings-grid" : "four"} pms-section">${S.checkField("입력 여부", "필수 입력", prefix + "." + i + ".required", f.required)}${control === "NUMBER" ? S.checkField("음수 입력", "음수 허용", prefix + "." + i + ".allowNegative", f.allowNegative) + S.field("단위", prefix + "." + i + ".unit", f.unit, "text", 'maxlength="20"') + S.field("입력 간격", prefix + "." + i + ".step", f.step, "number", 'min="0.001" step="0.001"') + S.field("최소값", prefix + "." + i + ".min", f.min, "number", 'step="0.001"') + S.field("최대값", prefix + "." + i + ".max", f.max, "number", 'step="0.001"') : control === "FILE" ? S.field("최소 개수", prefix + "." + i + ".minFiles", f.minFiles, "number", 'min="0" max="20"') + S.field("최대 개수", prefix + "." + i + ".maxFiles", f.maxFiles, "number", 'min="1" max="20"') + S.field("파일당 최대 MB", prefix + "." + i + ".maxFileMB", f.maxFileMB, "number", 'min="1" max="20"') : `${S.field("최소 글자 수", prefix + "." + i + ".minLength", f.minLength, "number", 'min="0" max="10000"')}${S.field("최대 글자 수", prefix + "." + i + ".maxLength", f.maxLength, "number", 'min="1" max="10000"')}${S.select("형식 검증", prefix + "." + i + ".format", f.format, { ANY: "제한 없음", EMAIL: "이메일", PHONE: "전화번호", ALPHANUMERIC: "영문·숫자" })}`}</div>${control === "FILE" ? `<div class="pms-check-grid" data-validation-path="${prefix}.${i}.extensions">${["jpg", "jpeg", "png", "gif", "webp", "pdf", "txt", "csv", "xlsx", "xls", "docx", "doc", "pptx", "ppt", "zip", "hwp", "hwpx"].map((ext) => `<label class="pms-check"><input type="checkbox" data-field-ext="${i}" value="${ext}" ${f.extensions.includes(ext) ? "checked" : ""}>${ext}</label>`).join("")}</div>` : ""}</div></details>`,
       )
       .join("");
   S.fieldEvents = (root, fields, rerender, prefix = "fields") => {
@@ -697,6 +697,91 @@
     return `<div class="pms-pager"><button data-${action}="0" ${page <= 0 ? "disabled" : ""}>FIRST</button><button data-${action}="${Math.max(0, page - 1)}" ${page <= 0 ? "disabled" : ""}>PREV</button>${Array.from({ length: Math.max(0, Math.min(5, total - start)) }, (_, i) => `<button data-${action}="${start + i}" class="${page === start + i ? "current" : ""}">${start + i + 1}</button>`).join("")}<button data-${action}="${page + 1}" ${page >= total - 1 ? "disabled" : ""}>NEXT</button><button data-${action}="${Math.max(0, total - 1)}" ${page >= total - 1 ? "disabled" : ""}>LAST</button></div>`;
   };
   S.labelSamples = (f) => `<div class="pm-live-sample"><strong>실제 표시 예시</strong><div class="pm-label-examples">${Object.entries({ customer: "고객", production: "생산팀", management: "관리팀" }).map(([key, name]) => `<span><small>${name} 화면</small><b>${S.e(f.labels?.[key] || "표시명")}</b> : <em>___</em>${f.unit ? ` <span>(${S.e(f.unit)})</span>` : ""}</span>`).join("")}</div><small>표시명은 입력칸 앞에, 단위는 입력한 값 뒤에 표시됩니다. 저장되는 숫자는 세 화면에서 같습니다.</small></div>`;
+  function refreshChoiceLocks(grid) {
+    const boxes = [...grid.querySelectorAll("input[type=checkbox][data-exclusive]")];
+    const checked = new Set(boxes.filter(box => box.checked).map(box => box.dataset.answerChoice));
+    for (const box of boxes) {
+      if (box.disabled && !box.dataset.choiceLock) continue;
+      const locked = !box.checked && JSON.parse(box.dataset.exclusive).some(key => checked.has(key));
+      box.disabled = locked;
+      if (locked) box.dataset.choiceLock = "true"; else delete box.dataset.choiceLock;
+    }
+  }
+  document.addEventListener("change", event => {
+    const grid = event.target.closest(".pm-answer-choices");
+    if (grid && event.target.matches("[data-exclusive]")) refreshChoiceLocks(grid);
+  }, true);
+  S.summaryRows = (rows, settings, role) => {
+    const byId = new Map(rows.map(row => [row.groupId,row]));
+    const result = [];
+    for (const rule of (settings || []).filter(item => item.role === role)) {
+      const row = byId.get(rule.groupId);
+      if (row && rule.visible) result.push(row);
+      byId.delete(rule.groupId);
+    }
+    return [...result,...byId.values()];
+  };
+  S.choiceExclusions = (body,q,readOnly=false) => {
+        if (q.control === "CHECKBOX" && q.choices.length > 1) {
+          const editor = document.createElement("details");
+          editor.innerHTML = '<summary>함께 선택할 수 없는 보기 설정</summary><label>1. 기준 보기<select></select></label><fieldset><legend>2. 동시 선택을 막을 보기</legend></fieldset>';
+          body.append(editor);
+          const selector = editor.querySelector("select");
+          q.choices.forEach(c => selector.add(new Option(c.labels.customer || c.key,c.key)));
+          const fieldset = editor.querySelector("fieldset");
+          const render = () => {
+            fieldset.querySelectorAll("label").forEach(el => el.remove());
+            const current = q.choices.find(c => c.key === selector.value);
+            for (const other of q.choices.filter(c => c !== current)) {
+              const label = document.createElement("label");
+              const box = document.createElement("input"); box.type = "checkbox";
+              box.checked = (current.excludes || []).includes(other.key) || (other.excludes || []).includes(current.key);
+              box.onchange = () => {
+                current.excludes = (current.excludes || []).filter(key => key !== other.key);
+                other.excludes = (other.excludes || []).filter(key => key !== current.key);
+                if (box.checked) current.excludes.push(other.key);
+              };
+              label.className = "pms-check"; label.append(box,other.labels.customer || other.key); fieldset.append(label);
+            }
+          };
+          selector.onchange = render; render();
+          if (readOnly) editor.querySelectorAll("input,select").forEach(el => el.disabled = true);
+        }
+  };
+  S.summaryButton = (host, product) => {
+    const open = document.createElement("button");
+    open.type = "button"; open.textContent = "주체별 표기 옵션관리"; host.prepend(open);
+    open.onclick = () => {
+      const groups = product.groups.map(g => ({groupId:g.id,labels:g.labels}));
+      const roles = {customer:"고객",production:"생산팀",management:"관리팀"};
+      const lists = {};
+      for (const role of Object.keys(roles)) {
+        const rules = (product.summaryOptions || []).filter(rule => rule.role === role);
+        lists[role] = S.summaryRows(groups,rules.map(rule=>({...rule,visible:true})),role)
+          .map(group => ({...group,visible:rules.find(rule=>rule.groupId===group.groupId)?.visible ?? true}));
+      }
+      const dialog = S.dialog("주체별 표기 옵션관리",'<label>표시 대상<select data-role></select></label><div data-options></div><button type="button" class="primary" data-save>저장</button>');
+      const selector = dialog.querySelector("[data-role]");
+      for (const [role,name] of Object.entries(roles)) selector.add(new Option(name,role));
+      function paint() {
+        const role = selector.value, list = lists[role], host = dialog.querySelector("[data-options]");
+        host.innerHTML = list.map((g,i)=>`<div class="pms-row"><label class="pms-check"><input type="checkbox" data-visible="${i}" ${g.visible?"checked":""}>${S.e(g.labels[role])}</label><button type="button" data-up="${i}" aria-label="위로" ${i===0?"disabled":""}>↑</button><button type="button" data-down="${i}" aria-label="아래로" ${i===list.length-1?"disabled":""}>↓</button></div>`).join("");
+        host.onchange = event => {if(event.target.matches("[data-visible]")) list[Number(event.target.dataset.visible)].visible = event.target.checked;};
+        host.onclick = event => {
+          const button = event.target.closest("[data-up],[data-down]"); if(!button) return;
+          const i=Number(button.dataset.up ?? button.dataset.down), j=i+(button.hasAttribute("data-up")?-1:1);
+          [list[i],list[j]]=[list[j],list[i]];paint();
+        };
+      }
+      selector.onchange=paint;paint();
+      const save=dialog.querySelector("[data-save]");
+      save.onclick=()=>S.run(save,async()=>{
+        const options=Object.entries(lists).flatMap(([role,items])=>items.map(({groupId,visible})=>({role,groupId,visible})));
+        const saved=await S.request("/products/"+product.id+"/summary-options","PUT",{version:product.version,options});
+        product.version=saved.version;product.summaryOptions=saved.summaryOptions;dialog.close();S.toast("표기 순서와 표시 항목을 저장했습니다.");
+      });
+    };
+  };
   S.inputAnswer = (q, answer = {}, disabled = false, assets = new Map(), testOnly = false) => {
     const choices = answer.choices || [], fields = answer.fields || {};
     const resolve = (id) => assets instanceof Map ? assets.get(id) : assets?.[id];
@@ -707,7 +792,9 @@
       const hasMedia = (q.choices || []).some((c) => (c.assetIds || []).some((id) => resolve(id)));
       return `<div class="pms-check-grid pm-answer-choices ${hasMedia ? "has-media" : ""}">${(q.choices || []).map((c) => {
         const name = c.labels?.customer || c.key;
-        return `<article class="pm-answer-choice" data-choice-key="${S.e(c.key)}"><label class="pms-check"><input type="${q.control === "RADIO" ? "radio" : "checkbox"}" name="q-${S.e(q.key)}" data-answer-choice="${S.e(c.key)}" ${choices.includes(c.key) ? "checked" : ""} ${disabled ? "disabled" : ""}><span>${S.e(name)}</span></label>${S.help ? S.help(c, (c.assetIds || []).map(resolve).filter(Boolean), name + " 안내") : ""}</article>`;
+        const conflicts = (q.choices || []).filter(other => (c.excludes || []).includes(other.key) || (other.excludes || []).includes(c.key)).map(other => other.key);
+        const initiallyLocked = !disabled && !choices.includes(c.key) && conflicts.some(key => choices.includes(key));
+        return `<article class="pm-answer-choice" data-choice-key="${S.e(c.key)}"><label class="pms-check"><input type="${q.control === "RADIO" ? "radio" : "checkbox"}" name="q-${S.e(q.key)}" data-answer-choice="${S.e(c.key)}" data-exclusive="${S.e(JSON.stringify(conflicts))}" ${initiallyLocked ? 'data-choice-lock="true" disabled' : ""} ${choices.includes(c.key) ? "checked" : ""} ${disabled ? "disabled" : ""}><span>${S.e(name)}</span></label>${S.help ? S.help(c, (c.assetIds || []).map(resolve).filter(Boolean), name + " 안내") : ""}</article>`;
       }).join("")}</div>`;
     }
     function fieldHtml(f) {
@@ -720,7 +807,7 @@
         input = `<div data-answer-upload="${S.e(f.key)}">${S.files(list, !disabled, { testOnly, answerField: f.key, accept: (f.extensions || []).map((x) => "." + x).join(",") })}</div><small>허용 형식: ${S.e((f.extensions || []).join(", "))} · 최대 ${f.maxFiles ?? 5}개 · 파일당 ${f.maxFileMB ?? 10}MB</small>`;
       } else {
         const number = q.control === "NUMBER";
-        input = `<div class="pm-answer-value"><input ${attr} type="${number ? "number" : "text"}" value="${S.e(fields[f.key])}" ${number && f.placeholder != null && String(f.placeholder) !== "" ? `placeholder="${S.e(f.placeholder)}"` : ""} ${number ? `step="${f.step ?? 1}" ${f.min != null ? `min="${f.min}"` : !f.allowNegative ? 'min="0"' : ""} ${f.max != null ? `max="${f.max}"` : ""}` : `maxlength="${f.maxLength ?? 500}"`}>${f.unit ? `<span class="pm-answer-unit">(${S.e(f.unit)})</span>` : ""}</div>`;
+        input = `<div class="pm-answer-value"><input ${attr} type="${number ? "number" : "text"}" value="${S.e(fields[f.key] ?? (number && f.useDefault ? f.placeholder : ""))}" ${number && !f.useDefault && f.placeholder != null && String(f.placeholder) !== "" ? `placeholder="${S.e(f.placeholder)}"` : ""} ${number ? `step="${f.step ?? 1}" ${f.min != null ? `min="${f.min}"` : !f.allowNegative ? 'min="0"' : ""} ${f.max != null ? `max="${f.max}"` : ""}` : `maxlength="${f.maxLength ?? 500}"`}>${f.unit ? `<span class="pm-answer-unit">(${S.e(f.unit)})</span>` : ""}</div>`;
       }
       return `<div class="pm-answer-field ${q.control === "TEXTAREA" || q.control === "FILE" ? "wide" : ""}" data-field-key="${S.e(f.key)}"><label><span><strong>${S.e(f.labels?.customer || f.key)}</strong>${f.required ? ' <span class="pm-required-mark">필수</span>' : ""}</span>${q.control === "FILE" ? "" : input}</label>${q.control === "FILE" ? input : ""}${q.control === "NUMBER" ? `<small class="pm-effective-limit">입력 범위 <strong>${S.e(f.min ?? (!f.allowNegative ? 0 : "제한 없음"))} ~ ${S.e(f.max ?? "제한 없음")}</strong> · 간격 ${S.e(f.step ?? 1)}</small>` : ""}${S.help ? S.help(f, (f.assetIds || []).map(resolve).filter(Boolean), (f.labels?.customer || "입력 항목") + " 안내") : ""}</div>`;
     }

@@ -179,6 +179,11 @@ public class ProductStudioApiController {
 
   public record UnitPriceEdit(Long version, BigDecimal unitPrice) {}
 
+  @PutMapping("/products/{id}/summary-options")
+  public ApiResponse<ProductView> summaryOptions(@PathVariable Long id,@RequestBody SummaryEdit edit,Principal actor) {
+    return ApiResponse.ok(service.saveSummary(id,edit,actor.getName()));
+  }
+
   @PutMapping("/products/{id}/unit-price")
   public ApiResponse<ProductView> updateUnitPrice(
       @PathVariable Long id, @RequestBody UnitPriceEdit r, Principal p) {

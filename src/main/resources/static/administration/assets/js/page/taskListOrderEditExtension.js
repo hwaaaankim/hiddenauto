@@ -139,7 +139,42 @@
 			renderRequesterSelectFromSource(form, requesterSelect.dataset.selectedMemberId || requesterSelect.value || "");
 		}
 
-		companySelect.addEventListener("change", async function() {
+		const picker = form.querySelector("[data-company-picker]");
+        const input = picker.querySelector("input");
+        const caption = form.querySelector("[data-company-caption]");
+        const scope = form.querySelector("[data-company-scope]");
+        caption.textContent = companySelect.selectedOptions[0]?.textContent.trim() || "";
+        const search = () => {
+            const list = picker.querySelector("[data-company-results]");
+            list.replaceChildren();
+            for (const option of companySelect.options) {
+                if (!option.value || !option.text.toLocaleLowerCase().includes(input.value.trim().toLocaleLowerCase())) continue;
+                const button = document.createElement("button");
+                button.type = "button";
+                button.className = "list-group-item list-group-item-action";
+                button.textContent = option.text;
+                button.onclick = () => {
+                    picker.hidden = true;
+                    if (companySelect.value === option.value) return;
+                    companySelect.value = option.value;
+                    caption.textContent = option.text;
+                    scope.hidden = option.value === companySelect.dataset.selectedCompanyId;
+                    scope.querySelector("select").required = !scope.hidden;
+                    scope.querySelector("select").value = "";
+                    companySelect.dispatchEvent(new Event("change"));
+                    if (!scope.hidden) scope.querySelector("select").focus();
+                };
+                list.append(button);
+            }
+            if (!list.childElementCount) list.textContent = "일치하는 업체가 없습니다.";
+        };
+        form.querySelector("[data-company-edit]").onclick = () => {
+            picker.hidden = !picker.hidden;
+            if (!picker.hidden) { input.value = ""; search(); input.focus(); }
+        };
+        input.oninput = search;
+        input.onkeydown = event => { if (event.key === "Enter") {event.preventDefault(); picker.querySelector("button")?.focus();} };
+        companySelect.addEventListener("change", async function() {
 			const selectedCompanyId = companySelect.value || "";
 
 			if (requesterSelect) {
@@ -1080,7 +1115,7 @@
 			return;
 		}
 
-		if (!input.value.trim()) {
+		if (!input.value.trim() && !["색상", "사이즈", "규격"].includes(row.dataset.optionKey)) {
 			alert("옵션 값은 비울 수 없습니다.");
 			input.focus();
 			return;
@@ -1144,7 +1179,7 @@
 				return;
 			}
 
-			if (!value) {
+			if (!value && !["색상", "사이즈", "규격"].includes(key)) {
 				throw new Error(key + " 값은 비울 수 없습니다.");
 			}
 
@@ -1423,7 +1458,15 @@
 		const requesterSelect = form.querySelector(SELECTORS.requesterSelect);
 		const selectedMemberId = requesterSelect?.dataset.selectedMemberId || requesterSelect?.value || "";
 		renderRequesterSelectFromSource(form, selectedMemberId);
-	}
+        if (requesterSelect) {
+          const changed = String(data.company?.companyId) !== form.querySelector(SELECTORS.companySelect).dataset.selectedCompanyId;
+          requesterSelect.disabled = changed;
+          if (changed) {
+            requesterSelect.value = "";
+            requesterSelect.options[0].textContent = data.company?.representativeName || "업체 대표회원 자동 지정";
+          }
+        }
+    }
 
 	function setCompanySelectBusy(companySelect, busy) {
 		if (!companySelect) {

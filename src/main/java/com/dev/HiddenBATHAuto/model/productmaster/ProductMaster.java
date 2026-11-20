@@ -45,6 +45,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class ProductMaster {
+  @Column(name="summary_options_json", columnDefinition="LONGTEXT")
+  private String summaryOptionsJson;
 
   @Column(
       name = "legacy_unallocated_stock",

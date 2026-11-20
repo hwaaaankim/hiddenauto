@@ -158,6 +158,11 @@ public final class ProductStudioEngine {
       if (type == Control.NUMBER) {
         require(text(f.placeholder()).isBlank() || text(f.placeholder()).length() <= 40
             && text(f.placeholder()).matches("-?[0-9]+(?:\\.[0-9]+)?"), "placeholder는 빈칸 또는 숫자로 입력해 주세요.");
+        if (f.useDefault()) {
+          require(!text(f.placeholder()).isBlank(), "실제 기본값을 입력해 주세요.");
+          String error = valueError(type, f, f.placeholder());
+          require(error == null, f.labels().management() + " 기본값: " + error);
+        }
         for (BigDecimal n : Arrays.asList(f.min(), f.max(), f.step()))
           require(
               n == null || (n.abs().compareTo(new BigDecimal("1000000000")) <= 0 && n.scale() <= 3),
@@ -235,6 +240,8 @@ public final class ProductStudioEngine {
             "질문/도움말 길이를 확인해 주세요.");
         if (choice(q.control())) {
           require((pending.contains(q.key()) || !list(q.choices()).isEmpty()) && list(q.choices()).size() <= 200, "보기는 1~200개여야 합니다.");
+          for (Choice c : list(q.choices())) if (c != null) for (String key : list(c.excludes()))
+            require(q.control() == Control.CHECKBOX && !c.key().equals(key) && list(q.choices()).stream().anyMatch(other -> other != null && other.key().equals(key)), "함께 선택할 수 없는 보기 설정을 확인해 주세요.");
           uniqueLabels(list(q.choices()).stream().map(c -> c == null ? null : c.labels()).toList(), "보기");
           Set<String> keys = new HashSet<>();
           for (Choice c : list(q.choices())) {
@@ -443,6 +450,11 @@ public final class ProductStudioEngine {
         if (choice(q.control())) {
           List<String> selected = list(raw.choices()).stream().filter(allowed::contains).distinct().toList();
           if (q.control() == Control.RADIO && selected.size() > 1) { errors.add("하나만 선택해 주세요."); selected = List.of(); }
+          if (q.control() == Control.CHECKBOX) {
+            for (Choice c : list(q.choices())) if (selected.contains(c.key()) &&
+                list(c.excludes()).stream().anyMatch(selected::contains))
+              errors.add(c.labels().customer() + ": 함께 선택할 수 없는 보기가 포함되어 있습니다.");
+          }
           clean = new Answer(selected, Map.of());
           if (ProductStudioArithmetic.numeric(q) && selected.size() == 1) {
             try {
@@ -457,6 +469,11 @@ public final class ProductStudioEngine {
           if (required && selected.isEmpty()) errors.add("보기를 선택해 주세요.");
         } else {
           Map<String, Object> values = new LinkedHashMap<>();
+          if (q.control() == Control.NUMBER && !map(submitted).containsKey(q.key()) && !q.fixed()) {
+            Map<String,Object> defaults = new LinkedHashMap<>();
+            for (Field f : projection.fields()) if (f.useDefault()) defaults.put(f.key(), f.placeholder());
+            raw = new Answer(List.of(), defaults);
+          }
           raw = ProductStudioConstraints.completePair(projection.sums(), raw);
           for (Field f : projection.fields()) {
             Object value = map(raw.fields()).get(f.key());
@@ -582,7 +599,7 @@ public final class ProductStudioEngine {
 
   public static List<Issue> questionStructure(Question q) {
     if(q==null)return List.of(new Issue("ERROR","QUESTION","질문","질문 정보를 입력해 주세요."));
-    List<Choice> choices=list(q.choices()).stream().map(c -> c==null?null:new Choice(c.key(),c.labels(),c.namePart(),c.assetIds(),c.guide(),c.helpDisplay())).toList();
+    List<Choice> choices=list(q.choices()).stream().map(c -> c==null?null:new Choice(c.key(),c.labels(),c.namePart(),c.assetIds(),c.guide(),c.helpDisplay(),null,c.excludes())).toList();
     Question shape=new Question(q.key(),q.groupId(),q.labels(),q.control(),q.fixed(),q.visible(),q.required(),q.requireRule(),q.question(),q.guide(),choices,q.fields(),q.assetIds(),q.numberCases(),q.preset(),q.helpDisplay());
     List<Issue> issues=new ArrayList<>(structure(new Process(2,List.of(shape),List.of())));
     if(issues.isEmpty())issues.addAll(ProductStudioArithmetic.localStructure(q));
@@ -753,6 +770,18 @@ public final class ProductStudioEngine {
       }
       ProductStudioConstraints.Projection limits = ProductStudioConstraints.project(process, q,
           q.fields(), evaluation.answers(), evaluation.answers().keySet(), state.visible(), hidden, hiddenFields);
+      if (q.control() == Control.NUMBER && q.fields().stream().anyMatch(Field::useDefault)) {
+        Map<String,Object> defaults = new LinkedHashMap<>();
+        for (Field f : q.fields()) if (f.useDefault()) defaults.put(f.key(),f.placeholder());
+        var filled = ProductStudioConstraints.completePair(limits.sums(),new Answer(List.of(),defaults));
+        for (Field f : q.fields()) if (filled.fields().containsKey(f.key())) {
+          String error = valueError(Control.NUMBER,f,filled.fields().get(f.key()));
+          if (error != null) issue(issues,"ERROR","DEFAULT",label(q), f.labels().customer()+" 기본값: "+error+" / "+example(process,answers),q.key());
+        }
+        for (var bound : limits.sums()) if (filled.fields().keySet().containsAll(bound.limit().fieldKeys()))
+          for (String error : ProductStudioConstraints.sumErrors(List.of(bound),filled,false))
+            issue(issues,"ERROR","DEFAULT_SUM",label(q),"기본값: "+error+" / "+example(process,answers),q.key());
+      }
       List<Answer> samples = limits.sums().isEmpty() ? samples(q, state.required(), state.allowed(), process)
           : ProductStudioConstraints.sumSamples(q, state.required(), process, limits.sums());
       if (samples.size() > MAX_SCENARIOS) {
@@ -906,20 +935,28 @@ public final class ProductStudioEngine {
           projected.putIfAbsent(ProductStudioArithmetic.numeric(q) ? key : signature(predicates, a), a);
         }
       } else {
+        Map<String,Set<String>> blockers = new HashMap<>();
+        for (Choice c : list(q.choices())) for (String other : list(c.excludes())) {
+          blockers.computeIfAbsent(c.key(), k -> new TreeSet<>()).add(other);
+          blockers.computeIfAbsent(other, k -> new TreeSet<>()).add(c.key());
+        }
         Map<String, List<String>> optionClasses = new LinkedHashMap<>();
         for (String key : allowed) {
           Answer a = new Answer(List.of(key), Map.of());
-          optionClasses.putIfAbsent(signature(predicates, a), List.of(key));
+          optionClasses.putIfAbsent(signature(predicates, a) + blockers.getOrDefault(key,Set.of()), List.of(key));
         }
         Map<String, Answer> combinations = new LinkedHashMap<>();
         combinations.put(signature(predicates, empty()), empty());
         for (List<String> group : optionClasses.values()) {
           List<Answer> previous = new ArrayList<>(combinations.values());
           for (Answer previousAnswer : previous) {
+            if (previousAnswer.choices().stream().anyMatch(blockers.getOrDefault(group.get(0),Set.of())::contains)) continue;
             List<String> combined = new ArrayList<>(previousAnswer.choices());
             combined.addAll(group);
             Answer a = new Answer(combined, Map.of());
-            combinations.putIfAbsent(signature(predicates, a), a);
+            Set<String> blocked = new TreeSet<>();
+            for (String key : combined) blocked.addAll(blockers.getOrDefault(key, Set.of()));
+            combinations.putIfAbsent(signature(predicates, a) + blocked, a);
             // Keep a non-empty representative even if there are no conditions.
             projected.putIfAbsent(signature(predicates, a), a);
           }

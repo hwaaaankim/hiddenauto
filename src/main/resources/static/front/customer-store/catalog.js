@@ -460,10 +460,16 @@
     let host = document.getElementById('hb-team-preview');
     if (!host) { host = document.createElement('div'); host.id = 'hb-team-preview'; config.append(host); }
     const render = rows => {
-      const signature = JSON.stringify(rows);
+      const settings = (standardProduct || product)?.summaryOptions;
+      const signature = JSON.stringify([rows,settings]);
       if (host.dataset.options !== signature) {
         host.dataset.options = signature;
-        host.innerHTML = teamComparison(rows);
+        const roles = {customer:"고객",production:"생산팀",management:"관리팀"};
+        host.innerHTML = Object.entries(roles).map(([key,label]) => {
+          const terms = S.summaryRows(rows,settings,key).filter(row=>row.answer?.[key])
+            .map(row=>e(row.group?.[key])+" · "+e(row.answer[key]));
+          return terms.length ? "<p><strong>"+label+"</strong> "+terms.join(" | ")+"</p>" : "";
+        }).join("") + "<details><summary>전체 질문과 답변</summary>"+teamComparison(rows)+"</details>";
       }
     };
     if (standardState) { render(list(standardDisplay || standardState.display)); return; }
@@ -474,7 +480,7 @@
       const question = { ...q, choices:list(q.choices).map(c => ({...c,labels:original.choices?.find(x=>x.key===c.key)?.labels || c.labels})), fields:list(q.fields).map(f => ({...f,labels:original.fields?.find(x=>x.key===f.key)?.labels || f.labels})) };
       const group = original.labels || q.labels;
       const answer = Object.fromEntries(['customer','production','management'].map(role => [role,S.answerText(question,state.answer || {},assets,role)]));
-      return {group,question:q.question || q.labels?.customer,answer};
+      return {groupId:q.groupId,group,question:q.question || q.labels?.customer,answer};
     });
     render(rows);
   }
@@ -574,7 +580,7 @@
     box.querySelectorAll('.pm-answer-fields').forEach(fields=>{fields.style.setProperty('--hb-field-columns',Math.min(3,Math.max(1,fields.querySelectorAll('.pm-answer-field').length)));});
     const update = () => {
       const absent=!!node.querySelector('[data-standard-absent]')?.checked;
-      box.querySelectorAll('input,textarea,button').forEach(field=>{field.disabled=absent;});
+      box.querySelectorAll('input,textarea,button').forEach(field=>{field.disabled=absent || field.dataset.choiceLock === 'true';});
       const answer=standardAnswer(q,node);
       standardLivePreview(q,answer);
     };
@@ -659,6 +665,7 @@
     if (pendingRoute) return;
     if (selected.nonStandard || selected.status === 'DISCONTINUED' || !standardState.products.some(p => p.id === selected.id)) throw Error('현재 구성에 맞는 규격제품을 다시 확인해 주세요.');
     standardProduct = selected;
+    updateTeamPreview(null, fresh.display);
     target.innerHTML = `<section class="hb-quote"><span class="hb-eyebrow">YOUR CONFIGURATION</span><h2>선택하신 제품이 완성되었습니다.</h2><strong class="hb-selected-name">${e(selected.productName)}</strong>${selected.description ? `<p class="hb-info-description">${e(selected.description)}</p>` : ''}<dl class="hb-meta"><dt>제품코드</dt><dd>${e(selected.catalogCode)}</dd><dt>생산기간</dt><dd>${selected.productionHours == null ? '미등록' : e(String(selected.productionHours) + '일')}</dd><dt>등록 상태</dt><dd>${e((selected.status === 'OUT_OF_STOCK' ? '재고 없음 · 발주 가능' : S.status[selected.status]) || selected.status)}</dd></dl><div class="hb-total">${e(money(selected.unitPrice))}</div><small>선택한 옵션에 일치하는 실제 규격제품의 등록 단가</small>${S.media(list(selected.assets).filter(a=>!a.image),'제품 첨부파일')}${standardGuidance(selected)}<p class="hb-result-note">배송비·포인트는 발주 단계에서 검증합니다.</p></section>`;
     store.actions(target.querySelector('.hb-quote'), {
       productId: selected.id, seriesId: seriesContext.series.productId, options: standardSelections
@@ -839,7 +846,7 @@
     node.querySelector('h2').textContent = q.question || q.labels.customer;
     node.querySelector('.hb-question-state').textContent = '선택 중';
     answers[q.key] = answers[q.key] || S.copy(state.answer);
-    node.querySelector('.hb-question-body').innerHTML = `${S.help(q, list(q.assetIds).map(id => assets.get(id)).filter(Boolean), "질문 참고자료")}<div id="hb-input" data-control="${e(q.control)}">${S.inputAnswer(q, answers[q.key], false, assets, false)}</div><div id="hb-guides"></div><div id="hb-question-errors" class="hb-question-errors" role="alert">${attemptedKey === q.key ? state.errors.map(e).join('<br>') : ''}</div><button type="button" class="hb-next" id="hb-answer-next">선택 완료 · 다음으로</button>`;
+    node.querySelector('.hb-question-body').innerHTML = `${S.help(q, list(q.assetIds).map(id => assets.get(id)).filter(Boolean), "질문 참고자료")}<div id="hb-input" data-control="${e(q.control)}">${S.inputAnswer(q, answers[q.key] || state.answer, false, assets, false)}</div><div id="hb-guides"></div><div id="hb-question-errors" class="hb-question-errors" role="alert">${attemptedKey === q.key ? state.errors.map(e).join('<br>') : ''}</div><button type="button" class="hb-next" id="hb-answer-next">선택 완료 · 다음으로</button>`;
     const box = node.querySelector('#hb-input');
     S.bindEqualInputs(box, q, product.process, answers);
     box.querySelectorAll('input[aria-required],textarea[aria-required]').forEach(input => { input.required = !!state.required && input.getAttribute('aria-required') === 'true'; });
@@ -941,13 +948,14 @@
     }
     await Promise.all(motions);
     updateTeamPreview();
-    config.querySelector('.store-bookmark')?.remove();
+    main.querySelector('.store-bookmark')?.remove();
     const savedAnswers = Object.fromEntries(completed.filter(key => answers[key]).map(key => [key, answers[key]]));
-    store.bookmark(config, {productId: product.id, seriesId: product.id, answers: savedAnswers});
+    const bookmarkSelection = {productId: product.id, seriesId: product.id, answers: savedAnswers};
     if (active) {
       const price = document.getElementById('hb-price');
       price.replaceChildren();
       store.actions(price, null, false);
+      store.bookmark(price.querySelector('.store-product-actions'), bookmarkSelection);
     }
     if (!active) {
       if (evaluation.complete) await calculate();
@@ -955,6 +963,7 @@
         const notice = document.createElement('p'); notice.className = 'hb-question-errors';
         notice.textContent = '구성을 완료할 수 없습니다. 등록된 필수 질문과 기본 사양을 확인해 주세요. ' + evaluation.questions.flatMap(s => s.errors).join(' ');
         thread.append(notice);
+        store.bookmark(config, bookmarkSelection);
       }
     }
   }
@@ -979,7 +988,14 @@
       target.innerHTML = `<section class="hb-quote"><h2>옵션 선택이 완료되었습니다.</h2><p class="hb-question-errors">${e(err.message)}</p><button id="hb-retry-price">가격계산 다시 시도</button><p class="hb-result-note">계산되지 않은 가격은 표시하지 않습니다.</p></section>`;
       document.getElementById('hb-retry-price').onclick = () => run(async () => { await calculate(); focusQuestion(); }, '가격을 다시 계산하고 있습니다.', 'question');
       await reveal(target.querySelector('.hb-quote'), placeholder._hbHeight);
-    } finally { if (placeholder.isConnected) placeholder.remove(); }
+    } finally {
+      if (placeholder.isConnected) placeholder.remove();
+      const quote = target.querySelector('.hb-quote');
+      if (quote && !pendingRoute) store.bookmark(quote.querySelector('.store-product-actions') || quote, {
+        productId: product.id, seriesId: product.id,
+        answers: Object.fromEntries(completed.filter(key => answers[key]).map(key => [key, answers[key]]))
+      });
+    }
   }
   main.addEventListener('load', ev => ev.target.closest?.('.hb-card-image')?.classList.remove('is-loading'), true);
   // Missing registered images fall back visibly, never silently presented as real product photography.

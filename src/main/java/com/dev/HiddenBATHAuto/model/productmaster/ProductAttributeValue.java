@@ -42,6 +42,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class ProductAttributeValue {
+  @Column(name="excluded_choices_json", columnDefinition="LONGTEXT")
+  private String excludedChoicesJson;
   @Column(name = "help_display", length = 12, nullable = false, columnDefinition = "varchar(12) default 'ALWAYS'")
   private String helpDisplay = "ALWAYS";
 

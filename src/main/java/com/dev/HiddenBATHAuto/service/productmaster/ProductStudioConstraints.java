@@ -200,7 +200,7 @@ final class ProductStudioConstraints {
   static Field bound(Field f, BigDecimal min, BigDecimal max) {
     return new Field(f.key(), f.labels(), f.namePart(), f.required(), f.allowNegative(), min, max,
         f.step(), f.minLength(), f.maxLength(), f.format(), f.unit(), f.extensions(), f.minFiles(),
-        f.maxFiles(), f.maxFileMB(), f.guide(), f.bundleKey(), f.assetIds(), f.helpDisplay(), f.placeholder());
+        f.maxFiles(), f.maxFileMB(), f.guide(), f.bundleKey(), f.assetIds(), f.helpDisplay(), f.placeholder(), f.useDefault());
   }
   private static BigDecimal greater(BigDecimal a, BigDecimal b) { return a == null ? b : b == null ? a : a.max(b); }
   private static BigDecimal lesser(BigDecimal a, BigDecimal b) { return a == null ? b : b == null ? a : a.min(b); }

@@ -59,7 +59,31 @@ public final class ProductStudioDtos {
       Integer maxFileMB,
       String guide,
       String bundleKey,
+      List<String> assetIds, String helpDisplay, String placeholder,
+      @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_DEFAULT) boolean useDefault) {
+    public Field(
+      String key,
+      Labels labels,
+      String namePart,
+      boolean required,
+      boolean allowNegative,
+      BigDecimal min,
+      BigDecimal max,
+      BigDecimal step,
+      Integer minLength,
+      Integer maxLength,
+      String format,
+      String unit,
+      List<String> extensions,
+      Integer minFiles,
+      Integer maxFiles,
+      Integer maxFileMB,
+      String guide,
+      String bundleKey,
       List<String> assetIds, String helpDisplay, String placeholder) {
+      this(key, labels, namePart, required, allowNegative, min, max, step, minLength, maxLength, format, unit, extensions, minFiles, maxFiles, maxFileMB, guide, bundleKey, assetIds, helpDisplay, placeholder, false);
+    }
+
     public Field(
       String key,
       Labels labels,
@@ -158,7 +182,11 @@ public final class ProductStudioDtos {
   public record NumericValue(List<ArithmeticToken> expression) {}
 
   public record Choice(
-      String key, Labels labels, String namePart, List<String> assetIds, String guide, String helpDisplay, NumericValue numericValue) {
+      String key, Labels labels, String namePart, List<String> assetIds, String guide, String helpDisplay, NumericValue numericValue,
+      @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY) List<String> excludes) {
+    public Choice(String key, Labels labels, String namePart, List<String> assetIds, String guide, String helpDisplay, NumericValue numericValue) {
+      this(key, labels, namePart, assetIds, guide, helpDisplay, numericValue, null);
+    }
     public Choice(
       String key, Labels labels, String namePart, List<String> assetIds, String guide, String helpDisplay) {
       this(key, labels, namePart, assetIds, guide, helpDisplay, null);
@@ -235,10 +263,10 @@ public final class ProductStudioDtos {
   }
 
   public record ValueEdit(
-      Long id, Long version, Labels labels, String namePart, boolean active, String guide, String helpDisplay) {
+      Long id, Long version, Labels labels, String namePart, boolean active, String guide, String helpDisplay, List<String> excludes) {
     public ValueEdit(
       Long id, Long version, Labels labels, String namePart, boolean active, String guide) {
-      this(id, version, labels, namePart, active, guide, "ALWAYS");
+      this(id, version, labels, namePart, active, guide, "ALWAYS", null);
     }
 
     public ValueEdit(Long id, Long version, Labels labels, String namePart, boolean active) {
@@ -254,7 +282,7 @@ public final class ProductStudioDtos {
       String namePart,
       boolean active,
       List<AssetView> assets,
-      String guide, String helpDisplay) {
+      String guide, String helpDisplay, List<String> excludes) {
     public ValueView(
       Long id,
       long version,
@@ -264,7 +292,7 @@ public final class ProductStudioDtos {
       boolean active,
       List<AssetView> assets,
       String guide) {
-      this(id, version, key, labels, namePart, active, assets, guide, "ALWAYS");
+      this(id, version, key, labels, namePart, active, assets, guide, "ALWAYS", null);
     }
 
     public ValueView(
@@ -679,6 +707,9 @@ public final class ProductStudioDtos {
   public record CompositionReview(String outcome, boolean processRequired, boolean existingFlowValidated,
       long scenarios, List<Long> pendingGroupIds, List<Issue> issues) {}
 
+  public record SummaryOption(String role, Long groupId, boolean visible) {}
+  public record SummaryEdit(long version, List<SummaryOption> options) {}
+
   public record ProductView(
       Long id,
       long version,
@@ -703,7 +734,7 @@ public final class ProductStudioDtos {
       long actualCount,
       int unallocatedStock,
       List<Issue> compositionWarnings,
-      CompositionReview compositionReview) {
+      CompositionReview compositionReview, List<SummaryOption> summaryOptions) {
     public ProductView(
         Long id,
         long version,
@@ -746,7 +777,7 @@ public final class ProductStudioDtos {
           0,
           0,
           List.of(),
-          null);
+          null, List.of());
     }
   }
 

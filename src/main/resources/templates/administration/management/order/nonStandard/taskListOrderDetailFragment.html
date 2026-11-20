@@ -231,7 +231,11 @@
 							<div class="col-xl-3 col-lg-4 col-md-6">
 								<div class="admin-task-list-second-field">
 									<label class="admin-task-list-second-label">대리점명</label>
-									<select class="form-select admin-task-list-second-company-select"
+									<div class="d-flex align-items-center gap-2"><strong data-company-caption></strong><button type="button" class="btn btn-sm btn-outline-primary" data-company-edit>변경</button></div>
+                                    <div data-company-picker hidden><label class="form-label">업체명 검색<input type="search" class="form-control" data-company-query autocomplete="off"></label><div data-company-results class="list-group overflow-auto" style="max-height:14rem"></div></div>
+                                    <label data-company-scope hidden>적용 범위<select name="companyScope" class="form-select"><option value="">적용 범위를 선택하세요</option><option value="ORDER">이 오더만 새 발주로 이동</option><option value="TASK">같은 발주의 모든 오더</option></select></label>
+                                    <input type="hidden" name="originalCompanyId" th:value="${row.companyId}">
+                                    <select hidden class="form-select admin-task-list-second-company-select"
 										name="companyId"
 										th:attr="data-selected-company-id=${row.companyId},
 										         data-order-id=${row.orderId}">

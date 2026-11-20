@@ -28,6 +28,7 @@
     const rulesFrom = (key) =>
       process.rules.filter((r) => r.conditions.some((c) => c.groupKey === key));
     root.innerHTML = `<section class="pms-panel"><div class="pms-toolbar"><strong>${S.e(product.productName)}</strong>${S.badge(product.registrationStatus, product.status === "DRAFT" ? "amber" : "green")}<small class="mono">${S.e(product.catalogCode)}</small><div class="grow"></div><a class="pms-button" href="/admin/product-master/products/${product.id}">제품 상세</a><button id="pms-validate-process">✓ 검증</button><button id="pms-preview-process">▶ 선택 미리보기</button><button id="pms-draft-process">임시저장</button><button class="primary" id="pms-publish-process">검증·등록완료</button></div><div id="pms-process-health" class="pms-panel-body"><small>질문을 먼저 구성하고, 커스텀 구간을 다음 질문으로 연결해 주세요.</small></div></section><div class="pms-flow-layout pms-section"><section class="pms-panel"><div class="pms-panel-title"><h2>질문 순서</h2><small>드래그 변경</small></div><div id="pms-flow-order" class="pms-palette"></div></section><section class="pms-panel"><div class="pms-toolbar"><h2>조건 연결 캔버스</h2><div class="grow"></div><button id="pms-zoom-out">−</button><span id="pms-zoom">100%</span><button id="pms-zoom-in">+</button><button id="pms-zoom-fit">전체 보기</button></div><div class="pms-canvas-viewport" id="pms-viewport"><div id="pms-canvas-size"><div id="pms-canvas-stage" class="pms-canvas-stage"><canvas id="pms-lines"></canvas><div id="pms-flow-nodes"></div></div></div></div></section><section class="pms-panel"><div class="pms-panel-title"><h2>선택한 질문</h2><button id="pms-edit-question">상세 편집</button></div><div id="pms-question-inspector" class="pms-panel-body pms-inspector"></div></section></div>`;
+    S.summaryButton(root.querySelector(".pms-toolbar"),product);
     const order = S.$("#pms-flow-order", root),
       nodes = S.$("#pms-flow-nodes", root),
       stage = S.$("#pms-canvas-stage", root),
@@ -399,6 +400,7 @@
       const body = S.$(".pms-dialog-body", dialog);
       function paintQuestion() {
         body.innerHTML = `<div class="pms-form-grid one">${S.customerLabel(q)}</div><div class="pms-form-grid pms-section">${S.field("고객에게 물어볼 질문", "question", q.question, "text", 'maxlength="300"')}${S.textarea("고객 튜토리얼·도움말", "guide", q.guide, 1000)}<div class="pms-row">${S.badge(S.controls[q.control], "blue")}</div></div><div class="pms-help">각 항목의 value는 자동 생성되며 이름을 바꾸어도 유지됩니다. 사용 중인 value를 삭제하면 연결된 조건도 함께 수정해야 합니다.</div><div class="pms-row"><h2>${S.isChoice(q.control) ? "선택 보기" : "입력 필드"}</h2><button id="pms-add-question-item">+ ${S.isChoice(q.control) ? "보기" : "필드"}</button></div><div id="pms-question-items">${S.isChoice(q.control) ? q.choices.map((c, i) => `<details class="pms-list-row pms-editor" ${S.editorAttrs(c.key, i === 0 || !c.labels.management)} data-choice-index="${i}"><summary class="pms-row-head"><span class="pms-handle">⠿</span><strong data-editor-title>보기 ${i + 1} · ${S.e(c.labels.management || "새 보기")}</strong><button data-remove-choice="${i}" class="pms-remove">×</button></summary><div class="pms-editor-body">${S.labels(c, "choices." + i, true, c.namePart)}${S.internalValue(c.key)}<details class="pms-section"><summary>보기 이미지·첨부</summary><div data-choice-files="${i}"></div></details></div></details>`).join("") : S.fieldRows(q.fields, q.control)}</div><section class="pms-section"><h2>이 질문의 이미지·첨부</h2><div id="pms-question-files"></div></section><footer class="pms-actions pms-section"><button class="primary" id="pms-apply-question">질문에 적용</button></footer>`;
+        S.choiceExclusions(body,q);
         S.bind(body, q);
         const items = S.$("#pms-question-items", body);
         S.$("#pms-add-question-item", body).onclick = () => {
@@ -422,7 +424,8 @@
           S.$$("[data-remove-choice]", body).forEach(
             (b) =>
               (b.onclick = () => {
-                q.choices.splice(Number(b.dataset.removeChoice), 1);
+                const [removed] = q.choices.splice(Number(b.dataset.removeChoice), 1);
+                q.choices.forEach(c => {c.excludes = (c.excludes || []).filter(k => k !== removed.key);});
                 paintQuestion();
               }),
           );

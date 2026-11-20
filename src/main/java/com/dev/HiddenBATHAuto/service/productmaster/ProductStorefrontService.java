@@ -37,7 +37,7 @@ public class ProductStorefrontService {
       boolean nonStandard, Long productId, long total, List<AssetView> assets) {}
   public record Collection(String key, String category, List<SeriesCard> series) {}
   public record SeriesDetail(SeriesCard series, ProductView representative, List<ProductCard> products) {}
-  public record DisplayRow(Labels group, String question, Labels answer) {}
+  public record DisplayRow(Long groupId, Labels group, String question, Labels answer) {}
   public record StandardOption(String key, String label, List<AssetView> assets, String guide,
       String helpDisplay, List<CatalogHelp> helpSections, List<String> choices,
       Map<String, Object> inputs, boolean absent) {}
@@ -182,7 +182,7 @@ public class ProductStorefrontService {
       if (picked == null) {
         if (selections.size() != steps.size())
           throw new IllegalArgumentException("앞 질문부터 순서대로 선택해 주세요.");
-        display.add(new DisplayRow(g.labels(), g.question(), null));
+        display.add(new DisplayRow(g.id(), g.labels(), g.question(), null));
         return new Configuration(steps, question, groups.size(), remaining.size(), false, List.of(), display);
       }
       if (question.options().stream().noneMatch(o -> o.key().equals(picked)))
@@ -193,7 +193,7 @@ public class ProductStorefrontService {
       if (remaining.isEmpty())
         throw new IllegalArgumentException("선택하신 조합으로 등록된 규격제품이 없습니다. 다른 옵션이나 규격을 선택해 주세요.");
       Variant selected = variant(data.definitions().get(remaining.get(0).getId()), g.id());
-      display.add(new DisplayRow(g.labels(), g.question(), new Labels(
+      display.add(new DisplayRow(g.id(), g.labels(), g.question(), new Labels(
           variantLabel(g, selected, "customer"), variantLabel(g, selected, "production"),
           variantLabel(g, selected, "management"))));
     }
@@ -259,7 +259,7 @@ public class ProductStorefrontService {
     }
     return new Field(f.key(), f.labels(), f.namePart(), required, f.allowNegative(), min, max,
         f.step(), f.minLength(), f.maxLength(), f.format(), f.unit(), f.extensions(), f.minFiles(),
-        f.maxFiles(), f.maxFileMB(), f.guide(), f.bundleKey(), f.assetIds(), f.helpDisplay(), f.placeholder());
+        f.maxFiles(), f.maxFileMB(), f.guide(), f.bundleKey(), f.assetIds(), f.helpDisplay(), f.placeholder(), f.useDefault());
   }
 
   private StandardQuestion question(GroupView g, List<ProductMaster> scope,
@@ -293,7 +293,7 @@ public class ProductStorefrontService {
     Set<String> usedChoices = options.stream().flatMap(option -> option.choices().stream()).collect(Collectors.toSet());
     List<Choice> choices = g.values().stream().filter(value -> value.active() && usedChoices.contains(value.key()))
         .map(value -> new Choice(value.key(), value.labels(), value.namePart(),
-            value.assets().stream().map(AssetView::id).toList(), value.guide(), value.helpDisplay())).toList();
+            value.assets().stream().map(AssetView::id).toList(), value.guide(), value.helpDisplay(), null, value.excludes())).toList();
     List<StandardOption> present = options.stream().filter(o -> !o.absent()).toList();
     Set<String> usedFields = present.stream().flatMap(o -> o.inputs().keySet().stream()).collect(Collectors.toSet());
     List<Field> fields = g.fields().stream().filter(f -> usedFields.contains(f.key()))

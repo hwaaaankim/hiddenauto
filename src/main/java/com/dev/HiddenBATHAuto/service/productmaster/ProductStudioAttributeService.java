@@ -187,7 +187,7 @@ public class ProductStudioAttributeService {
         namePart(v),
         v.isActive(),
         files,
-        v.getAnswerGuide(), v.getHelpDisplay());
+        v.getAnswerGuide(), v.getHelpDisplay(), json.list(v.getExcludedChoicesJson(), String.class));
   }
 
   @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -437,6 +437,17 @@ public class ProductStudioAttributeService {
       v.setNamePart(request.namePart() == null ? l.customer() : request.namePart());
       if (text(request.guide()).length() > 2000)
         throw new IllegalArgumentException("안내메시지는 2,000자 이하입니다.");
+      if (request.excludes() != null) {
+        Set<String> allowedKeys = g.getValues().stream().map(ProductAttributeValue::getValueCode).collect(java.util.stream.Collectors.toSet());
+        if (!request.excludes().isEmpty() && (control(g) != Control.CHECKBOX ||
+            !allowedKeys.containsAll(request.excludes()) || request.excludes().contains(v.getValueCode())))
+          throw new IllegalArgumentException("동시 선택 제한은 같은 그룹의 다른 보기를 선택해 주세요.");
+        if (v.getId() != null && !request.excludes().isEmpty()) {
+          var conflicts = components.conflictingProducts(v.getId(),request.excludes());
+          if (!conflicts.isEmpty()) throw new IllegalArgumentException("함께 선택된 규격제품을 먼저 수정해 주세요. 제품 ID " + conflicts);
+        }
+        v.setExcludedChoicesJson(json.write(request.excludes().stream().distinct().toList()));
+      }
       v.setAnswerGuide(text(request.guide()));
       v.setHelpDisplay(helpDisplay(request.helpDisplay()));
       v.setActive(request.active());

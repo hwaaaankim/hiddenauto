@@ -9,6 +9,9 @@ import org.springframework.data.repository.query.Param;
 
 public interface ProductComponentRepository extends JpaRepository<ProductComponent, Long> {
 
+  @Query("select distinct a.product.id from ProductComponent a, ProductComponent b where a.product = b.product and a.value.id = :first and b.value.valueCode in :others")
+  List<Long> conflictingProducts(@Param("first") Long first, @Param("others") Collection<String> others);
+
   boolean existsByGroupId(Long groupId);
 
   boolean existsByValueId(Long valueId);

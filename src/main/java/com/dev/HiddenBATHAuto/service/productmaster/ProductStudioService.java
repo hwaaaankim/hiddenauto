@@ -158,7 +158,7 @@ public class ProductStudioService {
     if (!keys.containsAll(input.keySet()))
       throw new IllegalArgumentException("알 수 없는 입력 필드가 있습니다.");
     for (Field f : fields) {
-      Object v = input.get(f.key());
+      Object v = input.getOrDefault(f.key(), f.useDefault() ? f.placeholder() : null);
       boolean missing =
           v == null
               || v instanceof String s && s.isBlank()
@@ -643,6 +643,8 @@ public class ProductStudioService {
     p.setFaqTopicId(source.getFaqTopicId());
     p.setStudioDefinitionJson(json.write(merged));
     Set<Long> copiedGroupIds = merged.stream().map(Variant::groupId).collect(Collectors.toSet());
+    p.setSummaryOptionsJson(json.write(json.list(source.getSummaryOptionsJson(), SummaryOption.class).stream()
+        .filter(option -> copiedGroupIds.contains(option.groupId())).toList()));
     p.setNameTokensJson(json.write(json.list(source.getNameTokensJson(), NameToken.class).stream()
         .filter(token -> copiedGroupIds.contains(token.groupId())).toList()));
     p.setStatus(ProductMasterStatus.DRAFT);
@@ -784,6 +786,25 @@ public class ProductStudioService {
     categoryMembers.save(id,Objects.requireNonNull(edit.members()));
   }
 
+  @Transactional
+  public ProductView saveSummary(Long id, SummaryEdit edit, String actor) {
+    ProductMaster product = require(id);
+    if (edit == null || edit.version() != product.getRowVersion()) throw new IllegalArgumentException("제품이 변경되었습니다. 다시 조회해 주세요.");
+    Set<Long> groups = variants(product).stream().map(Variant::groupId).collect(Collectors.toSet());
+    Set<String> seen = new HashSet<>();
+    if (edit.options() == null || edit.options().size() > groups.size()*3) throw new IllegalArgumentException("요약 설정 개수를 확인해 주세요.");
+    for (SummaryOption item : edit.options()) {
+      if (item == null || item.role() == null || !Set.of("customer","production","management").contains(item.role())
+          || !groups.contains(item.groupId()) || !seen.add(item.role()+"/"+item.groupId()))
+        throw new IllegalArgumentException("중복되었거나 제품에 없는 요약 항목입니다.");
+    }
+    product.setSummaryOptionsJson(json.write(edit.options()));
+    product.setUpdatedBy(actor);
+    product.setUpdatedAt(LocalDateTime.now());
+    products.flush();
+    return view(product,true);
+  }
+
   public ProductView detail(Long id) {
     return view(require(id), true);
   }
@@ -831,7 +852,7 @@ public class ProductStudioService {
         p.getUnitPrice(),
         p.getFaqTopicId(),
         actuals.countByProductId(p.getId()),
-        p.getLegacyUnallocatedStock(), compositionWarnings, compositionReview);
+        p.getLegacyUnallocatedStock(), compositionWarnings, compositionReview, detailed ? json.list(p.getSummaryOptionsJson(), SummaryOption.class) : List.of());
   }
 
   public ProductPage search(ProductFilter filter) {
@@ -1191,6 +1212,12 @@ public class ProductStudioService {
       if (ProductStudioAttributeService.BASE.contains(g.getSystemRole().name())
           && (g.getSystemRole() == ProductAttributeRole.SUBCATEGORY ? list(v.valueIds()).isEmpty() : list(v.valueIds()).size() != 1))
         throw new IllegalArgumentException("기본그룹은 옵션을 하나씩 선택합니다.");
+      if (attributes.control(g) == Control.CHECKBOX) {
+        var chosen = g.getValues().stream().filter(option -> list(v.valueIds()).contains(option.getId())).toList();
+        Set<String> keys = chosen.stream().map(ProductAttributeValue::getValueCode).collect(Collectors.toSet());
+        for (var option : chosen) if (json.list(option.getExcludedChoicesJson(),String.class).stream().anyMatch(keys::contains))
+          throw new IllegalArgumentException(g.getManagementLabel()+" 그룹에 함께 선택할 수 없는 보기가 있습니다.");
+      }
       singles.add(new GroupSelection(v.groupId(), v.valueIds(), v.inputs()));
     }
     plan(new GenerateRequest(singles, null, 0, 1, custom));
@@ -1524,7 +1551,7 @@ public class ProductStudioService {
             .ifPresent(v -> ids.addAll(v.assets().stream().map(AssetView::id).toList()));
         choices.add(
             new Choice(
-                c.key(), customer(c.labels()), null, ids.stream().distinct().toList(), c.guide(), c.helpDisplay(), c.numericValue()));
+                c.key(), customer(c.labels()), null, ids.stream().distinct().toList(), c.guide(), c.helpDisplay(), c.numericValue(), c.excludes()));
       }
       safe.add(
           new Question(
@@ -1561,7 +1588,7 @@ public class ProductStudioService {
                               f.maxFileMB(),
                               f.guide(),
                               f.bundleKey(),
-                              list(f.assetIds()), f.helpDisplay(), f.placeholder()))
+                              list(f.assetIds()), f.helpDisplay(), f.placeholder(), f.useDefault()))
                   .toList(),
               questionAssets.stream().distinct().toList(),
               q.numberCases(),

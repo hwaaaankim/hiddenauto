@@ -77,6 +77,7 @@ public class OrderUpdateService {
 	private final TeamCategoryRepository teamCategoryRepository;
 	private final CompanyRepository companyRepository;
 	private final TaskRepository taskRepository;
+    @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entityManager;
 	private final OrderImageRepository orderImageRepository;
 	private final DeliveryOrderIndexService deliveryOrderIndexService;
 	private final ObjectMapper objectMapper;
@@ -205,7 +206,7 @@ public class OrderUpdateService {
 				siteDoName, siteSiName, siteGuName, siteRoadAddress, siteDetailAddress, ordererName, ordererPhone,
 				optionJson, deleteAdminImageIds, adminImages, adminMemo, dispatchCompleteMessage,
 				dispatchCompleteMessageSubmitted, updatedByUsername, mirrorCuttingProduct,
-				false
+				false, null, null
 		);
 	}
 
@@ -225,7 +226,7 @@ public class OrderUpdateService {
 			String siteSiName, String siteGuName, String siteRoadAddress, String siteDetailAddress, String ordererName,
 			String ordererPhone, String optionJson, List<Long> deleteAdminImageIds, List<MultipartFile> adminImages,
 			String adminMemo, String dispatchCompleteMessage, boolean dispatchCompleteMessageSubmitted,
-			String updatedByUsername, boolean mirrorCuttingProduct) {
+			String updatedByUsername, boolean mirrorCuttingProduct, String companyScope, Long originalCompanyId) {
 		updateOrderInternal(
 				orderId, productCost, quantity, supplyPrice, totalAmount, packingCost, deliveryCost,
 				preferredDeliveryDate, statusStr, deliveryMethodId, deliveryHandlerId, productCategoryId, companyId,
@@ -233,7 +234,7 @@ public class OrderUpdateService {
 				siteDoName, siteSiName, siteGuName, siteRoadAddress, siteDetailAddress, ordererName, ordererPhone,
 				optionJson, deleteAdminImageIds, adminImages, adminMemo, dispatchCompleteMessage,
 				dispatchCompleteMessageSubmitted, updatedByUsername, mirrorCuttingProduct,
-				true
+				true, companyScope, originalCompanyId
 		);
 	}
 
@@ -246,10 +247,31 @@ public class OrderUpdateService {
 			String ordererPhone, String optionJson, List<Long> deleteAdminImageIds, List<MultipartFile> adminImages,
 			String adminMemo, String dispatchCompleteMessage, boolean dispatchCompleteMessageSubmitted,
 			String updatedByUsername, boolean mirrorCuttingProduct,
-			boolean explicitAddressValues) {
+			boolean explicitAddressValues, String companyScope, Long originalCompanyId) {
 		Order order = getOrderOrThrow(orderId);
 
-		ProductionVisibleOrderSnapshot beforeSnapshot = ProductionVisibleOrderSnapshot.from(order);
+		Task source = order.getTask();
+        if (explicitAddressValues) {
+            entityManager.refresh(source, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+            entityManager.refresh(order, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+            if (!Objects.equals(source.getId(),order.getTask().getId())) throw new IllegalStateException("다른 관리자가 이 오더를 이동했습니다. 다시 조회해 주세요.");
+        }
+        Long currentCompany = source.getRequestedBy() == null || source.getRequestedBy().getCompany() == null ? null : source.getRequestedBy().getCompany().getId();
+        if (originalCompanyId != null && !Objects.equals(originalCompanyId, currentCompany))
+            throw new IllegalStateException("업체 정보가 변경되었습니다. 발주를 다시 조회해 주세요.");
+        boolean transfer = explicitAddressValues && companyId.isPresent() && !Objects.equals(currentCompany, companyId.get());
+        if (transfer && !("TASK".equals(companyScope) || "ORDER".equals(companyScope)))
+            throw new IllegalArgumentException("업체 변경 적용 범위를 선택해 주세요.");
+        var siblingSnapshots = new java.util.LinkedHashMap<Order, ProductionVisibleOrderSnapshot>();
+        var siblingSearch = new java.util.HashMap<Order, com.dev.HiddenBATHAuto.model.task.audit.CustomerOrderSearchSnapshot>();
+        if (transfer && "TASK".equals(companyScope)) {
+            for (Order other : source.getOrders()) if (!other.getId().equals(orderId)) {
+                siblingSnapshots.put(other, ProductionVisibleOrderSnapshot.from(other));
+                siblingSearch.put(other, com.dev.HiddenBATHAuto.model.task.audit.CustomerOrderSearchSnapshot.from(other));
+            }
+        }
+        long originalLineTotal = (long)order.getTotalAmount() + order.getPackingCost() + order.getDeliveryCost();
+        ProductionVisibleOrderSnapshot beforeSnapshot = ProductionVisibleOrderSnapshot.from(order);
         var customerSearchBefore = com.dev.HiddenBATHAuto.model.task.audit.CustomerOrderSearchSnapshot.from(order);
 		boolean adminImageChanged = hasDeleteIds(deleteAdminImageIds) || hasUploadFiles(adminImages);
 
@@ -307,7 +329,19 @@ public class OrderUpdateService {
 			order.setProductCategory(category);
 		}, () -> order.setProductCategory(null));
 
-		updateRequesterIfNeeded(order, normalizeId(companyId), normalizeId(requesterMemberId));
+		if (transfer && "ORDER".equals(companyScope)) {
+            Task destination = new Task();
+            destination.setManagedBy(source.getManagedBy());
+            destination.setStatus(source.getStatus());
+            destination.setCustomerNote(source.getCustomerNote());
+            destination.setInternalNote(source.getInternalNote());
+            destination.setUpdatedAt(LocalDateTime.now());
+            destination.setTotalPrice(Math.toIntExact((long)order.getTotalAmount() + order.getPackingCost() + order.getDeliveryCost()));
+            source.setTotalPrice(Math.toIntExact((long)source.getTotalPrice() - originalLineTotal));
+            source.setUpdatedAt(LocalDateTime.now());
+            order.setTask(taskRepository.save(destination));
+        }
+        updateRequesterIfNeeded(order, normalizeId(companyId), transfer ? Optional.empty() : normalizeId(requesterMemberId));
 		updateOrderItemOptionJson(order, optionJson);
 
 		order.setOrdererName(normalizeNullableText(ordererName));
@@ -337,7 +371,16 @@ public class OrderUpdateService {
 		 */
 		deliveryOrderIndexService.ensureIndex(order);
 
-		ProductionVisibleOrderSnapshot afterSnapshot = ProductionVisibleOrderSnapshot.from(order);
+		for (var entry : siblingSnapshots.entrySet()) {
+            auditManagementEdit(entry.getKey(), entry.getValue(), siblingSearch.get(entry.getKey()), false, updatedByUsername);
+        }
+        auditManagementEdit(order, beforeSnapshot, customerSearchBefore, adminImageChanged, updatedByUsername);
+    }
+
+    private void auditManagementEdit(Order order, ProductionVisibleOrderSnapshot beforeSnapshot,
+            com.dev.HiddenBATHAuto.model.task.audit.CustomerOrderSearchSnapshot customerSearchBefore, boolean adminImageChanged, String updatedByUsername) {
+        Long orderId = order.getId();
+        ProductionVisibleOrderSnapshot afterSnapshot = ProductionVisibleOrderSnapshot.from(order);
 		boolean managementChanged = adminImageChanged || !Objects.equals(beforeSnapshot, afterSnapshot);
 
         if (managementChanged) {
@@ -577,6 +620,7 @@ public class OrderUpdateService {
         addManagementChange(changes, "packingCost", "포장비", before.packingCost(), after.packingCost());
         addManagementChange(changes, "deliveryCost", "배송비", before.deliveryCost(), after.deliveryCost());
 
+        addManagementChange(changes, "taskId", "소속 발주 번호", before.taskId(), after.taskId());
         addManagementChange(changes, "requesterCompany", "신청 업체",
                 before.requesterCompanyId(), after.requesterCompanyId());
         addManagementChange(changes, "requesterMember", "신청자",
@@ -590,8 +634,21 @@ public class OrderUpdateService {
                 before.adminMemo(), after.adminMemo());
         addManagementChange(changes, "dispatchCompleteMessage", "출고완료 메시지",
                 before.dispatchCompleteMessage(), after.dispatchCompleteMessage());
-        addManagementChange(changes, "optionJson", "제품 옵션",
-                before.optionJson(), after.optionJson());
+        if (!Objects.equals(before.optionJson(),after.optionJson())) {
+            try {
+                Map<String,String> oldOptions = parseOptionJson(before.optionJson());
+                Map<String,String> newOptions = parseOptionJson(after.optionJson());
+                Set<String> keys = new java.util.LinkedHashSet<>(oldOptions.keySet());
+                keys.addAll(newOptions.keySet());
+                for (String key : keys) if (!Objects.equals(oldOptions.get(key),newOptions.get(key))) {
+                    changes.add(OrderFieldChangeCommand.of("optionJson", "제품 옵션 · " + key,
+                        oldOptions.get(key) == null || oldOptions.get(key).isBlank() ? "미입력" : oldOptions.get(key),
+                        newOptions.get(key) == null || newOptions.get(key).isBlank() ? "미입력" : newOptions.get(key)));
+                }
+            } catch (IllegalArgumentException legacyFormat) {
+                addManagementChange(changes,"optionJson","제품 옵션",before.optionJson(),after.optionJson());
+            }
+        }
         addManagementChange(changes, "productName", "제품명",
                 before.orderItemProductName(), after.orderItemProductName());
 
@@ -644,6 +701,7 @@ public class OrderUpdateService {
             int totalAmount,
             int packingCost,
             int deliveryCost,
+            Long taskId,
             String requesterCompanyId,
             String requesterMemberId,
             String ordererName,
@@ -658,7 +716,7 @@ public class OrderUpdateService {
 			if (order == null) {
 				return new ProductionVisibleOrderSnapshot(
                         null, null, false, null, null, null, null, null, null,
-                        0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, null,
                         null, null, null, null, null, null, null, null, 0
                 );
 			}
@@ -700,6 +758,7 @@ public class OrderUpdateService {
                     order.getTotalAmount(),
                     order.getPackingCost(),
                     order.getDeliveryCost(),
+                    task == null ? null : task.getId(),
                     requesterCompany != null
                             ? entityLabel(requesterCompany.getId(), requesterCompany.getCompanyName())
                             : null,
@@ -978,20 +1037,20 @@ public class OrderUpdateService {
 						? normalizeNullableText(submittedMap.get(key))
 						: originalValue;
 
-				if (value == null) {
+				if (value == null && !Set.of("색상", "사이즈", "규격").contains(key)) {
 					throw new IllegalArgumentException(key + " 값은 비울 수 없습니다.");
 				}
 
-				mergedMap.put(key, value);
+				mergedMap.put(key, value == null ? "" : value);
 				continue;
 			}
 
 			if (submittedMap.containsKey(key)) {
 				String value = normalizeNullableText(submittedMap.get(key));
-				if (value == null) {
+				if (value == null && !Set.of("색상", "사이즈", "규격").contains(key)) {
 					throw new IllegalArgumentException(key + " 값은 비울 수 없습니다.");
 				}
-				mergedMap.put(key, value);
+				mergedMap.put(key, value == null ? "" : value);
 			}
 		}
 
@@ -1012,11 +1071,11 @@ public class OrderUpdateService {
 			}
 
 			String value = normalizeNullableText(submittedEntry.getValue());
-			if (value == null) {
+			if (value == null && !Set.of("색상", "사이즈", "규격").contains(key)) {
 				throw new IllegalArgumentException(key + " 값은 비울 수 없습니다.");
 			}
 
-			mergedMap.put(key, value);
+			mergedMap.put(key, value == null ? "" : value);
 		}
 
 		LinkedHashMap<String, String> normalizedMap = normalizeOptionSequence(mergedMap);
@@ -1029,12 +1088,12 @@ public class OrderUpdateService {
             }
 
 			String color = normalizedMap.get("색상");
-			if (color != null && !color.isBlank()) {
+			if (color != null) {
 				orderItem.setProductionColor(color.trim());
 			}
 
-			String size = normalizedMap.get("사이즈");
-			if (size != null && !size.isBlank()) {
+			String size = normalizedMap.getOrDefault("사이즈", normalizedMap.get("규격"));
+			if (size != null) {
 				orderItem.setProductionSize(size.trim());
 			}
 

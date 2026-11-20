@@ -173,7 +173,7 @@ public class StorePreviewController {
     public Object checkoutOptions(@AuthenticationPrincipal PrincipalDetails principal) {
         long company = access.company(principal);
         return ApiResponse.ok(Map.of("methods", methods.findAllByOrderByIdAsc(), "points", preview.balance(company),
-                "holidays", preview.holidays()));
+                "holidays", preview.holidays().stream().map(Object::toString).toList()));
     }
 
     @PostMapping("/api/checkout") @ResponseBody

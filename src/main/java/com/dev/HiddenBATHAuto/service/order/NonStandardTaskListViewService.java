@@ -237,7 +237,7 @@ public class NonStandardTaskListViewService {
                 series,
                 size,
                 color,
-                quantity > 0 ? "수량 " + quantity : null
+                quantity != 0 ? "수량 " + quantity : null
         );
 
         return summary.isBlank() ? "-" : summary;
@@ -292,7 +292,7 @@ public class NonStandardTaskListViewService {
         String color = firstNotBlank(optionMap.get("색상"), null);
         String series = firstNotBlank(optionMap.get("제품시리즈"), optionMap.get("시리즈"), null);
 
-        String summary = joinNonBlank(" / ", productName, productCode, series, size, color, quantity > 0 ? "수량 " + quantity : null);
+        String summary = joinNonBlank(" / ", productName, productCode, series, size, color, quantity != 0 ? "수량 " + quantity : null);
         return summary.isBlank() ? "-" : summary;
     }
 

@@ -263,7 +263,7 @@ public class NonStandardOrderItemService {
             boolean dispatchCompleteMessageSubmitted,
             List<Long> deleteAdminImageIds,
             List<MultipartFile> adminImages,
-            String updatedByUsername
+            String updatedByUsername, String companyScope, Long originalCompanyId
     ) {
         orderUpdateService.updateOrderWithExplicitAddressValues(
                 orderId,
@@ -301,7 +301,7 @@ public class NonStandardOrderItemService {
                 dispatchCompleteMessage,
                 dispatchCompleteMessageSubmitted,
                 updatedByUsername,
-                mirrorCuttingProduct
+                mirrorCuttingProduct, companyScope, originalCompanyId
         );
     }
 }

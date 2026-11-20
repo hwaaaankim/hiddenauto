@@ -25,7 +25,7 @@ public final class ProductStudioMedia {
         .map(field -> new Field(field.key(), field.labels(), field.namePart(), field.required(),
             field.allowNegative(), field.min(), field.max(), field.step(), field.minLength(),
             field.maxLength(), field.format(), field.unit(), field.extensions(), field.minFiles(),
-            field.maxFiles(), field.maxFileMB(), field.guide(), field.bundleKey(), List.of(), field.helpDisplay(), null))
+            field.maxFiles(), field.maxFileMB(), field.guide(), field.bundleKey(), List.of(), field.helpDisplay(), field.useDefault() ? field.placeholder() : null, field.useDefault()))
         .toList();
   }
 
@@ -37,7 +37,7 @@ public final class ProductStudioMedia {
             question.requireRule(), question.question(), question.guide(),
             question.choices() == null ? null : question.choices().stream()
                 .map(choice -> new Choice(choice.key(), choice.labels(), choice.namePart(),
-                    List.of(), choice.guide(), choice.helpDisplay(), choice.numericValue())).toList(),
+                    List.of(), choice.guide(), choice.helpDisplay(), choice.numericValue(), choice.excludes())).toList(),
             question.fields() == null ? null : withoutFieldAssets(question.fields()),
             List.of(), question.numberCases(), question.preset()))
         .toList();

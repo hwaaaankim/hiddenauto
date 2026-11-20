@@ -326,14 +326,16 @@
         row.note
       ].filter(Boolean);
       const options = row.item.summary || [];
+      const compact = row.item.compactSummary ?? options;
       return '<article class="store-row store-saved-row">' +
         (mode === 'bookmark' ? '' : '<input type="checkbox" data-index="' + i + '" aria-label="품목 선택">') +
         img(row.item) + '<div><button type="button" class="store-link" data-open="' + i + '">' + esc(row.item.name) +
         '</button><div class="store-row-price">' + (row.item.price == null ? '구성 저장' : won(row.item.price)) + '</div>' +
+        (compact.length ? '<p class="store-compact-summary">' + compact.map(esc).join(' | ') + '</p>' : '') +
         '<p class="store-row-meta">' + details.map(text => '<span>' + esc(text) + '</span>').join('') + '</p>' +
         (options.length || details.length ? '<details class="store-row-details' + (options.length ? '' : ' store-mobile-details') + '"' +
           '><summary>상세 정보</summary><div><small class="store-row-mobile-meta">' + esc(details.join(' · ')) + '</small>' +
-          (options.length ? '<ul>' + options.map(text => '<li>' + esc(text) + '</li>').join('') + '</ul>' : '') +
+          (options.length ? '<ul>' + options.map(text => '<li><strong>' + esc(text.split(' · ')[0]) + '</strong> <span>' + esc(text.split(' · ').slice(1).join(' · ')) + '</span></li>').join('') + '</ul>' : '') +
           '</div></details>' : '') +
         '</div><button class="store-icon" type="button" data-remove="' + i +
         '" aria-label="삭제">' + icon('close') + '</button></article>';
@@ -477,7 +479,7 @@
     const methods = '<option value="">배송수단 선택</option>' + options.methods.map(m =>
       '<option value="' + esc(m.id) + '">' + esc(m.name) + '</option>').join('');
     const shipping = '<label>배송수단<select name="method" required>' + methods + '</select></label>';
-    const address = '<label>배송 주소<input name="address" maxlength="400" required autocomplete="street-address"></label>';
+    const address = '<label>배송 주소<input name="address" maxlength="400" readonly placeholder="주소 검색으로 선택"></label><button type="button" class="store-btn" data-address-search>주소 검색</button><label>상세주소<input name="addressDetail" maxlength="180" placeholder="건물명, 동·호수"></label>';
     const date = '<label>희망 출고일<input type="text" name="date" placeholder="날짜 선택" required readonly></label>';
     const dates = rows.map(row => row.item.earliest);
     const latest = dates.every(Boolean) ? dates.sort().at(-1) : null;
@@ -500,6 +502,19 @@
     const form = main.querySelector('#store-checkout');
     const lines = [...form.querySelectorAll('.store-check-line')];
     const bulk = main.querySelector('.store-bulk');
+    for (const container of [bulk, ...lines]) {
+      container.querySelector('[data-address-search]').onclick = () => {
+        if (!window.daum?.Postcode) return feedback('주소 검색을 불러오지 못했습니다. 페이지를 새로고침해 주세요.', true);
+        new window.daum.Postcode({oncomplete(data) {
+          const input = container.querySelector('[name=address]');
+          input.value = '[' + data.zonecode + '] ' + (data.userSelectedType === 'R' ? data.roadAddress : data.jibunAddress);
+          const detail = container.querySelector('[name=addressDetail]');
+          detail.value = '';
+          detail.focus();
+          input.dispatchEvent(new Event('change', {bubbles: true}));
+        }}).open();
+      };
+    }
     const openBulk = main.querySelector('#store-bulk-open');
     main.querySelector('#store-bulk-close').onclick = () => bulk.close();
     openBulk.onclick = () => bulk.showModal();
@@ -543,7 +558,8 @@
       };
       const draft = previous.get(rows[i].key);
       if (draft) {
-        line.querySelector('[name=address]').value = draft.address;
+        line.querySelector('[name=address]').value = draft.baseAddress || draft.address;
+        line.querySelector('[name=addressDetail]').value = draft.addressDetail || '';
         line.querySelector('[name=quantity]').value = draft.quantity;
         line.querySelector('[name=date]')._flatpickr.setDate(draft.date, true);
         method.value = String(draft.methodId);
@@ -561,6 +577,7 @@
         return;
       }
       bulk.querySelector('.store-bulk-warning').textContent = '';
+      if (updates.some(([name]) => name === 'address')) lines.forEach(line => { line.querySelector('[name=addressDetail]').value = bulk.querySelector('[name=addressDetail]').value; });
       for (const [name, value] of updates) {
         for (const line of lines) {
           const target = line.querySelector('[name=' + name + ']');
@@ -578,11 +595,13 @@
     }, true);
     form.onsubmit = async event => {
       event.preventDefault();
+      const missing = lines.find(line => !line.querySelector('[name=address]').value.trim());
+      if (missing) { missing.querySelector('details').open = true; missing.querySelector('[data-address-search]').focus(); return feedback('배송 주소를 검색해 주세요.', true); }
       const submit = form.querySelector('button[type=submit]');
       submit.disabled = true;
       const payload = lines.map((line, i) => {
         const get = field => line.querySelector('[name=' + field + ']').value;
-        return {...rows[i], quantity: Number(get('quantity')), address: get('address'),
+        return {...rows[i], quantity: Number(get('quantity')), baseAddress: get('address'), addressDetail: get('addressDetail'), address: [get('address'), get('addressDetail').trim()].filter(Boolean).join(' '),
           date: get('date'), methodId: Number(get('method'))};
       });
       try {

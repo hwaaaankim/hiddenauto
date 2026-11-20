@@ -244,7 +244,15 @@
       const q={...state.question,choices:(state.question.choices||[]).map(c=>({...c,labels:original.choices?.find(x=>x.key===c.key)?.labels||c.labels})),fields:(state.question.fields||[]).map(f=>({...f,labels:original.fields?.find(x=>x.key===f.key)?.labels||f.labels}))};
       return S.answerText(q,state.answer,assets,role);
     };
-    return `<section class="pm-team-preview"><h3>팀별 표시 확인</h3><p>같은 선택·입력값을 등록된 고객용·관리팀용·생산팀용 명칭으로 비교합니다.</p><div class="pms-table-scroll"><table><thead><tr><th>질문</th><th>고객 화면</th><th>관리팀 화면</th><th>생산팀 화면</th></tr></thead><tbody>${rows.map(s=>`<tr><th>${S.e(s.question.labels?.customer||s.question.key)}</th><td>${S.e(value(s,'customer'))}</td><td>${S.e(value(s,'management'))}</td><td>${S.e(value(s,'production'))}</td></tr>`).join('')||'<tr><td colspan="4">답변을 선택하거나 입력하면 여기에 표시됩니다.</td></tr>'}</tbody></table></div></section>`;
+    const summaries = ["customer","production","management"].map(role => {
+      const entries = rows.map(state => ({groupId:state.question.groupId,state}));
+      const terms = S.summaryRows(entries,product.summaryOptions,role).map(({state}) => {
+        const original = raw.questions.find(q=>q.key===state.question.key) || state.question;
+        return S.e(original.labels[role]) + " · " + S.e(value(state,role));
+      });
+      return "<p><strong>"+({customer:"고객",production:"생산팀",management:"관리팀"}[role])+"</strong> "+terms.join(" | ")+"</p>";
+    }).join("");
+    return `<section class="pm-team-preview"><h3>팀별 표시 확인</h3>${summaries}<details><summary>전체 질문과 답변</summary><p>같은 선택·입력값을 등록된 고객용·관리팀용·생산팀용 명칭으로 비교합니다.</p><div class="pms-table-scroll"><table><thead><tr><th>질문</th><th>고객 화면</th><th>관리팀 화면</th><th>생산팀 화면</th></tr></thead><tbody>${rows.map(s=>`<tr><th>${S.e(s.question.labels?.customer||s.question.key)}</th><td>${S.e(value(s,'customer'))}</td><td>${S.e(value(s,'management'))}</td><td>${S.e(value(s,'production'))}</td></tr>`).join('')||'<tr><td colspan="4">답변을 선택하거나 입력하면 여기에 표시됩니다.</td></tr>'}</tbody></table></div></details></section>`;
   };
 
   let faqDialogSequence=0;

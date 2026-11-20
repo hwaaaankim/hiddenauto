@@ -275,12 +275,12 @@ public class ManagementController {
             @RequestParam(required = false) String dateMode,
 			@RequestParam(required = false) String startDate, @RequestParam(required = false) String endDate,
 			@RequestParam(required = false, defaultValue = "all") String productCategoryId,
-			@RequestParam(required = false, defaultValue = "REQUESTED") String orderStatus,
+			@RequestParam(required = false, defaultValue = "all") String orderStatus,
 			@RequestParam(required = false, defaultValue = "all") String standard,
 			@RequestParam(required = false) String sortState,
 			@RequestParam(required = false) String sortField,
 			@RequestParam(required = false) String sortDir,
-			@PageableDefault(size = 10) Pageable pageable,
+			@PageableDefault(size = 100) Pageable pageable,
 			@AuthenticationPrincipal PrincipalDetails principal,
 			HttpServletRequest request, Model model) {
 		String finalDateCriteria = normalizeDateCriteria(dateCriteria);
@@ -466,7 +466,7 @@ public class ManagementController {
 			@RequestParam(required = false) String startDate,
 			@RequestParam(required = false) String endDate,
 			@RequestParam(required = false, defaultValue = "all") String productCategoryId,
-			@RequestParam(required = false, defaultValue = "REQUESTED") String orderStatus,
+			@RequestParam(required = false, defaultValue = "all") String orderStatus,
 			@RequestParam(required = false, defaultValue = "all") String standard,
 			@RequestParam(required = false) String sortState,
 			@RequestParam(required = false) String sortField,
@@ -716,12 +716,12 @@ public class ManagementController {
 			@RequestParam(required = false, defaultValue = "all") String dateCriteria,
 			@RequestParam(required = false) String startDate, @RequestParam(required = false) String endDate,
 			@RequestParam(required = false, defaultValue = "all") String productCategoryId,
-			@RequestParam(required = false, defaultValue = "REQUESTED") String orderStatus,
+			@RequestParam(required = false, defaultValue = "all") String orderStatus,
 			@RequestParam(required = false, defaultValue = "all") String standard,
 			@RequestParam(required = false) String sortState,
 			@RequestParam(required = false) String sortField,
 			@RequestParam(required = false) String sortDir,
-			@PageableDefault(size = 10) Pageable pageable, Model model) {
+			@PageableDefault(size = 100) Pageable pageable, Model model) {
 		String finalDateCriteria = normalizeDateCriteria(dateCriteria);
 
 		DateRange range = buildDateRangeForCriteria(finalDateCriteria, startDate, endDate);
@@ -1814,6 +1814,7 @@ public class ManagementController {
 			@RequestParam("productCategoryId") Optional<Long> productCategoryId,
 			@RequestParam("companyId") Optional<Long> companyId,
 			@RequestParam("requesterMemberId") Optional<Long> requesterMemberId,
+            @RequestParam(required=false) String companyScope, @RequestParam(required=false) Long originalCompanyId,
 			@RequestParam(value = "zipCode", required = false) String zipCode,
 			@RequestParam(value = "doName", required = false) String doName,
 			@RequestParam(value = "siName", required = false) String siName,
@@ -1848,7 +1849,7 @@ public class ManagementController {
 					doName, siName, guName, roadAddress, detailAddress, siteZipCode, siteDoName, siteSiName, siteGuName,
 					siteRoadAddress, siteDetailAddress, ordererName, ordererPhone, optionJson, adminMemo,
 					dispatchCompleteMessage, dispatchCompleteMessageSubmitted, deleteAdminImageIds, adminImages,
-					updatedByUsername);
+					updatedByUsername, companyScope, originalCompanyId);
 
 			redirectAttributes.addFlashAttribute("message", "주문 정보가 수정되었습니다.");
 			return redirectUrl;
