@@ -65,7 +65,7 @@ body.hb-store { display: flex; flex-direction: column; min-height: 100vh; min-he
 .store-fields { display: grid; grid-template-columns: minmax(0,1.9fr) repeat(2,minmax(0,1fr)) auto; gap: .6rem; align-items: end; }
 .store-check-line .store-fields { grid-template-columns: minmax(4.5rem,.6fr) minmax(0,2fr) repeat(2,minmax(0,1fr)); padding: 0 .75rem .75rem; }
 .store-fields label, .store-payment label, .store-bookmark label { display: grid; gap: .25rem; font-size: .8rem; min-width: 0; }
-.hb-store :is(.store-fields,.store-payment,.store-bookmark) :is(input,select) {
+.hb-store :is(.store-fields,.store-payment,.store-bookmark) :is(input,select):not(.numInput,.flatpickr-monthDropdown-months) {
   width: 100%; min-height: 2.65rem; border: 1px solid var(--store-line); border-radius: 5px;
   background: white; color: var(--store-ink); padding: .45rem .55rem; font: inherit; box-sizing: border-box;
 }
@@ -84,8 +84,6 @@ body.hb-store { display: flex; flex-direction: column; min-height: 100vh; min-he
   .hb-store .hb-header > .hb-brand { grid-column: 1/-1; grid-row: 1; justify-self: center; }
   .hb-store .hb-header-start,.hb-store .hb-header-end { display: flex; min-width: 0; gap: .42rem; font-size: .7rem; white-space: nowrap; }
   .store-fields,.store-check-line .store-fields { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
-  .store-check-line .store-fields label:nth-child(2) { grid-column: 1/-1; grid-row: 1; }
-  .store-check-line .store-fields label:last-child { grid-column: 1/-1; }
   .store-search li a { grid-template-columns: 5rem 3rem minmax(0,1fr); gap: .3rem; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -142,7 +140,6 @@ body.hb-store { display: flex; flex-direction: column; min-height: 100vh; min-he
 .store-bulk-dialog { position: fixed; margin: auto; width: min(calc(100% - 2rem), 37rem); max-height: calc(100dvh - 2rem); overflow: auto; box-sizing: border-box; }
 .store-bulk-dialog::backdrop { background: #25241f66; }
 .store-bulk-dialog .store-fields { grid-template-columns: repeat(2,minmax(0,1fr)); margin-top: .65rem; }
-.store-bulk-dialog .store-fields label:first-child { grid-column: 1/-1; }
 .store-bulk-dialog .store-actions { justify-content: end; margin-bottom: 0; }
 
 /* Match the catalog's spacing, type and restrained transitions. */
@@ -264,9 +261,12 @@ body.hb-store { display: flex; flex-direction: column; min-height: 100vh; min-he
 .hb-store .store-selection-count {display:inline-flex;align-items:center;gap:.75rem;flex-wrap:wrap;font-variant-numeric:tabular-nums}
 .hb-store .store-subtotal {display:inline-flex;align-items:baseline;gap:.4rem;padding-inline-start:.75rem;border-inline-start:1px solid var(--store-line)}
 .hb-store .store-subtotal strong {font-size:1.1rem;color:var(--store-ink,#272521)}
-.hb-store .store-bookmark form:not([hidden]) {display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:.5rem;grid-column:1/-1}
-.hb-store .store-bookmark form label {margin:0}
-.hb-store .store-bookmark form :is(input,button) {height:44px;margin:0;box-sizing:border-box}
+#hb-main .store-bookmark form:not([hidden]) {display:grid;grid-template-columns:minmax(0,1fr);gap:4px;grid-column:1/-1}
+#hb-main .store-bookmark form label {margin:0}
+#hb-main .store-bookmark-controls {display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:44px;align-items:stretch;gap:8px}
+#hb-main .store-bookmark-controls > :is(input[name=note],button[type=submit]) {height:100%;min-height:0;max-height:none;box-sizing:border-box;margin:0;align-self:stretch}
+#hb-main .store-bookmark-controls > input {width:100%;min-width:0}
+
 @media (max-width:36rem) {
   .hb-store .store-list-actions > label {flex-basis:100%}
   .hb-store .store-selection-count {flex-basis:100%}
@@ -294,7 +294,7 @@ body.hb-store { display: flex; flex-direction: column; min-height: 100vh; min-he
 .store-check-line .store-check-details .store-fields label:has([name=address]),.store-check-line .store-check-details .store-fields label:has([name=addressDetail]) {grid-column:1/-1}
 @media(max-width:36rem){
 .store-bulk-launch .store-btn {width:100%}
-.store-check-line .store-fields input,.store-check-line .store-fields select {min-width:0;width:100%;box-sizing:border-box}
+.store-check-line .store-fields input:not(.numInput),.store-check-line .store-fields select:not(.flatpickr-monthDropdown-months) {min-width:0;width:100%;box-sizing:border-box}
 }
 
 .hb-store .store-saved-row {align-items:flex-start;border-radius:5px}
@@ -399,7 +399,7 @@ body.hb-store { display: flex; flex-direction: column; min-height: 100vh; min-he
 .hb-store .store-result .store-answer-detail dd {margin:0;overflow-wrap:anywhere}
 .hb-store .store-totals dd {font-variant-numeric:tabular-nums}
 
-#store-checkout {display:grid;grid-template-columns:minmax(0,1fr) minmax(225px,27%);gap:20px;align-items:start}
+#store-checkout {display:grid;grid-template-columns:minmax(0,1fr);gap:20px;align-items:start}
 #store-checkout > .store-list {min-width:0;margin:0;display:grid;gap:16px}
 #store-checkout .store-check-line {padding:clamp(14px,2vw,24px);background:#fff;border:1px solid #dcd8d1;border-radius:5px}
 #store-checkout .store-check-line > .store-row {display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;border:0;padding:0;margin:0}
@@ -416,3 +416,46 @@ body.hb-store { display: flex; flex-direction: column; min-height: 100vh; min-he
 #store-checkout .store-payment button {width:100%;margin:4px 0 0}
 @media(max-width:820px){#store-checkout {grid-template-columns:minmax(0,1fr)}}
 @media(max-width:540px){#store-checkout .store-check-line > .store-row {grid-template-columns:auto minmax(0,1fr)}#store-checkout .store-line-status {grid-column:2;justify-self:start}}
+
+.store-date-field {display:grid;gap:4px;grid-column:1/-1;min-width:0;font-size:.8rem}
+.store-date-field .flatpickr-wrapper {display:block;width:100%}
+.store-date-field input[name=date] {width:100%;box-sizing:border-box;cursor:pointer}
+.store-date-field .flatpickr-calendar.static.open {position:relative;inset:auto;margin-block-start:8px}
+.store-date-field :is(.flatpickr-calendar,.flatpickr-innerContainer,.flatpickr-rContainer,.flatpickr-days,.dayContainer) {max-width:100%;min-width:0;box-sizing:border-box}
+.store-date-field .flatpickr-day {min-width:0}
+.store-address-actions {display:flex;gap:8px;grid-column:1/-1}
+.store-address-actions .store-btn {flex:1}
+.store-bulk-dialog > .store-fields > label,
+.store-check-details > .store-fields > label:has([name=addressDetail]) {grid-column:1/-1}
+.store-contacts > .store-fields {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:end}
+.store-contacts > .store-fields > label {min-width:0}
+.store-contacts input {box-sizing:border-box;width:100%}
+@media(max-width:480px){
+.hb-store .store-contacts > .store-fields {grid-template-columns:minmax(0,1fr)}
+}
+.store-delivery-address {grid-column:1/-1;display:grid;gap:10px;min-width:0;border-top:1px solid var(--store-line);padding-top:12px}
+.store-delivery-address h3 {font-size:14px;margin:0}
+.store-address-tools {display:grid;grid-template-columns:minmax(5rem,9rem) auto auto;align-items:end;gap:8px;justify-content:start}
+.store-delivery-address input {width:100%;box-sizing:border-box}
+.store-address-tools .store-btn {margin:0}
+.store-postcode-dialog {width:min(480px,94vw);padding:14px;border:1px solid var(--store-line);border-radius:5px;box-sizing:border-box}
+.store-postcode-dialog header {display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.store-postcode-dialog h2 {font-size:17px;margin:0}
+.store-postcode-content {height:min(440px,64dvh)}
+.store-postcode-dialog::backdrop {background:#211f1c66}
+.store-bulk-dialog > .store-fields > label:has([name=method]),.store-bulk-dialog .store-date-field {grid-column:auto}
+@media(max-width:480px){.store-address-tools {grid-template-columns:repeat(2,minmax(0,1fr));justify-content:stretch}.store-address-tools label {grid-column:1/-1}}
+.store-bulk-dialog .store-fields:has(.store-date-field .flatpickr-calendar.open) .store-date-field {grid-column:1/-1}
+
+.hb-store .store-page:has(#store-checkout) {width:min(calc(100% - 2rem),88rem);max-width:none}
+#store-checkout .store-check-details h3 {font-size:15px;margin:18px 0 8px}
+@media(min-width:760px){
+#store-checkout .store-check-details > .store-fields {grid-template-columns:minmax(7rem,.6fr) minmax(12rem,1fr) minmax(17rem,1.3fr)}
+#store-checkout .store-date-field {grid-column:auto}
+#store-checkout .store-payment {grid-template-columns:minmax(0,1fr) minmax(10rem,15rem) minmax(9rem,13rem);align-items:center;column-gap:24px}
+#store-checkout .store-payment h2 {grid-area:1/1}
+#store-checkout .store-payment p {grid-area:2/1}
+#store-checkout .store-payment label {grid-area:1/2;border:0;padding:0}
+#store-checkout .store-payment small {grid-area:2/2}
+#store-checkout .store-payment button {grid-area:1/3/3/4}
+}

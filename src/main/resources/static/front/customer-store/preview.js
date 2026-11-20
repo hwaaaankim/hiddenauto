@@ -191,9 +191,10 @@
   function bookmark(host, selection) {
     const wrapper = document.createElement('div');
     wrapper.className = 'store-actions store-bookmark';
+    const noteId = 'store-bookmark-note-' + crypto.randomUUID();
     wrapper.innerHTML = button('bookmark', '즐겨찾기') +
-      '<form hidden><label>남김말 <input name="note" maxlength="300" placeholder="다음에 이어서 볼 내용"></label>' +
-      '<button class="store-btn is-primary" type="submit">저장</button></form>';
+      '<form hidden><label for="' + noteId + '">남김말</label><div class="store-bookmark-controls"><input id="' + noteId + '" name="note" maxlength="300" placeholder="다음에 이어서 볼 내용">' +
+      '<button class="store-btn is-primary" type="submit">저장</button></div></form>';
     host.append(wrapper);
     const trigger = wrapper.querySelector('[data-action]');
     trigger.disabled = !Object.keys(selection.answers).length;
@@ -327,6 +328,10 @@
     const renderRow = (row, i) => {
       if (!row.item?.selection) return '<article class="store-row store-saved-row"><div><strong>저장 구성 확인 필요</strong><p>이 항목의 옵션을 복원할 수 없습니다.</p><p>' + esc(row.note || '') + '</p></div><button type="button" class="store-btn" data-remove="' + i + '">삭제</button></article>';
       const item = row.item;
+      const resumeUrl = mode === 'bookmark' ? root + '/products/' + encodeURIComponent(item.selection.productId) +
+        '?kind=custom&bookmark=' + encodeURIComponent(row.id) : '';
+      const title = resumeUrl ? '<a class="store-link" href="' + esc(resumeUrl) + '">' + esc(item.name) + '</a>' :
+        '<button type="button" class="store-link" data-open="' + i + '">' + esc(item.name) + '</button>';
       const fields = [['구분', item.custom ? '비규격' : '규격'], ['시리즈', item.series || '미등록'],
         ['대분류', item.category?.trim() || '조회 중…'], ['생산기간', item.productionDays == null || item.productionDays < 0 ? '기본 2영업일' : item.productionDays + '일'],
         ['가장 빠른 발주 가능일', listDate(item.earliest)]];
@@ -341,10 +346,11 @@
       const pairs = entries => entries.map(([label,value]) => '<div><dt>' + esc(label) + '</dt><dd' + (label === '대분류' ? ' data-category' : '') + '>' + esc(value) + '</dd></div>').join('');
       return '<article class="store-row store-saved-row saved-product"><div class="saved-product-head">' +
         (mode === 'bookmark' ? '' : '<input type="checkbox" data-index="' + i + '" aria-label="' + esc(item.name) + ' 선택">') +
-        img(item) + '<div class="saved-product-title"><button type="button" class="store-link" data-open="' + i + '">' + esc(item.name) +
-        '</button><div class="store-row-price">' + (item.price == null ? '가격 미확정' : won(item.price)) + '</div></div>' +
+        img(item) + '<div class="saved-product-title">' + title +
+        '<div class="store-row-price">' + (item.price == null ? '가격 미확정' : won(item.price)) + '</div></div>' +
         '<button class="store-icon" type="button" data-remove="' + i + '" aria-label="' + esc(item.name) + ' 삭제">' + icon('close') + '</button></div>' +
         '<dl class="store-product-facts">' + pairs(fields) + '</dl>' +
+        (resumeUrl ? '<a class="store-btn store-resume" href="' + esc(resumeUrl) + '">저장한 단계에서 이어하기</a>' : '') +
         (extra.length ? '<button type="button" class="saved-options-toggle" aria-expanded="false" aria-controls="saved-options-' + mode + '-' + i + '">상세 정보</button>' +
           '<div class="saved-options-panel" id="saved-options-' + mode + '-' + i + '" inert><div><dl class="store-answer-detail">' + pairs(extra) + '</dl></div></div>' : '') +
         '</article>';
@@ -545,27 +551,32 @@
     const contactFields = [['orderer','주문자 이름'],['phone','주문자 연락처'],['manager','현장 담당자 이름'],['managerPhone','현장 담당자 연락처']];
     const contacts = '<details class="store-contacts"><summary>주문자 · 현장 담당자 정보</summary><div class="store-fields">' +
       contactFields.map(([key,label]) => '<label>' + label + '<input name="' + key + '" maxlength="60" type="' + (key.toLowerCase().includes('phone') ? 'tel' : 'text') + '"></label>').join('') + '</div></details>';
-    const address = '<label>배송 주소<input name="address" readonly placeholder="배송지를 선택해 주세요"></label><button type="button" class="store-btn" data-address-search>주소 검색</button><button type="button" class="store-btn" data-address-book>업체 주소록</button><label>상세주소<input name="addressDetail" maxlength="180" placeholder="건물명, 동·호수"></label>';
+    const address = '<section class="store-delivery-address"><h3>배송지</h3><input name="address" type="hidden">' +
+      '<div class="store-address-tools"><label>우편번호<input name="postal" readonly></label>' +
+      '<button type="button" class="store-btn" data-address-search>주소 검색</button><button type="button" class="store-btn" data-address-book>업체 주소록</button></div>' +
+      '<label>도로명주소<input name="road" readonly></label><label>지번주소<input name="jibun" readonly></label>' +
+      '<label>상세주소<input name="addressDetail" maxlength="180" placeholder="건물명, 동·호수"></label>' +
+      '<small data-region></small></section>';
     const addressLabel = a => a ? [a.zip, a.road || a.jibun].filter(Boolean).join(' ') : '';
     const addressBook = '<dialog class="store-address-book"><h2>업체 주소록</h2><div></div><button type="button" class="store-btn" data-close>닫기</button></dialog>';
-    const date = '<label>희망 출고일<input type="text" name="date" placeholder="날짜 선택" required readonly></label>';
+    const date = '<div class="store-date-field"><span>희망 출고일</span><input aria-label="희망 출고일" type="text" name="date" placeholder="달력에서 선택" required readonly></div>';
     const dates = rows.map(row => row.item.earliest);
     const latest = dates.every(Boolean) ? dates.sort().at(-1) : null;
     shell('발주하기', '<div class="store-bulk-launch"><div><strong>전체 ' + rows.length +
-      '개 품목</strong><p>공통 배송 정보를 적용한 뒤 각 품목에서 따로 변경할 수 있습니다.</p></div>' +
+      '개 품목</strong><p>각 품목에서 배송 정보를 입력해 주세요. 같은 정보는 일괄 적용할 수 있습니다.</p></div>' +
       '<button type="button" class="store-btn" id="store-bulk-open">배송 · 연락처 일괄 적용</button></div><details class="store-validation"><summary>배송일과 비용 산정 기준</summary>' +
       '<p>오늘을 제외한 영업일로 계산합니다. 예를 들어 1.5일은 2영업일로 올립니다. 주말과 등록된 공휴일은 선택할 수 없습니다. 일괄 출고일은 품목별 가능일 중 가장 늦은 날짜부터 선택할 수 있습니다.</p>' +
       '<p>희망 출고일, 배송수단, 배송 주소가 같으면 배송비와 포장비를 각각 한 번 부과합니다. 포인트는 상품금액에만 적용됩니다. 발주 결과는 저장되지 않습니다.</p></details>' +
       '<dialog class="store-bulk store-bulk-dialog" aria-labelledby="store-bulk-title"><h2 id="store-bulk-title">배송 · 연락처 일괄 적용</h2>' +
-      '<p>이번에 입력한 항목만 모든 품목에 적용합니다. 직배송 품목은 업체 주소를 사용합니다.</p><div class="store-fields">' + shipping + address + date + contacts +
+      '<p>이번에 입력한 항목만 모든 품목에 적용합니다. 직배송 품목은 업체 주소를 사용합니다.</p><div class="store-fields"><label>품목당 수량<input name="quantity" type="number" min="1" max="99999" step="1" placeholder="기존 수량 유지"></label>' + shipping + date + address + contacts +
       '</div><p class="store-bulk-warning" role="status"></p><div class="store-actions"><button type="button" class="store-btn" id="store-bulk-close">닫기</button>' +
       '<button type="button" class="store-btn is-primary" id="store-apply">적용</button></div></dialog>' +
       '<form id="store-checkout"><div class="store-list">' + rows.map((row, index) => '<article class="store-check-line"><div class="store-row">' +
       img(row.item) + '<div><strong>' + esc(row.item.name) + '</strong><div class="checkout-price">' + won(row.item.price) + '</div><small>' +
       '최초 가능일 ' + esc(listDate(row.item.earliest) || '미등록') + (row.item.productionDays == null || row.item.productionDays < 0 ? ' · 기본 생산기간 2영업일 적용' : '') + '</small></div><span class="store-line-status"></span></div>' +
-      checkoutOptions(row.item) + '<p class="store-line-overview"></p><details class="store-row-details store-check-details"><summary>수량 · 배송지 · 연락처 변경</summary><div class="store-fields">' +
+      checkoutOptions(row.item) + '<p class="store-line-overview"></p><section class="store-check-details"><h3>품목별 배송 설정</h3><div class="store-fields">' +
       '<label>수량<input type="number" name="quantity" min="1" max="99999" required value="' + esc(row.quantity || 1) + '"></label>' +
-      shipping + address + date + contacts + '</div><small class="store-method-note" aria-live="polite"></small></details></article>').join('') +
+      shipping + date + address + contacts + '</div><small class="store-method-note" aria-live="polite"></small></section></article>').join('') +
       '</div><section class="store-payment"><h2>결제 정보</h2><p>계좌결제 · 미리보기</p><label>사용 포인트 <input type="number" name="points" value="0" min="0" max="' +
       esc(options.points) + '" required></label><small>보유 ' + won(options.points) + ' 상당</small>' +
       '<button type="submit" class="store-btn is-primary">배송비 계산</button></section></form>' + addressBook);
@@ -576,7 +587,20 @@
     function setAddress(node, value) {
       selectedAddress.set(node, value || {});
       node.querySelector('[name=address]').value = addressLabel(value);
+      node.querySelector('[name=postal]').value = value?.zip || '';
+      node.querySelector('[name=road]').value = value?.road || '';
+      node.querySelector('[name=jibun]').value = value?.jibun || '';
+      node.querySelector('[data-region]').textContent = [value?.province,value?.city,value?.district].filter(Boolean).join(' · ');
       node.querySelector('[name=addressDetail]').value = value?.detail || '';
+    }
+    function chooseAddress(node, address) {
+      const method = node.querySelector('[name=method]');
+      if (method.value === '1') {
+        method.value = '';
+        method.dispatchEvent(new Event('change'));
+        feedback('배송지를 변경했습니다. 이 주소로 받을 배송수단을 선택해 주세요.');
+      }
+      setAddress(node, address);
     }
     const book = main.querySelector('.store-address-book');
     book.querySelector('[data-close]').onclick = () => book.close();
@@ -593,24 +617,36 @@
           button.type = 'button'; button.className = 'store-btn';
           const title = document.createElement('strong');
           title.textContent = a === options.companyAddress ? '업체 기본 주소' : '저장 배송지';
-          const street = document.createElement('span');
-          street.textContent = [addressLabel(a), a.detail].filter(Boolean).join(' ');
-          button.append(title, street);
-          button.onclick = () => { setAddress(container, a); book.close(); if (container !== bulk) updateLineStatus(container); };
+          button.append(title);
+          for (const [label, value] of [['우편번호',a.zip],['도로명주소',a.road],['지번주소',a.jibun],['상세주소',a.detail]]) {
+            const field = document.createElement('span');
+            field.textContent = label + ' · ' + (value || '미등록');
+            button.append(field);
+          }
+          button.onclick = () => { chooseAddress(container, a); book.close(); if (container !== bulk) updateLineStatus(container); };
           list.append(button);
         }
         book.showModal();
       };
       container.querySelector('[data-address-search]').onclick = () => {
-        if (!window.daum?.Postcode) return feedback('주소 검색을 불러오지 못했습니다.', true);
-        new window.daum.Postcode({oncomplete(data) {
+        const Postcode = window.kakao?.Postcode || window.daum?.Postcode;
+        if (!Postcode) return feedback('주소 검색 서비스를 불러오지 못했습니다. 업체 주소록을 이용하거나 다시 시도해 주세요.', true);
+        const dialog = document.createElement('dialog');
+        dialog.className = 'store-postcode-dialog';
+        dialog.innerHTML = '<header><h2>배송지 검색</h2><button type="button" class="store-btn">닫기</button></header><div class="store-postcode-content"></div>';
+        main.append(dialog);
+        dialog.querySelector('button').onclick = () => dialog.close();
+        dialog.addEventListener('close', () => dialog.remove(), {once:true});
+        dialog.showModal();
+        new Postcode({width:'100%', height:'100%', oncomplete(data) {
+          dialog.close();
           const region = window.HiddenAutoAddressRegion.fromDaum(data);
-          setAddress(container, {zip:data.zonecode, province:region.doName, city:region.siName,
+          chooseAddress(container, {zip:data.zonecode, province:region.doName, city:region.siName,
             district:region.guName, road:data.roadAddress || data.autoRoadAddress,
             jibun:data.jibunAddress || data.autoJibunAddress, detail:''});
           container.querySelector('[name=addressDetail]').focus();
           if (container !== bulk) updateLineStatus(container);
-        }}).open();
+        }}).embed(dialog.querySelector('.store-postcode-content'));
       };
     }
     function applyMethod(node) {
@@ -619,12 +655,13 @@
       else if (node.dataset.direct === 'true') setAddress(node, null);
       node.dataset.direct = String(direct);
       node.querySelector('[name=addressDetail]').readOnly = direct;
-      node.querySelectorAll('[data-address-search],[data-address-book]').forEach(b => b.disabled = direct);
+
     }
     bulk.querySelector('[name=method]').onchange = () => applyMethod(bulk);
     const openBulk = main.querySelector('#store-bulk-open');
     main.querySelector('#store-bulk-close').onclick = () => bulk.close();
     openBulk.onclick = () => {
+      bulk.querySelector('[name=quantity]').value = '';
       bulk.querySelector('[name=method]').value = '';
       applyMethod(bulk);
       setAddress(bulk, null);
@@ -637,7 +674,7 @@
     const holidays = new Set(options.holidays);
     const pick = (node, earliest) => {
       const input = node.querySelector('[name=date]');
-      window.flatpickr(input, {dateFormat: 'Y-m-d', minDate: earliest || undefined, disableMobile: true, appendTo: node === bulk ? bulk : undefined,
+      window.flatpickr(input, {dateFormat: 'Y-m-d', minDate: earliest || undefined, disableMobile: true, static: true,
         disable: [day => {
           const ym = [day.getFullYear(), day.getMonth() + 1, day.getDate()].map((n, i) =>
             i ? String(n).padStart(2, '0') : String(n)).join('-');
@@ -688,7 +725,9 @@
       updateLineStatus(line);
     });
     main.querySelector('#store-apply').onclick = () => {
-      const updates = ['method', 'address', 'date', ...contactFields.map(([key]) => key)]
+      const quantity = bulk.querySelector('[name=quantity]');
+      if (!quantity.validity.valid) { quantity.reportValidity(); return; }
+      const updates = ['quantity', 'method', 'address', 'date', ...contactFields.map(([key]) => key)]
         .map(name => [name, bulk.querySelector('[name=' + name + ']').value.trim()])
         .filter(([, value]) => value);
       if (!updates.length) {
@@ -702,7 +741,7 @@
         for (const line of lines) {
           const target = line.querySelector('[name=' + name + ']');
           if (name === 'address') {
-            if (line.querySelector('[name=method]').value !== '1') setAddress(line, {...selectedAddress.get(bulk), detail:bulk.querySelector('[name=addressDetail]').value});
+            if (bulk.querySelector('[name=method]').value !== '1') chooseAddress(line, {...selectedAddress.get(bulk), detail:bulk.querySelector('[name=addressDetail]').value});
           } else if (name === 'date') target._flatpickr.setDate(value, true);
           else { target.value = value; target.dispatchEvent(new Event('change')); }
         }
@@ -711,14 +750,10 @@
       bulk.close();
       feedback('입력한 항목을 전체 품목에 적용했습니다.');
     };
-    form.addEventListener('invalid', event => {
-      const details = event.target.closest('.store-check-details');
-      if (details) details.open = true;
-    }, true);
     form.onsubmit = async event => {
       event.preventDefault();
       const missing = lines.find(line => !line.querySelector('[name=address]').value.trim());
-      if (missing) { missing.querySelector('.store-check-details').open = true; missing.querySelector('[data-address-search]').focus(); return feedback('배송 주소를 검색해 주세요.', true); }
+      if (missing) { missing.querySelector('[data-address-search]').focus(); return feedback('배송 주소를 검색해 주세요.', true); }
       const submit = form.querySelector('button[type=submit]');
       submit.disabled = true;
       const payload = lines.map((line, i) => {
@@ -730,7 +765,6 @@
         const missingDate = payload.findIndex(row => !row.date);
         if (missingDate >= 0) {
           const line = lines[missingDate];
-          line.querySelector('.store-check-details').open = true;
           line.querySelector('[name=date]').focus();
           throw new Error('품목별 희망 출고일을 모두 선택해 주세요.');
         }

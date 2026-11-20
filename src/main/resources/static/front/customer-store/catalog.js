@@ -380,7 +380,7 @@
     }
 
   }
-  async function detail(id, replace = false, context = null) {
+  async function detail(id, replace = false, context = null, bookmarkId = null) {
     store.search(false, kind);
     const next = await request(`/products/${id}`);
     if (pendingRoute) return;
@@ -388,7 +388,13 @@
     if (!next.nonStandard) return openSeries(id, replace);
     seriesContext = context; standardState = null; standardProduct = null; standardSelections = {};
     setupProduct(next);
-    const restored = store.takeRestore(id);
+    let restored;
+    if (bookmarkId !== null) {
+      const saved = await request('/saved');
+      restored = saved.find(row => row.kind === 'bookmark' && String(row.id) === bookmarkId)?.item;
+      if (String(restored?.selection?.productId) !== String(id) || !restored?.selection?.answers)
+        throw Error('이 제품의 즐겨찾기를 불러올 수 없습니다. 즐겨찾기 목록을 확인해 주세요.');
+    } else restored = store.takeRestore(id);
     if (restored?.selection.answers) {
       answers = restored.selection.answers;
       completed = Object.keys(answers);
@@ -396,8 +402,19 @@
     evaluation = await request(`/products/${id}/customer-evaluate`, 'POST', answers);
     if (pendingRoute) return;
     document.body.classList.add('hb-detail-page');
-    saveRoute(id, replace); paintDetail(); window.scrollTo({ top: 0, behavior: 'instant' });
-    await paintProcess(); void installFaq();
+    if (bookmarkId === null) saveRoute(id, replace);
+    else {
+      completed = [];
+      for (const state of evaluation.questions) {
+        if (!state.visible || state.question.fixed) continue;
+        if (!Object.hasOwn(answers, state.question.key) || state.errors.length) break;
+        completed.push(state.question.key);
+      }
+    }
+    paintDetail(); window.scrollTo({ top: 0, behavior: 'instant' });
+    await paintProcess();
+    if (bookmarkId !== null) focusQuestion();
+    void installFaq();
 
   }
   function waitImage(img) {
@@ -1016,7 +1033,7 @@
     const match = location.pathname.match(/\/(products|series)\/(\d+)\/?$/);
     if (match) {
       if (match[1] === 'series') await openSeries(Number(match[2]), true);
-      else await detail(Number(match[2]), true);
+      else await detail(Number(match[2]), true, null, params.get('bookmark'));
     } else await catalog(true, true);
   }
   window.addEventListener('resize', () => main.querySelectorAll('.hb-rail').forEach(rail => rail.dispatchEvent(new Event('hb-resize'))));
