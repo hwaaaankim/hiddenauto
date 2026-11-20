@@ -302,6 +302,14 @@
     return '<section class="store-empty">' + icon(symbol) + '<h2>' + esc(title) + '</h2><p>' +
       esc(description) + '</p><a class="store-btn" href="' + esc(destination) + '">' + esc(label) + '</a></section>';
   }
+  function listDate(value) {
+    const parts = Array.isArray(value) ? value : /^(\d{4})[-.,]\s*(\d{1,2})[-.,]\s*(\d{1,2})(?:$|T)/.exec(String(value))?.slice(1);
+    if (!parts || parts.length !== 3) return '확인 필요';
+    const [year, month, day] = parts.map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return '확인 필요';
+    return year + '.' + String(month).padStart(2, '0') + '.' + String(day).padStart(2, '0') + ' (' + '일월화수목금토'[date.getUTCDay()] + ')';
+  }
   let listObserver;
   async function listPage(mode, limit = 10, selectedKeys = new Set(), focusIndex) {
     listObserver?.disconnect();
@@ -318,29 +326,28 @@
     };
     const renderRow = (row, i) => {
       if (!row.item?.selection) return '<article class="store-row store-saved-row"><div><strong>저장 구성 확인 필요</strong><p>이 항목의 옵션을 복원할 수 없습니다.</p><p>' + esc(row.note || '') + '</p></div><button type="button" class="store-btn" data-remove="' + i + '">삭제</button></article>';
-      const details = [
-        row.item.custom ? '비규격' : '규격',
-        row.item.series,
-        mode === 'cart' ? '수량 ' + (row.quantity || 1) + '개' : '',
-        row.item.productionDays == null || row.item.productionDays < 0 ? '생산기간 미설정 · 기본 2영업일 적용' : '생산기간 ' + row.item.productionDays + '일',
-        row.item.earliest ? '최초 가능일 ' + row.item.earliest : '',
-        row.createdAt && new Date(row.createdAt).toLocaleString('ko-KR'),
-        row.note
-      ].filter(Boolean);
-      const options = row.item.summary || [];
-      const compact = row.item.compactSummary ?? options;
-      return '<article class="store-row store-saved-row">' +
-        (mode === 'bookmark' ? '' : '<input type="checkbox" data-index="' + i + '" aria-label="품목 선택">') +
-        img(row.item) + '<div><button type="button" class="store-link" data-open="' + i + '">' + esc(row.item.name) +
-        '</button><div class="store-row-price">' + (row.item.price == null ? '구성 저장' : won(row.item.price)) + '</div>' +
-        (compact.length ? '<p class="store-compact-summary">' + compact.map(esc).join(' | ') + '</p>' : '') +
-        '<p class="store-row-meta">' + details.map(text => '<span>' + esc(text) + '</span>').join('') + '</p>' +
-        (options.length || details.length ? '<details class="store-row-details' + (options.length ? '' : ' store-mobile-details') + '"' +
-          '><summary>상세 정보</summary><div><small class="store-row-mobile-meta">' + esc(details.join(' · ')) + '</small>' +
-          (options.length ? '<ul>' + options.map(text => '<li><strong>' + esc(text.split(' · ')[0]) + '</strong> <span>' + esc(text.split(' · ').slice(1).join(' · ')) + '</span></li>').join('') + '</ul>' : '') +
-          '</div></details>' : '') +
-        '</div><button class="store-icon" type="button" data-remove="' + i +
-        '" aria-label="삭제">' + icon('close') + '</button></article>';
+      const item = row.item;
+      const fields = [['구분', item.custom ? '비규격' : '규격'], ['시리즈', item.series || '미등록'],
+        ['대분류', item.category || '정보 없음'], ['생산기간', item.productionDays == null || item.productionDays < 0 ? '기본 2영업일' : item.productionDays + '일'],
+        ['가장 빠른 발주 가능일', listDate(item.earliest)]];
+      const extra = [];
+      if (mode === 'cart') extra.push(['수량', (row.quantity || 1) + '개']);
+      if (row.createdAt) extra.push(['저장일', listDate(row.createdAt)]);
+      if (row.note) extra.push(['남긴 말', row.note]);
+      for (const answer of item.summary || []) {
+        const text = String(answer), split = text.indexOf(' · ');
+        extra.push(split < 0 ? ['옵션', text] : [text.slice(0, split), text.slice(split + 3)]);
+      }
+      const pairs = entries => entries.map(([label,value]) => '<div><dt>' + esc(label) + '</dt><dd>' + esc(value) + '</dd></div>').join('');
+      return '<article class="store-row store-saved-row saved-product"><div class="saved-product-head">' +
+        (mode === 'bookmark' ? '' : '<input type="checkbox" data-index="' + i + '" aria-label="' + esc(item.name) + ' 선택">') +
+        img(item) + '<div class="saved-product-title"><button type="button" class="store-link" data-open="' + i + '">' + esc(item.name) +
+        '</button><div class="store-row-price">' + (item.price == null ? '가격 미확정' : won(item.price)) + '</div></div>' +
+        '<button class="store-icon" type="button" data-remove="' + i + '" aria-label="' + esc(item.name) + ' 삭제">' + icon('close') + '</button></div>' +
+        '<dl class="store-product-facts">' + pairs(fields) + '</dl>' +
+        (extra.length ? '<button type="button" class="saved-options-toggle" aria-expanded="false" aria-controls="saved-options-' + mode + '-' + i + '">상세 정보</button>' +
+          '<div class="saved-options-panel" id="saved-options-' + mode + '-' + i + '" inert><div><dl class="store-answer-detail">' + pairs(extra) + '</dl></div></div>' : '') +
+        '</article>';
     };
     shell(names[mode], rows.length
       ? '<div class="store-list"></div><div class="store-more"><p role="status"></p>' +
@@ -360,13 +367,15 @@
     let bindCheck = () => {};
     if (mode !== 'bookmark' && rows.length) {
       const bar = document.createElement('div');
-      bar.className = 'store-actions store-list-actions';
-      bar.innerHTML = '<label><input type="checkbox" id="store-select-all"> 표시된 품목 전체 선택</label><span class="store-selection-count" role="status"><span data-count></span><span class="store-subtotal">상품금액 <strong data-total></strong></span></span>' +
-        button('order', mode === 'interest' ? '바로 발주하기' : '발주하기', true) +
-        (mode === 'interest' ? button('cart', '장바구니 담기') : '');
-      host.querySelector('header').after(bar);
-      const all = bar.querySelector('#store-select-all');
-      const selectedCount = bar.querySelector('.store-selection-count');
+      const selection = document.createElement('div');
+      selection.className = 'store-selection-head';
+      selection.innerHTML = '<label><input type="checkbox" id="store-select-all"> 표시된 품목 전체 선택</label><span data-count role="status"></span>';
+      host.querySelector('header').after(selection);
+      bar.className = 'store-order-footer';
+      bar.innerHTML = '<span class="store-order-amount">선택 상품금액 <strong data-total aria-live="polite"></strong></span><div class="store-order-buttons">' +
+        (mode === 'interest' ? button('cart', '장바구니 담기') : '') + button('order', '발주하기', true) + '</div>';
+      footer.after(bar);
+      const all = selection.querySelector('#store-select-all');
       const actions = [...bar.querySelectorAll('[data-action]')];
       const checks = () => [...list.querySelectorAll('[data-index]')];
       updateAll = () => {
@@ -379,8 +388,8 @@
           const row = rows[Number(el.dataset.index)];
           return total + Number(row.item.price || 0) * (row.quantity || 1);
         }, 0);
-        selectedCount.querySelector('[data-count]').textContent = count + '개 선택';
-        selectedCount.querySelector('[data-total]').textContent = won(subtotal);
+        selection.querySelector('[data-count]').textContent = count + '개 선택';
+        bar.querySelector('[data-total]').textContent = won(subtotal);
         actions.forEach(action => { action.disabled = !count || action.dataset.busy === 'true'; });
       };
       const updateSelection = el => {
@@ -424,7 +433,21 @@
       more.hidden = to >= rows.length;
       updateAll();
     }
+    function expandOptions(toggle, expanded) {
+      toggle.setAttribute('aria-expanded', String(expanded));
+      const panel = toggle.nextElementSibling;
+      panel.inert = !expanded;
+    }
     list.addEventListener('click', async event => {
+      const toggle = event.target.closest('.saved-options-toggle');
+      if (toggle) {
+        const expand = toggle.getAttribute('aria-expanded') !== 'true';
+        for (const other of list.querySelectorAll('.saved-options-toggle[aria-expanded="true"]')) {
+          if (other !== toggle) expandOptions(other, false);
+        }
+        expandOptions(toggle, expand);
+        return;
+      }
       const action = event.target.closest('[data-remove],[data-open]');
       if (!action || action.disabled) return;
       action.disabled = true;
