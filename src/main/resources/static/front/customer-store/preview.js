@@ -328,7 +328,7 @@
       if (!row.item?.selection) return '<article class="store-row store-saved-row"><div><strong>저장 구성 확인 필요</strong><p>이 항목의 옵션을 복원할 수 없습니다.</p><p>' + esc(row.note || '') + '</p></div><button type="button" class="store-btn" data-remove="' + i + '">삭제</button></article>';
       const item = row.item;
       const fields = [['구분', item.custom ? '비규격' : '규격'], ['시리즈', item.series || '미등록'],
-        ['대분류', item.category || '정보 없음'], ['생산기간', item.productionDays == null || item.productionDays < 0 ? '기본 2영업일' : item.productionDays + '일'],
+        ['대분류', item.category?.trim() || '조회 중…'], ['생산기간', item.productionDays == null || item.productionDays < 0 ? '기본 2영업일' : item.productionDays + '일'],
         ['가장 빠른 발주 가능일', listDate(item.earliest)]];
       const extra = [];
       if (mode === 'cart') extra.push(['수량', (row.quantity || 1) + '개']);
@@ -338,7 +338,7 @@
         const text = String(answer), split = text.indexOf(' · ');
         extra.push(split < 0 ? ['옵션', text] : [text.slice(0, split), text.slice(split + 3)]);
       }
-      const pairs = entries => entries.map(([label,value]) => '<div><dt>' + esc(label) + '</dt><dd>' + esc(value) + '</dd></div>').join('');
+      const pairs = entries => entries.map(([label,value]) => '<div><dt>' + esc(label) + '</dt><dd' + (label === '대분류' ? ' data-category' : '') + '>' + esc(value) + '</dd></div>').join('');
       return '<article class="store-row store-saved-row saved-product"><div class="saved-product-head">' +
         (mode === 'bookmark' ? '' : '<input type="checkbox" data-index="' + i + '" aria-label="' + esc(item.name) + ' 선택">') +
         img(item) + '<div class="saved-product-title"><button type="button" class="store-link" data-open="' + i + '">' + esc(item.name) +
@@ -421,9 +421,30 @@
           quantity: row.quantity || 1, fromCart: mode === 'cart', savedId: mode === 'interest' ? row.id : undefined})));
       }, updateAll);
     }
+    const categories = new Map();
+    function fillCategory(card, item) {
+      if (item.category?.trim()) return;
+      const id = item.selection.productId;
+      if (!categories.has(id)) {
+        categories.set(id, call('/customer-series/' + encodeURIComponent(id)).then(data => {
+          const name = data.series.category?.trim();
+          if (!name) throw new Error();
+          return name;
+        }).catch(() => { categories.delete(id); return null; }));
+      }
+      const field = card.querySelector('[data-category]');
+      categories.get(id).then(name => {
+        field.textContent = name || '분류 조회 실패';
+        if (name) item.category = name;
+      });
+    }
     function appendRows(from, to) {
       const template = document.createElement('template');
       template.innerHTML = rows.slice(from, to).map((row, i) => renderRow(row, from + i)).join('');
+      Array.from(template.content.children).forEach((card, index) => {
+        const item = rows[from + index].item;
+        if (item?.selection) fillCategory(card, item);
+      });
       template.content.querySelectorAll('[data-index]').forEach(bindCheck);
       if (from > 0) template.content.querySelectorAll('.store-saved-row').forEach((row, index) => {
         row.classList.add('store-row-enter');
@@ -540,14 +561,14 @@
       '</div><p class="store-bulk-warning" role="status"></p><div class="store-actions"><button type="button" class="store-btn" id="store-bulk-close">닫기</button>' +
       '<button type="button" class="store-btn is-primary" id="store-apply">적용</button></div></dialog>' +
       '<form id="store-checkout"><div class="store-list">' + rows.map((row, index) => '<article class="store-check-line"><div class="store-row">' +
-      img(row.item) + '<div><strong>' + (index + 1) + '. ' + esc(row.item.name) + '</strong><div>' + won(row.item.price) +
-      ' · 최초 가능일 ' + esc(listDate(row.item.earliest) || '미등록') + (row.item.productionDays == null || row.item.productionDays < 0 ? ' · 기본 생산기간 2영업일 적용' : '') + '</div></div><span class="store-line-status"></span></div>' +
+      img(row.item) + '<div><strong>' + esc(row.item.name) + '</strong><div class="checkout-price">' + won(row.item.price) + '</div><small>' +
+      '최초 가능일 ' + esc(listDate(row.item.earliest) || '미등록') + (row.item.productionDays == null || row.item.productionDays < 0 ? ' · 기본 생산기간 2영업일 적용' : '') + '</small></div><span class="store-line-status"></span></div>' +
       checkoutOptions(row.item) + '<p class="store-line-overview"></p><details class="store-row-details store-check-details"><summary>수량 · 배송지 · 연락처 변경</summary><div class="store-fields">' +
       '<label>수량<input type="number" name="quantity" min="1" max="99999" required value="' + esc(row.quantity || 1) + '"></label>' +
       shipping + address + date + contacts + '</div><small class="store-method-note" aria-live="polite"></small></details></article>').join('') +
-      '</div><section class="store-payment"><h2>결제</h2><p>계좌결제 · 검증용</p><label>사용 포인트 <input type="number" name="points" value="0" min="0" max="' +
-      esc(options.points) + '" required></label><small>보유 ' + won(options.points) + ' 상당</small></section>' +
-      '<button type="submit" class="store-btn is-primary">배송비 계산</button></form>' + addressBook);
+      '</div><section class="store-payment"><h2>결제 정보</h2><p>계좌결제 · 미리보기</p><label>사용 포인트 <input type="number" name="points" value="0" min="0" max="' +
+      esc(options.points) + '" required></label><small>보유 ' + won(options.points) + ' 상당</small>' +
+      '<button type="submit" class="store-btn is-primary">배송비 계산</button></section></form>' + addressBook);
     const form = main.querySelector('#store-checkout');
     const lines = [...form.querySelectorAll('.store-check-line')];
     const bulk = main.querySelector('.store-bulk');
@@ -631,7 +652,7 @@
       const quantityInput = line.querySelector('[name=quantity]');
       const complete = Boolean(addressInput.value.trim() && methodInput.value && dateInput.value && quantityInput.validity.valid);
       const status = line.querySelector('.store-line-status');
-      const overview = [quantityInput.value + '개', methodInput.selectedOptions[0]?.value ? methodInput.selectedOptions[0].text : '',
+      const overview = ['수량 ' + quantityInput.value + '개', methodInput.selectedOptions[0]?.value ? methodInput.selectedOptions[0].text : '',
         dateInput.value, [addressInput.value, line.querySelector('[name=addressDetail]').value].filter(Boolean).join(' ')];
       line.querySelector('.store-line-overview').textContent = overview.filter(Boolean).join(' · ');
       status.textContent = complete ? '입력 완료' : '배송 정보 입력 필요';
