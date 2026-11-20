@@ -37,16 +37,13 @@
 </th:block>
 <th:block th:fragment="autoHeaderMenu">
     <th:block th:if="${@storePreviewAccess.allowed(#authentication?.principal)}">
-        <link rel="stylesheet" href="/front/customer-store/counts.css?v=1">
-        <script src="/front/customer-store/counts.js?v=1" defer></script>
+        <link rel="stylesheet" href="/front/customer-store/counts.css?v=20261120-purchase-r2">
+        <script src="/front/customer-store/counts.js?v=20261120-purchase-r2" defer></script>
     </th:block>
 	<div class="header header-demo header-logo-center mb-3">
 		<a href="/index" class="header-logo">HIDDEN BATH</a>
 		<div id="header-icon-4-group">
-			<a class="header-icon header-icon-4" data-menu="menu-sidebar-left-4" href="#">
-				<i class="font-18 fas fa-bars"></i>
-			</a>
-			<a class="header-icon header-icon-3 store-count-link" th:if="${@storePreviewAccess.allowed(#authentication?.principal)}"
+			<a class="header-icon header-icon-6 store-count-link" th:if="${@storePreviewAccess.allowed(#authentication?.principal)}"
                 data-store-count="cart" th:attr="data-store-user=${@storePreviewAccess.company(#authentication.principal) + ':' + #authentication.principal.id}"
                 th:href="@{/customer/store-preview(view='cart')}" aria-label="장바구니" title="장바구니">
                 <i class="font-18 fa-solid fa-bag-shopping" aria-hidden="true"></i>
@@ -56,12 +53,15 @@
                 th:href="@{/customer/store-preview(view='interest')}" aria-label="관심상품" title="관심상품">
                 <i class="font-18 fa-solid fa-heart" aria-hidden="true"></i>
             </a>
-            <a class="header-icon header-icon-6 store-count-link" th:if="${@storePreviewAccess.allowed(#authentication?.principal)}"
+            <a class="header-icon header-icon-3 store-count-link" th:if="${@storePreviewAccess.allowed(#authentication?.principal)}"
                 data-store-count="bookmark" th:attr="data-store-user=${@storePreviewAccess.company(#authentication.principal) + ':' + #authentication.principal.id}"
                 th:href="@{/customer/store-preview(view='bookmark')}" aria-label="즐겨찾기" title="즐겨찾기">
                 <i class="font-18 fa-solid fa-bookmark" aria-hidden="true"></i>
             </a>
-            		</div>
+			<a class="header-icon header-icon-4" aria-label="메뉴 열기" data-menu="menu-sidebar-left-4" href="#">
+				<i class="font-18 fas fa-bars"></i>
+			</a>
+		</div>
 	</div>
 </th:block>
 <th:block th:fragment="beforeHeaderMenu">

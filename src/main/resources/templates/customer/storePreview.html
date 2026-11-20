@@ -9,8 +9,8 @@
   <link rel="stylesheet" href="/administration/assets/css/page/productMaster/productShowcase.css?v=20261107-fullflow-2">
   <link rel="stylesheet" href="/administration/assets/css/page/productMaster/customerOrderExample.css?v=20261107-fullflow-3">
   <link rel="stylesheet" href="/administration/assets/libs/flatpickr/flatpickr.min.css">
-  <link rel="stylesheet" href="/front/customer-store/preview.css?v=20261120-layout-r10">
-  <link rel="stylesheet" href="/front/customer-store/counts.css?v=1">
+  <link rel="stylesheet" href="/front/customer-store/preview.css?v=20261120-purchase-r2">
+  <link rel="stylesheet" href="/front/customer-store/counts.css?v=20261120-purchase-r2">
 </head>
 <body class="hb-store" th:attr="data-store-user=${storeUser},data-store-token=${storeToken}">
   <a class="hb-skip" href="#hb-main">본문으로 이동</a>
@@ -38,18 +38,18 @@
     <div id="store-search-state" class="store-search-state" hidden><p role="status"></p><a href="/customer/store-preview">검색 초기화</a></div>
     <details id="store-recent" hidden><summary>최근 검색어</summary><ul></ul></details>
   </div>
+  <noscript>장바구니, 저장한 상품과 발주 화면을 이용하려면 브라우저에서 자바스크립트를 켜 주세요.</noscript>
   <main id="hb-main" tabindex="-1"></main>
   <footer class="hb-footer"><div class="hb-brand">HIDDEN<span>BATH</span></div><small>히든바스 발주 검증</small><button id="hb-motion-toggle" class="hb-motion-toggle" type="button" aria-pressed="false">모션 줄이기</button></footer>
   <div id="hb-loading" class="hb-loading" role="status" aria-live="polite" aria-label="불러오는 중" hidden><div class="hb-loader"><span>HIDDENBATH</span><div class="hb-loader-track"><i></i></div><p id="hb-loading-label">제품을 불러오는 중입니다.</p></div></div>
   <script src="/administration/assets/js/page/productMaster/studio/common.js?v=20261120-r4"></script>
-    <script src="/administration/assets/js/page/productMaster/studio/arithmetic.js?v=20261110-modal-3"></script>
+  <script src="/administration/assets/js/page/productMaster/studio/arithmetic.js?v=20261110-modal-3"></script>
   <script src="/administration/assets/js/page/productMaster/studio/showcase.js?v=20261110-modal-3"></script>
   <script src="/administration/assets/libs/flatpickr/flatpickr.min.js"></script>
   <script src="/administration/assets/libs/flatpickr/l10n/ko.js"></script>
-  <script src="/front/customer-store/counts.js?v=1" defer></script>
-  <script src="https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+  <script src="/front/customer-store/counts.js?v=20261120-purchase-r2" defer></script>
   <script src="/front/addressRegion.js"></script>
-  <script src="/front/customer-store/preview.js?v=20261120-layout-r10"></script>
-  <script src="/front/customer-store/catalog.js?v=20261120-layout-r10"></script>
+  <script src="/front/customer-store/preview.js?v=20261120-address-book-r3"></script>
+  <script src="/front/customer-store/catalog.js?v=20261120-purchase-r2"></script>
 </body>
 </html>

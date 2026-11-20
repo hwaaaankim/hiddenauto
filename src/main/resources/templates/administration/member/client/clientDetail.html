@@ -251,6 +251,7 @@
 																		id="admin-client-detail-fourth-roadAddress"
 																		name="roadAddress"
 																		th:value="${company.roadAddress}" readonly>
+																	<input type="hidden" id="admin-client-detail-fourth-jibunAddress" th:value="${company.jibunAddress}">
 																</div>
 
 																<div class="col-12">
@@ -622,7 +623,7 @@
 
 	<!-- 회원가입/회원정보/관리자 화면이 동일한 주소 정규화 규칙을 사용합니다. -->
 	<script src="/front/addressRegion.js?v=20260902-1"></script>
-	<script src="/administration/assets/js/page/clientDetail.js?v=20260923-1"></script>
+	<script src="/administration/assets/js/page/clientDetail.js?v=20261120-address-r2"></script>
 
 </body>
 

@@ -31,7 +31,7 @@
   let motion = 'smooth';
   try { motion = localStorage.getItem('hb-store-motion-v2') || 'smooth'; } catch (_) { /* Storage can be disabled. */ }
   document.body.dataset.motion = motion === 'reduced' ? 'reduced' : 'smooth';
-  const duration = normal => document.body.dataset.motion === 'reduced' ? 0 : normal;
+  const duration = normal => document.body.dataset.motion === 'reduced' || window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : normal;
   function progress(value) {
     if (!busy) return;
     loadingProgress = Math.max(loadingProgress, Math.min(100, value));
@@ -68,11 +68,32 @@
     errorBox.textContent = message || '';
     if (message) {
       const retry = document.createElement('button'); retry.textContent = '다시 시도';
-      retry.onclick = () => run(lastAction); errorBox.append(retry);
-      errorBox.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      retry.type = 'button';
+      retry.onclick = () => lastAction?.();
+      const links = document.createElement('span');
+      links.className = 'store-recovery-actions';
+      links.append(retry);
+      const source = sourceList();
+      if (source) {
+        const back = document.createElement('a');
+        back.href = source.href;
+        back.textContent = source.label + '로 돌아가기';
+        links.append(back);
+        if (/\/(products|series)\/\d+\/?$/.test(location.pathname)) {
+          const fresh = new URL(location.pathname, location.origin);
+          fresh.searchParams.set('configure', 'new');
+          if (fresh.pathname.includes('/products/')) fresh.searchParams.set('kind', 'custom');
+          const configure = document.createElement('a');
+          configure.href = fresh.pathname + fresh.search;
+          configure.textContent = '제품을 새로 구성하기';
+          links.append(configure);
+        }
+      }
+      errorBox.append(links);
+      errorBox.scrollIntoView({ block: 'nearest', behavior: duration(1) ? 'smooth' : 'instant' });
     }
   }
-  let stepLoading = null, focusMotion = null;
+  let stepLoading = null, focusMotion = null, focusAfterRestore = false;
   const stepLoaderHtml = '<span class="hb-step-loader" aria-hidden="true"><i></i></span>';
   function loaderIn(node) {
     if (!node) return null;
@@ -137,8 +158,13 @@
     const destination = () => Math.max(0, Math.min(document.documentElement.scrollHeight - innerHeight,
       scrollY + card.getBoundingClientRect().top - header - 24));
     const target = needsMove ? destination() : from;
-    if (focusInput && S.desktopQuestionInput()) {
-      card.querySelector('input[data-answer-field]:not(:disabled):not([type=file]),input[data-answer-choice][tabindex="0"],input[data-answer-choice]:not(:disabled),h2')?.focus({preventScroll:true});
+    if (focusInput) {
+      const input = S.desktopQuestionInput() &&
+        (card.querySelector('[data-answer-field]:not(:disabled):not([type=file])') ||
+          card.querySelector('input[data-answer-choice][tabindex="0"]:not(:disabled)'));
+      const heading = card.querySelector('h2');
+      if (heading && !heading.hasAttribute('tabindex')) heading.tabIndex = -1;
+      (input || heading)?.focus({preventScroll:true});
     }
     if (Math.abs(target - from) < 2) return;
     const ms = duration(Math.min(640, 340 + Math.abs(target-from) * .16));
@@ -154,6 +180,7 @@
   }
   function focusQuestion() {
     const card = main.querySelector('.hb-question.is-current') || main.querySelector('#hb-product-result .hb-quote') || main.querySelector('#hb-price .hb-quote');
+    if (card && (main.inert || card.inert)) { focusAfterRestore = true; return; }
     moveToQuestion(card, true);
   }
   for (const event of ['wheel','touchstart','pointerdown']) window.addEventListener(event, cancelFocusMotion, {passive:true});
@@ -233,15 +260,19 @@
   }
   async function run(action, label = '화면을 준비하고 있습니다.', scope = 'page') {
     if (running || uploadCount || !action) return;
-    running = true; lastAction = action; error('');
+    running = true; lastAction = () => run(action, label, scope); error('');
     const local = scope === 'question';
+    const previousFocus = local ? document.activeElement : null;
+    let failed = false;
     if (local) { error('', true); localBusy(true, label); } else { cancelFocusMotion(); setBusy(true, label); }
     try { await action(); }
-    catch (err) { error(err.message || '처리 중 오류가 발생했습니다.', local); }
+    catch (err) { failed = true; error(err.message || '처리 중 오류가 발생했습니다.', local); }
     finally {
       if (local) localBusy(false, label); else setBusy(false);
       running = false;
-      if (pendingRoute && !uploadCount) { pendingRoute = false; run(route); }
+      if (pendingRoute && !uploadCount) { focusAfterRestore = false; pendingRoute = false; startRoute(); }
+      else if (focusAfterRestore) { focusAfterRestore = false; focusQuestion(); }
+      else if (failed && previousFocus?.isConnected) previousFocus.focus({preventScroll:true});
     }
   }
   // Every request has a bounded lifetime so a disconnected server cannot leave the overlay open.
@@ -256,7 +287,7 @@
     if (typeof url !== 'string' || !url.trim()) return '';
     try { const u = new URL(url, location.origin); return ['http:', 'https:'].includes(u.protocol) ? u.href : ''; } catch { return ''; }
   }
-  function photo() { return null; }
+  function photo(card) { return list(card.assets).find(asset => asset.image && safeUrl(asset.url)); }
   function cardImage(card, index = 0) { return safeUrl(photo(card)?.url) || sample(card.id ?? index); }
   function routeUrl(id, type = 'products') {
     const url = new URL(id ? `${ROOT}/${type}/${id}` : ROOT, location.origin);
@@ -265,7 +296,10 @@
     return url.pathname + url.search;
   }
   function saveRoute(id, replace = false, type = 'products') {
-    history[replace ? 'replaceState' : 'pushState']({}, '', routeUrl(id, type));
+    const target = routeUrl(id, type);
+    const sameEntry = replace && new URLSearchParams(location.search).get('configure') !== 'new' &&
+      new URL(target, location.origin).pathname === location.pathname.replace(/\/$/, '');
+    history[replace ? 'replaceState' : 'pushState'](sameEntry ? history.state : null, '', target);
   }
   async function catalog(_fetchData = true, replace = false) {
     const result = await request('/customer-collections?' + store.catalogQuery(kind));
@@ -352,23 +386,89 @@
     main.querySelectorAll('.hb-card-image img').forEach(img => { if (img.complete) img.closest('.hb-card-image').classList.remove('is-loading'); });
   }
   function setupProduct(next) {
-    gallerySequence++; galleryAnimation?.cancel(); removeFaq();
+    removeFaq();
     product = next; product._isAdminTest = false; kind = next.nonStandard;
     answers = {}; completed = []; evaluation = null; currentQuestion = null;
     assets = new Map([...list(product.processAssets), ...list(product.assets), ...list(product.groups).flatMap(g => [...list(g.assets), ...list(g.values).flatMap(v => list(v.assets))])].map(a => [a.id, a]));
-    const registered = [];
-    album = registered.length ? [...registered] : [0,7,14].map(offset => ({ url:sample(product.id + offset), name:'예시 이미지', sample:true }));
-    slide = 0; galleryRequested = 0;
+    chooseAlbum(product);
+  }
+  let albumOwner;
+  function chooseAlbum(owner) {
+    gallerySequence++;
+    galleryAnimation?.cancel();
+    albumOwner = owner.id;
+    const registered = list(owner.assets).filter(asset => asset.image && safeUrl(asset.url));
+    album = registered.length ? registered.map(asset => ({...asset})) :
+      [0,7,14].map(offset => ({url:sample(owner.id + offset), name:'예시 이미지', sample:true}));
+    slide = 0;
+    galleryRequested = 0;
+  }
+  function gallerySlides(heading) {
+    return album.map((asset, index) => `<div class="hb-gallery-slide" aria-hidden="${index !== 0}"><img src="${e(safeUrl(asset.url))}" alt="${e(heading)} · ${e(asset.name)}" data-fallback="${e(sample(albumOwner))}"></div>`).join('');
+  }
+  function galleryThumbs() {
+    return album.map((asset, index) => `<button type="button" data-slide="${index}" aria-label="${index + 1}번 이미지" aria-pressed="${index === 0}"><img src="${e(safeUrl(asset.url))}" alt="" data-fallback="${e(sample(albumOwner))}"></button>`).join('');
+  }
+  function showProductGallery(owner) {
+    if (albumOwner === owner.id) return;
+    chooseAlbum(owner);
+    main.querySelector('.hb-gallery-track').innerHTML = gallerySlides(owner.productName);
+    main.querySelector('.hb-gallery-thumbs').innerHTML = galleryThumbs();
+    main.querySelector('.hb-image-loading').hidden = true;
+    updateSlide();
+  }
+  async function verifyRestore(saved) {
+    try {
+      const item = await request('/item/check', 'POST', {item: saved.row.item, bookmark: saved.source === 'bookmark'});
+      return {...saved, item};
+    } catch (problem) {
+      if (problem.status !== 409 || problem.invalid !== true || pendingRoute) throw problem;
+      const removed = await store.purgeInvalidRow(saved.row, saved.source);
+      const name = saved.row.item.name || '저장한 제품';
+      const lists = {bookmark: '즐겨찾기', interest: '관심상품', cart: '장바구니'};
+      if (removed) throw Error(name + '의 저장 구성을 더 이상 사용할 수 없어 ' + lists[saved.source] + '에서 삭제했습니다. ' + problem.message);
+      throw Error(name + '의 저장 상태가 달라졌습니다. ' + lists[saved.source] + '에서 현재 구성을 다시 열어 주세요.');
+    }
+  }
+  async function restoreAtEntry(id, bookmarkId = null) {
+    let saved;
+    if (bookmarkId !== null) {
+      if (!/^[1-9]\d*$/.test(bookmarkId)) throw Error('즐겨찾기 주소를 확인해 주세요.');
+      const row = await request('/saved/' + encodeURIComponent(bookmarkId));
+      if (row?.kind !== 'bookmark' || String(row.id) !== bookmarkId || String(row.item?.selection?.productId) !== String(id))
+        throw Error('이 제품의 즐겨찾기를 불러올 수 없습니다. 즐겨찾기 목록을 확인해 주세요.');
+      saved = {source:'bookmark', row};
+    } else if (new URLSearchParams(location.search).get('configure') !== 'new') saved = await store.takeRestore(id);
+    return saved && !pendingRoute ? verifyRestore(saved) : null;
+  }
+  async function blockChangedRestore(saved) {
+    // Product data can change between the opening check and the subsequent evaluation.
+    // Only the authoritative invalid response can start removal of the original record.
+    await verifyRestore(saved);
+    throw Error('저장한 구성을 그대로 열 수 없습니다. 목록에서 제품을 다시 확인해 주세요.');
+  }
+  async function entryRequest(saved, path, method, body) {
+    try { return await request(path, method, body); }
+    catch (problem) {
+      if (saved && !pendingRoute && [400, 404, 409, 410].includes(problem.status)) await verifyRestore(saved);
+      throw problem;
+    }
   }
   async function openSeries(id, replace = false) {
     store.search(false, kind);
-    const context = await request(`/customer-series/${id}`);
+    const saved = await restoreAtEntry(id);
     if (pendingRoute) return;
+    const context = await entryRequest(saved, `/customer-series/${id}`);
+    if (pendingRoute) return;
+    if (saved && context.series.nonStandard) await blockChangedRestore(saved);
     if (context.series.nonStandard && context.products.length === 1) return detail(context.products[0].id, replace, context);
-    const restored = context.series.nonStandard ? null : store.takeRestore(id);
+    const restored = saved?.item;
     const selections = restored?.selection.options || {};
-    const state = context.series.nonStandard ? null : await request(`/customer-series/${id}/configure`, 'POST', selections);
+    const state = context.series.nonStandard ? null : await entryRequest(saved, `/customer-series/${id}/configure`, 'POST', selections);
     if (pendingRoute) return;
+    if (saved && (!state.complete || !state.products.some(candidate => candidate.id === restored.selection.productId))) {
+      await blockChangedRestore(saved);
+    }
     seriesContext = context; standardState = state; standardSelections = selections; standardProduct = null;
     setupProduct(context.representative);
     document.body.classList.add('hb-detail-page');
@@ -377,43 +477,42 @@
     else {
       await paintStandard();
       if (restored && standardState.products.length > 1) await showStandardProduct(restored.selection.productId);
+      if (restored && !pendingRoute) focusAfterRestore = true;
     }
 
   }
   async function detail(id, replace = false, context = null, bookmarkId = null) {
     store.search(false, kind);
-    const next = await request(`/products/${id}`);
+    const saved = await restoreAtEntry(id, bookmarkId);
     if (pendingRoute) return;
+    const next = await entryRequest(saved, `/products/${id}`);
+    if (pendingRoute) return;
+    if (saved && (!next.nonStandard || next.status === 'DISCONTINUED')) await blockChangedRestore(saved);
     if (next.status === 'DISCONTINUED') throw Error('단종된 제품은 이 화면에서 선택할 수 없습니다.');
     if (!next.nonStandard) return openSeries(id, replace);
     seriesContext = context; standardState = null; standardProduct = null; standardSelections = {};
     setupProduct(next);
-    let restored;
-    if (bookmarkId !== null) {
-      const saved = await request('/saved');
-      restored = saved.find(row => row.kind === 'bookmark' && String(row.id) === bookmarkId)?.item;
-      if (String(restored?.selection?.productId) !== String(id) || !restored?.selection?.answers)
-        throw Error('이 제품의 즐겨찾기를 불러올 수 없습니다. 즐겨찾기 목록을 확인해 주세요.');
-    } else restored = store.takeRestore(id);
-    if (restored?.selection.answers) {
-      answers = restored.selection.answers;
-      completed = Object.keys(answers);
-    }
-    evaluation = await request(`/products/${id}/customer-evaluate`, 'POST', answers);
+    const restored = saved?.item;
+    answers = restored?.selection?.answers || {};
+    evaluation = await entryRequest(saved, `/products/${id}/customer-evaluate`, 'POST', answers);
     if (pendingRoute) return;
-    document.body.classList.add('hb-detail-page');
-    if (bookmarkId === null) saveRoute(id, replace);
-    else {
+    if (saved) {
       completed = [];
       for (const state of evaluation.questions) {
         if (!state.visible || state.question.fixed) continue;
-        if (!Object.hasOwn(answers, state.question.key) || state.errors.length) break;
-        completed.push(state.question.key);
+        const key = state.question.key;
+        if (!Object.hasOwn(answers, key) || state.errors.length) break;
+        completed.push(key);
+      }
+      if (completed.length !== Object.keys(answers).length || (saved.source !== 'bookmark' && !evaluation.complete)) {
+        await blockChangedRestore(saved);
       }
     }
+    document.body.classList.add('hb-detail-page');
+    if (bookmarkId === null) saveRoute(id, replace);
     paintDetail(); window.scrollTo({ top: 0, behavior: 'instant' });
     await paintProcess();
-    if (bookmarkId !== null) focusQuestion();
+    if (restored) focusAfterRestore = true;
     void installFaq();
 
   }
@@ -424,16 +523,25 @@
       const timer = setTimeout(done, 8000); img.addEventListener('load', done); img.addEventListener('error', done);
     });
   }
+  function sourceList() {
+    const params = new URLSearchParams(location.search);
+    if (params.get('configure') === 'new') return null;
+    const mode = params.has('bookmark') ? 'bookmark' : params.has('resume') ? params.get('from') : history.state?.storeRestore?.source;
+    if (!['bookmark', 'interest', 'cart'].includes(mode)) return null;
+    const labels = {bookmark: '즐겨찾기', interest: '관심상품', cart: '장바구니'};
+    return {href: ROOT + '?view=' + mode, label: labels[mode]};
+  }
   function paintDetail() {
+    const source = sourceList();
     const choosingSeries = !!standardState || (kind && !evaluation && !!seriesContext);
     const heading = choosingSeries ? seriesContext.series.series : product.productName;
-    main.innerHTML = `<div class="hb-breadcrumb"><a href="${e(routeUrl())}" id="hb-back">컬렉션</a><span>/</span><span>${kind ? '비규격제품' : '규격제품'}</span><span>/</span><span>${e(choosingSeries ? heading : product.catalogCode)}</span>${kind && evaluation && seriesContext?.products.length > 1 ? '<button id="hb-back-models" type="button">시리즈 제품 다시 선택</button>' : ''}</div>
+    main.innerHTML = `<div class="hb-breadcrumb"><a href="${e(source?.href || routeUrl())}" id="hb-back">${source?.label || '컬렉션'}</a><span>/</span><span>${kind ? '비규격제품' : '규격제품'}</span><span>/</span><span>${e(choosingSeries ? heading : product.catalogCode)}</span>${kind && evaluation && seriesContext?.products.length > 1 ? '<button id="hb-back-models" type="button">시리즈 제품 다시 선택</button>' : ''}</div>
       <div class="hb-detail-toolbar" role="group" aria-label="상세 화면 보기"><span>이미지와 옵션을 누르면 보기 편한 너비로 전환됩니다.</span><button type="button" data-detail-focus="gallery" aria-pressed="false">이미지 넓게 보기</button><button type="button" data-detail-focus="options" aria-pressed="false">옵션 넓게 보기</button></div>
-      <section class="hb-detail" data-focus="balanced"><div class="hb-gallery"><div class="hb-gallery-stage" role="region" aria-label="제품 이미지 슬라이드" tabindex="0"><div class="hb-gallery-track">${album.map((a, i) => `<div class="hb-gallery-slide" aria-hidden="${i !== 0}"><img src="${e(safeUrl(a.url))}" alt="${e(heading)} · ${e(a.name)}" data-fallback="${e(sample(product.id))}"></div>`).join('')}</div><div class="hb-image-loading" role="status" hidden>이미지를 불러오는 중입니다.</div><div class="hb-gallery-tools"><button id="hb-prev" aria-label="이전 이미지">‹</button><span class="hb-gallery-count" aria-live="polite"></span><button id="hb-next" aria-label="다음 이미지">›</button></div></div><div class="hb-gallery-thumbs">${album.map((a, i) => `<button data-slide="${i}" aria-label="${i + 1}번 이미지" aria-pressed="${i === 0}"><img src="${e(safeUrl(a.url))}" alt="" data-fallback="${e(sample(product.id))}"></button>`).join('')}</div><p class="hb-gallery-caption"></p></div>
+      <section class="hb-detail" data-focus="balanced"><div class="hb-gallery"><div class="hb-gallery-stage" role="region" aria-label="제품 이미지 슬라이드" tabindex="0"><div class="hb-gallery-track">${gallerySlides(heading)}</div><div class="hb-image-loading" role="status" hidden>이미지를 불러오는 중입니다.</div><div class="hb-gallery-tools"><button id="hb-prev" aria-label="이전 이미지">‹</button><span class="hb-gallery-count" aria-live="polite"></span><button id="hb-next" aria-label="다음 이미지">›</button></div></div><div class="hb-gallery-thumbs">${galleryThumbs()}</div><p class="hb-gallery-caption"></p></div>
       <div class="hb-info pms"><span class="hb-eyebrow">${kind ? 'MADE TO ORDER' : 'STANDARD COLLECTION'}</span><h1>${e(heading)}</h1><p class="hb-info-description">${choosingSeries ? (kind ? '제품을 선택한 뒤 질문을 따라 나만의 구성을 완성해 주세요.' : '등록된 옵션을 순서대로 선택해 주세요. 모든 선택이 끝나면 실제 제품과 가격을 확인하실 수 있습니다.') : e(product.description || '질문을 따라 나에게 맞는 구성을 완성해 주세요.')}</p>${choosingSeries ? `<dl class="hb-meta"><dt>대분류</dt><dd>${e(seriesContext.series.category)}</dd><dt>시리즈</dt><dd>${e(heading)}</dd><dt>등록 제품</dt><dd>${seriesContext.series.total}개</dd></dl>` : `<dl class="hb-meta"><dt>제품코드</dt><dd>${e(product.catalogCode || '미등록')}</dd><dt>제품 구분</dt><dd>비규격 · 맞춤 구성</dd><dt>생산기간</dt><dd>${product.productionHours == null ? '미등록' : e(String(product.productionHours) + '일')}</dd><dt>등록 상태</dt><dd>${e((product.status === 'OUT_OF_STOCK' ? '재고 없음 · 발주 가능' : S.status[product.status]) || product.status)}</dd></dl>${S.media(list(product.assets).filter(a=>!a.image),'제품 공통 첨부파일')}`}<div id="hb-config"></div><div id="hb-price" aria-live="polite"></div></div></section>`;
     const backModels = document.getElementById('hb-back-models');
     if (backModels) backModels.onclick = () => run(() => openSeries(seriesContext.series.productId), '시리즈 제품을 불러오고 있습니다.');
-    document.getElementById('hb-back').onclick = ev => { ev.preventDefault(); run(() => catalog(true), '컬렉션으로 돌아갑니다.'); };
+    if (!source) document.getElementById('hb-back').onclick = ev => { ev.preventDefault(); run(() => catalog(true), '컬렉션으로 돌아갑니다.'); };
     S.bindMedia(main); updateSlide();
     const changeSlide = async i => {
       if (running || uploadCount) return;
@@ -459,9 +567,16 @@
     };
     document.getElementById('hb-prev').onclick = () => changeSlide(galleryRequested - 1);
     document.getElementById('hb-next').onclick = () => changeSlide(galleryRequested + 1);
-    main.querySelectorAll('[data-slide]').forEach(b => b.onclick = () => changeSlide(Number(b.dataset.slide)));
+    main.querySelector('.hb-gallery-thumbs').onclick = event => {
+      const button = event.target.closest('[data-slide]');
+      if (button) changeSlide(Number(button.dataset.slide));
+    };
     const stage = main.querySelector('.hb-gallery-stage');
-    stage.onkeydown = ev => { if (['ArrowLeft', 'ArrowRight'].includes(ev.key)) { ev.preventDefault(); changeSlide(galleryRequested + (ev.key === 'ArrowLeft' ? -1 : 1)); } };
+    stage.onkeydown = ev => {
+      if (album.length > 1 && ['ArrowLeft', 'ArrowRight'].includes(ev.key)) {
+        ev.preventDefault(); changeSlide(galleryRequested + (ev.key === 'ArrowLeft' ? -1 : 1));
+      }
+    };
     let touchStart = null;
     stage.addEventListener('touchstart', ev => { touchStart = ev.touches[0].clientX; }, { passive: true });
     stage.addEventListener('touchend', ev => { const dx = ev.changedTouches[0].clientX - touchStart; if (touchStart != null && Math.abs(dx) > 45) changeSlide(galleryRequested + (dx < 0 ? 1 : -1)); touchStart = null; }, { passive: true });
@@ -481,8 +596,15 @@
           .filter(row => row.answer?.customer)
           .map(row => e(row.group?.customer) + ' · ' + e(row.answer.customer));
         const details = rows.map(row => `<div><dt>${e(row.question || row.group?.customer)}</dt><dd>${e(row.answer?.customer || '아직 선택하지 않음')}</dd></div>`).join('');
-        host.innerHTML = (terms.length ? '<p class="store-compact-summary">' + terms.join(' | ') + '</p>' : '')
-          + (details ? '<details><summary>전체 질문과 답변</summary><dl class="store-answer-detail">' + details + '</dl></details>' : '');
+        if (!host.firstElementChild) {
+          host.innerHTML = '<p class="store-compact-summary"></p><details><summary>전체 질문과 답변</summary><dl class="store-answer-detail"></dl></details>';
+        }
+        const summary = host.querySelector('p');
+        summary.hidden = !terms.length;
+        summary.innerHTML = terms.join(' | ');
+        const panel = host.querySelector('details');
+        panel.hidden = !details;
+        panel.querySelector('dl').innerHTML = details;
 
       }
     };
@@ -493,19 +615,28 @@
       const q = state.question, original = raw?.questions.find(item => item.key === q.key) || q;
       const question = { ...q, choices:list(q.choices).map(c => ({...c,labels:original.choices?.find(x=>x.key===c.key)?.labels || c.labels})), fields:list(q.fields).map(f => ({...f,labels:original.fields?.find(x=>x.key===f.key)?.labels || f.labels})) };
       const group = original.labels || q.labels;
-      const answer = Object.fromEntries(['customer','production','management'].map(role => [role,S.answerText(question,state.answer || {},assets,role)]));
+      const hasValue = state.answer?.choices?.length || Object.values(state.answer?.fields || {})
+        .some(value => Array.isArray(value) ? value.length > 0 : value != null && value !== '');
+      const answer = hasValue || q.fixed || completed.includes(q.key)
+        ? Object.fromEntries(['customer','production','management'].map(role => [role,S.answerText(question,state.answer || {},assets,role)])) : null;
       return {groupId:q.groupId,group,question:q.question || q.labels?.customer,answer};
     });
     render(rows);
   }
   function setDetailFocus(area) {
     const detail = main.querySelector('.hb-detail');
-    if (!detail || !['gallery','options'].includes(area)) return;
+    if (!detail || !['balanced','gallery','options'].includes(area) || detail.dataset.focus === area) return;
     detail.dataset.focus = area;
-    main.querySelectorAll('[data-detail-focus]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.detailFocus === area)));
+    main.querySelectorAll('[data-detail-focus]').forEach(button => {
+      const active = button.dataset.detailFocus === area;
+      button.setAttribute('aria-pressed', String(active));
+      button.title = active ? '한 번 더 누르면 기본 너비로 돌아갑니다.' : '';
+    });
   }
   function bindDetailFocus() {
-    main.querySelectorAll('[data-detail-focus]').forEach(button => button.onclick = () => setDetailFocus(button.dataset.detailFocus));
+    main.querySelectorAll('[data-detail-focus]').forEach(button => {
+      button.onclick = () => setDetailFocus(button.getAttribute('aria-pressed') === 'true' ? 'balanced' : button.dataset.detailFocus);
+    });
     const gallery = main.querySelector('.hb-gallery'), info = main.querySelector('.hb-info');
     gallery.addEventListener('click', () => setDetailFocus('gallery'));
     gallery.addEventListener('focusin', event => { if (event.target.matches(':focus-visible')) setDetailFocus('gallery'); });
@@ -528,6 +659,7 @@
       const next = await request(`/customer-series/${seriesContext.series.productId}/configure`, 'POST', selections);
       if (pendingRoute) return;
       standardSelections = selections; standardState = next; standardProduct = null; removeFaq();
+      showProductGallery(seriesContext.representative);
       document.getElementById('hb-price').replaceChildren();
       await paintStandard(); setDetailFocus('options'); focusQuestion();
     }, '이 질문부터 다시 선택할 수 있도록 준비하고 있습니다.', 'question');
@@ -679,6 +811,7 @@
     if (pendingRoute) return;
     if (selected.nonStandard || selected.status === 'DISCONTINUED' || !standardState.products.some(p => p.id === selected.id)) throw Error('현재 구성에 맞는 규격제품을 다시 확인해 주세요.');
     standardProduct = selected;
+    showProductGallery(selected);
     updateTeamPreview(null, fresh.display);
     target.innerHTML = `<section class="hb-quote"><span class="hb-eyebrow">YOUR CONFIGURATION</span><h2>선택하신 제품이 완성되었습니다.</h2><strong class="hb-selected-name">${e(selected.productName)}</strong>${selected.description ? `<p class="hb-info-description">${e(selected.description)}</p>` : ''}<dl class="hb-meta"><dt>제품코드</dt><dd>${e(selected.catalogCode)}</dd><dt>생산기간</dt><dd>${selected.productionHours == null ? '미등록' : e(String(selected.productionHours) + '일')}</dd><dt>등록 상태</dt><dd>${e((selected.status === 'OUT_OF_STOCK' ? '재고 없음 · 발주 가능' : S.status[selected.status]) || selected.status)}</dd></dl><div class="hb-total">${e(money(selected.unitPrice))}</div><small>선택한 옵션에 일치하는 실제 규격제품의 등록 단가</small>${S.media(list(selected.assets).filter(a=>!a.image),'제품 첨부파일')}${standardGuidance(selected)}<p class="hb-result-note">배송비·포인트는 발주 단계에서 검증합니다.</p></section>`;
     store.actions(target.querySelector('.hb-quote'), {
@@ -711,7 +844,7 @@
     const faqProduct = standardProduct || (kind && evaluation ? product : null);
     if(!faqProduct?.faqTopicId)return;
     const id=faqProduct.id,topicId=faqProduct.faqTopicId,serial=faqSequence;
-    const button=document.createElement('button');button.id='hb-faq-button';button.className='pm-faq-float pm-help-icon';button.type='button';button.textContent='FAQ 불러오는 중…';button.disabled=true;document.body.append(button);
+    const button=document.createElement('button');button.id='hb-faq-button';button.className='pm-faq-float pm-help-icon';button.type='button';button.setAttribute('aria-haspopup','dialog');button.textContent='FAQ 불러오는 중…';button.disabled=true;document.body.append(button);
     const current=()=>(standardProduct || product)?.id===id&&serial===faqSequence&&button.isConnected;
     try{
       const topics=await request('/faq/' + topicId,'GET',undefined,{quiet:true});
@@ -719,7 +852,20 @@
       const topic=list(topics).find(f=>f.id===topicId);
       if(!topic)throw Error('연결된 FAQ를 찾을 수 없습니다. 제품의 FAQ 연결 설정을 확인해 주세요.');
       button.disabled=false;button.textContent='ⓘ FAQ · 문의';
-      button.onclick=()=>{if(current())S.showProductFaq(topic,faqContext);};
+      button.setAttribute('aria-expanded', 'false');
+      button.onclick = () => {
+        if (!current()) return;
+        button.focus({preventScroll:true});
+        const dialog = S.showProductFaq(topic, faqContext);
+        if (!dialog) return;
+        dialog.id = 'hb-product-faq-dialog';
+        button.setAttribute('aria-controls', dialog.id);
+        button.setAttribute('aria-expanded', 'true');
+        dialog.addEventListener('close', () => {
+          button.removeAttribute('aria-controls');
+          button.setAttribute('aria-expanded', 'false');
+        }, {once:true});
+      };
     }catch(err){
       if(!current())return;
       button.disabled=false;button.textContent='ⓘ FAQ 다시 불러오기';button.title=err.message;
@@ -729,8 +875,15 @@
   function updateSlide() {
     main.querySelector('.hb-gallery-track').style.transform = `translateX(-${slide * 100}%)`;
     main.querySelector('.hb-gallery-count').textContent = `${String(slide + 1).padStart(2, '0')} / ${String(album.length).padStart(2, '0')}`;
-    main.querySelector('#hb-prev').disabled = slide === 0;
-    main.querySelector('#hb-next').disabled = slide === album.length - 1;
+    const previous = main.querySelector('#hb-prev'), next = main.querySelector('#hb-next');
+    const stage = main.querySelector('.hb-gallery-stage'), focused = document.activeElement;
+    const multiple = album.length > 1;
+    main.querySelector('.hb-gallery-tools').hidden = !multiple;
+    main.querySelector('.hb-gallery-thumbs').hidden = !multiple;
+    stage.setAttribute('aria-label', multiple ? '제품 이미지 슬라이드' : '제품 이미지');
+    previous.disabled = slide === 0;
+    next.disabled = slide === album.length - 1;
+    if ((focused === previous || focused === next) && focused.disabled) stage.focus({preventScroll:true});
     main.querySelectorAll('[data-slide]').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.slide) === slide)));
     main.querySelectorAll('.hb-gallery-slide').forEach((el, i) => el.setAttribute('aria-hidden', String(i !== slide)));
     const a = album[slide];
@@ -913,7 +1066,7 @@
           if (box.isConnected && uploadCount) box.querySelectorAll('.pm-upload-area[aria-disabled=true]').forEach(area => area.removeAttribute('aria-disabled'));
         });
         if (!on) queueMicrotask(() => compactQuestionMedia(node));
-        if (!on && !uploadCount && pendingRoute && !running) { pendingRoute = false; run(route); }
+        if (!on && !uploadCount && pendingRoute && !running) { pendingRoute = false; startRoute(); }
       },
       onError: message => error(message, true)
     });
@@ -1024,9 +1177,18 @@
     }
     if (img.closest('.hb-gallery')) {
       album.forEach(a => { if (safeUrl(a.url) === safeUrl(failedUrl)) a.sample = true; });
-      main.querySelector('.hb-gallery-caption').textContent = '등록 이미지를 불러오지 못해 예시 이미지를 표시합니다.';
+      if (album[slide]?.sample) main.querySelector('.hb-gallery-caption').textContent = '예시 이미지 · 실제 제품과 다를 수 있습니다.';
     }
   }, true);
+  function startRoute() {
+    const options = new URLSearchParams(location.search);
+    const label = {cart: '장바구니를', interest: '관심상품을', bookmark: '즐겨찾기를', checkout: '발주 품목을'}[options.get('view')];
+    if (/\/(products|series)\/\d+\/?$/.test(location.pathname) &&
+        (options.has('bookmark') || options.has('resume') || history.state?.storeRestore)) main.replaceChildren();
+    const target = label || (options.has('bookmark') || options.has('resume') ? '저장한 구성을' :
+      /\/(products|series)\/\d+\/?$/.test(location.pathname) ? '제품 구성을' : '히든바스 컬렉션을');
+    return run(route, target + ' 불러오고 있습니다.');
+  }
   async function route() {
     const params = new URLSearchParams(location.search); kind = params.get('kind') === 'custom';
     if (await store.view(params.get('view'))) return;
@@ -1037,7 +1199,13 @@
     } else await catalog(true, true);
   }
   window.addEventListener('resize', () => main.querySelectorAll('.hb-rail').forEach(rail => rail.dispatchEvent(new Event('hb-resize'))));
-  window.addEventListener('popstate', () => { if (running || uploadCount) pendingRoute = true; else run(route); });
+  window.addEventListener('pageshow', event => {
+    if (event.persisted && sourceList() && /\/(products|series)\/\d+\/?$/.test(location.pathname)) {
+      main.replaceChildren();
+      if (running || uploadCount) pendingRoute = true; else startRoute();
+    }
+  });
+  window.addEventListener('popstate', () => { if (running || uploadCount) pendingRoute = true; else startRoute(); });
   document.getElementById('hb-motion-toggle').onclick = event => {
     const reduced = document.body.dataset.motion !== 'reduced';
     document.body.dataset.motion = reduced ? 'reduced' : 'smooth';
@@ -1047,5 +1215,5 @@
   };
   document.getElementById('hb-motion-toggle').textContent = document.body.dataset.motion === 'reduced' ? '부드러운 모션 켜기' : '모션 줄이기';
   document.getElementById('hb-motion-toggle').setAttribute('aria-pressed', String(document.body.dataset.motion === 'reduced'));
-  run(route, '히든바스 컬렉션을 불러오고 있습니다.');
+  startRoute();
 })(window.PMS);

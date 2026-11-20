@@ -92,21 +92,33 @@ public class ProductStorefrontService {
       ProductStudioCustomerService.ShowroomData data, Long productId) {
     return data.buckets().stream().filter(entry -> entry.getValue().stream()
         .anyMatch(p -> p.getId().equals(productId))).findFirst()
-        .orElseThrow(() -> new NoSuchElementException("시리즈를 표시할 수 없습니다. 제품의 분류 또는 옵션이 누락되었거나 비활성 상태일 수 있습니다."));
+        .orElseThrow(() -> new UnavailableConfiguration("시리즈를 표시할 수 없습니다. 제품의 분류 또는 옵션이 누락되었거나 비활성 상태일 수 있습니다."));
+  }
+
+  public static class UnavailableConfiguration extends IllegalArgumentException {
+    public UnavailableConfiguration(String message) { super(message); }
   }
 
   public ProductMaster requireCustomerProduct(Long id) {
-    ProductMaster product = studio.require(id);
+    ProductMaster product;
+    try {
+      product = studio.require(id);
+    } catch (NoSuchElementException missingProduct) {
+      throw new UnavailableConfiguration("제품이 삭제되었습니다.");
+    }
     if (product.getStatus() == ProductMasterStatus.DRAFT)
-      throw new IllegalArgumentException("아직 등록 중인 제품이라 고객 발주 화면에 공개되지 않았습니다.");
+      throw new UnavailableConfiguration("아직 등록 중인 제품이라 고객 발주 화면에 공개되지 않았습니다.");
     if (product.getStatus() == ProductMasterStatus.DISCONTINUED)
-      throw new IllegalArgumentException("단종된 제품이라 발주할 수 없습니다.");
+      throw new UnavailableConfiguration("단종된 제품이라 발주할 수 없습니다.");
     if (product.getStatus() != ProductMasterStatus.ACTIVE)
       throw new IllegalArgumentException("제품의 게시 상태를 확인해 주세요.");
     if (product.getStudioDefinitionJson() == null || product.getStudioDefinitionJson().isBlank())
-      throw new IllegalArgumentException("제품의 분류와 옵션 구성이 등록되지 않았습니다.");
-    if (product.isNonStandard() && !priceReadyIds(List.of(product)).contains(id))
-      throw new IllegalArgumentException("현재 고객용으로 공개되지 않은 비규격 제품입니다.");
+      throw new UnavailableConfiguration("제품의 분류와 옵션 구성이 등록되지 않았습니다.");
+    if (product.isNonStandard()) {
+      var status = pricing.verifiedStatus(List.of(id)).get(0);
+      if (!status.registered() || !status.ready() || status.stale())
+        throw new UnavailableConfiguration("이 제품의 가격 구성이 현재 고객용으로 공개되지 않았습니다.");
+    }
     return product;
   }
 
@@ -157,11 +169,11 @@ public class ProductStorefrontService {
       throw new IllegalArgumentException("규격 옵션 선택값을 확인해 주세요.");
     ProductMaster anchor = activeOnly ? requireCustomerProduct(productId) : studio.require(productId);
     if (anchor.isNonStandard())
-      throw new IllegalArgumentException("비규격 제품은 제품별 맞춤 구성에서 선택해 주세요.");
+      throw new UnavailableConfiguration("비규격 제품은 제품별 맞춤 구성에서 선택해 주세요.");
     var data = customer.showroomData(false);
     List<ProductMaster> scope = bucket(data, productId).getValue();
     if (activeOnly) scope = scope.stream().filter(p -> p.getStatus() == ProductMasterStatus.ACTIVE).toList();
-    if (scope.isEmpty()) throw new NoSuchElementException("발주 가능한 제품이 없습니다.");
+    if (scope.isEmpty()) throw new UnavailableConfiguration("발주 가능한 제품이 없습니다.");
     // Saved product composition order, with later models' additional groups appended deterministically.
     Set<Long> ordered = new LinkedHashSet<>();
     scope.forEach(p -> data.definitions().get(p.getId()).forEach(v -> ordered.add(v.groupId())));
@@ -172,7 +184,7 @@ public class ProductStorefrontService {
         .toList();
     Set<Long> valid = groups.stream().map(GroupView::id).collect(Collectors.toSet());
     if (!valid.containsAll(selections.keySet()))
-      throw new IllegalArgumentException("이 시리즈에 없는 옵션 그룹입니다. 옵션을 다시 구성해 주세요.");
+      throw new UnavailableConfiguration("이 시리즈에 없는 옵션 그룹입니다. 옵션을 다시 구성해 주세요.");
     List<ProductMaster> remaining = scope;
     List<StandardQuestion> steps = new ArrayList<>();
     List<DisplayRow> display = new ArrayList<>();
@@ -181,17 +193,17 @@ public class ProductStorefrontService {
       String picked = selections.get(g.id());
       if (picked == null) {
         if (selections.size() != steps.size())
-          throw new IllegalArgumentException("앞 질문부터 순서대로 선택해 주세요.");
+          throw new UnavailableConfiguration("앞 질문부터 순서대로 선택해 주세요.");
         display.add(new DisplayRow(g.id(), g.labels(), g.question(), null));
         return new Configuration(steps, question, groups.size(), remaining.size(), false, List.of(), display);
       }
       if (question.options().stream().noneMatch(o -> o.key().equals(picked)))
-        throw new IllegalArgumentException("앞서 선택한 옵션과 조합할 수 없습니다. 이 질문부터 다시 선택해 주세요.");
+        throw new UnavailableConfiguration("앞서 선택한 옵션과 조합할 수 없습니다. 이 질문부터 다시 선택해 주세요.");
       steps.add(question);
       remaining = remaining.stream().filter(p -> picked.equals(optionKey(
           variant(data.definitions().get(p.getId()), g.id())))).toList();
       if (remaining.isEmpty())
-        throw new IllegalArgumentException("선택하신 조합으로 등록된 규격제품이 없습니다. 다른 옵션이나 규격을 선택해 주세요.");
+        throw new UnavailableConfiguration("선택하신 조합으로 등록된 규격제품이 없습니다. 다른 옵션이나 규격을 선택해 주세요.");
       Variant selected = variant(data.definitions().get(remaining.get(0).getId()), g.id());
       display.add(new DisplayRow(g.id(), g.labels(), g.question(), new Labels(
           variantLabel(g, selected, "customer"), variantLabel(g, selected, "production"),

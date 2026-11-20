@@ -75,6 +75,7 @@ import com.dev.HiddenBATHAuto.service.auth.MemberService;
 import com.dev.HiddenBATHAuto.service.customer.CustomerExcelExportService;
 import com.dev.HiddenBATHAuto.service.customer.CustomerListViewService;
 import com.dev.HiddenBATHAuto.utils.FileUtil;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -700,7 +701,8 @@ public class CustomerController {
 																														// 수정
 																														// 가능하도록
 																														// 받기
-			@RequestParam String roadAddress, @RequestParam String detailAddress, @RequestParam String doName,
+			@RequestParam String roadAddress, @RequestParam(required = false) String jibunAddress,
+			@RequestParam String detailAddress, @RequestParam String doName,
 			@RequestParam String siName, @RequestParam String guName, @RequestParam String zipCode,
 
 			@RequestParam(required = false) String companyDeliveryAddressesJson,
@@ -783,6 +785,9 @@ public class CustomerController {
 				return "redirect:/customer/myInfo";
 			}
 
+			if (jibunAddress != null || !nvl(roadAddress).equals(nvl(company.getRoadAddress()))) {
+				company.setJibunAddress(nvl(jibunAddress));
+			}
 			company.setRoadAddress(nvl(roadAddress));
 			company.setDetailAddress(nvl(detailAddress));
 			company.setDoName(normalizedRegion.doName());
@@ -1004,6 +1009,7 @@ public class CustomerController {
 	}
 
 	@Data
+	@JsonIgnoreProperties("jibunAddress")
 	public static class CompanyDeliveryAddressInput {
 		private Long id; // 기존 항목은 id 포함, 신규는 null
 		private String zipCode;

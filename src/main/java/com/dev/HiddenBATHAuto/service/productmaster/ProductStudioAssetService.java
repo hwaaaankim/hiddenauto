@@ -317,7 +317,8 @@ public class ProductStudioAssetService {
           if (raw == null) continue;
           if (!(raw instanceof List<?> ids)) throw new IllegalArgumentException("파일 답변이 잘못되었습니다.");
           for (Object id : ids) {
-            ProductStudioAsset a = require(String.valueOf(id));
+            ProductStudioAsset a = repository.findById(String.valueOf(id)).orElseThrow(() ->
+                missingAttachment(q.labels(), f.labels()));
             if (!a.getOwnerType().equals("STAGED") || !a.getCreatedBy().equals(actor))
               throw new IllegalArgumentException("현재 사용자가 업로드한 파일을 선택해 주세요.");
             if (!ProductStudioEngine.list(f.extensions()).contains(extension(a.getOriginalName()))
@@ -326,6 +327,20 @@ public class ProductStudioAssetService {
                   f.labels().customer() + " 파일 형식 또는 용량 제한을 확인해 주세요.");
           }
         }
+  }
+
+  private static NoSuchElementException missingAttachment(Labels question, Labels field) {
+    List<String> names = Arrays.stream(new Labels[] {question, field})
+        .filter(Objects::nonNull)
+        .map(Labels::customer)
+        .filter(Objects::nonNull)
+        .map(String::strip)
+        .filter(name -> !name.isEmpty())
+        .distinct()
+        .toList();
+    String location = names.isEmpty() ? "" : String.join(" / ", names) + " ";
+    return new NoSuchElementException(location + "첨부파일을 찾을 수 없습니다. "
+        + "임시 첨부파일은 업로드 24시간 후 정리될 수 있습니다. 제품 페이지에서 파일을 다시 첨부하고 구성을 저장해 주세요.");
   }
 
   @Transactional

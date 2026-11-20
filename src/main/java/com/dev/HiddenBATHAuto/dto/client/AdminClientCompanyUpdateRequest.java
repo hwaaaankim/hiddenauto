@@ -18,6 +18,7 @@ public class AdminClientCompanyUpdateRequest {
     private String siName;
     private String guName;
     private String roadAddress;
+    private String jibunAddress;
     private String detailAddress;
 
     private Long salesManagerId;

@@ -254,6 +254,7 @@
 											<div class="myinfo-input-wrap flex-grow-1"
 												th:classappend="${!isRepresentative} ? ' myinfo-input-readonly' : ''">
 												<i class="fa fa-map-marker-alt myinfo-input-icon"></i>
+												<input type="hidden" id="companyJibunAddress" name="jibunAddress" th:value="${company.jibunAddress}">
 												<input id="searchAddress"
 													type="text"
 													class="form-control myinfo-input"
@@ -261,8 +262,7 @@
 													th:value="${company.roadAddress}"
 													placeholder="주소를 검색해 주세요."
 													required
-													autocomplete="off"
-													th:readonly="${!isRepresentative}">
+													autocomplete="off" readonly>
 											</div>
 
 											<button type="button"
@@ -840,7 +840,7 @@
 	</script>
 
 	<script src="/front/addressRegion.js?v=20260902-1"></script>
-	<script src="/front/page/myInfo/myInfo.js"></script>
+	<script src="/front/page/myInfo/myInfo.js?v=20261120-address-r2"></script>
 
 </body>
 </html>

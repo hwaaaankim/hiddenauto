@@ -141,6 +141,7 @@ import com.dev.HiddenBATHAuto.service.order.NonStandardTaskListViewService;
 import com.dev.HiddenBATHAuto.service.order.OrderStatusService;
 import com.dev.HiddenBATHAuto.service.management.delivery.ManagementDeliveryListExcelService;
 import com.dev.HiddenBATHAuto.service.management.delivery.ManagementDeliveryListService;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -154,6 +155,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ManagementController {
 
+	@JsonIgnoreProperties("jibunAddress")
 	public record AdminClientDeliveryAddressSaveRequest(
 			String zipCode,
 			String doName,

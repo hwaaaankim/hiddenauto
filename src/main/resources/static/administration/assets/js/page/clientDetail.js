@@ -367,6 +367,7 @@
 		siName: document.getElementById('admin-client-detail-fourth-siName'),
 		guName: document.getElementById('admin-client-detail-fourth-guName'),
 		roadAddress: document.getElementById('admin-client-detail-fourth-roadAddress'),
+		jibunAddress: document.getElementById('admin-client-detail-fourth-jibunAddress'),
 		detailAddress: document.getElementById('admin-client-detail-fourth-detailAddress'),
 		businessLicenseFile: document.getElementById('admin-client-detail-fourth-businessLicenseFile')
 	};
@@ -567,6 +568,7 @@
 			siName: trimValue(companyFields.siName ? companyFields.siName.value : ''),
 			guName: trimValue(companyFields.guName ? companyFields.guName.value : ''),
 			roadAddress: trimValue(companyFields.roadAddress ? companyFields.roadAddress.value : ''),
+			jibunAddress: trimValue(companyFields.jibunAddress?.value),
 			detailAddress: trimValue(companyFields.detailAddress ? companyFields.detailAddress.value : ''),
 			salesManagerId: trimValue(salesManagerIdInput ? salesManagerIdInput.value : ''),
 			existingRemoved: companyLicenseState.existingRemoved,
@@ -893,7 +895,8 @@
 				companyFields.doName.value = trimValue(region.doName);
 				companyFields.siName.value = trimValue(region.siName);
 				companyFields.guName.value = trimValue(region.guName);
-				companyFields.roadAddress.value = trimValue(region.roadAddress);
+				companyFields.roadAddress.value = trimValue(data.roadAddress || data.autoRoadAddress || region.roadAddress);
+				if (companyFields.jibunAddress) companyFields.jibunAddress.value = trimValue(data.jibunAddress || data.autoJibunAddress);
 
 				updateAddressPreview();
 				toggleCompanySaveButton();
@@ -1005,6 +1008,7 @@
 			formData.append('siName', trimValue(companyFields.siName.value));
 			formData.append('guName', trimValue(companyFields.guName.value));
 			formData.append('roadAddress', trimValue(companyFields.roadAddress.value));
+			if (companyFields.jibunAddress) formData.append('jibunAddress', trimValue(companyFields.jibunAddress.value));
 			formData.append('detailAddress', trimValue(companyFields.detailAddress.value));
 			formData.append('salesManagerId', trimValue(salesManagerIdInput ? salesManagerIdInput.value : ''));
 			formData.append('salesManagerAssignmentIncluded', 'true');
@@ -1265,7 +1269,7 @@
 					doName: trimValue(region.doName),
 					siName: trimValue(region.siName),
 					guName: trimValue(region.guName),
-					roadAddress: trimValue(region.roadAddress)
+					roadAddress: trimValue(data.roadAddress || data.autoRoadAddress || region.roadAddress)
 				};
 
 				if (deliveryAddressDetailAddressInput) {

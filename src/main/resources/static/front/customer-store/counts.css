@@ -1,21 +1,28 @@
 .store-count-link { position: relative; }
 .store-count-badge {
-  display: inline-grid; place-items: center; vertical-align: super;
-  min-width: 1rem; min-height: 1rem; padding: 0 .2rem; box-sizing: border-box;
-  border-radius: 1rem; background: #6e542e; color: #fff;
-  font: 700 .625rem/1 system-ui, sans-serif; white-space: nowrap;
+  display: inline-grid; place-items: center; flex: none; box-sizing: border-box;
+  min-width: 1.125rem; height: 1.125rem; padding: 0 .24rem;
+  border-radius: 5px; background: #6e542e; color: white; letter-spacing: 0;
+  font: 700 .67rem/1 system-ui, sans-serif; font-variant-numeric: tabular-nums;
+  white-space: nowrap; vertical-align: middle;
 }
 .store-count-badge.is-empty { background: #ebe7df; color: #554d40; }
-.header-icon .store-count-badge { position: absolute; top: .24rem; left: calc(50% + .27rem); }
-.header-logo-center .header-icon-5 { right: 90px; }
-.header-logo-center .header-icon-6 { right: 135px; }
-.store-count-menu .store-count-badge { margin-inline-start: .3rem; vertical-align: .27em; top: auto; }
-@media (max-width: 600px) {
-  .header-logo-center :is(.header-icon-3,.header-icon-5,.header-icon-6).store-count-link { width: 2rem; }
-  .header-logo-center .header-icon-3.store-count-link { right: 40px; }
-  .header-logo-center .header-icon-5 { right: 72px; }
-  .header-logo-center .header-icon-6 { right: 104px; }
+.store-count-menu .store-count-badge { margin-inline-start: .3rem; }
+.header-logo-center #header-icon-4-group:has(.store-count-link) {
+  position: absolute; inset: 0 0 auto auto; display: flex; align-items: center;
+}
+.header-logo-center #header-icon-4-group:has(.store-count-link) .header-icon {
+  position: relative; inset: auto; width: 44px; height: 50px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.header-logo-center #header-icon-4-group:has(.store-count-link) .header-icon-4 { order: 1; }
+.header-icon .store-count-badge {
+  position: absolute; top: 3px; right: 0; pointer-events: none;
+  min-width: 16px; height: 16px; padding-inline: 2px; font-size: 10px;
+}
+@media (max-width: 40rem) {
   .header-logo-center:has(.store-count-link) .header-logo {
-    left: .75rem; width: 123px !important; margin-left: 0; font-size: 1rem; text-align: left;
+    left: .75rem; width: min(112px,calc(100% - 196px)) !important;
+    margin-left: 0; font-size: 1rem; text-align: left; white-space: nowrap;
   }
 }

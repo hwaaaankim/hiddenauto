@@ -1,5 +1,6 @@
 package com.dev.HiddenBATHAuto.storefront.checkout;
 
+import com.dev.HiddenBATHAuto.utils.KoreanAdministrativeRegionNormalizer;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -14,25 +15,40 @@ public final class StoreCheckoutPolicy {
 
     public static LocalDate earliestDate(LocalDate today, BigDecimal productionDays,
             Predicate<LocalDate> isHoliday) {
-        if (productionDays == null || productionDays.signum() < 0) {
-            productionDays = BigDecimal.valueOf(2);
-        }
-        int workingDays = productionDays.setScale(0, RoundingMode.CEILING).intValueExact();
+        return earliestDate(today, productionDays, isHoliday, LocalDate.MAX);
+    }
+
+    static BigDecimal validProductionDays(BigDecimal days) {
+        return days == null || days.signum() < 0 || days.compareTo(BigDecimal.valueOf(1_000_000)) > 0
+                || days.stripTrailingZeros().scale() > 3 ? null : days;
+    }
+
+    static LocalDate earliestDate(LocalDate today, BigDecimal productionDays, Predicate<LocalDate> isHoliday,
+            LocalDate calendarThrough) {
+        BigDecimal days = validProductionDays(productionDays);
+        int remaining = days == null ? 2 : days.setScale(0, RoundingMode.CEILING).intValueExact();
         LocalDate date = today;
-        while (workingDays > 0) {
-            date = date.plusDays(1);
+        while (!date.isAfter(calendarThrough)) {
             if (isBusinessDay(date, isHoliday)) {
-                workingDays--;
+                if (remaining > 0 && !date.equals(today)) remaining--;
+                if (remaining == 0) return date;
             }
-        }
-        while (!isBusinessDay(date, isHoliday)) {
+            if (date.equals(calendarThrough)) break;
             date = date.plusDays(1);
         }
-        return date;
+        return null;
     }
 
     public static boolean isBusinessDay(LocalDate date, Predicate<LocalDate> isHoliday) {
         return date.getDayOfWeek().getValue() < 6 && !isHoliday.test(date);
+    }
+
+    static String addressKey(String zip, String baseAddress, String detail) {
+        // Daum and the address book may use different official abbreviations for the same province.
+        String[] parts = baseAddress.strip().replaceAll("(?U)\\s+", " ").split(" ", 2);
+        String base = KoreanAdministrativeRegionNormalizer.canonicalProvinceName(parts[0])
+                + (parts.length == 2 ? " " + parts[1] : "");
+        return zip + "|" + base.length() + "|" + base + "|" + detail;
     }
 
     public record DeliveryGroup(LocalDate date, long methodId, String address) {}
@@ -76,6 +92,8 @@ public final class StoreCheckoutPolicy {
         }
 
         BigDecimal points = nonnegative(requestedPoints);
+        if (points.stripTrailingZeros().scale() > 0)
+            throw new IllegalArgumentException("포인트는 1포인트 단위로 입력해 주세요.");
         if (points.compareTo(nonnegative(companyBalance)) > 0 || points.compareTo(products) > 0) {
             throw new IllegalArgumentException("포인트는 보유 잔액과 상품금액 이내에서 사용해 주세요.");
         }

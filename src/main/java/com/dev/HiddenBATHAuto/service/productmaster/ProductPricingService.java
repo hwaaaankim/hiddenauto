@@ -52,6 +52,15 @@ public class ProductPricingService {
   }
 
   public List<Status> status(List<Long> ids) {
+    return status(ids, false);
+  }
+
+  // A failed diagnostic must never be interpreted as proof that a customer's saved option is obsolete.
+  public List<Status> verifiedStatus(List<Long> ids) {
+    return status(ids, true);
+  }
+
+  private List<Status> status(List<Long> ids, boolean propagateFailure) {
     if (ids == null || ids.size() > 200 || ids.stream().anyMatch(Objects::isNull))
       throw new IllegalArgumentException("가격 등록상태는 제품 ID 200개 이하로 조회해 주세요.");
     Map<Long, ProductMaster> byId = products.findAllById(new LinkedHashSet<>(ids)).stream()
@@ -70,6 +79,7 @@ public class ProductPricingService {
         return new Status(id, definition != null, issues.isEmpty() && !stale, stale,
             stale ? "프로세스·가격영향 변경 확인 필요" : issues.isEmpty() ? definition == null ? "미등록" : "등록됨" : String.join(" / ", issues));
       } catch (RuntimeException ex) {
+        if (propagateFailure) throw ex;
         log.warn("가격계산 상태 확인 실패: productId={}", id);
         return new Status(id, !text(p.getStudioPriceJson()).isBlank(), false, true,
             "저장된 프로세스·가격계산식 설정을 확인해 주세요.");

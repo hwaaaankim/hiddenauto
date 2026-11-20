@@ -141,7 +141,7 @@
 																<label class="sign-up-label" for="sign-up-rep-road-address"><span>기본 주소</span><span class="sign-up-required">필수</span></label>
 																<div class="sign-up-input-action-wrap">
 																	<input type="text" class="form-control sign-up-control" id="sign-up-rep-road-address" name="roadAddress"
-																		placeholder="주소검색 버튼을 눌러 주세요." autocomplete="off" required>
+																		placeholder="주소검색 버튼을 눌러 주세요." autocomplete="off" readonly required>
 																	<button type="button" class="sign-up-address-search-btn" id="sign-up-rep-address-search-btn">주소검색</button>
 																</div>
 															</div>
@@ -149,6 +149,7 @@
 																<label class="sign-up-label" for="sign-up-rep-detail-address"><span>상세 주소</span><span class="sign-up-required">필수</span></label>
 																<input type="text" class="form-control sign-up-control" id="sign-up-rep-detail-address" name="detailAddress"
 																	placeholder="상세 주소를 입력해 주세요." autocomplete="off" required>
+																<input type="hidden" name="jibunAddress" id="sign-up-rep-jibun-address">
 																<input type="hidden" name="doName" id="sign-up-rep-do-name">
 																<input type="hidden" name="siName" id="sign-up-rep-si-name">
 																<input type="hidden" name="guName" id="sign-up-rep-gu-name">
@@ -301,7 +302,7 @@
 	<th:block th:replace="~{fragments/front/common :: beforeLoginScript}"></th:block>
 	<script src="https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 	<script src="/front/addressRegion.js?v=20260902-1"></script>
-	<script src="/front/signUp.js"></script>
+	<script src="/front/signUp.js?v=20261120-address-r2"></script>
 </body>
 
 </html>

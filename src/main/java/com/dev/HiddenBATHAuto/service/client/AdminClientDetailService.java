@@ -112,6 +112,9 @@ public class AdminClientDetailService {
         company.setDoName(resolvedRegion.doName());
         company.setSiName(resolvedRegion.siName());
         company.setGuName(resolvedRegion.guName());
+        if (request.getJibunAddress() != null || !roadAddress.equals(trim(company.getRoadAddress()))) {
+            company.setJibunAddress(trim(request.getJibunAddress()));
+        }
         company.setRoadAddress(roadAddress);
         company.setDetailAddress(detailAddress);
 

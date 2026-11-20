@@ -98,7 +98,9 @@
                 const zipCode = qs('sign-up-rep-zip-code');
                 const detailAddress = qs('sign-up-rep-detail-address');
 
-                if (roadAddress) roadAddress.value = region.roadAddress || '';
+                if (roadAddress) roadAddress.value = data.roadAddress || data.autoRoadAddress || region.roadAddress || '';
+                const jibun = qs('sign-up-rep-jibun-address');
+                if (jibun) jibun.value = data.jibunAddress || data.autoJibunAddress || '';
                 if (doName) doName.value = region.doName || '';
                 if (siName) siName.value = region.siName || '';
                 if (guName) guName.value = region.guName || '';
@@ -452,7 +454,7 @@
                         doName: region.doName || '',
                         siName: region.siName || '',
                         guName: region.guName || '',
-                        roadAddress: region.roadAddress || ''
+                        roadAddress: data.roadAddress || data.autoRoadAddress || region.roadAddress || ''
                     };
 
                     if (!baseItem.roadAddress) return;

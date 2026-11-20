@@ -5,7 +5,6 @@ import com.dev.HiddenBATHAuto.dto.productmaster.ProductMasterDtos.ApiResponse;
 import com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioDtos.Answer;
 import com.dev.HiddenBATHAuto.dto.productmaster.ProductPricingDtos.EvaluateRequest;
 import com.dev.HiddenBATHAuto.dto.productmaster.ProductPricingDtos.StatusRequest;
-import com.dev.HiddenBATHAuto.repository.storefront.StoreDeliveryMethodRepository;
 import com.dev.HiddenBATHAuto.service.productmaster.*;
 import jakarta.servlet.http.HttpSession;
 import java.util.*;
@@ -142,6 +141,14 @@ public class StorePreviewController {
         return ApiResponse.ok(preview.check(body.item(), access.company(principal), body.bookmark()));
     }
 
+    public record MetadataRequest(List<Long> productIds) {}
+
+    @PostMapping("/api/items/metadata") @ResponseBody
+    public Object metadata(@AuthenticationPrincipal PrincipalDetails principal, @RequestBody MetadataRequest body) {
+        access.company(principal);
+        return ApiResponse.ok(preview.cardMetadata(body.productIds()));
+    }
+
     @GetMapping("/api/counts") @ResponseBody
     public Object counts(@AuthenticationPrincipal PrincipalDetails principal) {
         return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore())
@@ -149,8 +156,14 @@ public class StorePreviewController {
     }
 
     @GetMapping("/api/saved") @ResponseBody
-    public Object saved(@AuthenticationPrincipal PrincipalDetails principal) {
-        return ApiResponse.ok(preview.saved(access.company(principal)));
+    public Object saved(@AuthenticationPrincipal PrincipalDetails principal,
+            @RequestParam(required = false) String kind) {
+        return ApiResponse.ok(preview.saved(access.company(principal), kind));
+    }
+
+    @GetMapping("/api/saved/{id}") @ResponseBody
+    public Object savedItem(@AuthenticationPrincipal PrincipalDetails principal, @PathVariable long id) {
+        return ApiResponse.ok(preview.saved(access.company(principal), id));
     }
 
     @PostMapping("/api/saved") @ResponseBody
@@ -169,13 +182,22 @@ public class StorePreviewController {
         return ApiResponse.ok(true);
     }
 
+    public record CleanupRequest(String stamp, String kind) {}
+
+    @DeleteMapping("/api/saved/{id}/invalid") @ResponseBody
+    public Object removeInvalid(@AuthenticationPrincipal PrincipalDetails principal, HttpSession session,
+            @RequestHeader("X-Store-Token") String token, @PathVariable long id, @RequestBody CleanupRequest body) {
+        access.check(session, token);
+        return ApiResponse.ok(preview.removeInvalid(access.company(principal), id, body.stamp(), body.kind()));
+    }
+
     @GetMapping("/api/checkout") @ResponseBody
     public Object checkoutOptions(@AuthenticationPrincipal PrincipalDetails principal) {
         long company = access.company(principal);
         return ApiResponse.ok(Map.of("methods", StoreShipping.METHODS, "companyAddress", preview.companyAddress(company),
                 "addresses", addresses.findByCompany_IdOrderByIdAsc(company).stream().map(a -> new StorePreviewService.Address(
                     a.getZipCode(), a.getDoName(), a.getSiName(), a.getGuName(), a.getRoadAddress(), null, a.getDetailAddress())).toList(), "points", preview.balance(company),
-                "holidays", preview.holidays().stream().map(Object::toString).toList()));
+                "today", preview.today().toString(), "calendarThrough", preview.calendarThrough().toString(), "holidays", preview.holidays().stream().map(Object::toString).toList()));
     }
 
     @PostMapping("/api/checkout") @ResponseBody
@@ -185,8 +207,9 @@ public class StorePreviewController {
 
     @ExceptionHandler(StorePreviewService.Changed.class)
     @ResponseBody
-    public ResponseEntity<?> changed(RuntimeException e) {
-        return ResponseEntity.status(409).body(Map.of("message", e.getMessage()));
+    public ResponseEntity<?> changed(StorePreviewService.Changed e) {
+        return ResponseEntity.status(409).body(e.lineKey() == null ? Map.of("message", e.getMessage(), "invalid", e.invalid())
+                : Map.of("message", e.getMessage(), "lineKey", e.lineKey(), "invalid", e.invalid()));
     }
 
     @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class, NoSuchElementException.class})

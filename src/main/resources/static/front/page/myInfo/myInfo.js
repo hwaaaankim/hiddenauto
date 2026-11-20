@@ -486,7 +486,7 @@
 		var detailInput = qs('detailAddress');
 
 		if (roadInput) {
-			roadInput.value = region.roadAddress || fallbackAddress || '';
+			roadInput.value = fallbackAddress || region.roadAddress || '';
 		}
 		if (zipInput) {
 			zipInput.value = region.zipCode || fallbackZipCode || '';
@@ -514,9 +514,9 @@
 
 		new daum.Postcode({
 			oncomplete: function(data) {
-				var address = data.userSelectedType === 'J'
-					? (data.jibunAddress || data.roadAddress || '')
-					: (data.roadAddress || data.jibunAddress || '');
+				var address = data.roadAddress || data.autoRoadAddress || data.jibunAddress || data.autoJibunAddress || '';
+				var jibunInput = qs('companyJibunAddress');
+				if (jibunInput) jibunInput.value = data.jibunAddress || data.autoJibunAddress || '';
 
 				if (
 					window.HiddenAutoAddressRegion &&
@@ -762,7 +762,7 @@
 							doName: region.doName || '',
 							siName: region.siName || '',
 							guName: region.guName || '',
-							roadAddress: region.roadAddress || address || ''
+							roadAddress: data.roadAddress || data.autoRoadAddress || region.roadAddress || address || ''
 						};
 					} else {
 						pendingItem = {
@@ -770,7 +770,7 @@
 							doName: data.sido || '',
 							siName: data.sigungu || '',
 							guName: data.bname || '',
-							roadAddress: address || ''
+							roadAddress: data.roadAddress || data.autoRoadAddress || address || ''
 						};
 					}
 
