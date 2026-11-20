@@ -363,14 +363,15 @@
     const footer = host.querySelector('.store-more');
     const more = footer.querySelector('button');
     const status = footer.querySelector('p');
+    const selection = document.createElement('div');
+    selection.className = 'store-selection-head';
+    host.querySelector('header').after(selection);
+    selection.append(status);
     let updateAll = () => {};
     let bindCheck = () => {};
     if (mode !== 'bookmark' && rows.length) {
       const bar = document.createElement('div');
-      const selection = document.createElement('div');
-      selection.className = 'store-selection-head';
-      selection.innerHTML = '<label><input type="checkbox" id="store-select-all"> 표시된 품목 전체 선택</label><span data-count role="status"></span>';
-      host.querySelector('header').after(selection);
+      selection.insertAdjacentHTML('afterbegin', '<label><input type="checkbox" id="store-select-all"> 표시된 품목 전체 선택</label><span data-count role="status"></span>');
       bar.className = 'store-order-footer';
       bar.innerHTML = '<span class="store-order-amount">선택 상품금액 <strong data-total aria-live="polite"></strong></span><div class="store-order-buttons">' +
         (mode === 'interest' ? button('cart', '장바구니 담기') : '') + button('order', '발주하기', true) + '</div>';
@@ -429,7 +430,8 @@
         row.style.setProperty('--store-enter-delay', Math.min(index, 4) * 18 + 'ms');
       });
       list.append(template.content);
-      status.textContent = '전체 ' + rows.length + '개 중 ' + to + '개 표시';
+      status.textContent = to >= rows.length ? '전체 ' + rows.length + '개' : '전체 ' + rows.length + '개 중 ' + to + '개 표시';
+      footer.hidden = to >= rows.length;
       more.hidden = to >= rows.length;
       updateAll();
     }
@@ -539,7 +541,7 @@
       '<button type="button" class="store-btn is-primary" id="store-apply">적용</button></div></dialog>' +
       '<form id="store-checkout"><div class="store-list">' + rows.map((row, index) => '<article class="store-check-line"><div class="store-row">' +
       img(row.item) + '<div><strong>' + (index + 1) + '. ' + esc(row.item.name) + '</strong><div>' + won(row.item.price) +
-      ' · 최초 가능일 ' + esc(row.item.earliest || '미등록') + (row.item.productionDays == null || row.item.productionDays < 0 ? ' · 기본 생산기간 2영업일 적용' : '') + '</div></div><span class="store-line-status"></span></div>' +
+      ' · 최초 가능일 ' + esc(listDate(row.item.earliest) || '미등록') + (row.item.productionDays == null || row.item.productionDays < 0 ? ' · 기본 생산기간 2영업일 적용' : '') + '</div></div><span class="store-line-status"></span></div>' +
       checkoutOptions(row.item) + '<p class="store-line-overview"></p><details class="store-row-details store-check-details"><summary>수량 · 배송지 · 연락처 변경</summary><div class="store-fields">' +
       '<label>수량<input type="number" name="quantity" min="1" max="99999" required value="' + esc(row.quantity || 1) + '"></label>' +
       shipping + address + date + contacts + '</div><small class="store-method-note" aria-live="polite"></small></details></article>').join('') +
@@ -756,8 +758,8 @@
     shell('발주 검증 결과', '<p class="store-validation">발주 전 검증 결과입니다. 묶음 배송비와 포장비는 각 조합의 첫 품목에 표시합니다.</p>' +
       '<div class="store-list">' + result.lines.map(line => '<article class="store-row store-result">' + img(line.item) +
       '<div><strong>' + esc(line.item.name) + '</strong><p>' + esc([line.address.zip, line.address.road || line.address.jibun, line.address.detail].filter(Boolean).join(' ')) + '</p><p>' +
-      esc(line.date) + ' · ' + esc(line.method) + '</p><p>상품 ' + won(line.item.price) + ' × ' +
-      esc(line.quantity) + '개 · 배송비 ' + (line.delivery == null ? '미확정' : won(line.delivery)) + ' · 포장비 ' + (line.packing == null ? '미확정' : won(line.packing)) + '</p><details><summary>계산 근거와 품목 상세</summary><p>' + esc(line.explanation) + '</p><p>대분류 ' + esc(line.item.category || '미지정') + (line.item.width == null ? '' : ' · 가로 ' + esc(line.item.width) + 'mm') + '</p><p>' + esc([line.address.province,line.address.city,line.address.district].filter(Boolean).join(' ')) + '</p><p>도로명 ' + esc(line.address.road || '미등록') + ' · 지번 ' + esc(line.address.jibun || '미등록') + '</p><p>' + esc((line.item.summary || []).join(' | ')) + '</p><p>주문자 ' + esc([line.contacts?.orderer,line.contacts?.phone].filter(Boolean).join(' ') || '미입력') + ' · 현장 담당자 ' + esc([line.contacts?.manager,line.contacts?.managerPhone].filter(Boolean).join(' ') || '미입력') + '</p></details></div></article>').join('') +
+      esc(listDate(line.date)) + ' · ' + esc(line.method) + '</p><p>상품 ' + won(line.item.price) + ' × ' +
+      esc(line.quantity) + '개 · 배송비 ' + (line.delivery == null ? '미확정' : won(line.delivery)) + ' · 포장비 ' + (line.packing == null ? '미확정' : won(line.packing)) + '</p><details><summary>계산 근거와 품목 상세</summary><p>' + esc(line.explanation) + '</p><p>대분류 ' + esc(line.item.category || '미지정') + (line.item.width == null ? '' : ' · 가로 ' + esc(line.item.width) + 'mm') + '</p><p>' + esc([line.address.province,line.address.city,line.address.district].filter(Boolean).join(' ')) + '</p><p>도로명 ' + esc(line.address.road || '미등록') + ' · 지번 ' + esc(line.address.jibun || '미등록') + '</p>' + checkoutOptions(line.item) + '<p>주문자 ' + esc([line.contacts?.orderer,line.contacts?.phone].filter(Boolean).join(' ') || '미입력') + ' · 현장 담당자 ' + esc([line.contacts?.manager,line.contacts?.managerPhone].filter(Boolean).join(' ') || '미입력') + '</p></details></div></article>').join('') +
       '</div><dl class="store-totals"><dt>상품금액</dt><dd>' + won(result.products) +
       '</dd><dt>배송비</dt><dd>' + won(result.delivery) + '</dd><dt>포장비</dt><dd>' + won(result.packing) +
       '</dd><dt>검증용 포인트</dt><dd>−' + won(result.points) + '</dd><dt>' + (result.pending ? '현재 확정 금액 · 미확정 비용 별도' : '합계') + '</dt><dd>' +

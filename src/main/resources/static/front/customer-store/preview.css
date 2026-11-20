@@ -331,7 +331,28 @@ body.hb-store { display: flex; flex-direction: column; min-height: 100vh; min-he
 .saved-product .store-product-facts > div {display:grid;align-content:start;gap:3px;min-width:0}
 .saved-product .store-product-facts dt {color:#716c64;font-size:12px}
 .saved-product .store-product-facts dd {color:#322f2b;font-size:13px;overflow-wrap:anywhere}
-.saved-options-toggle {display:inline-flex;align-items:center;gap:9px;min-height:34px;margin-top:6px;padding:2px 0;border:0;background:transparent;color:#504b44;font:inherit;font-size:12px;cursor:pointer}
+.hb-store .saved-product > .saved-options-toggle {
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  width:100%;box-sizing:border-box;min-height:42px;margin:16px 0 0;padding:8px 12px;
+  border:0;border-top:1px solid #dedad2;border-radius:0;background:transparent;
+  color:#423d36;font:inherit;font-size:13px;font-weight:600;cursor:pointer;
+}
+.hb-store .saved-product > .saved-options-toggle:is(:hover,[aria-expanded=true]) {background:#f6f5f2}
+.hb-store .saved-product:has(> .saved-options-toggle) {padding-bottom:0}
+.hb-store .saved-product .saved-options-toggle[aria-expanded=true] + .saved-options-panel .store-answer-detail {margin-bottom:16px}
+.store-selection-head > p {margin:0 0 0 auto;text-align:right;font-size:12px;color:#5f5a53;font-variant-numeric:tabular-nums}
+.hb-store .store-more[hidden] {display:none}
+.saved-product .store-product-facts {column-gap:0}
+.saved-product .store-product-facts > div {padding-inline:clamp(8px,1.4vw,20px);border-inline-start:1px solid #dfdbd4}
+.saved-product .store-product-facts > div:first-child {padding-inline-start:0;border-inline-start:0}
+.saved-product .store-product-facts dt {font-weight:550;color:#5e5951}
+.saved-product .store-product-facts dd {font-weight:650;color:#28251f}
+.saved-product .store-answer-detail dt {font-weight:600;color:#514b43}
+.saved-product .store-answer-detail dd {font-weight:550;color:#28251f}
+@media(max-width:700px){
+  .saved-product .store-product-facts > div:nth-child(4) {padding-inline-start:0;border-inline-start:0}
+}
+
 .saved-options-toggle::after {content:'';width:6px;height:6px;border:solid currentColor;border-width:0 1px 1px 0;transform:rotate(45deg);transition:transform .22s ease}
 .saved-options-toggle[aria-expanded=true]::after {transform:rotate(225deg)}
 .saved-options-panel {display:grid;grid-template-rows:0fr;transition:grid-template-rows .30s cubic-bezier(.25,.7,.3,1)}
@@ -344,7 +365,7 @@ body.hb-store { display: flex; flex-direction: column; min-height: 100vh; min-he
 @media(max-width:700px){
   .saved-product-head {gap:10px}
   .saved-product .saved-product-head > img {width:56px;height:56px}
-  .saved-product .store-product-facts {grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 12px}
+  .saved-product .store-product-facts {grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 0}
   .saved-product .store-product-facts > div:last-child {grid-column:span 2}
   .saved-product-title .store-link {font-size:15px}
 }
@@ -357,3 +378,23 @@ body.hb-store { display: flex; flex-direction: column; min-height: 100vh; min-he
 @media(hover:hover){
   .store-list > .saved-product:hover {border-color:#c9c5bf}
 }
+
+/* Keep navigation, product selection and order review on the same visual scale. */
+.hb-store .hb-card,
+.hb-store .hb-card > a,
+.hb-store .hb-standard-option,
+.hb-store .store-check-line,
+.hb-store .store-result {border-radius:5px}
+.hb-store .hb-card-copy h3 {line-height:1.35;overflow-wrap:anywhere}
+.hb-store .hb-card-copy .hb-card-price {margin-block-start:6px}
+.hb-store .hb-card-foot {border-block-start:1px solid #e5e1da;gap:12px}
+.hb-store .hb-card:focus-within,
+.hb-store .hb-standard-option:focus-within {outline:2px solid #786247;outline-offset:-2px}
+.hb-store .hb-standard-option:has(input:checked) {background-color:#f6f3ed;border-color:#8a765c}
+.hb-store .store-search form:focus-within {outline:2px solid #786247;outline-offset:2px}
+.hb-store .store-result > div {min-width:0;overflow-wrap:anywhere}
+.hb-store .store-result details > summary,
+.hb-store .store-check-line details > summary {padding-block:10px;cursor:pointer;font-weight:600;line-height:1.5}
+.hb-store .store-result details {border-block-start:1px solid #ddd8cf;margin-block-start:10px}
+.hb-store .store-result .store-answer-detail dd {margin:0;overflow-wrap:anywhere}
+.hb-store .store-totals dd {font-variant-numeric:tabular-nums}

@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="/administration/assets/css/page/productMaster/productShowcase.css?v=20261107-fullflow-2">
   <link rel="stylesheet" href="/administration/assets/css/page/productMaster/customerOrderExample.css?v=20261107-fullflow-3">
   <link rel="stylesheet" href="/administration/assets/libs/flatpickr/flatpickr.min.css">
-  <link rel="stylesheet" href="/front/customer-store/preview.css?v=20261120-list-slide5">
+  <link rel="stylesheet" href="/front/customer-store/preview.css?v=20261120-store-review">
   <link rel="stylesheet" href="/front/customer-store/counts.css?v=1">
 </head>
 <body class="hb-store" th:attr="data-store-user=${storeUser},data-store-token=${storeToken}">
@@ -26,7 +26,7 @@
       <a class="store-count-link" data-store-count="bookmark" href="/customer/store-preview?view=bookmark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16l-6-4-6 4V4Z"/></svg><span>즐겨찾기</span></a>
     </nav>
   </header>
-  <div class="hb-preview-note"><span>검증용 텍스트</span> 발주 결과는 저장되지 않으며 결제와 포인트 차감도 없습니다.</div>
+  <div class="hb-preview-note"><span>발주 미리보기</span> 발주 결과는 저장되지 않으며 결제와 포인트 차감도 없습니다.</div>
   <div id="hb-error" class="hb-error" role="alert" hidden></div>
   <div id="store-search" class="store-search">
     <form action="/customer/store-preview" method="get" role="search">
@@ -48,7 +48,7 @@
   <script src="/front/customer-store/counts.js?v=1" defer></script>
   <script src="https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
   <script src="/front/addressRegion.js"></script>
-  <script src="/front/customer-store/preview.js?v=20261120-list-slide5"></script>
-  <script src="/front/customer-store/catalog.js?v=20261120-role-view"></script>
+  <script src="/front/customer-store/preview.js?v=20261120-store-review"></script>
+  <script src="/front/customer-store/catalog.js?v=20261120-store-review"></script>
 </body>
 </html>
