@@ -348,9 +348,9 @@
         (mode === 'bookmark' ? '' : '<input type="checkbox" data-index="' + i + '" aria-label="' + esc(item.name) + ' 선택">') +
         img(item) + '<div class="saved-product-title">' + title +
         '<div class="store-row-price">' + (item.price == null ? '가격 미확정' : won(item.price)) + '</div></div>' +
+        (resumeUrl ? '<a class="store-btn store-resume" href="' + esc(resumeUrl) + '">이어하기 <span aria-hidden="true">→</span></a>' : '') +
         '<button class="store-icon" type="button" data-remove="' + i + '" aria-label="' + esc(item.name) + ' 삭제">' + icon('close') + '</button></div>' +
         '<dl class="store-product-facts">' + pairs(fields) + '</dl>' +
-        (resumeUrl ? '<a class="store-btn store-resume" href="' + esc(resumeUrl) + '">저장한 단계에서 이어하기</a>' : '') +
         (extra.length ? '<button type="button" class="saved-options-toggle" aria-expanded="false" aria-controls="saved-options-' + mode + '-' + i + '">상세 정보</button>' +
           '<div class="saved-options-panel" id="saved-options-' + mode + '-' + i + '" inert><div><dl class="store-answer-detail">' + pairs(extra) + '</dl></div></div>' : '') +
         '</article>';
@@ -359,6 +359,7 @@
       ? '<div class="store-list"></div><div class="store-more"><p role="status"></p>' +
         '<button type="button" class="store-btn" hidden>더보기</button></div>'
       : emptyList('저장된 ' + names[mode] + ' 항목이 없습니다', hints[mode], root, '쇼핑몰 둘러보기', mode));
+    main.querySelector('.store-page').classList.add('store-saved-page');
     if (!rows.length) {
       if (focusIndex != null) main.querySelector('.store-empty a')?.focus({preventScroll: true});
       return;
@@ -674,7 +675,13 @@
     const holidays = new Set(options.holidays);
     const pick = (node, earliest) => {
       const input = node.querySelector('[name=date]');
-      window.flatpickr(input, {dateFormat: 'Y-m-d', minDate: earliest || undefined, disableMobile: true, static: true,
+      window.flatpickr(input, {dateFormat: 'Y-m-d', minDate: earliest || undefined, disableMobile: true, static: true, locale: 'ko',
+        onOpen: (_, __, picker) => {
+          const rect = input.getBoundingClientRect();
+          const dialog = input.closest('dialog');
+          const bottom = dialog ? Math.min(innerHeight, dialog.getBoundingClientRect().bottom) : innerHeight;
+          picker.calendarContainer.classList.toggle('store-calendar-above', bottom - rect.bottom < picker.calendarContainer.offsetHeight && rect.top - (dialog?.getBoundingClientRect().top || 0) > picker.calendarContainer.offsetHeight);
+        },
         disable: [day => {
           const ym = [day.getFullYear(), day.getMonth() + 1, day.getDate()].map((n, i) =>
             i ? String(n).padStart(2, '0') : String(n)).join('-');
@@ -776,9 +783,12 @@
         }
         const dialog = document.createElement('dialog');
         dialog.className = 'store-address-book';
-        dialog.innerHTML = '<h2>배송비 계산 결과</h2><p>상품 ' + won(result.products) + ' · 확정 운임 ' + won(result.delivery) + ' · 확정 포장비 ' + won(result.packing) + '</p>' +
+        dialog.innerHTML = '<h2>배송비 계산 결과</h2><dl class="store-totals"><dt>상품금액</dt><dd>' + won(result.products) +
+          '</dd><dt>확정 배송비</dt><dd>' + won(result.delivery) + '</dd><dt>확정 포장비</dt><dd>' + won(result.packing) +
+          '</dd><dt>사용 포인트</dt><dd>−' + won(result.points) + '</dd><dt>' + (result.pending ? '현재 확정 금액' : '합계') +
+          '</dt><dd>' + won(result.payable) + '</dd></dl>' +
           (result.pending ? '<p>관리자 확인이 필요한 묶음이 있습니다.</p>' : '') +
-          '<button type="button" class="store-btn">입력 수정</button> <button type="button" class="store-btn is-primary">발주 확정 · 상세 검증</button>';
+          '<div class="store-review-actions"><button type="button" class="store-btn">입력 수정</button><button type="button" class="store-btn is-primary">발주 확정 · 상세 검증</button></div>';
         main.append(dialog);
         const [edit, confirm] = dialog.querySelectorAll('button');
         edit.onclick = () => dialog.close();

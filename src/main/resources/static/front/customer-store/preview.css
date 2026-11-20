@@ -420,7 +420,8 @@ body.hb-store { display: flex; flex-direction: column; min-height: 100vh; min-he
 .store-date-field {display:grid;gap:4px;grid-column:1/-1;min-width:0;font-size:.8rem}
 .store-date-field .flatpickr-wrapper {display:block;width:100%}
 .store-date-field input[name=date] {width:100%;box-sizing:border-box;cursor:pointer}
-.store-date-field .flatpickr-calendar.static.open {position:relative;inset:auto;margin-block-start:8px}
+.store-date-field .flatpickr-calendar.static.open {position:absolute;inset:calc(100% + 6px) 0 auto auto;margin:0;z-index:20}
+.store-date-field .flatpickr-calendar.static.store-calendar-above {top:auto;bottom:calc(100% + 6px)}
 .store-date-field :is(.flatpickr-calendar,.flatpickr-innerContainer,.flatpickr-rContainer,.flatpickr-days,.dayContainer) {max-width:100%;min-width:0;box-sizing:border-box}
 .store-date-field .flatpickr-day {min-width:0}
 .store-address-actions {display:flex;gap:8px;grid-column:1/-1}
@@ -445,17 +446,63 @@ body.hb-store { display: flex; flex-direction: column; min-height: 100vh; min-he
 .store-postcode-dialog::backdrop {background:#211f1c66}
 .store-bulk-dialog > .store-fields > label:has([name=method]),.store-bulk-dialog .store-date-field {grid-column:auto}
 @media(max-width:480px){.store-address-tools {grid-template-columns:repeat(2,minmax(0,1fr));justify-content:stretch}.store-address-tools label {grid-column:1/-1}}
-.store-bulk-dialog .store-fields:has(.store-date-field .flatpickr-calendar.open) .store-date-field {grid-column:1/-1}
+
 
 .hb-store .store-page:has(#store-checkout) {width:min(calc(100% - 2rem),88rem);max-width:none}
 #store-checkout .store-check-details h3 {font-size:15px;margin:18px 0 8px}
 @media(min-width:760px){
-#store-checkout .store-check-details > .store-fields {grid-template-columns:minmax(7rem,.6fr) minmax(12rem,1fr) minmax(17rem,1.3fr)}
+#store-checkout .store-check-details > .store-fields {grid-template-columns:repeat(3,minmax(0,1fr))}
 #store-checkout .store-date-field {grid-column:auto}
 #store-checkout .store-payment {grid-template-columns:minmax(0,1fr) minmax(10rem,15rem) minmax(9rem,13rem);align-items:center;column-gap:24px}
 #store-checkout .store-payment h2 {grid-area:1/1}
 #store-checkout .store-payment p {grid-area:2/1}
 #store-checkout .store-payment label {grid-area:1/2;border:0;padding:0}
 #store-checkout .store-payment small {grid-area:2/2}
-#store-checkout .store-payment button {grid-area:1/3/3/4}
+#store-checkout .store-payment button {grid-area:1/3;align-self:end;height:42px;min-height:42px;margin:0}
+}
+
+.hb-store .store-saved-page {width:min(calc(100% - 2rem),88rem);max-width:none}
+.store-saved-page .store-list {grid-template-columns:repeat(auto-fit,minmax(min(100%,36rem),1fr));align-items:start;gap:16px}
+.store-saved-page .saved-product {min-width:0}
+.store-saved-page .saved-product-title .store-link {font-weight:650;text-decoration:none}
+.store-saved-page .saved-product-title .store-link:is(:hover,:focus-visible) {text-decoration:underline;text-underline-offset:3px}
+.store-saved-page .store-resume {flex:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 12px;font-size:13px;text-decoration:none}
+.store-saved-page .saved-product-head .store-icon {align-self:center;display:inline-grid;place-items:center}
+.hb-store .saved-product > .saved-options-toggle,.store-saved-page .store-resume,.store-saved-page .store-icon {transition:background-color .18s ease,color .18s ease,border-color .18s ease}
+.store-saved-page .store-resume:is(:hover,:focus-visible) {background:#eeeae3;border-color:#aca393}
+.store-saved-page .store-product-facts {grid-template-columns:repeat(auto-fit,minmax(min(100%,8rem),1fr));row-gap:10px}
+.store-saved-page .saved-product .store-product-facts > div {grid-column:auto;padding-inline:10px;border-inline-start:1px solid #dedad3}
+.store-saved-page .saved-product .store-product-facts > div:first-child {padding-inline-start:0;border:0}
+.store-date-field .flatpickr-wrapper {position:relative}
+.store-date-field .flatpickr-calendar {width:min(308px,calc(100vw - 4rem));max-width:none}
+.store-date-field input[name=date],#store-checkout .store-check-details > .store-fields > label > :is(input,select),#store-checkout .store-payment input {height:42px;min-height:42px;box-sizing:border-box}
+@media(min-width:760px){#store-checkout .store-check-details > .store-fields {align-items:start}}
+@media(max-width:600px){
+.store-saved-page .saved-product-head {gap:8px}
+.store-saved-page .store-resume {padding-inline:7px}
+.store-bulk-dialog .store-date-field {grid-column:1/-1}
+.store-saved-page .saved-product .store-product-facts {grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(prefers-reduced-motion:reduce){.hb-store .saved-product > .saved-options-toggle,.store-saved-page .store-resume,.store-saved-page .store-icon {transition:none}}
+.hb-store[data-motion=reduced] .store-saved-page :is(.saved-options-toggle,.store-resume,.store-icon){transition:none}
+
+.store-saved-page .store-selection-head {padding:10px 0;border-bottom:1px solid var(--store-line)}
+.store-saved-page .store-order-footer {margin-top:18px;background:#faf9f6}
+.store-saved-page .store-order-amount strong {font-variant-numeric:tabular-nums}
+.store-saved-page .store-empty {background:white;border:1px solid var(--store-line);border-radius:5px;padding:clamp(24px,5vw,64px)}
+.store-saved-page .store-answer-detail > div + div {border-top:1px solid var(--store-line)}
+.hb-store .store-review-actions {display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;margin-top:18px}
+.store-page .store-totals {background:#faf9f7;border:1px solid var(--store-line);gap:8px 16px;padding:16px}
+.store-page .store-totals :nth-last-child(-n+2) {margin-top:4px;padding-top:12px}
+.hb-store .store-bulk-dialog,.hb-store .store-address-book {background:white;padding:clamp(16px,2vw,24px)}
+.store-page .store-bulk-launch {padding:16px 20px}
+.store-delivery-address > label,.store-contacts > .store-fields > label,.store-check-details > .store-fields > label,.store-date-field > span {font-weight:600}
+.hb-store .store-fields :is(input,select):focus-visible,.hb-store .store-saved-page :is(button,a):focus-visible {outline:2px solid #796747;outline-offset:2px}
+@media(min-width:760px){.store-page:has(.store-result) {width:min(calc(100% - 2rem),88rem);max-width:none}.store-page:has(.store-result) > .store-totals {max-width:32rem;margin-left:auto}}
+.store-bulk-dialog .store-date-field .flatpickr-calendar.static.open {left:0;right:auto}
+@media(max-width:759px){#store-checkout .store-check-details > .store-fields {align-items:start}#store-checkout .store-date-field .flatpickr-calendar.static.open {left:0;right:auto}}
+@media(min-width:1000px){
+.store-saved-page .store-list > .saved-product:only-child {display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.4fr);align-items:center;column-gap:24px}
+.store-saved-page .store-list > .saved-product:only-child .store-product-facts {margin:0;padding:0;border-top:0}
+.store-saved-page .store-list > .saved-product:only-child > :is(.saved-options-toggle,.saved-options-panel) {grid-column:1/-1}
 }
