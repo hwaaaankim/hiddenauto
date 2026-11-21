@@ -234,8 +234,9 @@ public class ProductOrderAddCommandService {
             order.setAssignedProductionTeam(null);
 
             order.setDeliveryMethod(deliveryMethod);
-            order.setPackingCost(request.getPackingCost());
-            order.setDeliveryCost(request.getDeliveryCost());
+            // One charge per task, carried by its first order, as in Excel registration.
+            order.setPackingCost(i == 0 ? request.getPackingCost() : 0);
+            order.setDeliveryCost(i == 0 ? request.getDeliveryCost() : 0);
 
             if (assignHandlerToOrder) {
                 order.setAssignedDeliveryHandler(deliveryHandler);

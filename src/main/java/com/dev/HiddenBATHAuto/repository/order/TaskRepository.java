@@ -242,6 +242,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @Query("""
         SELECT t FROM Task t
         WHERE t.requestedBy.company.id = :companyId
+          AND t.orders is not empty
           AND (:start IS NULL OR t.createdAt >= :start)
           AND (:end IS NULL OR t.createdAt <= :end)
         """)

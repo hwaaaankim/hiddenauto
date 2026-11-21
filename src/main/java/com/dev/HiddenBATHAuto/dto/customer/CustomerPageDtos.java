@@ -154,15 +154,16 @@ public final class CustomerPageDtos {
         /** Task에 포함된 모든 Order.supplyPrice의 합계 */
         private long supplyPrice;
 
-        /** supplyPrice 합계에 VAT 10%를 가산한 금액 */
+        /** 저장된 품목별 VAT 포함 금액의 합계 */
         private long vatIncludedTotalPrice;
 
-		/** Task 전체에 한 번만 반영되는 비용(여러 Order의 양수 최대값) */
+		/** 품목별 부대비 합계. 증빙이 일치하는 과거 관리자 등록의 공통비는 한 번 반영합니다. */
 		private long packingCost;
 		private long deliveryCost;
 
 		/** 제품 VAT 포함 합계 + 포장비 + 배송비 */
 		private long grandTotalPrice;
+        private boolean amountReviewRequired;
     }
 
 	@Getter
@@ -196,6 +197,7 @@ public final class CustomerPageDtos {
         private String size;
         private String color;
         private int quantity;
+		private boolean amountReviewRequired;
 		private long unitPrice;
 		private long supplyPrice;
 		private long vatIncludedTotalPrice;

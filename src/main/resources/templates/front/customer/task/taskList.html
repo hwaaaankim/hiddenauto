@@ -129,8 +129,8 @@
 								<th><div class="task-list-sortable-head"><span>발주일</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="createdAt" data-sort-dir="asc" aria-label="발주일 오름차순"><span aria-hidden="true">▲</span></button><button type="button" data-sort-field="createdAt" data-sort-dir="desc" aria-label="발주일 내림차순"><span aria-hidden="true">▼</span></button></span></div></th>
 								<th><div class="task-list-sortable-head"><span>제품금액<br>(VAT 제외)</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="totalPrice" data-sort-dir="asc" aria-label="제품금액 오름차순"><span aria-hidden="true">▲</span></button><button type="button" data-sort-field="totalPrice" data-sort-dir="desc" aria-label="제품금액 내림차순"><span aria-hidden="true">▼</span></button></span></div></th>
 								<th>제품합계<br>(VAT 포함)</th>
-								<th title="Task 전체에 한 번만 적용"><div class="task-list-sortable-head"><span>포장비</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="packingCost" data-sort-dir="asc" aria-label="포장비 오름차순"><span aria-hidden="true">▲</span></button><button type="button" data-sort-field="packingCost" data-sort-dir="desc" aria-label="포장비 내림차순"><span aria-hidden="true">▼</span></button></span></div></th>
-								<th title="Task 전체에 한 번만 적용"><div class="task-list-sortable-head"><span>배송비</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="deliveryCost" data-sort-dir="asc" aria-label="배송비 오름차순"><span aria-hidden="true">▲</span></button><button type="button" data-sort-field="deliveryCost" data-sort-dir="desc" aria-label="배송비 내림차순"><span aria-hidden="true">▼</span></button></span></div></th>
+								<th title="품목별 비용 합계. 원래 한 번 부과된 공통비는 한 번 반영합니다."><div class="task-list-sortable-head"><span>포장비</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="packingCost" data-sort-dir="asc" aria-label="포장비 오름차순"><span aria-hidden="true">▲</span></button><button type="button" data-sort-field="packingCost" data-sort-dir="desc" aria-label="포장비 내림차순"><span aria-hidden="true">▼</span></button></span></div></th>
+								<th title="품목별 비용 합계. 원래 한 번 부과된 공통비는 한 번 반영합니다."><div class="task-list-sortable-head"><span>배송비</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="deliveryCost" data-sort-dir="asc" aria-label="배송비 오름차순"><span aria-hidden="true">▲</span></button><button type="button" data-sort-field="deliveryCost" data-sort-dir="desc" aria-label="배송비 내림차순"><span aria-hidden="true">▼</span></button></span></div></th>
 								<th>최종합계</th>
 								<th><div class="task-list-sortable-head"><span>상태</span><span class="task-list-sort-buttons"><button type="button" data-sort-field="status" data-sort-dir="asc" aria-label="상태 오름차순"><span aria-hidden="true">▲</span></button><button type="button" data-sort-field="status" data-sort-dir="desc" aria-label="상태 내림차순"><span aria-hidden="true">▼</span></button></span></div></th>
 								<th>배송담당자</th>
@@ -162,7 +162,7 @@
 								<td class="task-list-price-cell" th:text="${#numbers.formatInteger(row.vatIncludedTotalPrice, 1, 'COMMA') + '원'}">0원</td>
 								<td class="task-list-price-cell" th:text="${#numbers.formatInteger(row.packingCost, 1, 'COMMA') + '원'}">0원</td>
 								<td class="task-list-price-cell" th:text="${#numbers.formatInteger(row.deliveryCost, 1, 'COMMA') + '원'}">0원</td>
-								<td class="task-list-price-cell fw-bold" th:text="${#numbers.formatInteger(row.grandTotalPrice, 1, 'COMMA') + '원'}">0원</td>
+								<td class="task-list-price-cell fw-bold" th:text="${#numbers.formatInteger(row.grandTotalPrice, 1, 'COMMA') + '원' + (row.amountReviewRequired ? ' (상세 확인 필요)' : '')}">0원</td>
 								<td><span class="task-list-status-badge" th:classappend="${' task-list-status-' + #strings.toLowerCase(row.statusKey)}" th:text="${row.statusLabel}">상태</span></td>
 								<td class="task-list-delivery-handler-cell">
 									<div class="task-list-delivery-handler-list"
@@ -212,7 +212,7 @@
 											<div><span>수량</span><strong th:text="${orderSummary.quantity + '개'}">1개</strong></div>
 											<div><span>단가(VAT 제외)</span><strong th:text="${#numbers.formatInteger(orderSummary.unitPrice, 1, 'COMMA') + '원'}">0원</strong></div>
 											<div><span>수량 적용금액(VAT 제외)</span><strong th:text="${#numbers.formatInteger(orderSummary.supplyPrice, 1, 'COMMA') + '원'}">0원</strong></div>
-											<div><span>최종금액(VAT 포함)</span><strong th:text="${#numbers.formatInteger(orderSummary.vatIncludedTotalPrice, 1, 'COMMA') + '원'}">0원</strong></div>
+											<div><span>최종금액(VAT 포함)</span><strong th:text="${#numbers.formatInteger(orderSummary.vatIncludedTotalPrice, 1, 'COMMA') + '원' + (orderSummary.amountReviewRequired ? ' (상세 확인 필요)' : '')}">0원</strong></div>
 															<div><span>배송수단</span><strong class="customer-order-shipping-value" th:text="${orderSummary.deliveryMethodName}">-</strong></div>
 															<div><span>배송희망일</span><strong class="customer-order-shipping-value" th:text="${orderSummary.deliveryDate != null ? #temporals.format(orderSummary.deliveryDate, 'yyyy/MM/dd') : '미정'}">-</strong></div>
 														</div>

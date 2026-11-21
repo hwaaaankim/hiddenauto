@@ -446,7 +446,7 @@ public class OrderExcelUploadService {
             task.setUpdatedAt(now);
             task = taskRepository.save(task);
 
-            int ordersTotalAmount = 0;
+            long ordersTotalAmount = 0;
             boolean groupCostApplied = false;
 
             for (OrderExcelSaveRowRequest rowRequest : rows) {
@@ -534,7 +534,7 @@ public class OrderExcelUploadService {
                 orderCount++;
             }
 
-            task.setTotalPrice(ordersTotalAmount + Math.max(0, groupRequest.getDeliveryCost()) + Math.max(0, groupRequest.getPackingCost()));
+            task.setTotalPrice(Math.toIntExact(ordersTotalAmount + Math.max(0, groupRequest.getDeliveryCost()) + Math.max(0, groupRequest.getPackingCost())));
             task.setUpdatedAt(LocalDateTime.now());
             taskRepository.save(task);
             taskIds.add(task.getId());

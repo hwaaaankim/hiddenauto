@@ -1,10 +1,11 @@
 package com.dev.HiddenBATHAuto.service.order;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -21,6 +22,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.PageRequest;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import com.dev.HiddenBATHAuto.model.task.audit.CustomerOrderSearchSnapshot;
+import lombok.extern.slf4j.Slf4j;
 
 import com.dev.HiddenBATHAuto.dto.orderchange.OrderFieldChangeCommand;
 import com.dev.HiddenBATHAuto.enums.notification.OrderNotificationAudience;
@@ -47,6 +56,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 
+@Slf4j
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -77,7 +87,9 @@ public class OrderUpdateService {
 	private final TeamCategoryRepository teamCategoryRepository;
 	private final CompanyRepository companyRepository;
 	private final TaskRepository taskRepository;
-    @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entityManager;
+    private final OrderTransferAmounts orderTransferAmounts;
+    private final TaskCompanyNoteArchive taskCompanyNoteArchive;
+    @PersistenceContext private EntityManager entityManager;
 	private final OrderImageRepository orderImageRepository;
 	private final DeliveryOrderIndexService deliveryOrderIndexService;
 	private final ObjectMapper objectMapper;
@@ -206,7 +218,7 @@ public class OrderUpdateService {
 				siteDoName, siteSiName, siteGuName, siteRoadAddress, siteDetailAddress, ordererName, ordererPhone,
 				optionJson, deleteAdminImageIds, adminImages, adminMemo, dispatchCompleteMessage,
 				dispatchCompleteMessageSubmitted, updatedByUsername, mirrorCuttingProduct,
-				false, null, null
+				false, null, null, null, null
 		);
 	}
 
@@ -226,7 +238,8 @@ public class OrderUpdateService {
 			String siteSiName, String siteGuName, String siteRoadAddress, String siteDetailAddress, String ordererName,
 			String ordererPhone, String optionJson, List<Long> deleteAdminImageIds, List<MultipartFile> adminImages,
 			String adminMemo, String dispatchCompleteMessage, boolean dispatchCompleteMessageSubmitted,
-			String updatedByUsername, boolean mirrorCuttingProduct, String companyScope, Long originalCompanyId) {
+			String updatedByUsername, boolean mirrorCuttingProduct, String companyScope, Long originalCompanyId, Long originalTaskId,
+            String originalOrderVersion) {
 		updateOrderInternal(
 				orderId, productCost, quantity, supplyPrice, totalAmount, packingCost, deliveryCost,
 				preferredDeliveryDate, statusStr, deliveryMethodId, deliveryHandlerId, productCategoryId, companyId,
@@ -234,7 +247,7 @@ public class OrderUpdateService {
 				siteDoName, siteSiName, siteGuName, siteRoadAddress, siteDetailAddress, ordererName, ordererPhone,
 				optionJson, deleteAdminImageIds, adminImages, adminMemo, dispatchCompleteMessage,
 				dispatchCompleteMessageSubmitted, updatedByUsername, mirrorCuttingProduct,
-				true, companyScope, originalCompanyId
+				true, companyScope, originalCompanyId, originalTaskId, originalOrderVersion
 		);
 	}
 
@@ -247,50 +260,76 @@ public class OrderUpdateService {
 			String ordererPhone, String optionJson, List<Long> deleteAdminImageIds, List<MultipartFile> adminImages,
 			String adminMemo, String dispatchCompleteMessage, boolean dispatchCompleteMessageSubmitted,
 			String updatedByUsername, boolean mirrorCuttingProduct,
-			boolean explicitAddressValues, String companyScope, Long originalCompanyId) {
+			boolean explicitAddressValues, String companyScope, Long originalCompanyId, Long originalTaskId,
+            String originalOrderVersion) {
 		Order order = getOrderOrThrow(orderId);
 
 		Task source = order.getTask();
+        if (source == null) throw new IllegalStateException("이 오더의 원 발주를 찾을 수 없습니다.");
         if (explicitAddressValues) {
-            entityManager.refresh(source, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
-            entityManager.refresh(order, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
-            if (!Objects.equals(source.getId(),order.getTask().getId())) throw new IllegalStateException("다른 관리자가 이 오더를 이동했습니다. 다시 조회해 주세요.");
-        }
-        Long currentCompany = source.getRequestedBy() == null || source.getRequestedBy().getCompany() == null ? null : source.getRequestedBy().getCompany().getId();
-        if (originalCompanyId != null && !Objects.equals(originalCompanyId, currentCompany))
-            throw new IllegalStateException("업체 정보가 변경되었습니다. 발주를 다시 조회해 주세요.");
-        boolean transfer = explicitAddressValues && companyId.isPresent() && !Objects.equals(currentCompany, companyId.get());
-        if (transfer && !("TASK".equals(companyScope) || "ORDER".equals(companyScope)))
-            throw new IllegalArgumentException("업체 변경 적용 범위를 선택해 주세요.");
-        var siblingSnapshots = new java.util.LinkedHashMap<Order, ProductionVisibleOrderSnapshot>();
-        var siblingSearch = new java.util.HashMap<Order, com.dev.HiddenBATHAuto.model.task.audit.CustomerOrderSearchSnapshot>();
-        if (transfer && "TASK".equals(companyScope)) {
-            for (Order other : source.getOrders()) if (!other.getId().equals(orderId)) {
-                siblingSnapshots.put(other, ProductionVisibleOrderSnapshot.from(other));
-                siblingSearch.put(other, com.dev.HiddenBATHAuto.model.task.audit.CustomerOrderSearchSnapshot.from(other));
+            entityManager.refresh(source, LockModeType.PESSIMISTIC_WRITE);
+            entityManager.refresh(order, LockModeType.PESSIMISTIC_WRITE);
+            if (!Objects.equals(source.getId(), order.getTask().getId())
+                    || (originalTaskId != null && !Objects.equals(source.getId(), originalTaskId))) {
+                throw new IllegalStateException("다른 관리자가 이 오더를 이동했습니다. 발주를 다시 열어 주세요.");
             }
         }
-        long originalLineTotal = (long)order.getTotalAmount() + order.getPackingCost() + order.getDeliveryCost();
-        ProductionVisibleOrderSnapshot beforeSnapshot = ProductionVisibleOrderSnapshot.from(order);
-        var customerSearchBefore = com.dev.HiddenBATHAuto.model.task.audit.CustomerOrderSearchSnapshot.from(order);
-		boolean adminImageChanged = hasDeleteIds(deleteAdminImageIds) || hasUploadFiles(adminImages);
+        Company sourceCompany = source.getRequestedBy() == null ? null : source.getRequestedBy().getCompany();
+        Long currentCompany = sourceCompany == null ? null : sourceCompany.getId();
+        if (originalCompanyId != null && !Objects.equals(originalCompanyId, currentCompany)) {
+            throw new IllegalStateException("업체가 변경되었습니다. 발주를 다시 열어 주세요.");
+        }
+        boolean transfer = companyId.isPresent() && !Objects.equals(currentCompany, companyId.get());
+        boolean split = transfer && "ORDER".equals(companyScope);
+        if (transfer && (!explicitAddressValues || currentCompany == null || originalCompanyId == null
+                || originalTaskId == null || !(split || "TASK".equals(companyScope)))) {
+            throw new IllegalArgumentException("발주관리에서 오더를 다시 열고 업체 변경 범위를 선택해 주세요.");
+        }
+
+        if (transfer && !Objects.equals(originalOrderVersion, transferEditVersion(order))) {
+            throw new IllegalStateException("화면을 연 뒤 오더 또는 발주 금액이 변경되었습니다. 최신 내용을 다시 열어 업체를 변경해 주세요.");
+        }
+
+        Map<Order, ProductionVisibleOrderSnapshot> siblingSnapshots = new LinkedHashMap<>();
+        Map<Order, CustomerOrderSearchSnapshot> siblingSearch = new LinkedHashMap<>();
+        Member representative = null;
+        if (transfer) {
+            representative = memberRepository.findTransferRepresentative(companyId.orElseThrow(),
+                    MemberRole.CUSTOMER_REPRESENTATIVE, PageRequest.of(0, 1))
+                    .stream().findFirst().orElseThrow(() ->
+                            new IllegalStateException("선택한 업체에 활성 대표회원이 없습니다."));
+            if (!split) {
+                for (Order sibling : orderRepository.lockOrdersForTaskTransfer(source.getId())) {
+                    if (!sibling.getId().equals(orderId)) {
+                        siblingSnapshots.put(sibling, ProductionVisibleOrderSnapshot.from(sibling));
+                        siblingSearch.put(sibling, CustomerOrderSearchSnapshot.from(sibling));
+                    }
+                }
+            }
+        }
+        var beforeSnapshot = ProductionVisibleOrderSnapshot.from(order);
+        var customerSearchBefore = CustomerOrderSearchSnapshot.from(order);
+        var amounts = explicitAddressValues ? orderTransferAmounts.prepare(source, order, split, productCost,
+                quantity, supplyPrice, totalAmount, packingCost, deliveryCost) : null;
+        boolean adminImageChanged = hasDeleteIds(deleteAdminImageIds) || hasUploadFiles(adminImages);
 
 		OrderStatus status = parseOrderStatus(statusStr);
-		MoneySnapshot moneySnapshot = normalizeMoney(productCost, quantity, supplyPrice, totalAmount);
+		if (amounts != null) {
+            amounts.applyLine(order);
+            source.setTotalPrice(amounts.sourceTotal());
+        } else {
+            MoneySnapshot moneySnapshot = normalizeMoney(productCost, quantity, supplyPrice, totalAmount);
+            order.setProductCost(moneySnapshot.productCost());
+            order.setQuantity(moneySnapshot.quantity());
+            order.setSupplyPrice(moneySnapshot.supplyPrice());
+            order.setTotalAmount(moneySnapshot.totalAmount());
+            order.setPackingCost(nonNegative(packingCost, "포장비"));
+            order.setDeliveryCost(nonNegative(deliveryCost, "배송비"));
+        }
+        order.setMirrorCuttingProduct(mirrorCuttingProduct);
+        if (order.getOrderItem() != null) order.getOrderItem().setQuantity(order.getQuantity());
 
-		order.setProductCost(moneySnapshot.productCost());
-		order.setQuantity(moneySnapshot.quantity());
-		order.setSupplyPrice(moneySnapshot.supplyPrice());
-		order.setTotalAmount(moneySnapshot.totalAmount());
-		order.setPackingCost(nonNegative(packingCost, "포장비"));
-		order.setDeliveryCost(nonNegative(deliveryCost, "배송비"));
-		order.setMirrorCuttingProduct(mirrorCuttingProduct);
-
-		if (order.getOrderItem() != null) {
-			order.getOrderItem().setQuantity(moneySnapshot.quantity());
-		}
-
-		order.setPreferredDeliveryDate(preferredDeliveryDate != null ? preferredDeliveryDate.atStartOfDay() : null);
+        order.setPreferredDeliveryDate(preferredDeliveryDate != null ? preferredDeliveryDate.atStartOfDay() : null);
 		order.setStatus(status);
 
 		normalizeId(deliveryMethodId).ifPresentOrElse(id -> {
@@ -329,26 +368,26 @@ public class OrderUpdateService {
 			order.setProductCategory(category);
 		}, () -> order.setProductCategory(null));
 
-		if (transfer && "ORDER".equals(companyScope)) {
-            Company targetCompany = companyRepository.findById(companyId.orElseThrow())
-                    .orElseThrow(() -> new IllegalArgumentException("변경할 업체를 찾을 수 없습니다."));
-            Member representative = findRepresentativeMember(targetCompany)
-                    .orElseThrow(() -> new IllegalStateException("선택한 업체에 등록된 대표회원이 없습니다."));
-            Task destination = new Task();
-            destination.setManagedBy(source.getManagedBy());
-            destination.setStatus(source.getStatus());
-            destination.setCustomerNote(source.getCustomerNote());
-            destination.setInternalNote(source.getInternalNote());
-            destination.setUpdatedAt(LocalDateTime.now());
-            destination.setTotalPrice(Math.toIntExact((long)order.getTotalAmount() + order.getPackingCost() + order.getDeliveryCost()));
-            source.setTotalPrice(Math.toIntExact((long)source.getTotalPrice() - originalLineTotal));
+		if (transfer) {
+            if (split) {
+                Task destination = new Task();
+                destination.setRequestedBy(representative);
+                destination.setManagedBy(source.getManagedBy());
+                destination.setStatus(source.getStatus());
+                // 신청일 기준 조회와 매출 귀속 월을 보존한다. 실제 분리 시각은 변경이력에 남는다.
+                if (source.getCreatedAt() != null) destination.setCreatedAt(source.getCreatedAt());
+                destination.setUpdatedAt(LocalDateTime.now());
+                destination.setTotalPrice(amounts.destinationTotal());
+                order.setTask(taskRepository.save(destination));
+            } else {
+                taskCompanyNoteArchive.archiveForTransfer(source, companyId.orElseThrow(), updatedByUsername);
+                source.setRequestedBy(representative);
+            }
             source.setUpdatedAt(LocalDateTime.now());
-            destination.setRequestedBy(representative);
-            order.setTask(taskRepository.save(destination));
         } else {
-            updateRequesterIfNeeded(order, normalizeId(companyId), transfer ? Optional.empty() : normalizeId(requesterMemberId));
+            updateRequesterIfNeeded(order, normalizeId(companyId), normalizeId(requesterMemberId));
         }
-		updateOrderItemOptionJson(order, optionJson);
+        updateOrderItemOptionJson(order, optionJson);
 
 		order.setOrdererName(normalizeNullableText(ordererName));
 		order.setOrdererPhone(normalizeNullableText(ordererPhone));
@@ -377,15 +416,21 @@ public class OrderUpdateService {
 		 */
 		deliveryOrderIndexService.ensureIndex(order);
 
-		for (var entry : siblingSnapshots.entrySet()) {
-            auditManagementEdit(entry.getKey(), entry.getValue(), siblingSearch.get(entry.getKey()), false, updatedByUsername);
+		String operation = split ? "MANAGEMENT_COMPANY_TRANSFER_ORDER"
+                : transfer ? "MANAGEMENT_COMPANY_TRANSFER_TASK" : "MANAGEMENT_ORDER_UPDATE";
+        String label = split ? "관리자 업체 변경(오더 단건)"
+                : transfer ? "관리자 업체 변경(발주 전체)" : "관리자 주문 수정";
+        for (var entry : siblingSnapshots.entrySet()) {
+            auditManagementEdit(entry.getKey(), entry.getValue(), siblingSearch.get(entry.getKey()),
+                    false, updatedByUsername, operation, label, orderId);
         }
-        auditManagementEdit(order, beforeSnapshot, customerSearchBefore, adminImageChanged, updatedByUsername);
+        auditManagementEdit(order, beforeSnapshot, customerSearchBefore, adminImageChanged,
+                updatedByUsername, operation, label, orderId);
     }
 
     private void auditManagementEdit(Order order, ProductionVisibleOrderSnapshot beforeSnapshot,
-            com.dev.HiddenBATHAuto.model.task.audit.CustomerOrderSearchSnapshot customerSearchBefore, boolean adminImageChanged, String updatedByUsername) {
-        Long orderId = order.getId();
+            CustomerOrderSearchSnapshot customerSearchBefore, boolean adminImageChanged, String updatedByUsername,
+            String operation, String label, Long submittedOrderId) {
         ProductionVisibleOrderSnapshot afterSnapshot = ProductionVisibleOrderSnapshot.from(order);
 		boolean managementChanged = adminImageChanged || !Objects.equals(beforeSnapshot, afterSnapshot);
 
@@ -398,15 +443,18 @@ public class OrderUpdateService {
                     ? actor.getName().trim()
                     : actorUsername;
 
+            if (!"MANAGEMENT_ORDER_UPDATE".equals(operation)) {
+                orderCheckStatusService.markRevisedAfterProductionCheckIfNeeded(order, actorUsername, true,
+                        "업체 변경 · " + beforeSnapshot.requesterCompanyId() + " → " + afterSnapshot.requesterCompanyId());
+            }
             orderChangeAuditService.recordOrderChange(
                     order,
                     OrderChangeSourceArea.MANAGEMENT,
                     actor != null ? actor.getId() : null,
                     actorUsername,
                     actorDisplayName,
-                    "MANAGEMENT_ORDER_UPDATE",
-                    "관리자 주문 수정",
-                    "/management/nonStandardOrderItemUpdate/" + orderId,
+                    operation, label,
+                    "/management/nonStandardOrderItemUpdate/" + submittedOrderId,
                     buildOrderChangeCommands(beforeSnapshot, afterSnapshot, adminImageChanged),
                     OrderNotificationAudience.RELATED_USERS,
                     null,
@@ -691,6 +739,14 @@ public class OrderUpdateService {
         ));
     }
 
+    /** Detect intervening edits to the values that this form would submit. */
+    public static String transferEditVersion(Order order) {
+        Task task = order.getTask();
+        String values = ProductionVisibleOrderSnapshot.from(order).toString() + "|" + task.getTotalPrice()
+                + "|" + order.getUpdatedAt() + "|" + task.getUpdatedAt();
+        return UUID.nameUUIDFromBytes(values.getBytes(StandardCharsets.UTF_8)).toString();
+    }
+
 	private record ProductionVisibleOrderSnapshot(
             String statusName,
             String productCategoryId,
@@ -940,8 +996,13 @@ public class OrderUpdateService {
 			newRequester = memberRepository.findById(requesterId)
 					.orElseThrow(() -> new IllegalArgumentException("Invalid requesterMemberId. id=" + requesterId));
 
-			if (normalizedCompanyId.isPresent()) {
-				Long selectedCompanyId = normalizedCompanyId.get();
+			if (newRequester.getCompany() == null || order.getTask().getRequestedBy() == null
+                    || order.getTask().getRequestedBy().getCompany() == null
+                    || !Objects.equals(newRequester.getCompany().getId(), order.getTask().getRequestedBy().getCompany().getId())) {
+                throw new IllegalArgumentException("다른 업체의 신청자를 지정하려면 업체 변경을 먼저 적용해 주세요.");
+            }
+            if (normalizedCompanyId.isPresent()) {
+                Long selectedCompanyId = normalizedCompanyId.get();
 
 				Company selectedCompany = companyRepository.findById(selectedCompanyId)
 						.orElseThrow(() -> new IllegalArgumentException("Invalid companyId. id=" + selectedCompanyId));
@@ -981,10 +1042,8 @@ public class OrderUpdateService {
 			return Optional.empty();
 		}
 
-		return memberRepository.findByCompany_Id(company.getId()).stream()
-				.filter(member -> member != null && member.getRole() == MemberRole.CUSTOMER_REPRESENTATIVE)
-				.min((left, right) -> Long.compare(left.getId() == null ? Long.MAX_VALUE : left.getId(),
-						right.getId() == null ? Long.MAX_VALUE : right.getId()));
+		return memberRepository.findTransferRepresentative(company.getId(), MemberRole.CUSTOMER_REPRESENTATIVE,
+                PageRequest.of(0, 1)).stream().findFirst();
 	}
 
 	private void updateOrderItemOptionJson(Order order, String submittedOptionJson) {
@@ -1173,7 +1232,12 @@ public class OrderUpdateService {
 				continue;
 			}
 
-			deletePhysicalFile(image);
+            Path oldFile = resolveImageFilePath(image);
+            if (oldFile != null) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override public void afterCommit() { deleteDetachedImage(oldFile); }
+                });
+            }
 
 			if (order.getOrderImages() != null) {
 				order.getOrderImages().removeIf(
@@ -1184,19 +1248,15 @@ public class OrderUpdateService {
 		}
 	}
 
-	private void deletePhysicalFile(OrderImage image) {
-		Path filePath = resolveImageFilePath(image);
-		if (filePath == null) {
-			return;
-		}
-		try {
-			Files.deleteIfExists(filePath);
-		} catch (IOException e) {
-			throw new RuntimeException("관리자 이미지 파일 삭제 중 오류가 발생했습니다. path=" + filePath, e);
-		}
-	}
+	private void deleteDetachedImage(Path path) {
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException ex) {
+            log.warn("연결 해제된 관리자 이미지 정리에 실패했습니다. 파일={}", path, ex);
+        }
+    }
 
-	private Path resolveImageFilePath(OrderImage image) {
+    private Path resolveImageFilePath(OrderImage image) {
 		if (image == null) {
 			return null;
 		}
@@ -1250,7 +1310,14 @@ public class OrderUpdateService {
 				String uuidFileName = UUID.randomUUID() + (ext != null ? "." + ext : "");
 				Path savedPath = saveDir.resolve(uuidFileName).normalize();
 
-				Files.copy(file.getInputStream(), savedPath, StandardCopyOption.REPLACE_EXISTING);
+				TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override public void afterCompletion(int status) {
+                        if (status == STATUS_ROLLED_BACK) deleteDetachedImage(savedPath);
+                    }
+                });
+                try (InputStream stream = file.getInputStream()) {
+                    Files.copy(stream, savedPath);
+                }
 
 				String urlPath = "/upload/order/order/" + memberId + "/" + dateFolder + "/admin/" + uuidFileName;
 

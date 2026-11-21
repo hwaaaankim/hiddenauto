@@ -44,7 +44,7 @@
 					<div class="col-xl-2 col-lg-3 col-md-4 col-6 order-detail-summary-item"><span>주문번호</span><strong th:text="${'#' + order.id}">#1</strong></div>
 					<div class="col-xl-2 col-lg-3 col-md-4 col-6 order-detail-summary-item"><span>카테고리</span><strong th:text="${order.productCategory != null ? order.productCategory.name : '-'}">-</strong></div>
 					<div class="col-xl-2 col-lg-3 col-md-4 col-6 order-detail-summary-item"><span>수량</span><strong th:text="${order.quantity + '개'}">1개</strong></div>
-					<div class="col-xl-2 col-lg-3 col-md-4 col-6 order-detail-summary-item"><span>제품 금액</span><strong th:text="${#numbers.formatInteger(order.productCost, 1, 'COMMA') + '원'}">0원</strong></div>
+					<div class="col-xl-2 col-lg-3 col-md-4 col-6 order-detail-summary-item"><span>제품합계(VAT 포함)</span><strong th:text="${#numbers.formatInteger(orderSummary.vatIncludedTotalPrice, 1, 'COMMA') + '원' + (orderSummary.amountReviewRequired ? ' (상세 확인 필요)' : '')}">0원</strong></div>
 					<div class="col-xl-2 col-lg-3 col-md-4 col-6 order-detail-summary-item"><span>작성일</span><strong th:text="${order.createdAt != null ? #temporals.format(order.createdAt, 'yyyy/MM/dd') : '-'}">-</strong></div>
 					<div class="col-xl-2 col-lg-3 col-md-4 col-6 order-detail-summary-item"><span>배송예정일</span><strong th:text="${order.preferredDeliveryDate != null ? #temporals.format(order.preferredDeliveryDate, 'yyyy/MM/dd') : '미정'}">-</strong></div>
 					<div class="col-xl-3 col-lg-4 col-md-6 order-detail-summary-item"><span>배송수단</span><strong th:text="${order.deliveryMethod != null ? order.deliveryMethod.methodName : '-'}">-</strong></div>

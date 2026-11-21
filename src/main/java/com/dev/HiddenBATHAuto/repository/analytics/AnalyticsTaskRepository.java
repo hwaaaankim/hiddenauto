@@ -21,7 +21,7 @@ public interface AnalyticsTaskRepository extends JpaRepository<Task, Long> {
     @Query("""
         select distinct t
         from Task t
-        left join t.orders o
+        join t.orders o
         left join o.orderItem oi
         where t.createdAt >= :from
           and t.createdAt < :to

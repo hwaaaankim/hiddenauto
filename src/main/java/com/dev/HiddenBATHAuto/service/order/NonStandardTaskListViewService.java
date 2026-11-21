@@ -99,7 +99,7 @@ public class NonStandardTaskListViewService {
 
         int supplyPrice = order.getSupplyPrice();
         int totalAmount = order.getTotalAmount();
-        int vatPrice = Math.max(0, totalAmount - supplyPrice);
+        long vatPrice = (long) totalAmount - supplyPrice;
 
         String ordererSummary = joinNonBlank(" / ", order.getOrdererName(), order.getOrdererPhone());
         String dispatchCompleteMessage = normalizeNullableText(order.getDispatchCompleteMessage());

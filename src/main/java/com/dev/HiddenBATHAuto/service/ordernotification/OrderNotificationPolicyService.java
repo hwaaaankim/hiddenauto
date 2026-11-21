@@ -47,6 +47,13 @@ public class OrderNotificationPolicyService {
                         () -> new EnumMap<>(OrderNotificationRecipientGroup.class)
                 ));
 
+        // 전용 정책을 처음 저장하기 전에는 기존 발주 수정의 수신그룹별 선택을 이어받습니다.
+        if (safeAction == OrderNotificationAction.COMPANY_TRANSFER && safeSource == OrderChangeSourceArea.MANAGEMENT) {
+            for (OrderNotificationPolicy previous : policyRepository.findBySourceAreaAndAction(safeSource, OrderNotificationAction.UPDATE)) {
+                stored.putIfAbsent(previous.getRecipientGroup(), previous);
+            }
+        }
+
         Map<OrderNotificationRecipientGroup, ChannelPolicy> result =
                 new EnumMap<>(OrderNotificationRecipientGroup.class);
         for (OrderNotificationRecipientGroup group : OrderNotificationRecipientGroup.values()) {
@@ -109,6 +116,10 @@ public class OrderNotificationPolicyService {
         for (OrderNotificationPolicyCatalog.Definition definition : catalog.getDefinitions()) {
             String key = definition.key();
             OrderNotificationPolicy stored = storedByKey.get(key);
+            if (stored == null && definition.action() == OrderNotificationAction.COMPANY_TRANSFER
+                    && definition.sourceArea() == OrderChangeSourceArea.MANAGEMENT) {
+                stored = storedByKey.get(key(definition.sourceArea(), OrderNotificationAction.UPDATE, definition.recipientGroup()));
+            }
             boolean webEnabled = stored != null
                     ? stored.isWebEnabled()
                     : definition.defaultWebEnabled();
@@ -208,6 +219,11 @@ public class OrderNotificationPolicyService {
     }
 
     public record ChannelPolicy(boolean webEnabled, boolean kakaoEnabled, boolean importantEnabled) {
+        public ChannelPolicy withAlsoEnabled(ChannelPolicy other) {
+            return new ChannelPolicy(webEnabled || other.webEnabled, kakaoEnabled || other.kakaoEnabled,
+                    importantEnabled || other.importantEnabled);
+        }
+
         public boolean disabled() {
             return !webEnabled && !kakaoEnabled && !importantEnabled;
         }

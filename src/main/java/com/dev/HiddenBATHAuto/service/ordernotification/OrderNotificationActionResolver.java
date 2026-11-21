@@ -5,6 +5,7 @@ import java.util.Locale;
 import org.springframework.stereotype.Component;
 
 import com.dev.HiddenBATHAuto.enums.notification.OrderNotificationAction;
+import com.dev.HiddenBATHAuto.enums.order.OrderChangeSourceArea;
 import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 import com.dev.HiddenBATHAuto.model.task.audit.OrderChangeEvent;
 import com.dev.HiddenBATHAuto.model.task.audit.OrderChangeField;
@@ -16,6 +17,9 @@ public class OrderNotificationActionResolver {
         if (event == null) return OrderNotificationAction.UPDATE;
 
         String code = safe(event.getOperationCode()).toUpperCase(Locale.ROOT);
+        if (isCompanyTransfer(event)) {
+            return OrderNotificationAction.COMPANY_TRANSFER;
+        }
         if (code.startsWith("ADMIN_REQUEST_")) return OrderNotificationAction.ADMIN_REQUEST;
         if (code.contains("CHECK_CONFIRM") || code.contains("MARK_CHECKED")) {
             return OrderNotificationAction.CHECK_CONFIRM;
@@ -52,13 +56,26 @@ public class OrderNotificationActionResolver {
             return OrderNotificationAction.DISPATCH_COMPLETE;
         }
 
+        OrderNotificationAction statusAction = resolveStatusAction(event);
+        return statusAction != null ? statusAction : OrderNotificationAction.UPDATE;
+    }
+
+    static boolean isCompanyTransfer(OrderChangeEvent event) {
+        return event != null && event.getSourceArea() == OrderChangeSourceArea.MANAGEMENT
+                && ("MANAGEMENT_COMPANY_TRANSFER_ORDER".equals(event.getOperationCode())
+                || "MANAGEMENT_COMPANY_TRANSFER_TASK".equals(event.getOperationCode()));
+    }
+
+    OrderNotificationAction resolveStatusAction(OrderChangeEvent event) {
         StatusTransition transition = resolveTransition(event);
+        if (isCompanyTransfer(event) && StatusTransition.hidden(transition.before()) && StatusTransition.hidden(transition.after())) {
+            return null;
+        }
         if (transition.visibleToHidden()) return OrderNotificationAction.CANCEL_OR_HIDE;
         if (transition.hiddenToVisible() || transition.backwardVisible()) {
             return OrderNotificationAction.RESTORE_OR_ROLLBACK;
         }
-        if (transition.changed()) return OrderNotificationAction.STATUS_CHANGE;
-        return OrderNotificationAction.UPDATE;
+        return transition.changed() ? OrderNotificationAction.STATUS_CHANGE : null;
     }
 
     private StatusTransition resolveTransition(OrderChangeEvent event) {

@@ -268,12 +268,29 @@ public class OrderChangeAuditService {
                 }
             }
         }
+        Long currentTaskId = order.getTask() == null ? null : order.getTask().getId();
+        boolean sameTask = Objects.equals(before.getTaskId(), currentTaskId);
+        boolean singleTransfer = "MANAGEMENT_COMPANY_TRANSFER_ORDER".equals(event.getOperationCode());
         if (!Objects.equals(before.getOrderId(), order.getId())
-                || !Objects.equals(before.getTaskId(), order.getTask() == null ? null : order.getTask().getId())) {
+                || (singleTransfer ? !matchesSingleTransfer(event, changes, before.getTaskId(), currentTaskId) : !sameTask)) {
             throw new IllegalStateException("다른 발주의 변경 전 정보를 저장할 수 없습니다. orderId=" + order.getId());
         }
         event.captureCustomerSearchBefore(before);
         if (deleted) event.clearCustomerSearchAfterDeletion();
+    }
+
+    private boolean matchesSingleTransfer(OrderChangeEvent event, List<OrderFieldChangeCommand> changes,
+            Long beforeTaskId, Long afterTaskId) {
+        if (event.getSourceArea() != OrderChangeSourceArea.MANAGEMENT || beforeTaskId == null || afterTaskId == null
+                || beforeTaskId.equals(afterTaskId) || !Objects.equals(event.getTaskIdSnapshot(), afterTaskId)) {
+            return false;
+        }
+        boolean changesTask = changes.stream().anyMatch(change -> "taskId".equals(change.fieldKey())
+                && beforeTaskId.toString().equals(change.beforeValue())
+                && afterTaskId.toString().equals(change.afterValue()));
+        boolean changesCompany = changes.stream().anyMatch(change -> "requesterCompany".equals(change.fieldKey())
+                && change.isActuallyChanged());
+        return changesTask && changesCompany;
     }
 
     @Transactional(readOnly = true)

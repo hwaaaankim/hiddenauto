@@ -226,7 +226,7 @@ public class NonStandardOrderItemService {
      * <p>이 폼은 주소 hidden/input 전체를 항상 제출하므로, 빈 시/구/상세주소도 명시적인 수정값으로 처리하는
      * 전용 OrderUpdateService 진입점을 사용합니다.</p>
      */
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public void updateNonStandardOrderItemWithSiteAddress(
             Long orderId,
             int productCost,
@@ -263,7 +263,7 @@ public class NonStandardOrderItemService {
             boolean dispatchCompleteMessageSubmitted,
             List<Long> deleteAdminImageIds,
             List<MultipartFile> adminImages,
-            String updatedByUsername, String companyScope, Long originalCompanyId
+            String updatedByUsername, String companyScope, Long originalCompanyId, Long originalTaskId, String originalOrderVersion
     ) {
         orderUpdateService.updateOrderWithExplicitAddressValues(
                 orderId,
@@ -301,7 +301,7 @@ public class NonStandardOrderItemService {
                 dispatchCompleteMessage,
                 dispatchCompleteMessageSubmitted,
                 updatedByUsername,
-                mirrorCuttingProduct, companyScope, originalCompanyId
+                mirrorCuttingProduct, companyScope, originalCompanyId, originalTaskId, originalOrderVersion
         );
     }
 }

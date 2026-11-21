@@ -49,6 +49,8 @@ public class OrderNotificationPolicyCatalog {
 
         addManagementAllWorkflow(rows, OrderNotificationAction.UPDATE,
                 "관리자가 발주 내용을 수정한 경우 최신 내용을 다시 확인하도록 전달합니다.");
+        addManagementAllWorkflow(rows, OrderNotificationAction.COMPANY_TRANSFER,
+                "대리점 변경 시 이전·새 대리점과 오더 번호를 전달합니다. 승인 전·취소 상태를 유지하면 관리 담당자만 수신 대상입니다.");
         addManagementAllWorkflow(rows, OrderNotificationAction.STATUS_CHANGE,
                 "관리자가 진행 상태를 변경한 경우 관련 업무팀에게 전달합니다.");
         addManagementAllWorkflow(rows, OrderNotificationAction.CANCEL_OR_HIDE,

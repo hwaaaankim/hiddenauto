@@ -229,13 +229,38 @@
 						<div class="row g-3 align-items-stretch">
 
 							<div class="col-xl-3 col-lg-4 col-md-6">
-								<div class="admin-task-list-second-field">
-									<label class="admin-task-list-second-label">대리점명</label>
-									<div class="d-flex align-items-center gap-2"><strong data-company-caption></strong><button type="button" class="btn btn-sm btn-outline-primary" data-company-edit>변경</button></div>
-                                    <div data-company-picker hidden><label class="form-label">업체명 검색<input type="search" class="form-control" data-company-query autocomplete="off"></label><div data-company-results class="list-group overflow-auto" style="max-height:14rem"></div></div>
-                                    <label data-company-scope hidden>적용 범위<select name="companyScope" class="form-select"><option value="">적용 범위를 선택하세요</option><option value="ORDER">이 오더만 새 발주로 이동</option><option value="TASK">같은 발주의 모든 오더</option></select></label>
-                                    <input type="hidden" name="originalCompanyId" th:value="${row.companyId}">
-                                    <select hidden class="form-select admin-task-list-second-company-select"
+								<div class="admin-task-list-second-field" data-company-editor>
+									<span class="admin-task-list-second-label">대리점명</span>
+									<div class="task-company-line">
+										<strong data-company-caption
+											th:text="${#strings.isEmpty(row.companyName) ? '대리점 미지정' : row.companyName}">대리점 미지정</strong>
+										<div data-company-picker hidden>
+											<input type="search" class="form-control" data-company-query
+												aria-label="업체명 검색" placeholder="업체명 검색" autocomplete="off"
+												role="combobox" aria-autocomplete="list" aria-expanded="false"
+												th:attr="aria-controls=|task-company-results-${row.orderId}|">
+											<div data-company-results role="listbox" aria-label="업체 검색 결과" hidden
+												th:id="|task-company-results-${row.orderId}|"></div>
+										</div>
+										<button type="button" class="btn task-company-action" data-company-edit>변경</button>
+									</div>
+									<div class="task-company-controls" data-company-controls hidden>
+										<label class="task-company-all">
+											<input type="checkbox" class="form-check-input" data-company-all>
+											<span>같은 발주의 모든 오더에 적용</span>
+										</label>
+										<button type="button" class="task-company-link" data-company-cancel>취소</button>
+										<small>체크하지 않으면 현재 오더 한 건에 적용됩니다.</small>
+									</div>
+									<div class="task-company-feedback">
+										<span role="status" aria-live="polite" data-company-status hidden></span>
+										<button type="button" class="task-company-link" data-company-revert hidden>원래 업체로 되돌리기</button>
+									</div>
+									<input type="hidden" name="companyScope" value="">
+									<input type="hidden" name="originalCompanyId" th:value="${row.companyId}">
+									<input type="hidden" name="originalTaskId" th:value="${row.taskId}">
+									<input type="hidden" name="originalOrderVersion" th:value="${originalOrderVersion}">
+									<select hidden class="form-select admin-task-list-second-company-select"
 										name="companyId"
 										th:attr="data-selected-company-id=${row.companyId},
 										         data-order-id=${row.orderId}">
@@ -246,8 +271,9 @@
 											th:selected="${row.companyId != null and row.companyId == company.companyId}">
 										</option>
 									</select>
-									<div class="form-text">
-										대리점을 변경하면 신청자, 주문자, 등록 배송지 선택 기준도 함께 변경됩니다.
+									<div class="form-text task-company-effects">
+										신청자는 새 업체 대표회원으로 바뀌며, 현재 주문자·수취인·배송지는 유지됩니다.
+										오더에 기록된 배송비·포장비도 함께 이동합니다. 과거 여러 행에 중복 기록된 공통비는 남은 발주에 한 번만 반영합니다.
 									</div>
 								</div>
 							</div>
@@ -334,8 +360,7 @@
 										<div>
 											<strong>금액 계산</strong>
 											<p>
-												총비용과 부가세는 공급가 기준으로 계산됩니다.
-												공급가가 0이면 부가세와 총비용도 0입니다.
+												단가·수량·공급가를 변경하면 공급가 기준으로 부가세와 총비용을 계산합니다. 업체만 변경하면 기존 금액을 유지합니다.
 											</p>
 										</div>
 										<span>자동계산</span>
@@ -345,7 +370,7 @@
 										<div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
 											<label class="admin-task-list-second-label">단가</label>
 											<input type="number"
-												min="0"
+												min="0" th:attr="min=${row.productCost lt 0 ? row.productCost : 0}"
 												step="1"
 												class="form-control admin-task-list-second-money-input"
 												name="productCost"
@@ -367,7 +392,6 @@
 										<div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
 											<label class="admin-task-list-second-label">공급가</label>
 											<input type="number"
-												min="0"
 												step="1"
 												class="form-control admin-task-list-second-money-input"
 												name="supplyPrice"
@@ -387,7 +411,6 @@
 										<div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
 											<label class="admin-task-list-second-label">총비용</label>
 											<input type="number"
-												min="0"
 												step="1"
 												class="form-control admin-task-list-second-money-input"
 												name="totalAmount"
@@ -403,6 +426,7 @@
 												step="1"
 												class="form-control"
 												name="deliveryCost"
+												data-money-role="delivery"
 												th:value="${row.deliveryCost}">
 										</div>
 
@@ -413,6 +437,7 @@
 												step="1"
 												class="form-control"
 												name="packingCost"
+												data-money-role="packing"
 												th:value="${row.packingCost}">
 										</div>
 									</div>

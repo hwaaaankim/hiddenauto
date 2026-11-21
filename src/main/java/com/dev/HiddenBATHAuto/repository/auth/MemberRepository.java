@@ -29,7 +29,15 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 	
 	List<Member> findByTeam_NameAndEnabledTrueOrderByNameAscUsernameAsc(String teamName);
 	
-	@EntityGraph(attributePaths = "company")
+    @Query("""
+        select m from Member m
+        where m.company.id = :companyId and m.role = :role and m.enabled = true
+        order by m.createdAt, m.id
+    """)
+    List<Member> findTransferRepresentative(@Param("companyId") Long companyId, @Param("role") MemberRole role,
+            Pageable pageable);
+
+    @EntityGraph(attributePaths = "company")
     @Query("""
         select m
         from Member m

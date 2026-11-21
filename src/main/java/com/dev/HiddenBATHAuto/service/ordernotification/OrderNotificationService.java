@@ -29,6 +29,7 @@ import com.dev.HiddenBATHAuto.dto.ordernotification.OrderNotificationSummaryDto;
 import com.dev.HiddenBATHAuto.enums.notification.OrderNotificationAction;
 import com.dev.HiddenBATHAuto.enums.notification.OrderNotificationAudience;
 import com.dev.HiddenBATHAuto.enums.notification.OrderNotificationCategory;
+import com.dev.HiddenBATHAuto.enums.notification.OrderNotificationRecipientGroup;
 import com.dev.HiddenBATHAuto.enums.order.OrderChangeSourceArea;
 import com.dev.HiddenBATHAuto.enums.order.OrderWorkArea;
 import com.dev.HiddenBATHAuto.model.auth.Member;
@@ -86,15 +87,22 @@ public class OrderNotificationService {
         }
 
         OrderNotificationAction action = actionResolver.resolve(event);
-        Map<com.dev.HiddenBATHAuto.enums.notification.OrderNotificationRecipientGroup, ChannelPolicy> policies =
-                policyService.resolvePolicies(event.getSourceArea(), action);
+        Map<OrderNotificationRecipientGroup, ChannelPolicy> policies = policyService.resolvePolicies(event.getSourceArea(), action);
+        if (action == OrderNotificationAction.COMPANY_TRANSFER) {
+            OrderNotificationAction statusAction = actionResolver.resolveStatusAction(event);
+            if (statusAction != null) {
+                // 한 저장에서 가시성도 바뀌면 기존 상태 알림을 지키면서 수신자별 한 행으로 저장합니다.
+                policyService.resolvePolicies(event.getSourceArea(), statusAction)
+                        .forEach((group, channels) -> policies.merge(group, channels, ChannelPolicy::withAlsoEnabled));
+            }
+        }
 
         String defaultTitle = normalizeText(explicitTitle) != null
                 ? explicitTitle.trim()
                 : defaultTitle(event, audience);
         String defaultMessage = normalizeText(explicitMessage) != null
                 ? explicitMessage.trim()
-                : defaultMessage(event);
+                : defaultMessage(event, action);
         String kakaoBatchKey = batchContext.currentBatchKey();
 
         List<OrderNotification> notifications = new ArrayList<>(targets.size());
@@ -107,6 +115,11 @@ public class OrderNotificationService {
                 continue;
             }
 
+            String recipientMessage = firstNonBlank(target.message(), defaultMessage);
+            if (action == OrderNotificationAction.COMPANY_TRANSFER && normalizeText(target.message()) != null) {
+                // 상태 전환·담당 해제 안내와 업체 변경을 함께 저장한 경우 두 사유를 모두 전달합니다.
+                recipientMessage = defaultMessage + " " + target.message().trim();
+            }
             notifications.add(OrderNotification.create(
                     event,
                     target.member(),
@@ -117,7 +130,7 @@ public class OrderNotificationService {
                     channelPolicy.kakaoEnabled(),
                     channelPolicy.importantEnabled(),
                     firstNonBlank(target.title(), defaultTitle),
-                    firstNonBlank(target.message(), defaultMessage),
+                    recipientMessage,
                     kakaoBatchKey
             ));
         }
@@ -447,10 +460,14 @@ public class OrderNotificationService {
         return event.getOperationLabel() + " · 발주 #" + orderId;
     }
 
-    private String defaultMessage(OrderChangeEvent event) {
+    private String defaultMessage(OrderChangeEvent event, OrderNotificationAction action) {
         String actor = normalizeText(event.getActorDisplayName());
         if (actor == null) actor = normalizeText(event.getActorUsername());
         if (actor == null) actor = "시스템";
+        if (action == OrderNotificationAction.COMPANY_TRANSFER) {
+            return actor + "님이 오더 #" + event.resolveOrderId() + "의 대리점을 변경했습니다. "
+                    + describeCompanyTransfer(event) + describeRelatedChanges(event);
+        }
 
         String operationCode = normalizeText(event.getOperationCode());
         String upperCode = operationCode != null ? operationCode.toUpperCase(Locale.ROOT) : "";
@@ -466,6 +483,29 @@ public class OrderNotificationService {
         String summary = normalizeText(event.getSummary());
         return actor + "님이 " + event.getOperationLabel() + " 작업을 처리했습니다."
                 + (summary == null ? "" : " " + summary);
+    }
+
+    static String describeCompanyTransfer(OrderChangeEvent event) {
+        if (event == null || event.getFields() == null) return "";
+        for (OrderChangeField field : event.getFields()) {
+            if (field != null && "requesterCompany".equals(field.getFieldKey())) {
+                return field.getBeforeValue() + " → " + field.getAfterValue();
+            }
+        }
+        return "";
+    }
+
+    static String describeRelatedChanges(OrderChangeEvent event) {
+        if (event == null || event.getFields() == null) return "";
+        StringBuilder details = new StringBuilder();
+        for (OrderChangeField field : event.getFields()) {
+            if (field == null) continue;
+            if ("status".equals(field.getFieldKey()) || "assignedDeliveryHandler".equals(field.getFieldKey())) {
+                details.append(". ").append(field.getFieldLabel()).append(" ")
+                        .append(field.getBeforeValue()).append(" → ").append(field.getAfterValue());
+            }
+        }
+        return details.toString();
     }
 
     private List<OrderNotification> loadDetailsInOrder(List<Long> ids) {

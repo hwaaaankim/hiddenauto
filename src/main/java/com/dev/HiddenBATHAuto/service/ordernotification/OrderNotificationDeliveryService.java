@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.dev.HiddenBATHAuto.config.notification.OrderNotificationProperties;
 import com.dev.HiddenBATHAuto.dto.notification.NotificationSendResult;
 import com.dev.HiddenBATHAuto.dto.ordernotification.OrderNotificationItemDto;
+import com.dev.HiddenBATHAuto.enums.notification.OrderNotificationAction;
 import com.dev.HiddenBATHAuto.enums.notification.OrderNotificationCategory;
 import com.dev.HiddenBATHAuto.enums.notification.OrderNotificationKakaoStatus;
 import com.dev.HiddenBATHAuto.messaging.notification.OrderNotificationWebSocketHandler;
@@ -153,6 +154,24 @@ public class OrderNotificationDeliveryService {
                 .distinct()
                 .sorted()
                 .toList();
+        if (batch.stream().allMatch(row -> row.getAction() == OrderNotificationAction.COMPANY_TRANSFER)) {
+            List<String> companyChanges = batch.stream()
+                    .map(row -> OrderNotificationService.describeCompanyTransfer(row.getEvent()))
+                    .filter(change -> !change.isBlank())
+                    .distinct()
+                    .toList();
+            String sample = orderIds.stream().limit(5).map(id -> "#" + id).collect(Collectors.joining(", "));
+            if (orderIds.size() > 5) sample += " 외 " + (orderIds.size() - 5) + "건";
+            String companies = String.join(", ", companyChanges.stream().limit(3).toList());
+            if (companyChanges.size() > 3) companies += " 외 " + (companyChanges.size() - 3) + "건";
+            String related = batch.stream().map(row -> {
+                        String details = OrderNotificationService.describeRelatedChanges(row.getEvent());
+                        return details.isEmpty() ? "" : "오더 #" + row.resolveOrderId() + details;
+                    }).filter(text -> !text.isEmpty()).distinct().limit(3).collect(Collectors.joining(" / "));
+            String content = actorName + "님이 오더 " + sample + "의 대리점을 변경했습니다. " + companies;
+            return new KakaoMessage("대리점 변경 · 오더 " + orderIds.size() + "건",
+                    related.isEmpty() ? content : content + ". " + related, actorName);
+        }
         String operationLabels = batch.stream()
                 .map(OrderNotification::getEvent)
                 .filter(Objects::nonNull)

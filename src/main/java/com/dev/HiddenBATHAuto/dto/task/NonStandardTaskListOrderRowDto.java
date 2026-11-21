@@ -46,7 +46,7 @@ public class NonStandardTaskListOrderRowDto {
     private int quantity;
     private int productCost;
     private int supplyPrice;
-    private int vatPrice;
+    private long vatPrice;
     private int totalAmount;
     private int packingCost;
     private int deliveryCost;

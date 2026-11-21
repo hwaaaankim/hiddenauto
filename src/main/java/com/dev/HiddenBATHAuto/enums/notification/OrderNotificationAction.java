@@ -12,6 +12,7 @@ public enum OrderNotificationAction {
     NORMAL_REGISTER("일반발주등록"),
     URGENT_REGISTER("긴급발주등록"),
     UPDATE("발주 내용 수정"),
+    COMPANY_TRANSFER("대리점 변경"),
     STATUS_CHANGE("상태 변경"),
     CANCEL_OR_HIDE("취소·업무 비노출"),
     RESTORE_OR_ROLLBACK("업무 재개·단계 되돌림"),

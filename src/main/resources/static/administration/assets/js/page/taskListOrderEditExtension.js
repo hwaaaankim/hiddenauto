@@ -129,83 +129,231 @@
 
 	function initCompanySelect(form) {
 		const companySelect = form.querySelector(SELECTORS.companySelect);
-		const requesterSelect = form.querySelector(SELECTORS.requesterSelect);
+		if (!companySelect) return;
 
-		if (!companySelect) {
-			return;
+		const requester = form.querySelector(SELECTORS.requesterSelect);
+		if (requester) {
+			renderRequesterSelectFromSource(form, requester.dataset.selectedMemberId || requester.value);
+			requester.addEventListener("change", () => { requester.dataset.selectedMemberId = requester.value; });
 		}
 
-		if (requesterSelect) {
-			renderRequesterSelectFromSource(form, requesterSelect.dataset.selectedMemberId || requesterSelect.value || "");
+		const editor = form.querySelector("[data-company-editor]");
+		if (!editor) return;
+		const control = name => editor.querySelector("[data-company-" + name + "]");
+		const caption = control("caption"), action = control("edit"), input = control("query");
+		const picker = control("picker"), list = control("results"), all = control("all");
+		const controls = control("controls"), cancel = control("cancel"), revert = control("revert");
+		const status = control("status"), scope = form.elements.namedItem("companyScope");
+		const originalId = form.elements.namedItem("originalCompanyId").value;
+		const originalCaption = caption.textContent.trim() || "대리점 미지정";
+		const companies = Array.from(companySelect.options).filter(option => option.value);
+		const normalized = value => value.trim().toLocaleLowerCase().replace(/\s+/g, "");
+		let originalSources, originalRequester;
+		let editing = false, busy = false, candidate = null, requestVersion = 0;
+		let activeIndex = -1;
+
+		function message(text) {
+			status.textContent = text;
+			status.hidden = !text;
 		}
 
-		const picker = form.querySelector("[data-company-picker]");
-        const input = picker.querySelector("input");
-        const caption = form.querySelector("[data-company-caption]");
-        const scope = form.querySelector("[data-company-scope]");
-        caption.textContent = companySelect.selectedOptions[0]?.textContent.trim() || "";
-        const search = () => {
-            const list = picker.querySelector("[data-company-results]");
-            list.replaceChildren();
-            for (const option of companySelect.options) {
-                if (!option.value || !option.text.toLocaleLowerCase().includes(input.value.trim().toLocaleLowerCase())) continue;
-                const button = document.createElement("button");
-                button.type = "button";
-                button.className = "list-group-item list-group-item-action";
-                button.textContent = option.text;
-                button.onclick = () => {
-                    picker.hidden = true;
-                    if (companySelect.value === option.value) return;
-                    companySelect.value = option.value;
-                    caption.textContent = option.text;
-                    scope.hidden = option.value === companySelect.dataset.selectedCompanyId;
-                    scope.querySelector("select").required = !scope.hidden;
-                    scope.querySelector("select").value = "";
-                    companySelect.dispatchEvent(new Event("change"));
-                    if (!scope.hidden) scope.querySelector("select").focus();
-                };
-                list.append(button);
-            }
-            if (!list.childElementCount) list.textContent = "일치하는 업체가 없습니다.";
-        };
-        form.querySelector("[data-company-edit]").onclick = () => {
-            picker.hidden = !picker.hidden;
-            if (!picker.hidden) { input.value = ""; search(); input.focus(); }
-        };
-        input.oninput = search;
-        input.onkeydown = event => { if (event.key === "Enter") {event.preventDefault(); picker.querySelector("button")?.focus();} };
-        companySelect.addEventListener("change", async function() {
-			const selectedCompanyId = companySelect.value || "";
+		function render() {
+			const changed = companySelect.value !== originalId;
+			editor.classList.toggle("is-editing", editing);
+			editor.classList.toggle("is-modified", changed);
+			caption.hidden = editing;
+			caption.textContent = companySelect.selectedOptions[0]?.value
+				? companySelect.selectedOptions[0].text.trim() : originalCaption;
+			picker.hidden = !editing;
+			controls.hidden = !editing && !changed;
+			cancel.hidden = !editing;
+			revert.hidden = !changed || editing;
+			input.readOnly = busy;
+			all.disabled = busy;
+			action.textContent = editing ? "적용" : "변경";
+			action.disabled = editing && (busy || !candidate);
+			if (busy) message("업체 정보를 불러오는 중입니다.");
+			else if (changed && !editing) message(scope.value === "TASK" ? "저장 시 같은 발주 전체를 변경합니다." : "저장 시 이 오더만 새 발주로 이동합니다.");
+			else message("");
+		}
 
-			if (requesterSelect) {
-				requesterSelect.dataset.selectedMemberId = "";
-				requesterSelect.value = "";
+		function closeResults() {
+			list.hidden = true;
+			input.setAttribute("aria-expanded", "false");
+			input.removeAttribute("aria-activedescendant");
+			activeIndex = -1;
+		}
+
+		function closeEditor(focus = true) {
+			requestVersion++;
+			editing = false;
+			busy = false;
+			candidate = null;
+			input.value = "";
+			all.checked = scope.value === "TASK";
+			closeResults();
+			render();
+			if (focus) action.focus();
+		}
+
+		function restoreOriginal() {
+			companySelect.value = originalId;
+			scope.value = "";
+			if (originalSources) {
+				if (requester) {
+					requester.value = "";
+					requester.dataset.selectedMemberId = originalRequester;
+				}
+				applyCompanyOptionsToForm(form, originalSources);
 			}
+			closeEditor();
+		}
 
-			if (!selectedCompanyId) {
-				clearCompanyDependentSources(form);
-				renderRequesterSelectFromSource(form, "");
+		function showResults() {
+			closeResults();
+			list.replaceChildren();
+			const query = normalized(input.value);
+			if (!query || !editing || busy) return;
+			const items = document.createDocumentFragment();
+			for (const option of companies) {
+				if (!normalized(option.text).includes(query)) continue;
+				const item = document.createElement("div");
+				item.id = list.id + "-" + option.value;
+				item.dataset.value = option.value;
+				item.setAttribute("role", "option");
+				item.setAttribute("aria-selected", "false");
+				item.textContent = option.text.trim();
+				items.append(item);
+			}
+			list.append(items);
+			if (!list.childElementCount) {
+				message("검색 결과가 없습니다.");
 				return;
 			}
+			list.hidden = false;
+			input.setAttribute("aria-expanded", "true");
+		}
 
-			const requestKey = String(Date.now());
-			form.dataset.companyOptionsRequestKey = requestKey;
+		function highlight(index) {
+			const options = list.children;
+			if (!options.length || list.hidden) return;
+			if (activeIndex >= 0) options[activeIndex].setAttribute("aria-selected", "false");
+			activeIndex = Math.max(0, Math.min(index, options.length - 1));
+			const option = options[activeIndex];
+			option.setAttribute("aria-selected", "true");
+			input.setAttribute("aria-activedescendant", option.id);
+			option.scrollIntoView({block: "nearest"});
+		}
 
-			try {
-				setCompanySelectBusy(companySelect, true);
-				await loadCompanyOptionsIntoForm(form, selectedCompanyId, requestKey);
-			} catch (error) {
-				alert(error.message || "대리점 정보를 불러오지 못했습니다.");
-			} finally {
-				setCompanySelectBusy(companySelect, false);
+		function choose(item) {
+			if (!item) return;
+			candidate = item.dataset.value;
+			input.value = item.textContent;
+			closeResults();
+			render();
+			action.focus();
+		}
+
+		async function applyCandidate() {
+			if (!candidate || busy) return;
+			const id = candidate;
+			if (id === originalId) {
+				if (companySelect.value !== originalId) restoreOriginal();
+				else closeEditor();
+				return;
+			}
+			const version = ++requestVersion;
+			if (id !== companySelect.value) {
+				busy = true;
+				render();
+				try {
+					const data = await getCompanyOptions(id);
+					if (version !== requestVersion || !form.isConnected) return;
+					if (companySelect.value === originalId) {
+						// Capture the live draft, including the member selected before switching company.
+						originalRequester = requester?.value || "";
+						originalSources = {members: getMemberSourceItems(form), deliveryAddresses: getAddressSourceItems(form),
+							orderers: getOrdererSourceItems(form)};
+					}
+					companySelect.value = id;
+					if (requester) {
+						requester.dataset.selectedMemberId = "";
+						requester.value = "";
+					}
+					applyCompanyOptionsToForm(form, data);
+				} catch (error) {
+					if (version !== requestVersion || !form.isConnected) return;
+					busy = false;
+					render();
+					message("업체 정보를 불러오지 못했습니다. 적용을 눌러 다시 시도해 주세요.");
+					action.focus();
+					return;
+				}
+			}
+			scope.value = all.checked ? "TASK" : "ORDER";
+			closeEditor();
+		}
+
+		action.addEventListener("click", () => {
+			if (editing) { applyCandidate(); return; }
+			editing = true;
+			input.value = "";
+			// Each new company choice starts with the current order. The applied scope is restored on cancel.
+			all.checked = false;
+			render();
+			input.focus();
+		});
+		cancel.addEventListener("click", () => closeEditor());
+		revert.addEventListener("click", restoreOriginal);
+		all.addEventListener("change", () => {
+			if (!editing && companySelect.value !== originalId) {
+				scope.value = all.checked ? "TASK" : "ORDER";
+				render();
 			}
 		});
-
-		if (requesterSelect) {
-			requesterSelect.addEventListener("change", function() {
-				requesterSelect.dataset.selectedMemberId = requesterSelect.value || "";
-			});
-		}
+		input.addEventListener("input", () => {
+			candidate = null;
+			render();
+			showResults();
+		});
+		input.addEventListener("click", () => {
+			if (!candidate && list.hidden) showResults();
+		});
+		list.addEventListener("mousedown", event => event.preventDefault());
+		list.addEventListener("click", event => choose(event.target.closest('[role="option"]')));
+		picker.addEventListener("focusout", event => {
+			if (!picker.contains(event.relatedTarget)) closeResults();
+		});
+		editor.addEventListener("keydown", event => {
+			if (!editing || event.isComposing || event.keyCode === 229) return;
+			if (event.key === "Escape") {
+				event.preventDefault();
+				event.stopPropagation();
+				closeEditor();
+			}
+			if (event.target !== input) return;
+			if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+				event.preventDefault();
+				if (list.hidden) showResults();
+				highlight(activeIndex + (event.key === "ArrowDown" ? 1 : -1));
+			} else if (event.key === "Enter") {
+				event.preventDefault();
+				if (!list.hidden) choose(list.children[Math.max(activeIndex, 0)]);
+				else if (candidate) applyCandidate();
+			}
+		});
+		form.addEventListener("submit", event => {
+			if (!editing) return;
+			if (!busy && !candidate && !input.value.trim() && !all.checked) {
+				closeEditor(false);
+				return;
+			}
+			event.preventDefault();
+			event.stopImmediatePropagation();
+			message(busy ? "업체 정보를 불러오는 중입니다." : "업체 변경을 적용하거나 취소한 뒤 저장해 주세요.");
+			(busy ? cancel : candidate ? action : input).focus();
+		}, true);
+		render();
 	}
 
 	// =========================================================
@@ -512,126 +660,70 @@
 	// =========================================================
 
 	function initMoneyBox(form) {
-		const inputs = Array.from(form.querySelectorAll(".admin-task-list-second-money-input[data-money-role]"));
-		if (inputs.length === 0) {
-			return;
-		}
-
-		const unitInput = getMoneyInput(form, "unit");
-		const quantityInput = getMoneyInput(form, "quantity");
-		const supplyInput = getMoneyInput(form, "supply");
-		const totalInput = getMoneyInput(form, "total");
-
-		if (supplyInput && unitInput && quantityInput) {
-			const initialUnit = parseInteger(unitInput.value);
-			const initialQuantity = parseInteger(quantityInput.value);
-			const initialSupply = parseInteger(supplyInput.value);
-			const initialAutoSupply = initialUnit > 0 && initialQuantity > 0 ? initialUnit * initialQuantity : 0;
-			supplyInput.dataset.supplyManual = initialSupply !== initialAutoSupply ? "true" : "false";
-		}
-
-		if (totalInput) {
-			totalInput.readOnly = true;
-		}
-
-		inputs.forEach(function(input) {
-			input.addEventListener("input", function() {
-				const changedRole = input.dataset.moneyRole;
-				if (changedRole === "supply") {
-					input.dataset.supplyManual = "true";
-				}
-
-				/*
-				 * type="number"에서 음수를 입력할 때 사용자는 먼저 "-"를 입력합니다.
-				 * 이 중간 상태를 즉시 숫자 0으로 치환하면 -1, -2 입력 자체가 불가능하므로
-				 * 수량 입력이 비어 있거나 음수 입력 중인 동안에는 계산을 잠시 보류합니다.
-				 */
-				if (changedRole === "quantity" && isQuantityInputInProgress(input)) {
-					return;
-				}
-
-				recalculateMoney(form, changedRole);
+		const unit = getMoneyInput(form, "unit"), quantity = getMoneyInput(form, "quantity");
+		const supply = getMoneyInput(form, "supply");
+		if (!unit || !quantity || !supply) return;
+		supply.dataset.supplyManual = String(Number(supply.value) !== Number(unit.value) * Number(quantity.value));
+		for (const field of [unit, quantity, supply]) {
+			field.addEventListener("input", () => {
+				if (field === supply) supply.dataset.supplyManual = "true";
+				// A number input can temporarily be empty while the operator types a minus sign.
+				if ([unit, quantity, supply].some(input => !input.value || !input.validity.valid)) return;
+				recalculateEditedMoney(form);
 			});
-		});
-
-		recalculateMoney(form, "initial");
+		}
 	}
 
 	function normalizeMoneyBeforeSubmit(form) {
-		recalculateMoney(form, "submit");
-
-		["unit", "quantity", "supply", "total", "packing", "delivery"].forEach(function(role) {
+		for (const role of ["unit", "quantity", "supply", "packing", "delivery"]) {
 			const input = getMoneyInput(form, role);
-			if (!input) {
-				return;
+			if (!input) continue;
+			const amount = Number(input.value);
+			if (input.validity.badInput || !Number.isInteger(amount) || amount < -2147483648 || amount > 2147483647) {
+				input.focus();
+				throw new Error("금액과 수량은 저장 가능한 범위의 정수로 입력해 주세요.");
 			}
-
-			const value = parseInteger(input.value);
-
-			/*
-			 * 수량은 반품·회수 처리를 위해 음수를 허용합니다.
-			 * 단가·공급가·총비용 등 기존 금액 필드의 음수 제한은 그대로 유지합니다.
-			 */
-			if (role !== "quantity" && value < 0) {
-				const label = input.closest(".admin-task-list-second-field")?.querySelector("label")?.textContent?.trim();
-				throw new Error((label || "금액") + " 값은 0보다 작을 수 없습니다.");
+			if (role === "unit" && amount < 0 && amount !== Number(input.defaultValue)) {
+				input.focus();
+				throw new Error("새로 입력하는 단가는 0 이상이어야 합니다.");
 			}
-			input.value = String(value);
-		});
+			if ((role === "packing" || role === "delivery") && amount < 0) {
+				input.focus();
+				throw new Error("배송비·포장비는 0 이상이어야 합니다.");
+			}
+			if (!input.value) input.value = "0";
+		}
+		recalculateEditedMoney(form);
+		for (const role of ["supply", "total"]) {
+			const input = getMoneyInput(form, role);
+			if (!input) continue;
+			const amount = Number(input.value);
+			if (!Number.isInteger(amount) || amount < -2147483648 || amount > 2147483647) {
+				throw new Error("공급가와 총비용이 저장 가능한 범위를 벗어났습니다.");
+			}
+		}
 	}
 
-	function recalculateMoney(form, changedRole) {
-		const unitInput = getMoneyInput(form, "unit");
-		const quantityInput = getMoneyInput(form, "quantity");
-		const supplyInput = getMoneyInput(form, "supply");
-		const vatInput = getMoneyInput(form, "vat");
-		const totalInput = getMoneyInput(form, "total");
-
-		if (!unitInput || !quantityInput || !supplyInput || !vatInput || !totalInput) {
+	function recalculateEditedMoney(form) {
+		const unit = getMoneyInput(form, "unit"), quantity = getMoneyInput(form, "quantity");
+		const supply = getMoneyInput(form, "supply"), vat = getMoneyInput(form, "vat"), total = getMoneyInput(form, "total");
+		if (!unit || !quantity || !supply || !vat || !total) return;
+		if (supply.dataset.supplyManual === "false") supply.value = String(Number(unit.value) * Number(quantity.value));
+		if ([unit, quantity, supply].every(input => Number(input.value) === Number(input.defaultValue))) {
+			// Keep imported/invoice totals when only the dealer or delivery details changed.
+			total.value = total.defaultValue;
+			vat.value = vat.defaultValue;
 			return;
 		}
-
-		let unit = parseInteger(unitInput.value);
-		let quantity = parseInteger(quantityInput.value);
-		let supply = parseInteger(supplyInput.value);
-		const supplyManual = supplyInput.dataset.supplyManual === "true";
-
-		if ((changedRole === "unit" || changedRole === "quantity") && !supplyManual) {
-			supply = unit > 0 && quantity > 0 ? unit * quantity : 0;
-		}
-
-		supply = Math.max(0, supply);
-		const total = Math.round(supply * 1.1);
-		const vat = Math.max(0, total - supply);
-
-		unitInput.value = String(Math.max(0, unit));
-
-		/*
-		 * 수량은 반품·회수용 음수값을 그대로 유지합니다.
-		 * 기존 Math.max(0, quantity)는 넓게보기 로딩 직후 -1을 0으로 덮어쓰는 원인이었습니다.
-		 */
-		quantityInput.value = String(quantity);
-		supplyInput.value = String(supply);
-		vatInput.value = String(vat);
-		totalInput.value = String(total);
-	}
-
-	function isQuantityInputInProgress(input) {
-		if (!input) {
-			return false;
-		}
-
-		const raw = String(input.value == null ? "" : input.value).trim();
-
-		/*
-		 * 일부 브라우저는 type="number"에 "-"만 입력된 상태를 빈 문자열로 노출합니다.
-		 * badInput까지 함께 확인해 그 순간 값을 0으로 덮어쓰지 않습니다.
-		 */
-		return raw === "" || raw === "-" || input.validity?.badInput === true;
+		const net = Number(supply.value);
+		// Round VAT symmetrically for adjustments and returns, using whole won.
+		const tax = Math.sign(net) * Math.floor((Math.abs(net) + 5) / 10);
+		vat.value = String(tax);
+		total.value = String(net + tax);
 	}
 
 	function getMoneyInput(form, role) {
-		return form.querySelector('.admin-task-list-second-money-input[data-money-role="' + role + '"]');
+		return form.querySelector('[data-money-role="' + role + '"]');
 	}
 
 	// =========================================================
@@ -693,11 +785,13 @@
 			return;
 		}
 
+		if (!form.isConnected || resolveSelectedCompanyId(form) !== companyId) return;
 		const items = getAddressSourceItems(form).filter(function(item) {
 			return String(item.companyId || "") === String(companyId || "");
 		});
 
 		openPicker({
+			form, companyId,
 			title: role === "site" ? "현장주소 검색" : "등록 배송지 검색",
 			desc: "선택한 대리점에 등록된 배송지를 선택합니다.",
 			emptyText: "등록된 배송지가 없습니다.",
@@ -728,6 +822,7 @@
 			return;
 		}
 
+		if (!form.isConnected || resolveSelectedCompanyId(form) !== companyId) return;
 		const item = getCompanySourceItem(form, companyId);
 
 		if (!item || !item.roadAddress) {
@@ -1032,11 +1127,13 @@
 				return;
 			}
 
+			if (!form.isConnected || resolveSelectedCompanyId(form) !== companyId) return;
 			const items = getOrdererSourceItems(form).filter(function(item) {
 				return String(item.companyId || "") === String(companyId || "");
 			});
 
 			openPicker({
+				form, companyId,
 				title: "주문자 정보 검색",
 				desc: "선택한 대리점에 등록된 주문자 정보를 선택합니다.",
 				emptyText: "등록된 주문자 정보가 없습니다.",
@@ -1264,8 +1361,14 @@
 				const index = Number(itemBtn.dataset.index);
 				const item = activePicker.filteredItems[index];
 				if (item) {
-					activePicker.onSelect(item);
+					const {form, companyId, onSelect} = activePicker;
 					closePicker();
+					if (!form.isConnected) return;
+					if (resolveSelectedCompanyId(form) !== companyId) {
+						alert("대리점이 변경되었습니다. 현재 대리점 목록에서 다시 선택해 주세요.");
+						return;
+					}
+					onSelect(item);
 				}
 			}
 		});
@@ -1362,51 +1465,24 @@
 	// 대리점 변경 AJAX 데이터 소스
 	// =========================================================
 
-	async function loadCompanyOptionsIntoForm(form, companyId, requestKey) {
-		if (!companyId) {
-			clearCompanyDependentSources(form);
-			renderRequesterSelectFromSource(form, "");
-			return;
+	async function getCompanyOptions(companyId) {
+		const key = String(companyId);
+		if (!companyOptionsCache.has(key)) {
+			const data = await fetchCompanyOptions(companyId);
+			if (String(data.company?.companyId) !== key ||
+				![data.members, data.deliveryAddresses, data.orderers].every(Array.isArray)) {
+				throw new Error("선택한 업체 정보를 확인해 주세요.");
+			}
+			companyOptionsCache.set(key, data);
 		}
-
-		const cacheKey = String(companyId);
-		let data = companyOptionsCache.get(cacheKey);
-
-		if (!data) {
-			data = await fetchCompanyOptions(companyId);
-			companyOptionsCache.set(cacheKey, data);
-		}
-
-		if (requestKey && form.dataset.companyOptionsRequestKey !== requestKey) {
-			return;
-		}
-
-		applyCompanyOptionsToForm(form, data);
+		return companyOptionsCache.get(key);
 	}
 
 	async function ensureCompanyOptionsLoaded(form, companyId) {
-		if (!companyId) {
-			return;
-		}
-
-		const cacheKey = String(companyId);
-
-		const hasCompanySource = getCompanySourceItem(form, companyId) != null;
-		const hasMemberSource = getMemberSourceItems(form).some(function(item) {
-			return String(item.companyId || "") === cacheKey;
-		});
-		const hasCached = companyOptionsCache.has(cacheKey);
-
-		if (hasCompanySource && hasMemberSource) {
-			return;
-		}
-
-		if (hasCached) {
-			applyCompanyOptionsToForm(form, companyOptionsCache.get(cacheKey));
-			return;
-		}
-
-		await loadCompanyOptionsIntoForm(form, companyId, null);
+		const hasMembers = getMemberSourceItems(form).some(member => String(member.companyId) === String(companyId));
+		if (!companyId || (getCompanySourceItem(form, companyId) && hasMembers)) return;
+		const data = await getCompanyOptions(companyId);
+		if (form.isConnected && resolveSelectedCompanyId(form) === companyId) applyCompanyOptionsToForm(form, data);
 	}
 
 	async function fetchCompanyOptions(companyId) {
@@ -1458,30 +1534,14 @@
 		const requesterSelect = form.querySelector(SELECTORS.requesterSelect);
 		const selectedMemberId = requesterSelect?.dataset.selectedMemberId || requesterSelect?.value || "";
 		renderRequesterSelectFromSource(form, selectedMemberId);
-        if (requesterSelect) {
-          const changed = String(data.company?.companyId) !== form.querySelector(SELECTORS.companySelect).dataset.selectedCompanyId;
-          requesterSelect.disabled = changed;
-          if (changed) {
-            requesterSelect.value = "";
-            requesterSelect.options[0].textContent = data.company?.representativeName || "업체 대표회원 자동 지정";
-          }
-        }
-    }
-
-	function setCompanySelectBusy(companySelect, busy) {
-		if (!companySelect) {
-			return;
+		if (requesterSelect) {
+			const changed = resolveSelectedCompanyId(form) !== form.elements.namedItem("originalCompanyId").value;
+			requesterSelect.disabled = changed;
+			if (changed) {
+				requesterSelect.value = "";
+				requesterSelect.options[0].textContent = data.company?.representativeName || "업체 대표회원 자동 지정";
+			}
 		}
-
-		companySelect.dataset.loading = busy ? "true" : "false";
-		companySelect.classList.toggle("bg-light", busy);
-		companySelect.setAttribute("aria-busy", busy ? "true" : "false");
-	}
-
-	function clearCompanyDependentSources(form) {
-		replaceMemberSources(form, []);
-		replaceDeliveryAddressSources(form, []);
-		replaceOrdererSources(form, []);
 	}
 
 	function getDetailPanelRoot(form) {
@@ -1709,9 +1769,4 @@
 		}
 	}
 
-	function parseInteger(value) {
-		const normalized = String(value || "").replace(/[^\d-]/g, "");
-		const parsed = Number.parseInt(normalized, 10);
-		return Number.isNaN(parsed) ? 0 : parsed;
-	}
 })();

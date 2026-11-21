@@ -40,8 +40,11 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 			""")
 	List<Object[]> findDeliveryHandlerAuditRows(@Param("orderIds") Collection<Long> orderIds);
 
-	// OrderRepository 인터페이스 내부에 추가
-	@EntityGraph(attributePaths = { "deliveryMethod", "assignedDeliveryHandler" })
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from Order o where o.task.id = :taskId order by o.id")
+    List<Order> lockOrdersForTaskTransfer(@Param("taskId") Long taskId);
+
+    @EntityGraph(attributePaths = { "deliveryMethod", "assignedDeliveryHandler" })
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("""
 	            SELECT o

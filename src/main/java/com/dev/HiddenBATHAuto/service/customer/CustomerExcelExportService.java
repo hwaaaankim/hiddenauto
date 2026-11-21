@@ -50,7 +50,7 @@ public class CustomerExcelExportService {
 
 	public byte[] buildTaskListWorkbook(List<TaskListRow> rows, List<String> filterDescriptions) {
 		List<String> headers = List.of("Task ID", "신청자", "주문자명", "총 오더수", "카테고리 구성", "배송수단", "배송지", "발주일", "배송예정일",
-				"단가(VAT 제외)", "제품합계(VAT 포함)", "포장비(Task당 1회)", "배송비(Task당 1회)", "최종합계", "오더 상태", "배송담당자");
+				"제품합계(VAT 제외)", "제품합계(VAT 포함)", "포장비", "배송비", "최종합계", "오더 상태", "배송담당자");
 
 		List<List<String>> data = new ArrayList<>();
 		for (TaskListRow row : rows) {
@@ -60,7 +60,7 @@ public class CustomerExcelExportService {
 					formatDateTimeDate(row.getTask().getCreatedAt()), orderDeliveryDates(row.getOrderSummaries()),
 					formatMoney(row.getSupplyPrice()), formatMoney(row.getVatIncludedTotalPrice()),
 					formatMoney(row.getPackingCost()), formatMoney(row.getDeliveryCost()),
-					formatMoney(row.getGrandTotalPrice()), text(row.getStatusLabel()),
+					formatMoney(row.getGrandTotalPrice()) + (row.isAmountReviewRequired() ? " (상세 확인 필요)" : ""), text(row.getStatusLabel()),
 					text(row.getDeliveryHandlerName())));
 		}
 

@@ -112,6 +112,26 @@
 						</div>
 					</div>
 
+                    <details class="card mt-3 p-3" th:if="${!#lists.isEmpty(previousCompanyNotes)}">
+                        <summary class="fw-semibold">업체 변경 전 메모</summary>
+                        <article class="border-top mt-3 pt-3" th:each="entry : ${previousCompanyNotes}">
+                            <div class="d-flex align-items-baseline gap-2 flex-wrap mb-2">
+                                <strong th:text="${'업체 #' + entry.fromCompanyId + ' → #' + entry.toCompanyId}"></strong>
+                                <small class="text-muted" th:text="${#temporals.format(entry.archivedAt, 'yyyy-MM-dd HH:mm') + ' · ' + entry.actorUsername}"></small>
+                            </div>
+                            <dl class="mb-0">
+                                <th:block th:if="${!#strings.isEmpty(entry.customerNote)}">
+                                    <dt>고객 메모</dt>
+                                    <dd style="white-space: pre-wrap; overflow-wrap: anywhere" th:text="${entry.customerNote}"></dd>
+                                </th:block>
+                                <th:block th:if="${!#strings.isEmpty(entry.internalNote)}">
+                                    <dt>내부 메모</dt>
+                                    <dd style="white-space: pre-wrap; overflow-wrap: anywhere" th:text="${entry.internalNote}"></dd>
+                                </th:block>
+                            </dl>
+                        </article>
+                    </details>
+
 					<!-- 발주 제품 섹션 -->
 					<div class="row mt-3">
 						<div class="col-12">

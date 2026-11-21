@@ -137,6 +137,8 @@ import com.dev.HiddenBATHAuto.service.auth.MemberService;
 import com.dev.HiddenBATHAuto.service.client.AdminClientDetailService;
 import com.dev.HiddenBATHAuto.service.order.NonStandardOrderItemService;
 import com.dev.HiddenBATHAuto.service.order.OrderChangeAuditService;
+import com.dev.HiddenBATHAuto.service.order.OrderUpdateService;
+import com.dev.HiddenBATHAuto.service.order.TaskCompanyNoteArchive;
 import com.dev.HiddenBATHAuto.service.order.NonStandardTaskListViewService;
 import com.dev.HiddenBATHAuto.service.order.OrderStatusService;
 import com.dev.HiddenBATHAuto.service.management.delivery.ManagementDeliveryListExcelService;
@@ -223,6 +225,7 @@ public class ManagementController {
 
 	private final NonStandardTaskListViewService nonStandardTaskListViewService;
 	private final OrderChangeAuditService orderChangeAuditService;
+    private final TaskCompanyNoteArchive taskCompanyNoteArchive;
 	private final ManagementDeliveryListService managementDeliveryListService;
 	private final ManagementDeliveryListExcelService managementDeliveryListExcelService;
 
@@ -614,6 +617,7 @@ public class ManagementController {
 
 		model.addAttribute("currentListUrl",
 				isSafeNonStandardTaskListReturnUrl(returnUrl) ? returnUrl.trim() : "/management/nonStandardTaskList");
+        model.addAttribute("originalOrderVersion", order.getTask() == null ? null : OrderUpdateService.transferEditVersion(order));
         model.addAttribute("orderChangeHistory", orderChangeAuditService.getOrderHistory(orderId, 50));
         model.addAttribute("productionMemberCheckStates",
                 orderChangeAuditService.getMemberCheckStates(orderId, OrderWorkArea.PRODUCTION));
@@ -808,7 +812,7 @@ public class ManagementController {
 		}
 
 		String representativeName = memberRepository
-				.findCompanyMembersByRole(company.getId(), MemberRole.CUSTOMER_REPRESENTATIVE, PageRequest.of(0, 1))
+				.findTransferRepresentative(company.getId(), MemberRole.CUSTOMER_REPRESENTATIVE, PageRequest.of(0, 1))
 				.stream().findFirst().map(Member::getName).orElse("");
 
 		return NonStandardTaskListCompanyOptionDto.builder().companyId(company.getId())
@@ -1739,6 +1743,7 @@ public class ManagementController {
 			}
 		}
 
+		model.addAttribute("previousCompanyNotes", taskCompanyNoteArchive.forManagement(id));
 		model.addAttribute("task", task);
 		return "administration/management/order/nonStandard/taskDetail";
 	}
@@ -1783,7 +1788,7 @@ public class ManagementController {
 		// 화면 자동완성용 DTO
 		List<NonStandardOrderCompanyOptionDto> companyOptions = companies.stream().map(company -> {
 			String representativeName = memberRepository
-					.findCompanyMembersByRole(company.getId(), MemberRole.CUSTOMER_REPRESENTATIVE, PageRequest.of(0, 1))
+					.findTransferRepresentative(company.getId(), MemberRole.CUSTOMER_REPRESENTATIVE, PageRequest.of(0, 1))
 					.stream().findFirst().map(Member::getName).orElse("");
 
 			return new NonStandardOrderCompanyOptionDto(company.getId(), company.getCompanyName(), representativeName);
@@ -1817,6 +1822,7 @@ public class ManagementController {
 			@RequestParam("companyId") Optional<Long> companyId,
 			@RequestParam("requesterMemberId") Optional<Long> requesterMemberId,
             @RequestParam(required=false) String companyScope, @RequestParam(required=false) Long originalCompanyId,
+            @RequestParam(required=false) Long originalTaskId, @RequestParam(required=false) String originalOrderVersion,
 			@RequestParam(value = "zipCode", required = false) String zipCode,
 			@RequestParam(value = "doName", required = false) String doName,
 			@RequestParam(value = "siName", required = false) String siName,
@@ -1851,7 +1857,7 @@ public class ManagementController {
 					doName, siName, guName, roadAddress, detailAddress, siteZipCode, siteDoName, siteSiName, siteGuName,
 					siteRoadAddress, siteDetailAddress, ordererName, ordererPhone, optionJson, adminMemo,
 					dispatchCompleteMessage, dispatchCompleteMessageSubmitted, deleteAdminImageIds, adminImages,
-					updatedByUsername, companyScope, originalCompanyId);
+					updatedByUsername, companyScope, originalCompanyId, originalTaskId, originalOrderVersion);
 
 			redirectAttributes.addFlashAttribute("message", "주문 정보가 수정되었습니다.");
 			return redirectUrl;

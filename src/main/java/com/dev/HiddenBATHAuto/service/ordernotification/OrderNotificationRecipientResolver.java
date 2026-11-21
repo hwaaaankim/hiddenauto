@@ -115,16 +115,18 @@ public class OrderNotificationRecipientResolver {
             String title = transition.before() == OrderStatus.REQUESTED
                     ? "발주 승인 · 업무 시작"
                     : "발주 업무 재개 · 재확인";
-            addAllWorkflowParticipants(
-                    targets, event, actorMemberId, title, buildResumeMessage(event, transition)
-            );
+            String message = buildResumeMessage(event, transition);
+            addAllWorkflowParticipants(targets, event, actorMemberId, title, message, additionalRecipientMemberIds);
+            if (OrderNotificationActionResolver.isCompanyTransfer(event) && hasChangedField(event, "productCategory")) {
+                addPreviousProductionCategoryMembers(targets, event, actorMemberId);
+            }
             return List.copyOf(targets.values());
         }
 
         if (transition.isBackwardVisibleStep()) {
             String title = "발주 단계 되돌림 · 재확인";
             String message = buildRollbackMessage(event, transition);
-            addAllWorkflowParticipants(targets, event, actorMemberId, title, message);
+            addAllWorkflowParticipants(targets, event, actorMemberId, title, message, additionalRecipientMemberIds);
             addPreviousProductionCategoryMembers(targets, event, actorMemberId, title, message);
             addAdditionalTargets(
                     targets,
@@ -138,10 +140,13 @@ public class OrderNotificationRecipientResolver {
             return List.copyOf(targets.values());
         }
 
-        // 승인 전/취소 상태끼리의 전환과 단순 편집은 팀 업무에 노출되지 않으므로 감사이력만 남깁니다.
+        // 승인 전/취소 오더의 업체 이동은 관리 담당자만 확인합니다.
         if (transition.isHiddenToHidden()
                 || (isHidden(order.getStatus()) && !transition.hasChange())) {
-            return List.of();
+            if (OrderNotificationActionResolver.isCompanyTransfer(event)) {
+                addManagedBy(targets, event, actorMemberId, null, null);
+            }
+            return List.copyOf(targets.values());
         }
 
         if (isProductionComplete(operationCode)) {
@@ -375,11 +380,13 @@ public class OrderNotificationRecipientResolver {
             OrderChangeEvent event,
             Long actorMemberId,
             String title,
-            String message
+            String message,
+            Collection<Long> previousHandlerIds
     ) {
         addManagedBy(targets, event, actorMemberId, title, message);
         addProductionRelated(targets, event, actorMemberId, title, message);
-        addDeliveryRelatedForVisibilityTransition(targets, event, actorMemberId, title, message, List.of());
+        addDeliveryRelatedForVisibilityTransition(targets, event, actorMemberId, title, message,
+                OrderNotificationActionResolver.isCompanyTransfer(event) ? previousHandlerIds : List.of());
         addDispatchTeam(targets, event, actorMemberId, title, message);
     }
 
@@ -559,7 +566,11 @@ public class OrderNotificationRecipientResolver {
         }
 
         LinkedHashSet<Long> previousIds = normalizeMemberIds(previousHandlerIds);
-        if (!previousIds.isEmpty()) {
+        if (!previousIds.isEmpty() && OrderNotificationActionResolver.isCompanyTransfer(event)
+                && hasChangedField(event, "assignedDeliveryHandler")) {
+            addPreviousDeliveryHandlers(targets, event, actorMemberId, previousIds,
+                    "배송 담당 해제 · 발주 #" + order.getId(), "이 발주의 배송 담당에서 해제되었습니다.");
+        } else if (!previousIds.isEmpty()) {
             addMembers(
                     targets,
                     memberRepository.findAllById(previousIds),

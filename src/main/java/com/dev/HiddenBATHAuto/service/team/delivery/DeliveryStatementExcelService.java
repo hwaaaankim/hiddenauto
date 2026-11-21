@@ -47,6 +47,7 @@ import com.dev.HiddenBATHAuto.model.task.OrderItem;
 import com.dev.HiddenBATHAuto.model.task.Task;
 import com.dev.HiddenBATHAuto.repository.order.OrderRepository;
 import com.dev.HiddenBATHAuto.service.order.DeliveryMethodAssignmentPolicy;
+import com.dev.HiddenBATHAuto.service.order.OrderTransferAmounts;
 import com.dev.HiddenBATHAuto.utils.DeliveryAddressNormalizationUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -74,6 +75,7 @@ public class DeliveryStatementExcelService {
     private static final DateTimeFormatter YMD = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     private final OrderRepository orderRepository;
+    private final OrderTransferAmounts transferAmounts;
     private final ObjectMapper objectMapper;
 
     /**
@@ -113,7 +115,8 @@ public class DeliveryStatementExcelService {
             throw new IllegalArgumentException("택배명세서는 배송수단이 택배인 주문만 출력할 수 있습니다.");
         }
 
-        List<StatementTaskGroup> taskGroups = groupSelectedOrdersByStatementCriteria(filteredOrders);
+        Map<Long,Integer> packing = TYPE_PARCEL.equals(statementType) ? transferAmounts.statementPacking(filteredOrders) : Map.of();
+        List<StatementTaskGroup> taskGroups = groupSelectedOrdersByStatementCriteria(filteredOrders, packing);
 
         if (taskGroups.isEmpty()) {
             throw new IllegalArgumentException("출력 가능한 주문 묶음을 찾지 못했습니다.");
@@ -192,7 +195,7 @@ public class DeliveryStatementExcelService {
      * 출고팀 명세서 묶음 기준:
      * 동일 업체 + 동일 실제 배송지 + 동일 배송수단 + 동일 배송일.
      */
-    private List<StatementTaskGroup> groupSelectedOrdersByStatementCriteria(List<Order> orders) {
+    private List<StatementTaskGroup> groupSelectedOrdersByStatementCriteria(List<Order> orders, Map<Long,Integer> packing) {
         LinkedHashMap<String, StatementTaskGroup> grouped = new LinkedHashMap<>();
 
         for (Order order : orders) {
@@ -206,6 +209,9 @@ public class DeliveryStatementExcelService {
                     ignored -> new StatementTaskGroup(order.getTask())
             );
             group.addOrder(order);
+            Integer cost = packing.get(order.getId());
+            if (cost == null) group.packingNeedsReview = true;
+            else group.packingCost += cost;
         }
 
         return grouped.values().stream()
@@ -575,7 +581,7 @@ public class DeliveryStatementExcelService {
 
         String dateText = resolveDeliveryDate(representative).format(YMD);
         String deliveryMethodName = resolveDeliveryMethodName(representative);
-        String packingText = resolvePackingText(group.orders());
+        String packingText = group.packingNeedsReview ? "확인 필요" : String.valueOf(group.packingCost);
         String receiverName = resolveReceiverName(representative);
         String receiverPhone = resolveReceiverPhone(representative);
         String address = resolveDeliveryAddress(representative);
@@ -943,20 +949,6 @@ public class DeliveryStatementExcelService {
         return loginMember != null ? text(loginMember.getName()) : "";
     }
 
-    private String resolvePackingText(List<Order> orders) {
-        int totalPackingCost = 0;
-
-        if (orders != null) {
-            for (Order order : orders) {
-                if (order != null) {
-                    totalPackingCost += Math.max(0, order.getPackingCost());
-                }
-            }
-        }
-
-        return String.valueOf(totalPackingCost);
-    }
-
     private Member safeRequestedBy(Order order) {
         if (order == null || order.getTask() == null) {
             return null;
@@ -1095,6 +1087,8 @@ public class DeliveryStatementExcelService {
     }
 
     private final class StatementTaskGroup {
+        private long packingCost;
+        private boolean packingNeedsReview;
         private final Task task;
         private final List<Order> orders = new ArrayList<>();
 

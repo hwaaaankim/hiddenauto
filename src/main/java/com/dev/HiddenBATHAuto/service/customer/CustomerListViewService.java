@@ -45,6 +45,7 @@ import com.dev.HiddenBATHAuto.repository.as.AsTaskRepository;
 import com.dev.HiddenBATHAuto.repository.as.AsTaskScheduleRepository;
 import com.dev.HiddenBATHAuto.repository.order.TaskRepository;
 import com.dev.HiddenBATHAuto.service.as.RegionLookupService;
+import com.dev.HiddenBATHAuto.service.order.OrderTransferAmounts;
 import com.dev.HiddenBATHAuto.utils.OrderProductNameDisplayUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -76,6 +77,7 @@ public class CustomerListViewService {
     private final AsTaskRepository asTaskRepository;
     private final AsTaskScheduleRepository asTaskScheduleRepository;
     private final TaskRepository taskRepository;
+    private final OrderTransferAmounts transferAmounts;
     private final RegionLookupService regionLookupService;
     private final ObjectMapper objectMapper;
     private final CustomerOrderChangeService customerOrderChangeService;
@@ -123,7 +125,7 @@ public class CustomerListViewService {
     }
 
     public TaskListRow buildTaskListRow(Task task) {
-        TaskListRow row = buildTaskRow(task);
+        TaskListRow row = buildTaskRow(task, transferAmounts.confirmedFormRows(List.of(task)));
         Long companyId = task.getRequestedBy() != null && task.getRequestedBy().getCompany() != null
             ? task.getRequestedBy().getCompany().getId() : null;
         row.setChanges(customerOrderChangeService.forTasks(companyId, List.of(task.getId())));
@@ -155,9 +157,10 @@ public class CustomerListViewService {
 
         RegionFilter region = resolveRegionFilter(filter.getProvinceId(), filter.getCityId(), filter.getDistrictId());
 
+        var confirmedForms = transferAmounts.confirmedFormRows(rawPage.getContent());
         List<TaskListRow> rows = rawPage.getContent().stream()
                 .filter(Objects::nonNull)
-                .map(this::buildTaskRow)
+                .map(task -> buildTaskRow(task, confirmedForms))
                 .filter(row -> markSearchMatches(row, filter, region))
                 .collect(Collectors.toCollection(ArrayList::new));
 
@@ -183,7 +186,7 @@ public class CustomerListViewService {
                 .build();
     }
 
-    private TaskListRow buildTaskRow(Task task) {
+    private TaskListRow buildTaskRow(Task task, Set<Long> confirmedForms) {
         List<Order> orders = safeOrders(task).stream()
                 .filter(Objects::nonNull)
                 .sorted(Comparator.comparing(Order::getId, Comparator.nullsLast(Long::compareTo)))
@@ -217,14 +220,9 @@ public class CustomerListViewService {
                 .toList();
 
         StatusSummary statusSummary = summarizeOrderStatus(orders);
-		long supplyPrice = calculateTaskSupplyPrice(orders);
-		long productVatIncludedTotal = calculateTaskVatIncludedTotalPrice(orders);
-		long packingCost = calculateTaskWideCost(orders, true);
-		long deliveryCost = calculateTaskWideCost(orders, false);
-		long grandTotalPrice = Math.addExact(
-				Math.addExact(productVatIncludedTotal, packingCost),
-				deliveryCost
-		);
+		long supplyPrice = orderSummaries.stream().mapToLong(TaskOrderSummary::getSupplyPrice).sum();
+		long productVatIncludedTotal = orderSummaries.stream().mapToLong(TaskOrderSummary::getVatIncludedTotalPrice).sum();
+		var costs = transferAmounts.displayTotals(task, orders, confirmedForms);
 		List<TaskDeliveryHandler> deliveryHandlers = resolveDeliveryHandlers(orders);
 		String deliveryHandlerDisplay = deliveryHandlers.stream()
 				.map(TaskDeliveryHandler::getName)
@@ -257,72 +255,11 @@ public class CustomerListViewService {
 				.deliveryHandlers(deliveryHandlers)
                 .supplyPrice(supplyPrice)
 				.vatIncludedTotalPrice(productVatIncludedTotal)
-				.packingCost(packingCost)
-				.deliveryCost(deliveryCost)
-				.grandTotalPrice(grandTotalPrice)
+				.packingCost(costs.packing())
+				.deliveryCost(costs.delivery())
+				.amountReviewRequired(costs.breakdownNeedsReview())
+				.grandTotalPrice(task.getTotalPrice())
                 .build();
-    }
-
-    private long calculateTaskSupplyPrice(List<Order> orders) {
-        return orders.stream()
-				.mapToLong(this::resolveOrderSupplyPrice)
-                .sum();
-    }
-
-	private long calculateTaskVatIncludedTotalPrice(List<Order> orders) {
-		return orders.stream()
-				.mapToLong(this::resolveOrderVatIncludedTotalPrice)
-				.sum();
-	}
-
-	private long calculateTaskWideCost(List<Order> orders, boolean packing) {
-		return orders.stream()
-				.mapToLong(order -> Math.max(0L, packing ? order.getPackingCost() : order.getDeliveryCost()))
-				.max()
-				.orElse(0L);
-	}
-
-	private long resolveOrderUnitPrice(Order order) {
-		if (order == null) {
-			return 0L;
-		}
-		if (order.getProductCost() > 0) {
-			return order.getProductCost();
-		}
-		int quantity = Math.max(order.getQuantity(), 1);
-		return Math.max(order.getSupplyPrice(), 0) / quantity;
-	}
-
-	private long resolveOrderSupplyPrice(Order order) {
-		if (order == null) {
-			return 0L;
-		}
-		if (order.getSupplyPrice() > 0) {
-			return order.getSupplyPrice();
-		}
-		return Math.multiplyExact(resolveOrderUnitPrice(order), Math.max(order.getQuantity(), 0));
-	}
-
-	private long resolveOrderVatIncludedTotalPrice(Order order) {
-		if (order == null) {
-			return 0L;
-		}
-		if (order.getTotalAmount() > 0) {
-			return order.getTotalAmount();
-		}
-		return calculateVatIncludedTotalPrice(resolveOrderSupplyPrice(order));
-	}
-
-    private long calculateVatIncludedTotalPrice(long supplyPrice) {
-        if (supplyPrice <= 0) {
-            return Math.max(supplyPrice, 0);
-        }
-
-        long vatAmount = supplyPrice / 10L;
-        if (supplyPrice % 10L >= 5L) {
-            vatAmount = Math.addExact(vatAmount, 1L);
-        }
-        return Math.addExact(supplyPrice, vatAmount);
     }
 
     public TaskOrderSummary buildTaskOrderSummary(Order order) {
@@ -338,6 +275,7 @@ public class CustomerListViewService {
                     .build();
         }
 
+        var money = transferAmounts.displayLine(order);
         OrderItem item = order.getOrderItem();
         Map<String, Object> optionMap = parseOrderOptionMap(item != null ? item.getOptionJson() : null);
         OrderStatus status = order.getStatus();
@@ -359,9 +297,10 @@ public class CustomerListViewService {
                 .size(resolveCustomerProductSize(optionMap))
                 .color(resolveCustomerProductColor(optionMap))
                 .quantity(order.getQuantity())
-				.unitPrice(resolveOrderUnitPrice(order))
-				.supplyPrice(resolveOrderSupplyPrice(order))
-				.vatIncludedTotalPrice(resolveOrderVatIncludedTotalPrice(order))
+				.amountReviewRequired(money.reviewRequired())
+				.unitPrice(money.unit())
+				.supplyPrice(money.supply())
+				.vatIncludedTotalPrice(money.gross())
                 .deliveryMethodName(resolveDeliveryMethodName(order))
                 .deliveryAddress(buildEffectiveDeliveryAddress(order))
                 .deliveryDate(order.getPreferredDeliveryDate())

@@ -191,6 +191,9 @@ public class CustomerController {
 				.filter(Objects::nonNull)
 				.sorted(Comparator.comparing(Order::getId, Comparator.nullsLast(Long::compareTo)))
 				.toList();
+		if (taskOrders.isEmpty()) {
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+		}
 
 		for (Order order : taskOrders) {
 			prepareOrderOptionMap(order);
