@@ -268,7 +268,7 @@ public class OrderExcelUploadLookupService {
         response.setSiName(safe(address.getSiName()));
         response.setGuName(safe(address.getGuName()));
         response.setRoadAddress(safe(address.getRoadAddress()));
-        response.setJibunAddress("");
+        response.setJibunAddress(safe(address.getJibunAddress()));
         response.setOriginAddress("");
         response.setDetailAddress(safe(address.getDetailAddress()));
         response.setFullAddress(buildFullAddress(address.getZipCode(), address.getRoadAddress(), address.getDetailAddress()));

@@ -37,6 +37,8 @@ import lombok.RequiredArgsConstructor;
 @Transactional
 public class AdminClientDetailService {
 
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
     private final CompanyRepository companyRepository;
     private final MemberRepository memberRepository;
     private final AddressRegionResolver addressRegionResolver;
@@ -54,6 +56,12 @@ public class AdminClientDetailService {
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new IllegalArgumentException("회사가 존재하지 않습니다. ID=" + companyId));
 
+        entityManager.refresh(company, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        Integer originalPoint = request.getOriginalPoint();
+        boolean editingPoints = !java.util.Objects.equals(originalPoint, request.getPoint());
+        if (originalPoint != null && editingPoints && originalPoint != company.getPoint()) {
+            throw new IllegalArgumentException("업체 포인트가 변경되었습니다. 새로 조회한 뒤 수정해 주세요.");
+        }
         String companyName = trim(request.getCompanyName());
         String businessNumber = normalizeBusinessNumber(request.getBusinessNumber());
         String zipCode = trim(request.getZipCode());
@@ -67,8 +75,8 @@ public class AdminClientDetailService {
         if (!StringUtils.hasText(companyName)) {
             throw new IllegalArgumentException("업체명은 필수입니다.");
         }
-        if (request.getPoint() == null || request.getPoint() < 0) {
-            throw new IllegalArgumentException("적립금은 0 이상이어야 합니다.");
+        if (request.getPoint() == null || (editingPoints && request.getPoint() < 0 && request.getPoint() != company.getPoint())) {
+            throw new IllegalArgumentException("현재 음수 잔액을 유지하거나 0 이상의 적립금을 입력해 주세요.");
         }
         if (businessNumber.length() != 10) {
             throw new IllegalArgumentException("사업자등록번호는 숫자 10자리여야 합니다.");
@@ -106,7 +114,7 @@ public class AdminClientDetailService {
         }
 
         company.setCompanyName(companyName);
-        company.setPoint(request.getPoint());
+        if (editingPoints) company.setPoint(request.getPoint());
         company.setBusinessNumber(businessNumber);
         company.setZipCode(zipCode);
         company.setDoName(resolvedRegion.doName());

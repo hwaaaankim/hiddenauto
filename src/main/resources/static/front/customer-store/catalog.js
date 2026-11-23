@@ -611,7 +611,7 @@
     if (standardState) { render(list(standardDisplay || standardState.display)); return; }
     if (!result) return;
     const raw = product._teamProcess || product.process;
-    const rows = list(result.questions).filter(state => (state.visible || state.question.fixed) && product.groups?.find(g => g.id === state.question.groupId)?.role !== 'SUBCATEGORY').map(state => {
+    const rows = list(result.questions).filter(state => (state.visible || state.question.fixed)).map(state => {
       const q = state.question, original = raw?.questions.find(item => item.key === q.key) || q;
       const question = { ...q, choices:list(q.choices).map(c => ({...c,labels:original.choices?.find(x=>x.key===c.key)?.labels || c.labels})), fields:list(q.fields).map(f => ({...f,labels:original.fields?.find(x=>x.key===f.key)?.labels || f.labels})) };
       const group = original.labels || q.labels;

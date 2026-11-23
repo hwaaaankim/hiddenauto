@@ -94,7 +94,7 @@ public final class StoreCheckoutPolicy {
         BigDecimal points = nonnegative(requestedPoints);
         if (points.stripTrailingZeros().scale() > 0)
             throw new IllegalArgumentException("포인트는 1포인트 단위로 입력해 주세요.");
-        if (points.compareTo(nonnegative(companyBalance)) > 0 || points.compareTo(products) > 0) {
+        if (points.compareTo(companyBalance.max(BigDecimal.ZERO)) > 0 || points.compareTo(products) > 0) {
             throw new IllegalArgumentException("포인트는 보유 잔액과 상품금액 이내에서 사용해 주세요.");
         }
 

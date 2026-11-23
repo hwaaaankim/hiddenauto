@@ -423,6 +423,7 @@
                 siName: baseItem.siName || '',
                 guName: baseItem.guName || '',
                 roadAddress: baseItem.roadAddress || '',
+                jibunAddress: baseItem.jibunAddress || '',
                 detailAddress: String(detailText || '').trim()
             };
 
@@ -454,7 +455,8 @@
                         doName: region.doName || '',
                         siName: region.siName || '',
                         guName: region.guName || '',
-                        roadAddress: data.roadAddress || data.autoRoadAddress || region.roadAddress || ''
+                        roadAddress: data.roadAddress || data.autoRoadAddress || region.roadAddress || '',
+                        jibunAddress: data.jibunAddress || data.autoJibunAddress || ''
                     };
 
                     if (!baseItem.roadAddress) return;

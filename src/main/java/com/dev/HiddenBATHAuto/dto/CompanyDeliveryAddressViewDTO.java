@@ -11,6 +11,7 @@ public class CompanyDeliveryAddressViewDTO {
     private String guName;
     private String roadAddress;
     private String detailAddress;
+    private String jibunAddress;
 
     public static CompanyDeliveryAddressViewDTO fromEntity(com.dev.HiddenBATHAuto.model.auth.CompanyDeliveryAddress e) {
         CompanyDeliveryAddressViewDTO dto = new CompanyDeliveryAddressViewDTO();
@@ -20,6 +21,7 @@ public class CompanyDeliveryAddressViewDTO {
         dto.setSiName(e.getSiName());
         dto.setGuName(e.getGuName());
         dto.setRoadAddress(e.getRoadAddress());
+        dto.setJibunAddress(e.getJibunAddress());
         dto.setDetailAddress(e.getDetailAddress());
         return dto;
     }

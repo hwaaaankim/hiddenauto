@@ -53,6 +53,9 @@ public class CompanyDeliveryAddress implements Serializable {
     @Column(name = "road_address", length = 255, nullable = false)
     private String roadAddress;
 
+    @Column(name = "jibun_address", length = 255)
+    private String jibunAddress;
+
     @Column(name = "detail_address", length = 255)
     private String detailAddress;
 

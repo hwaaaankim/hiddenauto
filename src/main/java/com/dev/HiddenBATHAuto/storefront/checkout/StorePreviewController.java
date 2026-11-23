@@ -196,7 +196,7 @@ public class StorePreviewController {
         long company = access.company(principal);
         return ApiResponse.ok(Map.of("methods", StoreShipping.METHODS, "companyAddress", preview.companyAddress(company),
                 "addresses", addresses.findByCompany_IdOrderByIdAsc(company).stream().map(a -> new StorePreviewService.Address(
-                    a.getZipCode(), a.getDoName(), a.getSiName(), a.getGuName(), a.getRoadAddress(), null, a.getDetailAddress())).toList(), "points", preview.balance(company),
+                    a.getZipCode(), a.getDoName(), a.getSiName(), a.getGuName(), a.getRoadAddress(), a.getJibunAddress(), a.getDetailAddress())).toList(), "points", preview.balance(company),
                 "today", preview.today().toString(), "calendarThrough", preview.calendarThrough().toString(), "holidays", preview.holidays().stream().map(Object::toString).toList()));
     }
 

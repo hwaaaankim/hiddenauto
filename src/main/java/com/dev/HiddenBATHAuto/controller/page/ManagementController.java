@@ -157,15 +157,19 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ManagementController {
 
-	@JsonIgnoreProperties("jibunAddress")
 	public record AdminClientDeliveryAddressSaveRequest(
 			String zipCode,
 			String doName,
 			String siName,
 			String guName,
 			String roadAddress,
-			String detailAddress
+			String detailAddress,
+			String jibunAddress
 	) {
+		public AdminClientDeliveryAddressSaveRequest(String zipCode, String doName, String siName,
+				String guName, String roadAddress, String detailAddress) {
+			this(zipCode, doName, siName, guName, roadAddress, detailAddress, null);
+		}
 	}
 
 	public record AdminClientDeliveryAddressItem(
@@ -176,8 +180,13 @@ public class ManagementController {
 			String guName,
 			String roadAddress,
 			String detailAddress,
-			String fullAddress
+			String fullAddress,
+			String jibunAddress
 	) {
+		public AdminClientDeliveryAddressItem(Long id, String zipCode, String doName, String siName,
+				String guName, String roadAddress, String detailAddress, String fullAddress) {
+			this(id, zipCode, doName, siName, guName, roadAddress, detailAddress, fullAddress, null);
+		}
 	}
 
 	public record AdminClientDeliveryAddressResponse(
@@ -3328,6 +3337,7 @@ public class ManagementController {
 			address.setSiName(siName);
 			address.setGuName(guName);
 			address.setRoadAddress(roadAddress);
+			address.setJibunAddress(normalizeAdminClientDeliveryAddressValue(request.jibunAddress(), 255, false, "지번주소"));
 			address.setDetailAddress(detailAddress);
 			address.setCreatedAt(LocalDateTime.now());
 
@@ -3421,7 +3431,8 @@ public class ManagementController {
 				adminClientDeliveryAddressText(address.getGuName()),
 				adminClientDeliveryAddressText(address.getRoadAddress()),
 				adminClientDeliveryAddressText(address.getDetailAddress()),
-				buildOrderListFullAddress(address)
+				buildOrderListFullAddress(address),
+				adminClientDeliveryAddressText(address.getJibunAddress())
 		);
 	}
 

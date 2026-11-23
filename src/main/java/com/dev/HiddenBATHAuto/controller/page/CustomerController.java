@@ -915,6 +915,10 @@ public class CustomerController {
 			target.setDoName(nvl(input.getDoName()));
 			target.setSiName(nvl(input.getSiName()));
 			target.setGuName(nvl(input.getGuName()));
+			// Old clients omit jibunAddress. Retain the existing parcel number only for the same base address.
+			if (input.getJibunAddress() != null || !nvl(input.getRoadAddress()).equals(nvl(target.getRoadAddress()))) {
+				target.setJibunAddress(input.getJibunAddress());
+			}
 			target.setRoadAddress(nvl(input.getRoadAddress()));
 			target.setDetailAddress(nvl(input.getDetailAddress()));
 		}
@@ -962,6 +966,7 @@ public class CustomerController {
 			value.setSiName(region.siName());
 			value.setGuName(region.guName());
 			value.setRoadAddress(roadAddress);
+			value.setJibunAddress(input.getJibunAddress());
 			value.setDetailAddress(detailAddress);
 			normalized.add(value);
 		}
@@ -997,6 +1002,7 @@ public class CustomerController {
 		private String guName;
 		private String roadAddress;
 		private String detailAddress;
+		private String jibunAddress;
 
 		public static CompanyDeliveryAddressDto from(CompanyDeliveryAddress e) {
 			CompanyDeliveryAddressDto d = new CompanyDeliveryAddressDto();
@@ -1006,13 +1012,13 @@ public class CustomerController {
 			d.setSiName(e.getSiName());
 			d.setGuName(e.getGuName());
 			d.setRoadAddress(e.getRoadAddress());
+			d.setJibunAddress(e.getJibunAddress());
 			d.setDetailAddress(e.getDetailAddress());
 			return d;
 		}
 	}
 
 	@Data
-	@JsonIgnoreProperties("jibunAddress")
 	public static class CompanyDeliveryAddressInput {
 		private Long id; // 기존 항목은 id 포함, 신규는 null
 		private String zipCode;
@@ -1021,6 +1027,7 @@ public class CustomerController {
 		private String guName;
 		private String roadAddress;
 		private String detailAddress;
+		private String jibunAddress;
 	}
 
 	@PostMapping("/generateRegistrationKey")

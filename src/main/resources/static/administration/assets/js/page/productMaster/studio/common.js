@@ -712,14 +712,16 @@
     if (grid && event.target.matches("[data-exclusive]")) refreshChoiceLocks(grid);
   }, true);
   S.summaryRows = (rows, settings, role) => {
-    const byId = new Map(rows.map(row => [row.groupId,row]));
-    const result = [];
-    for (const rule of (settings || []).filter(item => item.role === role)) {
-      const row = byId.get(rule.groupId);
-      if (row && rule.visible) result.push(row);
-      byId.delete(rule.groupId);
+    const rules = (settings || []).filter(rule => rule.role === role);
+    if (!rules.length) return rows.slice();
+    const configured = new Set(rules.map(rule => rule.groupId));
+    const matching = new Map();
+    for (const row of rows) {
+      if (!matching.has(row.groupId)) matching.set(row.groupId, []);
+      matching.get(row.groupId).push(row);
     }
-    return [...result,...byId.values()];
+    const visible = rules.filter(rule => rule.visible).flatMap(rule => matching.get(rule.groupId) || []);
+    return visible.concat(rows.filter(row => !configured.has(row.groupId)));
   };
   S.choiceExclusions = (body,q,readOnly=false) => {
         if (q.control === "CHECKBOX" && q.choices.length > 1) {

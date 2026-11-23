@@ -27,7 +27,7 @@ public final class StoreShipping {
             default -> "";
         }).collect(Collectors.toSet());
         if (kinds.contains("")) return new Quote(null, null, "운임 확인 필요 · 요금표에 없는 대분류");
-        boolean wideCabinet = false, largeMirror = false;
+        boolean wideCabinet = false, largeMirror = false, smallMirror = false;
         int count = 0;
         for (Product p : products) {
             count = Math.addExact(count, p.quantity());
@@ -35,7 +35,10 @@ public final class StoreShipping {
             if (p.width() == null || p.width().signum() <= 0)
                 return new Quote(null, null, "운임 확인 필요 · " + p.category() + " 가로 규격 미확정");
             wideCabinet |= p.category().equals("하부장") && p.width().compareTo(BigDecimal.valueOf(600)) > 0;
-            largeMirror |= p.category().equals("거울") && p.width().compareTo(BigDecimal.valueOf(1200)) >= 0;
+            if (p.category().equals("거울")) {
+                if (p.width().compareTo(BigDecimal.valueOf(1200)) >= 0) largeMirror = true;
+                else smallMirror = true;
+            }
         }
         int packing = 30000, freight = 60000;
         String rule = "혼합·초과 수량 파레트";
@@ -45,7 +48,7 @@ public final class StoreShipping {
             String kind = kinds.iterator().next();
             if (kind.equals("거울") && count <= 4 && !largeMirror) {
                 packing = 20000; freight = count <= 2 ? 6000 : 10000; rule = "거울 스티로폼";
-            } else if (kind.equals("거울") && largeMirror && count <= 4) {
+            } else if (kind.equals("거울") && largeMirror && (!smallMirror || count <= 4)) {
                 freight = 30000; rule = "1200mm 이상 거울 파레트";
             } else if (kind.equals("상부장") && count <= 4) {
                 packing = count == 1 ? 20000 : 30000;
@@ -58,8 +61,8 @@ public final class StoreShipping {
             }
         }
         if (method == 4) freight = 0;
-        else if (jeju) freight += 30000;
+        else if (jeju) freight = Math.addExact(freight, 30000);
         return new Quote(freight, packing, rule + " · " + count + "개" +
-            (method == 4 ? " · 착불 운임 제외" : jeju ? " · 제주 운임 30,000원 추가" : ""));
+            (method == 4 ? " · 착불 운임 제외" : jeju ? " · 제주 선불 운임 30,000원 추가" : ""));
     }
 }

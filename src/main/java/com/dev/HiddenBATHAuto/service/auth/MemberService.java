@@ -358,7 +358,8 @@ public class MemberService {
                     region.siName(),
                     region.guName(),
                     roadAddress,
-                    detailAddress
+                    detailAddress,
+                    request.getJibunAddress()
             ));
         }
 
@@ -391,6 +392,7 @@ public class MemberService {
             address.setSiName(value.siName());
             address.setGuName(value.guName());
             address.setRoadAddress(value.roadAddress());
+            address.setJibunAddress(value.jibunAddress());
             address.setDetailAddress(value.detailAddress());
             address.setCreatedAt(LocalDateTime.now());
             entities.add(address);
@@ -415,7 +417,8 @@ public class MemberService {
             String siName,
             String guName,
             String roadAddress,
-            String detailAddress
+            String detailAddress,
+            String jibunAddress
     ) {
     }
 

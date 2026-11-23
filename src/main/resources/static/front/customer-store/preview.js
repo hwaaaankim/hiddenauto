@@ -47,6 +47,19 @@
     if (changed) write('cart', normalized);
     return normalized;
   }
+  function deductCart(current, selectedRows, quantities) {
+    let count = 0;
+    const remaining = current.flatMap(row => {
+      const selected = selectedRows.get(row.key);
+      if (!selected || !row.item?.stamp || row.item.stamp !== (selected.sourceStamp || selected.item.stamp)) return [row];
+      const available = Number(row.quantity || 1);
+      const used = Math.min(available, quantities.get(row.key));
+      count += used;
+      // 새 키를 부여해 다른 탭의 오래된 초안이 남은 수량을 재차 차감하지 않게 한다.
+      return available > used ? [{...row, key:crypto.randomUUID(), quantity:available - used}] : [];
+    });
+    return {remaining, count};
+  }
   function changeCart(change) {
     const mutate = () => change(cart());
     return navigator.locks ? navigator.locks.request(prefix + 'cart', mutate) : mutate();
@@ -1020,7 +1033,7 @@
     const answers = Array.isArray(item.summary) ? item.summary : [];
     if (!answers.length) return '<p class="store-no-options">선택 옵션 없음</p>';
     const compact = item.compactSummary ?? answers;
-    const summary = compact.slice(0, 2).join(' | ');
+    const summary = compact.join(' | ');
     return (summary ? '<p class="store-option-preview">' + esc(summary) + '</p>' : '') +
       '<details class="store-config-detail"><summary>선택 옵션 전체 보기 (' + answers.length + ')</summary>' +
       '<dl class="store-answer-detail">' + answers.map(answer => {
@@ -1056,6 +1069,11 @@
   function shippingGroupTitle(group, count) {
     if (count === 1) return group.lines.length > 1 ? '전체 품목 공통 배송' : '개별 배송';
     return (group.lines.length > 1 ? '묶음 배송 ' : '개별 배송 ') + group.number;
+  }
+
+  function confirmedFee(result, field) {
+    if (result.lines.every(line => line[field] == null)) return '미확정 · 관리자 안내 예정';
+    return won(result[field]) + (result.lines.some(line => line[field] == null) ? ' (미확정분 별도)' : '');
   }
 
   function shippingBreakdown(groups, section) {
@@ -1161,7 +1179,7 @@
       shipping + date + address + contacts + '</div><small class="store-method-note" aria-live="polite"></small></section><p class="store-line-overview" hidden></p></article>').join('') +
       '</div><section class="store-shipping-review"><p data-shared></p><h2>배송비</h2><button type="submit" class="store-btn" name="quote" formnovalidate>배송비 계산</button><div data-breakdown aria-live="polite"></div></section>' +
       '<section class="store-payment" hidden><h2>최종 결제 정보</h2><p data-payable></p><label>사용 포인트<input type="number" name="points" value="0" min="0" step="1" disabled max="' +
-      esc(options.points) + '"></label><small data-point-limit></small><button type="submit" name="confirm" class="store-btn is-primary">발주 확정 · 상세 검증</button></section></form>'  + addressBook);
+      esc(Math.max(0, options.points)) + '"></label><small data-point-limit></small><button type="submit" name="confirm" class="store-btn is-primary">최종 미리보기 확인</button></section></form>'  + addressBook);
     const form = main.querySelector('#store-checkout');
     const lines = [...form.querySelectorAll('.store-check-line')];
     const bulk = main.querySelector('.store-bulk');
@@ -1253,10 +1271,7 @@
           const title = document.createElement('strong');
           title.textContent = a === options.companyAddress ? '업체 기본 주소' : '저장 배송지';
           button.append(title);
-          const addressFields = [['도로명주소', a.road]];
-          if (a === options.companyAddress) addressFields.push(['지번주소', a.jibun]);
-          addressFields.push(['상세주소', a.detail], ['우편번호', a.zip]);
-          for (const [label, value] of addressFields) {
+          for (const [label, value] of [['도로명주소',a.road],['지번주소',a.jibun],['상세주소',a.detail],['우편번호',a.zip]]) {
             const field = document.createElement('span');
             field.textContent = label + ' · ' + (value || '미등록');
             button.append(field);
@@ -1636,10 +1651,20 @@
           throw new Error('서버가 요청한 품목의 발주 검증 결과를 반환하지 않았습니다. 입력 내용을 유지합니다.');
         }
         if (confirming) {
+          const cartLines = new Map(rows.filter(row => row.fromCart).map(row => [row.key, row]));
+          const deducted = cartLines.size ? await changeCart(current => {
+            if (version !== quoteVersion) return 0;
+            const quantities = new Map(payload.map(row => [row.key, Number(row.quantity)]));
+            const {remaining, count} = deductCart(current, cartLines, quantities);
+            if (count) write('cart', remaining);
+            return count;
+          }) : 0;
+          if (version !== quoteVersion) return;
+          rows.forEach(row => { row.fromCart = false; });
           saveDraft();
           const editing = main.querySelector('.store-page');
           editing.remove();
-          resultPage(result);
+          resultPage(result, deducted);
           main.querySelector('[data-edit-review]').onclick = event => {
             if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
             event.preventDefault();
@@ -1650,15 +1675,16 @@
         }
         currentQuote = result;
         breakdown.innerHTML = '<dl class="store-totals"><dt>상품금액</dt><dd>' + won(result.products) +
-          '</dd><dt>확정 배송비</dt><dd>' + won(result.delivery) + '</dd><dt>확정 포장비</dt><dd>' + won(result.packing) + '</dd></dl>' +
+          '</dd><dt>확정 배송비</dt><dd>' + confirmedFee(result, 'delivery') + '</dd><dt>확정 포장비</dt><dd>' + confirmedFee(result, 'packing') + '</dd></dl>' +
           shippingBreakdown(deliveryGroups(result.lines), 'quote') +
           (result.pending ? '<p>미확정 비용은 관리자 안내 후 반영됩니다.</p>' : '');
-        points.max = Math.floor(Math.min(options.points, result.products));
+        points.max = Math.max(0, Math.floor(Math.min(options.points, result.products)));
         const before = Number(points.value || 0);
         points.value = Number.isFinite(before) ? Math.max(0, Math.min(Math.floor(before), Number(points.max))) : 0;
         form.querySelector('[data-point-limit]').textContent = '보유 ' + Number(options.points).toLocaleString('ko-KR') +
           'P · 이번 발주 최대 ' + Number(points.max).toLocaleString('ko-KR') + 'P';
         payment.hidden = false;
+        points.readOnly = Number(points.max) === 0;
         points.disabled = false;
         showPayable();
         // 검증 단계에서는 장바구니와 발주 초안을 유지합니다.
@@ -1681,7 +1707,7 @@
       }
     };
   }
-  function resultPage(result) {
+  function resultPage(result, deducted) {
     const groups = deliveryGroups(result.lines);
     const common = groups.find(group => group.lines.length > 1 && group.lines.length > result.lines.length / 2);
     const groupByKey = new Map();
@@ -1709,9 +1735,9 @@
         '</p><details><summary>품목 옵션 · 배송지 · 연락처</summary>' + facts(fees) + facts(destination) +
         checkoutOptions(line.item) + '</details></div></article>';
     }).join('');
-    shell('발주 검증 결과', '<p class="store-validation">발주 전 검증 결과입니다. 품목별 입력 내용과 배송 묶음별 금액을 확인해 주세요. 실제 발주는 접수되지 않았습니다.</p>' +
+    shell('발주 검증 결과', '<p class="store-validation">발주 전 검증 결과입니다. 품목별 입력 내용과 배송 묶음별 금액을 확인해 주세요. 실제 발주는 접수되지 않았습니다. 이번 확인에서 장바구니 수량 ' + esc(deducted) + '개를 차감했습니다.</p>' +
       '<div class="store-list">' + cards + '</div>' + shippingBreakdown(groups, 'result') + '<dl class="store-totals"><dt>상품금액</dt><dd>' + won(result.products) +
-      '</dd><dt>확정 배송비</dt><dd>' + won(result.delivery) + '</dd><dt>확정 포장비</dt><dd>' + won(result.packing) +
+      '</dd><dt>확정 배송비</dt><dd>' + confirmedFee(result, 'delivery') + '</dd><dt>확정 포장비</dt><dd>' + confirmedFee(result, 'packing') +
       '</dd><dt>사용 예정 포인트</dt><dd>−' + won(result.points) + '</dd><dt>' + (result.pending ? '현재 확정 금액 · 미확정 비용 별도' : '합계') + '</dt><dd>' +
       won(result.payable) + '</dd></dl><div class="store-actions"><a class="store-btn" data-edit-review href="' + root +
       '?view=checkout">입력 내용 수정</a><a class="store-btn" href="' + root + '">쇼핑몰로 이동</a></div>');

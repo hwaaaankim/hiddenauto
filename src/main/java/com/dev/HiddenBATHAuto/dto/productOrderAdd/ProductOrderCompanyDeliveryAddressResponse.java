@@ -15,6 +15,7 @@ public class ProductOrderCompanyDeliveryAddressResponse {
     private String guName;
     private String roadAddress;
     private String detailAddress;
+    private String jibunAddress;
 
     // 화면 표시용 전체 주소
     private String address;

@@ -11,6 +11,7 @@ public class AdminClientCompanyUpdateRequest {
 
     private String companyName;
     private Integer point;
+    private Integer originalPoint;
     private String businessNumber;
 
     private String zipCode;

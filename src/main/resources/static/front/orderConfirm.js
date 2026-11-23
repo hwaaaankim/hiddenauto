@@ -61,7 +61,7 @@ document.addEventListener("DOMContentLoaded", () => {
 		? companyOrdererInfos
 		: [];
 
-	const pointLimit = typeof userPoint !== "undefined" ? userPoint : 0;
+	const pointLimit = typeof userPoint !== "undefined" ? Math.max(0, userPoint) : 0;
 	const dmList = (typeof deliveryMethods !== "undefined" && Array.isArray(deliveryMethods)) ? deliveryMethods : [];
 
 	// =========================
@@ -373,6 +373,7 @@ document.addEventListener("DOMContentLoaded", () => {
 				id: a.id,
 				label: "등록 배송지",
 				roadAddress: a.roadAddress || "",
+				jibunAddress: a.jibunAddress || "",
 				detailAddress: a.detailAddress || "",
 				zipCode: a.zipCode || "",
 				doName: a.doName || "",

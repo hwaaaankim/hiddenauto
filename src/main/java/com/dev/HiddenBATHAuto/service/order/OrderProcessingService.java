@@ -71,6 +71,8 @@ public class OrderProcessingService {
 	private final ObjectMapper objectMapper = new ObjectMapper();
 	private final DeliveryMethodRepository deliveryMethodRepository;
 	private final CompanyRepository companyRepository;
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
 	private final ProvinceRepository provinceRepository;
 	private final CityRepository cityRepository;
 	private final DistrictRepository districtRepository;
@@ -115,8 +117,8 @@ public class OrderProcessingService {
 			int quantity = cart.getQuantity();
 			int productCost = cart.getPrice();
 			int deliveryPrice = dto.getDeliveryPrice();
-			int singleOrderTotal = quantity * productCost + deliveryPrice;
-			totalPrice += singleOrderTotal;
+			int singleOrderTotal = Math.addExact(Math.multiplyExact(quantity, productCost), deliveryPrice);
+			totalPrice = Math.addExact(totalPrice, singleOrderTotal);
 
 			System.out.printf("  - 수량: %d, 제품단가: %d, 배송비: %d, 합계: %d\n", quantity, productCost, deliveryPrice,
 					singleOrderTotal);
@@ -267,16 +269,18 @@ public class OrderProcessingService {
 		Company company = companyRepository.findById(member.getCompany().getId())
 				.orElseThrow(() -> new IllegalArgumentException("회사 정보를 찾을 수 없습니다."));
 
-		int currentPoint = company.getPoint();
-		int remainingPoint = currentPoint - pointUsed;
+		entityManager.refresh(company, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        int currentPoint = company.getPoint();
+		
 
-		if (remainingPoint < 0) {
+		if (pointUsed < 0 || pointUsed > Math.max(0, currentPoint) || pointUsed > Math.max(0, totalPrice)) {
 			System.out.println("❌ 포인트 부족: 보유=" + currentPoint + ", 사용=" + pointUsed);
 			throw new IllegalStateException("사용 가능한 포인트가 부족합니다. 현재 보유: " + currentPoint + "P");
 		}
 
-		int rewardPoint = (int) (totalPrice * 0.01);
-		company.setPoint(remainingPoint + rewardPoint);
+		int remainingPoint = Math.subtractExact(currentPoint, pointUsed);
+        int rewardPoint = OrderRewardPoints.earned(totalPrice);
+		company.setPoint(Math.addExact(remainingPoint, rewardPoint));
 
 		System.out.printf("💰 총금액: %d원, 보유포인트: %d → 잔여포인트: %d, 적립예정: %dP\n", totalPrice, currentPoint, remainingPoint,
 				rewardPoint);

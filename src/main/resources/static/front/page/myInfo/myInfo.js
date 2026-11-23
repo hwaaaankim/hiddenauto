@@ -590,6 +590,7 @@
 					siName: item.siName || '',
 					guName: item.guName || '',
 					roadAddress: item.roadAddress || '',
+					jibunAddress: item.jibunAddress || '',
 					detailAddress: item.detailAddress || ''
 				};
 			})
@@ -711,6 +712,7 @@
 				siName: pending.siName || '',
 				guName: pending.guName || '',
 				roadAddress: pending.roadAddress || '',
+				jibunAddress: pending.jibunAddress || '',
 				detailAddress: (detailText || '').trim()
 			};
 
@@ -762,7 +764,8 @@
 							doName: region.doName || '',
 							siName: region.siName || '',
 							guName: region.guName || '',
-							roadAddress: data.roadAddress || data.autoRoadAddress || region.roadAddress || address || ''
+							roadAddress: data.roadAddress || data.autoRoadAddress || region.roadAddress || address || '',
+							jibunAddress: data.jibunAddress || data.autoJibunAddress || ''
 						};
 					} else {
 						pendingItem = {
@@ -770,7 +773,8 @@
 							doName: data.sido || '',
 							siName: data.sigungu || '',
 							guName: data.bname || '',
-							roadAddress: data.roadAddress || data.autoRoadAddress || address || ''
+							roadAddress: data.roadAddress || data.autoRoadAddress || address || '',
+							jibunAddress: data.jibunAddress || data.autoJibunAddress || ''
 						};
 					}
 

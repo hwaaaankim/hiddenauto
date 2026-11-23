@@ -85,7 +85,7 @@
 															<input type="number"
 																class="form-control admin-client-detail-fourth-table-input"
 																id="admin-client-detail-fourth-point" name="point"
-																min="0" step="1" th:value="${company.point}">
+																th:min="${company.point lt 0 ? company.point : 0}" step="1" th:value="${company.point}">
 												</td>
 											</tr>
 
@@ -623,7 +623,7 @@
 
 	<!-- 회원가입/회원정보/관리자 화면이 동일한 주소 정규화 규칙을 사용합니다. -->
 	<script src="/front/addressRegion.js?v=20260902-1"></script>
-	<script src="/administration/assets/js/page/clientDetail.js?v=20261120-address-r2"></script>
+	<script src="/administration/assets/js/page/clientDetail.js?v=20261123-point-r1"></script>
 
 </body>
 

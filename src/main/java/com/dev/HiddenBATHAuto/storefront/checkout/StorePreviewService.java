@@ -120,7 +120,7 @@ public class StorePreviewService {
         Map<String, Answer> answers = selection.answers() == null ? Map.of() : selection.answers();
         BigDecimal price = p.unitPrice();
         List<String> summary = new ArrayList<>();
-        Map<Long,String> byGroup = new LinkedHashMap<>();
+        Map<Long,List<String>> byGroup = new LinkedHashMap<>();
         Map<String, Answer> canonicalAnswers = new TreeMap<>();
         List<Object> path = new ArrayList<>();
         Map<Long, List<String>> optionLabels = new TreeMap<>();
@@ -152,24 +152,27 @@ public class StorePreviewService {
         }
         if (p.nonStandard()) {
             var evaluation = studio.evaluate(p.id(), new com.dev.HiddenBATHAuto.dto.productmaster.ProductStudioDtos.EvaluateRequest(null, answers), actor(company));
-            evaluation.questions().stream().filter(q -> q.visible() && !q.question().fixed()
-                    && q.answer() != null && q.errors().isEmpty() && answers.containsKey(q.question().key())).forEach(q -> {
+            evaluation.questions().stream().filter(q -> q.answer() != null && q.errors().isEmpty()
+                    && (q.question().fixed() || (q.visible() && answers.containsKey(q.question().key())))).forEach(q -> {
+                boolean userAnswer = !q.question().fixed();
                 List<String> values = new ArrayList<>();
                 List<String> choices = q.answer().choices() == null ? List.of() : q.answer().choices().stream().sorted().toList();
                 Map<String, Object> fields = new TreeMap<>();
                 if (q.answer().fields() != null) q.answer().fields().forEach((key, value) ->
                         fields.put(key, value instanceof BigDecimal number ? number.stripTrailingZeros() : value));
-                canonicalAnswers.put(q.question().key(), new Answer(choices, fields));
+                if (userAnswer) canonicalAnswers.put(q.question().key(), new Answer(choices, fields));
                 if (q.answer().choices() != null) q.question().choices().stream()
                         .filter(choice -> q.answer().choices().contains(choice.key()))
                         .map(choice -> choice.labels().customer()).forEach(label -> {
                             values.add(label);
-                            optionLabels.computeIfAbsent(q.question().groupId(), ignored -> new ArrayList<>()).add(label);
-                            collectWidth(widths, q.question().labels().customer(), label);
+                            if (userAnswer) {
+                                optionLabels.computeIfAbsent(q.question().groupId(), ignored -> new ArrayList<>()).add(label);
+                                collectWidth(widths, q.question().labels().customer(), label);
+                            }
                         });
                 if (q.answer().fields() != null) q.question().fields().forEach(field -> {
                     Object value = q.answer().fields().get(field.key());
-                    if (value != null && millimetres(field.unit()))
+                    if (userAnswer && value != null && millimetres(field.unit()))
                         collectWidth(widths, field.labels().customer(), value.toString());
                     if (value instanceof List<?> files) values.add(field.labels().customer() + " " + files.size() + "개 파일");
                     else if (value != null) values.add(field.labels().customer() + " " + comparableValue(value));
@@ -177,7 +180,7 @@ public class StorePreviewService {
                 if (!values.isEmpty()) {
                     String line = q.question().labels().customer() + " · " + String.join(" / ", values);
                     summary.add(line);
-                    byGroup.put(q.question().groupId(),line);
+                    byGroup.computeIfAbsent(q.question().groupId(), ignored -> new ArrayList<>()).add(line);
                 }
             });
             // Only the traversed prefix belongs to a partial bookmark. Unanswered future groups and their help text do not.
@@ -215,7 +218,7 @@ public class StorePreviewService {
                     .forEach(row -> {
                         String line = row.group().customer() + " · " + row.answer().customer();
                         summary.add(line);
-                        byGroup.put(row.groupId(),line);
+                        byGroup.computeIfAbsent(row.groupId(), ignored -> new ArrayList<>()).add(line);
                     });
         }
         if (!bookmark && (price == null || price.signum() < 0)) {
@@ -232,10 +235,11 @@ public class StorePreviewService {
                 .map(asset -> asset.id()).findFirst().orElse(null));
         List<String> compact = new ArrayList<>();
         for (var setting : p.summaryOptions()) if ("customer".equals(setting.role())) {
-            String line = byGroup.remove(setting.groupId());
-            if (line != null && setting.visible()) compact.add(line);
+            List<String> lines = byGroup.remove(setting.groupId());
+            if (lines != null && setting.visible()) compact.addAll(lines);
         }
-        compact.addAll(byGroup.values());
+        if (p.summaryOptions().stream().noneMatch(rule -> "customer".equals(rule.role()))) compact.addAll(summary);
+        else byGroup.values().forEach(compact::addAll);
         return new Item(clean, stamp, p.productName(), image, price, StoreCheckoutPolicy.validProductionDays(p.productionHours()),
                 StoreCheckoutPolicy.earliestDate(today(), p.productionHours(), holidays::contains, calendarThrough),
                 p.nonStandard(), series, summary, compact, Objects.toString(category, ""), widths.size() == 1 ? widths.iterator().next() : null);
@@ -544,7 +548,7 @@ public class StorePreviewService {
             var p = items.get(line.key());
             String firstKey = firstKeys.computeIfAbsent(group, ignored -> line.key());
             boolean first = line.key().equals(firstKey);
-            pending |= quote.delivery() == null;
+            pending |= quote.delivery() == null || quote.packing() == null;
             var fees = new StoreCheckoutPolicy.Fees(BigDecimal.valueOf(Objects.requireNonNullElse(quote.delivery(), 0)),
                     BigDecimal.valueOf(Objects.requireNonNullElse(quote.packing(), 0)));
             order.add(new StoreCheckoutPolicy.Line(p.price(), line.quantity(), group, fees));

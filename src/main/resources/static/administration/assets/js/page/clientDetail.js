@@ -592,7 +592,7 @@
 			return false;
 		}
 
-		if (!isNonNegativeIntegerString(point)) {
+		if (!isNonNegativeIntegerString(point) && !(Number(point) < 0 && point === companyFields.point.defaultValue)) {
 			return false;
 		}
 
@@ -1002,6 +1002,7 @@
 			const formData = new FormData();
 			formData.append('companyName', trimValue(companyFields.companyName.value));
 			formData.append('point', trimValue(companyFields.point.value));
+			formData.append('originalPoint', companyFields.point.defaultValue);
 			formData.append('businessNumber', normalizeBusinessNumber(companyFields.businessNumber.value));
 			formData.append('zipCode', trimValue(companyFields.zipCode.value));
 			formData.append('doName', trimValue(companyFields.doName.value));
@@ -1269,7 +1270,8 @@
 					doName: trimValue(region.doName),
 					siName: trimValue(region.siName),
 					guName: trimValue(region.guName),
-					roadAddress: trimValue(data.roadAddress || data.autoRoadAddress || region.roadAddress)
+					roadAddress: trimValue(data.roadAddress || data.autoRoadAddress || region.roadAddress),
+					jibunAddress: trimValue(data.jibunAddress || data.autoJibunAddress)
 				};
 
 				if (deliveryAddressDetailAddressInput) {
@@ -1326,6 +1328,7 @@
 					siName: trimValue(candidate.siName),
 					guName: trimValue(candidate.guName),
 					roadAddress: trimValue(candidate.roadAddress),
+					jibunAddress: trimValue(candidate.jibunAddress),
 					detailAddress: deliveryAddressDetailAddressInput
 						? trimValue(deliveryAddressDetailAddressInput.value)
 						: ''

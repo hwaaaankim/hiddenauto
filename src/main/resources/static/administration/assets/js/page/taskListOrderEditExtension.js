@@ -173,7 +173,8 @@
 			action.textContent = editing ? "적용" : "변경";
 			action.disabled = editing && (busy || !candidate);
 			if (busy) message("업체 정보를 불러오는 중입니다.");
-			else if (changed && !editing) message(scope.value === "TASK" ? "저장 시 같은 발주 전체를 변경합니다." : "저장 시 이 오더만 새 발주로 이동합니다.");
+			else if (changed && !editing) message((scope.value === "TASK" ? "저장 시 같은 발주 전체를 변경합니다." : "저장 시 이 오더만 새 발주로 이동합니다.") +
+                " 이동 금액의 1%를 기존 업체에서 차감하고 변경 업체에 적립합니다. 회수 금액은 반대로 반영됩니다.");
 			else message("");
 		}
 

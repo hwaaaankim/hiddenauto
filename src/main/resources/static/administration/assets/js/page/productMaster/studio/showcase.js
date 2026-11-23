@@ -238,7 +238,7 @@
       const answer=product.fixedAnswers?.[question.key]||question.preset||(question.fixed&&variant?{choices:(group?.values||[]).filter(v=>variant.valueIds?.includes(v.id)).map(v=>v.key),fields:variant.inputs||{}}:null);
       return {question,visible:question.visible,answer,allowed:[...(question.fields||[]).map(f=>f.key)]};
     });
-    const rows=states.filter(s=>(s.visible||s.question.fixed)&&s.answer&&(s.answer.choices?.length||Object.keys(s.answer.fields||{}).length)&&product.groups?.find(g=>g.id===s.question.groupId)?.role!=='SUBCATEGORY');
+    const rows=states.filter(s=>(s.visible||s.question.fixed)&&s.answer&&(s.answer.choices?.length||Object.keys(s.answer.fields||{}).length));
     const value=(state,role)=>{
       const original=raw.questions.find(q=>q.key===state.question.key)||state.question;
       const q={...state.question,choices:(state.question.choices||[]).map(c=>({...c,labels:original.choices?.find(x=>x.key===c.key)?.labels||c.labels})),fields:(state.question.fields||[]).map(f=>({...f,labels:original.fields?.find(x=>x.key===f.key)?.labels||f.labels}))};
