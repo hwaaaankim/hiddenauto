@@ -502,3 +502,65 @@ body.hb-store { display: flex; flex-direction: column; min-height: 100vh; min-he
 }
 .hb-store[data-motion=reduced] :is(.store-page,.store-search,.store-product-actions,.store-bookmark,.hb-header) *,
 .hb-store[data-motion=reduced] .store-page ::after { transition-duration: 0s !important; animation-duration: 0s !important; }
+
+/* Shared hierarchy for saved lists and checkout dialogs. */
+.hb-store .store-page { font-size: 14px; line-height: 1.55; }
+.hb-store .store-page > header h1 { font-weight: 700; letter-spacing: -.035em; }
+.hb-store :is(.store-page,.store-bulk-dialog,.store-address-book) :is(.store-btn,.store-icon) {
+  flex-shrink: 0;
+  line-height: 1.35;
+}
+.hb-store .store-row > div { min-width: 0; }
+.hb-store .store-selection-head { font-size: 13px; }
+.hb-store .store-answer-detail :is(dt,dd) { line-height: 1.55; }
+.hb-store .store-dialog-head {
+  margin: calc(-1 * var(--store-padding)) calc(-1 * var(--store-padding)) 14px;
+  padding: 14px var(--store-padding);
+  border-bottom: 1px solid var(--store-line);
+  background: var(--store-pale);
+}
+.hb-store .store-dialog-head h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.hb-store .store-bulk-dialog > .store-dialog-head + p {
+  margin: 0 0 14px;
+  font-size: 14px;
+  color: var(--store-muted);
+}
+.hb-store .store-bulk-dialog > .store-actions {
+  justify-content: flex-end;
+  margin: 16px calc(-1 * var(--store-padding)) calc(-1 * var(--store-padding));
+  padding: 12px var(--store-padding);
+  border-top: 1px solid var(--store-line);
+  background: var(--store-paper);
+}
+.hb-store .store-bulk-dialog > .store-actions > button { min-width: 92px; }
+@media(max-width:420px) {
+  .hb-store .store-bulk-dialog > .store-actions > button { flex: 1 1 0; }
+}
+
+.hb-store .store-postcode-dialog > .store-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.hb-store .store-dialog-head h2 { min-width: 0; overflow-wrap: anywhere; }
+.hb-store .store-postcode-content { width: 100%; min-width: 0; }
+.hb-store .store-fields > *,
+.hb-store .store-delivery-address > *,
+.hb-store .store-totals > * { min-width: 0; }
+.hb-store .store-address-tools > .store-btn { min-width: 0; white-space: normal; }
+.hb-store .store-shipping-review > h2 { min-width: 0; }
+@media (max-width: 420px) {
+  .hb-store .store-bulk-dialog > .store-fields,
+  .hb-store .store-check-details > .store-fields { grid-template-columns: minmax(0,1fr); }
+  .hb-store .store-page:has(.store-result) > :is(.store-actions,.store-review-actions) {
+    grid-auto-flow: row;
+    grid-template-columns: minmax(0,1fr);
+  }
+}

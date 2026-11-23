@@ -726,13 +726,14 @@
   S.choiceExclusions = (body,q,readOnly=false) => {
         if (q.control === "CHECKBOX" && q.choices.length > 1) {
           const editor = document.createElement("details");
-          editor.innerHTML = '<summary>함께 선택할 수 없는 보기 설정</summary><label>1. 기준 보기<select></select></label><fieldset><legend>2. 동시 선택을 막을 보기</legend></fieldset>';
+          editor.className = "pms-rule-disclosure";
+          editor.innerHTML = '<summary>동시 선택 제한 설정</summary><div class="pms-rule-editor"><label class="pms-rule-field"><span>기준 보기</span><select></select></label><fieldset class="pms-rule-options"><legend>함께 선택할 수 없는 보기</legend><p>지정한 보기끼리는 동시에 선택할 수 없습니다.</p><div class="pms-rule-grid"></div></fieldset></div>';
           body.append(editor);
           const selector = editor.querySelector("select");
           q.choices.forEach(c => selector.add(new Option(c.labels.customer || c.key,c.key)));
-          const fieldset = editor.querySelector("fieldset");
+          const fieldset = editor.querySelector(".pms-rule-grid");
           const render = () => {
-            fieldset.querySelectorAll("label").forEach(el => el.remove());
+            fieldset.replaceChildren();
             const current = q.choices.find(c => c.key === selector.value);
             for (const other of q.choices.filter(c => c !== current)) {
               const label = document.createElement("label");
@@ -743,7 +744,11 @@
                 other.excludes = (other.excludes || []).filter(key => key !== current.key);
                 if (box.checked) current.excludes.push(other.key);
               };
-              label.className = "pms-check"; label.append(box,other.labels.customer || other.key); fieldset.append(label);
+              const name = document.createElement("span");
+              name.textContent = other.labels.customer || other.key;
+              label.className = "pms-rule-choice";
+              label.append(box, name);
+              fieldset.append(label);
             }
           };
           selector.onchange = render; render();

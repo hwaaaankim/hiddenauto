@@ -191,7 +191,7 @@
 /* Choice attachments are visible before selection and remain outside input labels. */
 .pms .pm-answer-choices { align-items: stretch; }
 .pms .pm-answer-choices.has-media { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 12px; }
-.pms .pm-answer-choice { min-width: 0; border: 1px solid var(--line, #dde4ee); background: var(--pms-panel, #fff); padding: 12px; border-radius: 8px; }
+.pms .pm-answer-choice { min-width: 0; border: 1px solid var(--line, #dde4ee); background: var(--pms-panel, #fff); padding: 12px; border-radius: 5px; }
 .pms .pm-answer-choice:has(input:checked) { border-color: var(--blue, #245bd6); background: var(--blue-soft, #f1f5ff); box-shadow: inset 0 0 0 1px var(--blue, #245bd6); }
 .pms .pm-answer-choice:focus-within { outline: 2px solid var(--blue, #245bd6); outline-offset: 2px; }
 .pms .pm-answer-choice > .pms-check { display: flex; width: 100%; max-width: none; min-height: 40px; margin: 0; padding: 8px 12px; align-items: center; justify-content: center; gap: 10px; cursor: pointer; border: 0; border-radius: 0; background: transparent; box-shadow: none; text-align: center; }
@@ -221,11 +221,11 @@
 .pms .pm-customer-adjustment-results p { margin: 6px 0 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 
 /* Completed customer configuration: keep the accepted amount close to the summary. */
-.pm-product-detail .pm-customer-price-test{padding:22px 24px;border:1px solid #d8e3f5;border-radius:12px;background:#f7faff;margin:24px 0 16px}
+.pm-product-detail .pm-customer-price-test{padding:22px 24px;border:1px solid #d8e3f5;border-radius:5px;background:#f7faff;margin:24px 0 16px}
 .pm-product-detail .pm-customer-price-test h3{font-size:14px;letter-spacing:0;color:#475569;margin:0 0 10px}
 .pm-product-detail .pm-customer-price-total{font-size:30px;line-height:1.25;color:#153a72;margin:0 0 14px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .pm-product-detail .pm-customer-price-test>.pms-help{background:transparent;padding:0;margin:12px 0 0;line-height:1.65;color:#63738a}
-.pm-product-detail .pm-completed-guides{margin:24px 0;border:1px solid #dce5f2;border-radius:12px;background:#fff}
+.pm-product-detail .pm-completed-guides{margin:24px 0;border:1px solid #dce5f2;border-radius:5px;background:#fff}
 .pm-product-detail .pm-completed-guides>summary{cursor:pointer;padding:20px 24px;font-size:15px;font-weight:650;color:#26446e;line-height:1.6}
 .pm-product-detail .pm-completed-guides>summary:focus-visible{outline:2px solid #3668db;outline-offset:3px}
 .pm-product-detail .pm-completed-guides>.pm-product-section{margin:0;padding:0 24px 24px}

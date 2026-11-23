@@ -360,21 +360,51 @@
           settings.onclick=()=>{
             const choices=draftValues.filter(v=>v.id && v.key);
             if(choices.length<2) return S.toast("보기를 두 개 이상 저장한 후 기준 보기와 제한할 보기를 선택해 주세요.");
-            const dialog=S.dialog("동시 선택 제한 설정",'<label>1. 기준 보기<select></select></label><fieldset><legend>2. 함께 선택할 수 없는 보기</legend></fieldset><button type="button" data-done>적용</button>');
-            const copy=choices.map(c=>({...c,excludes:[...(c.excludes||[])]}));
-            const select=dialog.querySelector("select");copy.forEach(c=>select.add(new Option(c.labels.customer,c.key)));
-            function render(){
-              const host=dialog.querySelector("fieldset"),a=copy.find(c=>c.key===select.value);
-              host.querySelectorAll("label").forEach(el=>el.remove());
-              for(const b of copy.filter(c=>c!==a)){
-                const label=document.createElement("label"),box=document.createElement("input");box.type="checkbox";
-                box.checked=a.excludes.includes(b.key)||b.excludes.includes(a.key);
-                box.onchange=()=>{a.excludes=a.excludes.filter(k=>k!==b.key);b.excludes=b.excludes.filter(k=>k!==a.key);if(box.checked)a.excludes.push(b.key);};
-                label.className="pms-check";label.append(box,b.labels.customer);host.append(label);
+            const dialog = S.dialog("동시 선택 제한 설정", `
+              <div class="pms-rule-editor">
+                <label class="pms-rule-field"><span>기준 보기</span><select></select></label>
+                <fieldset class="pms-rule-options">
+                  <legend>함께 선택할 수 없는 보기</legend>
+                  <p>선택한 보기끼리는 어느 쪽을 먼저 골라도 함께 선택할 수 없습니다.</p>
+                  <div class="pms-rule-grid"></div>
+                </fieldset>
+              </div>`, {
+              wide: false,
+              foot: '<span class="pms-rule-hint">적용 후 옵션을 저장해 주세요.</span><button type="button" data-cancel>취소</button><button type="button" class="primary" data-done>적용</button>',
+            });
+            const copy = choices.map(choice => ({ ...choice, excludes: [...(choice.excludes || [])] }));
+            const select = dialog.querySelector("select");
+            const grid = dialog.querySelector(".pms-rule-grid");
+            copy.forEach(choice => select.add(new Option(choice.labels.customer, choice.key)));
+            function render() {
+              const current = copy.find(choice => choice.key === select.value);
+              grid.replaceChildren();
+              for (const other of copy.filter(choice => choice !== current)) {
+                const label = document.createElement("label");
+                const box = document.createElement("input");
+                const name = document.createElement("span");
+                box.type = "checkbox";
+                box.checked = current.excludes.includes(other.key) || other.excludes.includes(current.key);
+                box.onchange = () => {
+                  current.excludes = current.excludes.filter(key => key !== other.key);
+                  other.excludes = other.excludes.filter(key => key !== current.key);
+                  if (box.checked) current.excludes.push(other.key);
+                };
+                label.className = "pms-rule-choice";
+                name.textContent = other.labels.customer;
+                label.append(box, name);
+                grid.append(label);
               }
             }
-            select.onchange=render;render();
-            dialog.querySelector("[data-done]").onclick=()=>{choices.forEach((c,i)=>c.excludes=copy[i].excludes);S.dirty=true;dialog.close();S.toast("옵션 저장을 누르면 반영됩니다.");};
+            select.onchange = render;
+            render();
+            dialog.querySelector("[data-cancel]").onclick = () => dialog.close();
+            dialog.querySelector("[data-done]").onclick = () => {
+              choices.forEach((choice, index) => { choice.excludes = copy[index].excludes; });
+              S.dirty = true;
+              dialog.close();
+              S.toast("옵션 저장을 누르면 반영됩니다.");
+            };
           };
         }
         S.$("#pms-save-values", editor).onclick = (e) =>

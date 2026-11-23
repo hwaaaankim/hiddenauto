@@ -1159,7 +1159,7 @@
       '<button type="button" class="store-btn" data-address-search>주소 검색</button><button type="button" class="store-btn" data-address-book>업체 주소록</button></div>' +
       '<small data-region></small></section>';
     const addressLabel = a => a ? [a.zip, a.road || a.jibun].filter(Boolean).join(' ') : '';
-    const addressBook = '<dialog class="store-address-book" aria-labelledby="store-book-title"><h2 id="store-book-title">업체 주소록</h2><div></div><button type="button" class="store-btn" data-close>닫기</button></dialog>';
+    const addressBook = '<dialog class="store-address-book" aria-labelledby="store-book-title"><header class="store-dialog-head"><h2 id="store-book-title">업체 주소록</h2></header><div></div><button type="button" class="store-btn" data-close>닫기</button></dialog>';
     const date = '<div class="store-date-field"><span>배송 희망일</span><input aria-label="배송 희망일" type="text" name="date" placeholder="달력에서 선택" required readonly></div>';
     const latest = dates.every(Boolean) ? [...dates].sort().at(-1) : null;
     shell('발주하기', noticeHtml + '<div class="store-bulk-launch"><div><strong>전체 ' + rows.length +
@@ -1167,7 +1167,7 @@
       '<button type="button" class="store-btn" id="store-bulk-open">배송 · 연락처 일괄 적용</button></div><details class="store-validation"><summary>배송일과 비용 산정 기준</summary>' +
       '<p>오늘을 제외한 영업일로 계산합니다. 예를 들어 1.5일은 2영업일로 올립니다. 주말과 등록된 공휴일은 선택할 수 없습니다. 일괄 배송 희망일은 품목별 가능일 중 가장 늦은 날짜부터 선택할 수 있습니다.</p>' +
       '<p>배송 희망일, 배송수단, 배송 주소가 같으면 배송비와 포장비를 각각 한 번 부과합니다. 포인트는 상품금액에만 적용됩니다. 발주 결과는 저장되지 않습니다.</p></details>' +
-      '<dialog class="store-bulk store-bulk-dialog" aria-labelledby="store-bulk-title"><h2 id="store-bulk-title">배송 · 연락처 일괄 적용</h2>' +
+      '<dialog class="store-bulk store-bulk-dialog" aria-labelledby="store-bulk-title"><header class="store-dialog-head"><h2 id="store-bulk-title">배송 · 연락처 일괄 적용</h2></header>' +
       '<p>이번에 입력한 항목만 모든 품목에 적용합니다. 직배송 품목은 업체 주소를 사용합니다.</p><div class="store-fields"><label>품목당 수량<input name="quantity" type="number" min="1" max="99999" step="1" placeholder="기존 수량 유지"></label>' + shipping + date + address + contacts +
       '</div><p class="store-bulk-warning" role="status"></p><div class="store-actions"><button type="button" class="store-btn" id="store-bulk-close">닫기</button>' +
       '<button type="button" class="store-btn is-primary" id="store-apply">적용</button></div></dialog>' +
@@ -1177,8 +1177,8 @@
       checkoutOptions(row.item) + '<section class="store-check-details"><h3>품목별 배송 설정</h3><div class="store-fields">' +
       '<label>수량<input type="number" name="quantity" min="1" max="99999" required value="' + esc(row.quantity || 1) + '"></label>' +
       shipping + date + address + contacts + '</div><small class="store-method-note" aria-live="polite"></small></section><p class="store-line-overview" hidden></p></article>').join('') +
-      '</div><section class="store-shipping-review"><p data-shared></p><h2>배송비</h2><button type="submit" class="store-btn" name="quote" formnovalidate>배송비 계산</button><div data-breakdown aria-live="polite"></div></section>' +
-      '<section class="store-payment" hidden><h2>최종 결제 정보</h2><p data-payable></p><label>사용 포인트<input type="number" name="points" value="0" min="0" step="1" disabled max="' +
+      '</div><section class="store-shipping-review"><p data-shared></p><h2>배송비 및 포장비</h2><button type="submit" class="store-btn" name="quote" formnovalidate>배송비 계산</button><div data-breakdown aria-live="polite"></div></section>' +
+      '<section class="store-payment" hidden><h2>발주 금액 및 포인트</h2><p data-payable></p><label>사용 포인트<input type="number" name="points" value="0" min="0" step="1" disabled max="' +
       esc(Math.max(0, options.points)) + '"></label><small data-point-limit></small><button type="submit" name="confirm" class="store-btn is-primary">최종 미리보기 확인</button></section></form>'  + addressBook);
     const form = main.querySelector('#store-checkout');
     const lines = [...form.querySelectorAll('.store-check-line')];
@@ -1289,7 +1289,7 @@
         const dialog = document.createElement('dialog');
         dialog.className = 'store-postcode-dialog';
         dialog.setAttribute('aria-label', '배송지 검색');
-        dialog.innerHTML = '<header><h2>배송지 검색</h2><button type="button" class="store-btn">닫기</button></header><div class="store-postcode-content" role="status">주소 검색을 불러오는 중입니다.</div>';
+        dialog.innerHTML = '<header class="store-dialog-head"><h2>배송지 검색</h2><button type="button" class="store-btn">닫기</button></header><div class="store-postcode-content" role="status">주소 검색을 불러오는 중입니다.</div>';
         main.append(dialog);
         dialog.querySelector('button').onclick = () => dialog.close();
         dialog.addEventListener('close', () => {

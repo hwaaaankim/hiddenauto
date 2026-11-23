@@ -69,16 +69,20 @@
     .store-delivery summary { cursor: pointer; list-style: none; transition: background-color .2s ease; }
     .store-delivery summary:hover { background-color: var(--vz-light); }
     .store-delivery summary::-webkit-details-marker { display: none; }
-    .delivery-fields, .delivery-row { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: .65rem; align-items: center; }
-    .delivery-fields label { min-width: 0; margin: 0; }
+    .delivery-fields, .delivery-row { display: grid; grid-template-columns: minmax(0,2fr) repeat(2,minmax(0,1fr)); gap: .65rem; align-items: center; }
+    .delivery-fields label { display: grid; align-self: stretch; gap: 5px; min-width: 0; margin: 0; }
+    .delivery-fields input { min-height: 38px; margin-top: auto; }
+    .store-delivery :is(.card, .form-control, .btn) { border-radius: 5px; }
+    .delivery-row > * { min-width: 0; overflow-wrap: anywhere; }
+    .store-delivery :is(summary,button,input,textarea):focus-visible { outline: 2px solid #2456b8; outline-offset: 2px; }
     .delivery-desc { grid-column: 1 / -1; }
-    .store-delivery .delivery-row { grid-template-columns: 2fr 1fr 1fr auto; }
+    .store-delivery .delivery-row { grid-template-columns: minmax(0,2fr) repeat(2,minmax(0,1fr)) auto; }
     .delivery-edit { justify-self: end; white-space: nowrap; }
     .delivery-description { white-space: pre-wrap; overflow-wrap: anywhere; }
     .store-delivery details[open] > .card-body { animation: delivery-enter .24s ease-out both; }
     @keyframes delivery-enter { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
     @media (max-width: 570px) {
-        .delivery-fields, .store-delivery .delivery-row { grid-template-columns: 1fr 1fr; }
+        .delivery-fields, .store-delivery .delivery-row { grid-template-columns: repeat(2,minmax(0,1fr)); }
         .delivery-fields label:first-child { grid-column: 1 / -1; }
         .delivery-row strong { grid-column: 1; grid-row: 1; }
         .delivery-edit { grid-column: 2; grid-row: 1; }

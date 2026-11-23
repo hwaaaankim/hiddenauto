@@ -181,3 +181,7 @@ body { background: #f2f4f7; margin: 0; }
 .pms-public .pm-answer-media > summary { color: #245bd6; cursor: pointer; padding: 6px 0; line-height: 1.6; }
 .pms-public .pm-card-no-image { display: flex; flex-direction: column; align-items: center; gap: 9px; }
 .pms-public .pm-card-no-image small { font-size: 11px; letter-spacing: 0; font-weight: 400; }
+
+.pms-public :is(.pms-heading,.pms-toolbar,.pm-kind-picker) { flex-wrap: wrap; gap: 8px 12px; }
+.pms-public :is(.pms-heading,.pms-toolbar) > * { min-width: 0; overflow-wrap: anywhere; }
+.pms-public .pm-kind-picker > button { flex: 1 1 8rem; min-height: 40px; }
