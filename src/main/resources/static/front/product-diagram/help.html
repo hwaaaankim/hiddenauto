@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>웹다이어그램 응답 · 실제 화면 사용법</title><link rel="stylesheet" href="/front/product-diagram/style.css?v=20261124-editor-r3"></head><body class="pd-help-body"><nav aria-label="사용법 목차"><a href="#start">시작 경로</a><a href="#group">그룹 설정</a><a href="#process">개수 항목</a><a href="#map">W/H 연결</a><a href="#variants">도형 등록</a><a href="#dimensions">치수 제한</a><a href="#marks">내부 기호</a><a href="#mode">완료 조건</a><a href="#save">저장 순서</a><a href="#branch">분기 3개/2개</a><a href="#price">가격 연결</a><a href="#customer">고객 사용</a><a href="#coordinates">중심·간격</a><a href="#troubleshooting">문제 해결</a></nav><div class="pd-help-controls"><p><a href="/admin/product-master/groups">그룹·옵션 열기</a> · <a href="/admin/product-master/non-standard">비규격 제품 관리 열기</a></p><small>관리자 로그인이 필요합니다. 제품ID가 필요한 주소는 설명서의 형식을 참고해 해당 제품에서 여세요.</small></div><main><h1>웹다이어그램으로 개수 응답받기 · 실제 화면 사용 설명서</h1>
+<html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>웹다이어그램 응답 · 실제 화면 사용법</title><link rel="stylesheet" href="/front/product-diagram/style.css?v=20261124-editor-r4"></head><body class="pd-help-body"><nav aria-label="사용법 목차"><a href="#start">시작 경로</a><a href="#group">그룹 설정</a><a href="#process">개수 항목</a><a href="#map">W/H 연결</a><a href="#variants">도형 등록</a><a href="#dimensions">치수 제한</a><a href="#marks">내부 기호</a><a href="#mode">완료 조건</a><a href="#save">저장 순서</a><a href="#branch">분기 3개/2개</a><a href="#price">가격 연결</a><a href="#customer">고객 사용</a><a href="#coordinates">중심·간격</a><a href="#troubleshooting">문제 해결</a></nav><div class="pd-help-controls"><p><a href="/admin/product-master/groups">그룹·옵션 열기</a> · <a href="/admin/product-master/non-standard">비규격 제품 관리 열기</a></p><small>관리자 로그인이 필요합니다. 제품ID가 필요한 주소는 설명서의 형식을 참고해 해당 제품에서 여세요.</small></div><main><h1>웹다이어그램으로 개수 응답받기 · 실제 화면 사용 설명서</h1>
 <p>이 기능은 비규격 숫자입력 질문의 답변을 <strong>고객이 배치한 도형 개수</strong>로 받습니다. 도면·도형을 설정한 다음 기존 질문 분기와 가격계산에 그대로 연결합니다.</p>
 <p><a id="start"></a></p>
 <h2>1. 어디서 시작하나요?</h2>
@@ -184,19 +184,26 @@
 <p><a id="marks"></a></p>
 <h3>6-5. 내부 기호·저장</h3>
 <ol>
-<li><p><strong>미리보기 가로/높이</strong>로 도형 비율을 확인합니다. 앞 질문 연결값은 아직 고객 답변이 없으므로 예시 숫자로 보여줍니다.</p>
-</li>
-<li><p><strong>내부 기호 그리기·수정</strong>을 누릅니다.</p>
-</li>
-<li><p>오른쪽에서 <strong>좌향 삼각형</strong>을 선택하고 외곽 안에서 드래그하여 경첩 표시를 그립니다. 선·사각형·원·타원·문자도 사용할 수 있습니다.</p>
-</li>
-<li><p>아래 <strong>기호 적용</strong>을 누릅니다. 내부 편집 창이 닫히고 방금 그린 기호가 이전 도형 등록 창에 보입니다.</p>
-</li>
-<li><p>도형 등록 창의 <strong>도형저장</strong>을 누릅니다. <code>좌경첩</code>이 여닫이 카드의 도형 목록에 추가됩니다.
-내부 편집 화면에서는 <strong>선택</strong> 또는 <strong>내부 기호 목록</strong>으로 선·타원을 쉽게 선택할 수 있습니다. 이동·크기 변경·복제·삭제·다중 선택·정렬·앞으로/뒤로·실행 취소를 사용할 수 있습니다. 선의 시작점·끝점, 문자의 내용도 수정할 수 있습니다. 한 번 그리면 선택 도구로 자동 전환합니다. 기호는 외곽 안에 놓습니다.</p>
-</li>
-<li><p>같은 여닫이 카드에서 <strong>＋ 도형등록</strong>을 다시 눌러 <code>우경첩</code>을 등록합니다. 기존 도형을 <strong>복사</strong>하여 이름과 기호를 바꿀 수도 있습니다.</p>
-</li>
+<li><strong>미리보기 가로/높이</strong>로 도형 비율을 확인합니다. 앞 질문 연결값은 아직 고객 답변이 없으므로 예시 숫자로 보여줍니다.</li>
+<li><strong>내부 기호 그리기·수정</strong>을 누릅니다.</li>
+<li>오른쪽에서 <strong>좌향 삼각형</strong>을 선택하고 외곽 안에서 드래그하여 경첩 표시를 그립니다. 선·사각형·원·타원·문자도 사용할 수 있습니다.</li>
+<li>아래 <strong>기호 적용</strong>을 누릅니다. 내부 편집 창이 닫히고 방금 그린 기호가 이전 도형 등록 창에 보입니다.</li>
+<li>도형 등록 창의 <strong>도형저장</strong>을 누릅니다. <code>좌경첩</code>이 여닫이 카드의 도형 목록에 추가됩니다.
+내부 편집 화면에서는 도구를 골라 드래그하는 동안 파란 미리보기로 그려질 모양을 확인합니다. 놓으면 도형이 등록되고 선택 도구로 자동 전환합니다. Esc는 그리기를 취소합니다.</li>
+</ol>
+<ul>
+<li><strong>선택 / 내부 기호 목록:</strong> 선·타원을 쉽게 선택합니다. 마우스 드래그, 우측 중심 X/Y, 방향키로 옮깁니다.</li>
+<li><strong>내부 기호의 좌표:</strong> 소수 좌표 편집을 허용합니다. 제품에 배치하는 문·서랍의 실제 치수와 위치는 기존대로 1mm 단위입니다.</li>
+<li><strong>크기:</strong> 조절점을 드래그하거나 우측 가로·높이를 입력합니다. 숫자 입력 후 Enter로 적용할 수 있습니다. 직접 입력에는 자석을 강제로 적용하지 않습니다.</li>
+<li><strong>선 끝점:</strong> 파란 양끝 점을 드래그해 길이와 방향을 바꿉니다. 우측 시작·끝 X/Y도 입력할 수 있습니다.</li>
+<li><strong>선 회전:</strong> 둥근 회전점을 드래그하거나 각도·선 길이를 입력합니다. −15°/＋15°/＋90° 버튼도 사용할 수 있습니다. 내부 기호 선을 편집하는 기능이며 고객 문의 회전·반전은 허용하지 않습니다.</li>
+<li><strong>Shift:</strong> 선을 그릴 때 45°, 회전점을 조절할 때 15° 간격으로 맞춥니다.</li>
+<li><strong>마그네틱:</strong> 바탕과 다른 기호의 변·중앙을 기준으로 안내합니다. 숫자 입력과 방향키 미세 이동은 자석에 다시 끌려가지 않습니다.</li>
+<li><strong>복제·삭제·다중 선택·정렬·앞으로/뒤로·실행 취소:</strong> 선택한 기호에 적용합니다. 실행 취소·다시 실행 후에도 존재하는 기호의 선택을 유지합니다.</li>
+</ul>
+<p>기호 적용 후 바깥 창에서 도형저장까지 진행합니다. 내부 기호는 고객 도형 크기에 맞춰 비례 표시됩니다.</p>
+<ol start="6">
+<li>같은 여닫이 카드에서 <strong>＋ 도형등록</strong>을 다시 눌러 <code>우경첩</code>을 등록합니다. 기존 도형을 <strong>복사</strong>하여 이름과 기호를 바꿀 수도 있습니다.</li>
 </ol>
 <p><strong>2단 서랍 예시:</strong> 사각형 안에 중앙 가로선을 그려 2칸임을 표현합니다. 이 도형을 한 번 배치하면 해당 서랍 항목의 개수는 1입니다. 1단·2단을 같은 숫자 항목에 연결하면 같은 개수 입력으로 계산합니다. 가격을 따로 구분해야 한다면 숫자 항목도 나누어 등록합니다.</p>
 <p>목록의 <strong>수정</strong>은 해당 도형 등록 창을 다시 열고, <strong>삭제</strong>는 현재 편집 중인 설정에서 해당 종류를 제거합니다. 이후 설정 적용과 프로세스 저장까지 해야 반영됩니다. 이미 확정해 보관한 실제품 도면은 당시 정의로 조회합니다.</p>
@@ -471,4 +478,4 @@
 <p>운영 한도는 항목 20개, 질문별 도형 종류 100개, 종류별 내부 기호 100개, 질문별 배치 500개입니다. 실제 배치는 기존 질문 제한과 치수·겹침·영역·채움 검증을 모두 통과해야 확정됩니다.</p>
 <h2>이번 버전 적용 후 확인</h2>
 <p>단순 위치 지정은 가구 밖 배치를 허용하므로 가구 면적을 개수 상한으로 사용하지 않습니다. 기존 항목 최대 개수와 전체 500개 제한은 유지합니다. 기존 위치 지정 제품의 가격식은 가능한 개수 범위를 다시 확인하도록 재검증 필요가 표시됩니다. 최신 프로세스 불러오기 → 검사·테스트 → 가격계산식 저장을 진행하세요. 일반 숫자입력과 꽉 채우기의 가격식 식별값은 유지됩니다.</p>
-</main><footer><p><a href="#start">처음으로 ↑</a> · 편집 도구 r3 · 2026-11-24</p></footer></body></html>
+</main><footer><p><a href="#start">처음으로 ↑</a> · 편집 도구 r4 · 2026-11-24</p></footer></body></html>

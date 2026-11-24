@@ -61,12 +61,13 @@
     for(const p of layout.items){const next=[];for(const r of regions){const x=Math.max(r.x,p.x),y=Math.max(r.y,p.y),x2=Math.min(r.x+r.width,p.x+p.width),y2=Math.min(r.y+r.height,p.y+p.height);if(x>=x2||y>=y2){next.push(r);continue;}
       if(y>r.y)next.push({...r,height:y-r.y});if(y2<r.y+r.height)next.push({...r,y:y2,height:r.y+r.height-y2});if(x>r.x)next.push({x:r.x,y,width:x-r.x,height:y2-y});if(x2<r.x+r.width)next.push({x:x2,y,width:r.x+r.width-x2,height:y2-y});}regions=next;}return regions;
   }
+  function markFont(m,w,h){const width=Math.abs(m.x2-m.x1)*w/1000,height=Math.abs(m.y2-m.y1)*h/1000,units=[...String(m.text||'')].reduce((sum,c)=>sum+(c.charCodeAt(0)>127?1:.6),0);return Math.max(1,Math.min(Math.max(10,Math.min(w,h)*.07),width/Math.max(1,units),height*.8));}
   function marksSvg(marks,w,h){return (marks||[]).map(m=>{const x=m.x1*w/1000,y=m.y1*h/1000,x2=m.x2*w/1000,y2=m.y2*h/1000,ww=x2-x,hh=y2-y,base='fill="none" stroke="currentColor" vector-effect="non-scaling-stroke"';
     if(m.kind==='LINE')return `<path d="M${x} ${y}L${x2} ${y2}" ${base}/>`;
-    if(m.kind==='TEXT')return `<text x="${x}" y="${y}" font-size="${Math.max(10,Math.min(w,h)*.07)}" fill="currentColor">${esc(m.text)}</text>`;
+    if(m.kind==='TEXT')return `<text x="${(x+x2)/2}" y="${(y+y2)/2}" text-anchor="middle" dominant-baseline="central" font-size="${markFont(m,w,h)}" fill="currentColor">${esc(m.text)}</text>`;
     if(m.kind==='RECT')return `<rect x="${Math.min(x,x2)}" y="${Math.min(y,y2)}" width="${Math.abs(ww)}" height="${Math.abs(hh)}" ${base}/>`;
     if(m.kind==='ELLIPSE')return `<ellipse cx="${(x+x2)/2}" cy="${(y+y2)/2}" rx="${Math.abs(ww)/2}" ry="${Math.abs(hh)/2}" ${base}/>`;
-    const points=m.kind==='TRIANGLE_LEFT'?`${x2},${y} ${x},${(y+y2)/2} ${x2},${y2}`:`${x},${y} ${x2},${(y+y2)/2} ${x},${y2}`;return `<polygon points="${points}" ${base}/>`;
+    const left=Math.min(x,x2),right=Math.max(x,x2),top=Math.min(y,y2),bottom=Math.max(y,y2),points=m.kind==='TRIANGLE_LEFT'?`${right},${top} ${left},${(top+bottom)/2} ${right},${bottom}`:`${left},${top} ${right},${(top+bottom)/2} ${left},${bottom}`;return `<polygon points="${points}" ${base}/>`;
   }).join('');}
   let measurementSerial=0;
   function measure(layout,{scale=1,ox=0,oy=0,unit=1,showParts=true,showRuler=true}={}) {
@@ -81,8 +82,8 @@
     function vertical(y1,y2,x,value,color){markup+=line(ox+w,y1,x+4*u,y1)+line(ox+w,y2,x+4*u,y2)+line(x,y1,x,y2,color,true)+label(x+14*u,(y1+y2)/2,value,true,color);}
     markup+=line(ox,top-57*u,ox+w,top-57*u,'#7890a9',true)+line(ox,oy,ox,top-63*u)+line(ox+w,oy,ox+w,top-63*u)+label(ox+w/2,top-64*u,layout.width+' mm');
     markup+=line(left-78*u,oy,left-78*u,oy+h,'#7890a9',true)+line(ox,oy,left-84*u,oy)+line(ox,oy+h,left-84*u,oy+h)+label(left-87*u,oy+h/2,layout.height+' mm',true);
-    function spans(axis){const result=new Map();for(const item of layout.items||[]){const start=axis==='x'?item.x:item.y,length=axis==='x'?item.width:item.height,key=start+':'+length;if(!result.has(key))result.set(key,{start,length});}return [...result.values()].sort((a,b)=>a.start-b.start||a.length-b.length);}
-    function dimensions(axis){const lanes=[];for(const part of spans(axis)){const start=part.start*s,end=(part.start+part.length)*s,center=(start+end)/2,half=Math.max((end-start)/2,String(part.length).length*font*.32+16*u);let lane=0;while(lanes[lane]!=null&&lanes[lane]>center-half+.1)lane++;lanes[lane]=center+half;if(axis==='x')horizontal(ox+start,ox+end,bottom+(33+lane*23)*u,part.length+' mm','#95a5b8');else vertical(oy+start,oy+end,right+(36+lane*23)*u,part.length+' mm','#95a5b8');}return lanes.length;}
+    function spans(axis){const result=new Map();for(const item of layout.items||[]){const start=axis==='x'?item.x:item.y,length=axis==='x'?item.width:item.height,key=start+':'+length;if(!result.has(key))result.set(key,{start,length});}return [...result.values()].filter(x=>x.length>0).sort((a,b)=>a.start-b.start||a.length-b.length);}
+    function dimensions(axis){const lanes=[];for(const part of spans(axis)){const start=part.start*s,end=(part.start+part.length)*s,center=(start+end)/2,half=Math.max((end-start)/2,String(part.length).length*font*.32+16*u);let lane=0;while(lanes[lane]!=null&&lanes[lane]>center-half+.1)lane++;lanes[lane]=center+half;if(axis==='x')horizontal(ox+start,ox+end,bottom+(33+lane*23)*u,(Math.round(part.length*1e6)/1e6)+' mm','#95a5b8');else vertical(oy+start,oy+end,right+(36+lane*23)*u,(Math.round(part.length*1e6)/1e6)+' mm','#95a5b8');}return lanes.length;}
     const xLanes=showParts?dimensions('x'):0,yLanes=showParts?dimensions('y'):0;
     let major=100,minor=10;
     while(major*s/u<28)major*=10;
@@ -103,5 +104,5 @@
     if(!layout||!config)return '';const w=layout.width,h=layout.height,u=Math.max(w,h)/900,guide=measure(layout,{unit:u,showParts:labels}),p=guide.extent,variants=new Map((config.variants||[]).map(v=>[v.key,v]));
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-p.left} ${-p.top} ${w+p.left+p.right} ${h+p.top+p.bottom}" role="img" aria-label="중앙 원점 정면 배치 도면 ${w} × ${h} mm"><rect x="0" y="0" width="${w}" height="${h}" fill="white" stroke="#334155" stroke-width="1.5" vector-effect="non-scaling-stroke"/>${layout.items.map(x=>{const v=variants.get(x.variantKey);if(!v)return '';return `<g transform="translate(${x.x} ${x.y})" color="#334155">${v.shape==='ELLIPSE'?`<ellipse cx="${x.width/2}" cy="${x.height/2}" rx="${x.width/2}" ry="${x.height/2}"`:`<rect x="0" y="0" width="${x.width}" height="${x.height}"`} fill="#f1f5f9" stroke="#334155" vector-effect="non-scaling-stroke"/>${marksSvg(v.marks,x.width,x.height)}</g>`;}).join('')}${guide.markup}</svg>`;
   }
-  return {copy,integer,esc,id,source,bounds,matches,available,overlap,validate,gaps,marksSvg,measure,svg};
+  return {copy,integer,esc,id,source,bounds,matches,available,overlap,validate,gaps,markFont,marksSvg,measure,svg};
 });

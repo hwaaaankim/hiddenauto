@@ -18,3 +18,9 @@
 .pd-editor .pd-align-tools { display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-block:8px; }
 .pd-editor .pd-align-tools button { font-size:11px; padding:6px; margin:0; }
 .pd-editor #apply:disabled { opacity:.45; cursor:default; }
+
+.pd-editor #draw-preview,.pd-editor #line-handles { position:absolute;left:0;top:0;pointer-events:none;overflow:visible;z-index:5; }
+.pd-editor #line-handles { z-index:6; }
+.pd-editor #line-handles circle { pointer-events:all;cursor:crosshair;fill:#fff;stroke:#2563eb;stroke-width:2; }
+.pd-editor #line-handles .pd-rotation-handle { fill:#dbeafe;cursor:grab; }
+.pd-editor .pd-line-inspector { margin-top:14px;padding-top:12px;border-top:1px solid #dbe4ef; }
