@@ -114,7 +114,7 @@ public final class ProductDiagramEngine {
           && list(v.conditions()).stream().noneMatch(k -> hiddenFields.contains(k.groupKey()+":"+k.fieldKey())))try{
         int a="RANGE".equals(v.width().mode())?min(v.width()):"FIXED".equals(v.width().mode())?v.width().value():value(v.width().source(),preceding);
         int b="RANGE".equals(v.height().mode())?min(v.height()):"FIXED".equals(v.height().mode())?v.height().value():value(v.height().source(),preceding);
-        if(a<=w&&b<=h){double area=(double)a*b*("ELLIPSE".equals(v.shape())?Math.PI/4:1);upper=Math.max(upper,(int)Math.min(MAX_ITEMS,Math.floor((double)w*h/area+1e-9)));}
+        if("POSITION".equals(c.mode()))upper=MAX_ITEMS;else if(a<=w&&b<=h){double area=(double)a*b*("ELLIPSE".equals(v.shape())?Math.PI/4:1);upper=Math.max(upper,(int)Math.min(MAX_ITEMS,Math.floor((double)w*h/area+1e-9)));}
       }catch(IllegalArgumentException ignored){/* path() reports the missing source. */}
       BigDecimal max=BigDecimal.valueOf(upper);if(f.max()!=null)max=max.min(f.max());
       result.add(ProductStudioConstraints.bound(f,f.min()==null?BigDecimal.ZERO:f.min(),max));
@@ -137,7 +137,7 @@ public final class ProductDiagramEngine {
       for(Variant v:active) {
         int vw="RANGE".equals(v.width().mode())?min(v.width()):"FIXED".equals(v.width().mode())?v.width().value():value(v.width().source(),preceding);
         int vh="RANGE".equals(v.height().mode())?min(v.height()):"FIXED".equals(v.height().mode())?v.height().value():value(v.height().source(),preceding);
-        if(vw<=w && vh<=h)possible=true;
+        if("POSITION".equals(c.mode()) || vw<=w && vh<=h)possible=true;
       }
       if(!possible)return List.of("허용된 도형의 최소 치수가 도면보다 큽니다. 도형 치수·앞 사이즈 범위를 확인해 주세요.");
       return List.of();
@@ -160,7 +160,8 @@ public final class ProductDiagramEngine {
       require(ids.add(x.id()),"배치 도형 식별값이 중복됩니다."); Variant v=variants.get(x.variantKey());
       require(v!=null && allowed.contains(v.fieldKey()) && available(v,preceding) && list(v.conditions()).stream().noneMatch(k -> hiddenFields.contains(k.groupKey()+":"+k.fieldKey())),"현재 분기에서 사용할 수 없는 도형이 배치되어 있습니다.");
       require(fits(v.width(),x.width(),preceding) && fits(v.height(),x.height(),preceding),v.name()+": 허용 치수 범위를 확인해 주세요.");
-      require(x.x()>=0 && x.y()>=0 && (long)x.x()+x.width()<=w && (long)x.y()+x.height()<=h,v.name()+": 도형이 도면 밖으로 나갑니다.");
+      require(Math.abs((long)x.x())<=MAX_SIZE && Math.abs((long)x.y())<=MAX_SIZE,v.name()+": 위치 좌표는 ±1,000,000mm 안에 입력해 주세요.");
+      if("FILL".equals(c.mode())) require(x.x()>=0 && x.y()>=0 && (long)x.x()+x.width()<=w && (long)x.y()+x.height()<=h,v.name()+": 도형이 도면 밖으로 나갑니다.");
       for(int j=0;j<i;j++) require(!overlaps(x,v.shape(),l.items().get(j),variants.get(l.items().get(j).variantKey()).shape()),v.name()+": 다른 도형과 겹칩니다.");
       area+=(long)x.width()*x.height(); counts.put(v.fieldKey(),((BigDecimal)counts.get(v.fieldKey())).add(BigDecimal.ONE));
     }

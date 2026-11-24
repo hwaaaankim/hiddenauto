@@ -13,12 +13,21 @@ import java.util.*;
 public final class ProductPricingCompatibility {
   private ProductPricingCompatibility() {}
   public static String fingerprint(Process process, Map<String, Answer> fixed) {
-    return hash(Map.of("process", process, "fixedAnswers", fixed));
+    Map<String,Object> identity = new LinkedHashMap<>();
+    identity.put("process", process); identity.put("fixedAnswers", fixed);
+    // POSITION now admits external placements, so previous geometric count limits must be revalidated.
+    if (externalPosition(process)) identity.put("diagramPositionPolicy", "EXTERNAL_NON_OVERLAP_V1");
+    return hash(identity);
+  }
+
+  private static boolean externalPosition(Process process) {
+    return process.diagrams().values().stream().anyMatch(c -> c != null && "POSITION".equals(c.mode()));
   }
 
   // R5 included inactive new fields in the hash. Recognize that exact layout only
   // when no numeric default was enabled (R5 did not hash its value).
   static boolean matchesR5(String stored, Process process, Map<String, Answer> fixed) {
+    if (externalPosition(process)) return false;
     if (list(process.questions()).stream().flatMap(q -> list(q.fields()).stream()).anyMatch(Field::useDefault)) return false;
     return stored != null && stored.equals(hash(Map.of("process", process, "fixedAnswers", fixed), true));
   }

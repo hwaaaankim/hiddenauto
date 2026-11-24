@@ -46,7 +46,8 @@
     layout.items.forEach((x,i)=>{
       const v=variants.get(x.variantKey);if(!v || !available(v,answers,fields)){errors.push(`${i+1}번 도형은 현재 분기에서 사용할 수 없습니다.`);return;}
       if(!/^[A-Za-z0-9_-]{1,80}$/.test(x.id)||ids.has(x.id))errors.push('도형 식별값이 중복되거나 올바르지 않습니다.');ids.add(x.id);
-      if(![x.x,x.y,x.width,x.height].every(integer)||x.width<1||x.height<1||x.x<0||x.y<0||x.x+x.width>w||x.y+x.height>h)errors.push(`${v.name}: 도면 밖으로 나가거나 정수 치수가 아닙니다.`);
+      if(![x.x,x.y,x.width,x.height].every(integer)||x.width<1||x.height<1||Math.abs(x.x)>1000000||Math.abs(x.y)>1000000)errors.push(`${v.name}: 정수 치수·위치 좌표(±1,000,000mm)를 확인해 주세요.`);
+      if(config.mode==='FILL'&&(x.x<0||x.y<0||x.x+x.width>w||x.y+x.height>h))errors.push(`${v.name}: 도형이 도면 밖으로 나갑니다.`);
       try {for(const axis of ['width','height']){const [lo,hi]=bounds(v[axis],answers);if(x[axis]<lo||x[axis]>hi)errors.push(`${v.name}: ${axis==='width'?'가로':'높이'} 허용범위 ${lo}~${hi}mm를 확인해 주세요.`);}}catch(e){errors.push(e.message);}
       for(let j=0;j<i;j++){const ov=variants.get(layout.items[j].variantKey);if(ov&&overlap(x,v.shape,layout.items[j],ov.shape))errors.push(`${i+1}번 ${v.name}: ${j+1}번 도형과 겹칩니다.`);}
       if(config.mode==='FILL'&&v.shape!=='RECT')errors.push('꽉 채우기는 사각형만 사용할 수 있습니다.');
@@ -67,8 +68,40 @@
     if(m.kind==='ELLIPSE')return `<ellipse cx="${(x+x2)/2}" cy="${(y+y2)/2}" rx="${Math.abs(ww)/2}" ry="${Math.abs(hh)/2}" ${base}/>`;
     const points=m.kind==='TRIANGLE_LEFT'?`${x2},${y} ${x},${(y+y2)/2} ${x2},${y2}`:`${x},${y} ${x2},${(y+y2)/2} ${x},${y2}`;return `<polygon points="${points}" ${base}/>`;
   }).join('');}
-  function svg(layout,config=layout?.snapshot,labels=true){if(!layout||!config)return '';const w=layout.width,h=layout.height,pad=Math.max(w,h)*.08,variants=new Map((config.variants||[]).map(v=>[v.key,v]));
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-pad} ${-pad} ${w+pad*2} ${h+pad*2}" role="img" aria-label="정면 배치 도면 ${w} × ${h} mm"><rect x="0" y="0" width="${w}" height="${h}" fill="white" stroke="#334155" stroke-width="1.5" vector-effect="non-scaling-stroke"/>${layout.items.map((x,i)=>{const v=variants.get(x.variantKey);if(!v)return '';return `<g transform="translate(${x.x} ${x.y})" color="#334155">${v.shape==='ELLIPSE'?`<ellipse cx="${x.width/2}" cy="${x.height/2}" rx="${x.width/2}" ry="${x.height/2}"`:`<rect x="0" y="0" width="${x.width}" height="${x.height}"`} fill="#f1f5f9" stroke="#334155" vector-effect="non-scaling-stroke"/>${marksSvg(v.marks,x.width,x.height)}${labels?`<text x="${x.width/2}" y="${Math.min(x.height*.2,Math.max(w,h)*.035)}" text-anchor="middle" font-size="${Math.max(w,h)*.02}" fill="#475569">${i+1}</text>`:''}</g>`;}).join('')}<text x="${w/2}" y="${-pad*.35}" text-anchor="middle" font-family="sans-serif" font-size="${pad*.36}">${w} mm × ${h} mm</text></svg>`;
+  let measurementSerial=0;
+  function measure(layout,{scale=1,ox=0,oy=0,unit=1,showParts=true,showRuler=true}={}) {
+    const u=unit,s=scale,w=layout.width*s,h=layout.height*s,midX=layout.width/2,midY=layout.height/2;
+    const items=layout.items||[],bounds={minX:Math.min(0,...items.map(i=>i.x)),minY:Math.min(0,...items.map(i=>i.y)),maxX:Math.max(layout.width,...items.map(i=>i.x+i.width)),maxY:Math.max(layout.height,...items.map(i=>i.y+i.height))};
+    const left=ox+bounds.minX*s,top=oy+bounds.minY*s,right=ox+bounds.maxX*s,bottom=oy+bounds.maxY*s;
+    const marker='pd-arrow-'+(++measurementSerial),font=11*u;
+    const line=(x1,y1,x2,y2,color='#b1bfce',arrow=false)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="${u}" ${arrow?`marker-start="url(#${marker})" marker-end="url(#${marker})"`:''}/>`;
+    const label=(x,y,value,rotate=false,color='#62758c')=>`<text x="${x}" y="${y}" ${rotate?`transform="rotate(-90 ${x} ${y})"`:''} text-anchor="middle" font-family="sans-serif" font-size="${font}" fill="${color}" stroke="white" stroke-width="${3*u}" paint-order="stroke">${esc(value)}</text>`;
+    let markup=`<defs><marker id="${marker}" viewBox="0 0 6 6" refX="6" refY="3" markerWidth="${6*u}" markerHeight="${6*u}" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0 0 6 3 0 6" fill="none" stroke="#7890a9" stroke-width="1"/></marker></defs>`;
+    function horizontal(x1,x2,y,value,color){markup+=line(x1,oy+h,x1,y+4*u)+line(x2,oy+h,x2,y+4*u)+line(x1,y,x2,y,color,true)+label((x1+x2)/2,y-5*u,value,false,color);}
+    function vertical(y1,y2,x,value,color){markup+=line(ox+w,y1,x+4*u,y1)+line(ox+w,y2,x+4*u,y2)+line(x,y1,x,y2,color,true)+label(x+14*u,(y1+y2)/2,value,true,color);}
+    markup+=line(ox,top-57*u,ox+w,top-57*u,'#7890a9',true)+line(ox,oy,ox,top-63*u)+line(ox+w,oy,ox+w,top-63*u)+label(ox+w/2,top-64*u,layout.width+' mm');
+    markup+=line(left-78*u,oy,left-78*u,oy+h,'#7890a9',true)+line(ox,oy,left-84*u,oy)+line(ox,oy+h,left-84*u,oy+h)+label(left-87*u,oy+h/2,layout.height+' mm',true);
+    function spans(axis){const result=new Map();for(const item of layout.items||[]){const start=axis==='x'?item.x:item.y,length=axis==='x'?item.width:item.height,key=start+':'+length;if(!result.has(key))result.set(key,{start,length});}return [...result.values()].sort((a,b)=>a.start-b.start||a.length-b.length);}
+    function dimensions(axis){const lanes=[];for(const part of spans(axis)){const start=part.start*s,end=(part.start+part.length)*s,center=(start+end)/2,half=Math.max((end-start)/2,String(part.length).length*font*.32+16*u);let lane=0;while(lanes[lane]!=null&&lanes[lane]>center-half+.1)lane++;lanes[lane]=center+half;if(axis==='x')horizontal(ox+start,ox+end,bottom+(33+lane*23)*u,part.length+' mm','#95a5b8');else vertical(oy+start,oy+end,right+(36+lane*23)*u,part.length+' mm','#95a5b8');}return lanes.length;}
+    const xLanes=showParts?dimensions('x'):0,yLanes=showParts?dimensions('y'):0;
+    let major=100,minor=10;
+    while(major*s/u<28)major*=10;
+    if(minor*s/u<3)minor=major;
+    while(Math.max(bounds.maxX-bounds.minX,bounds.maxY-bounds.minY)/minor>2500)minor*=10;
+    if(showRuler){
+      for(const axis of ['x','y']){const low=axis==='x'?bounds.minX-midX:midY-bounds.maxY,high=axis==='x'?bounds.maxX-midX:midY-bounds.minY;let lastLabel=-Infinity;
+        for(let value=Math.ceil(low/minor)*minor;value<=high;value+=minor){const big=value%major===0,x=axis==='x'?ox+(value+midX)*s:left-8*u,y=axis==='y'?oy+(midY-value)*s:top-8*u;markup+=`<circle cx="${x}" cy="${y}" r="${(big?1.8:.7)*u}" fill="${big?'#8397ae':'#c1ccd9'}"/>`;
+          const position=axis==='x'?x:-y;if(big&&position-lastLabel>=28*u){markup+=axis==='x'?label(x,top-21*u,value):label(left-32*u,y+3*u,value);lastLabel=position;}
+        }
+      }
+      // Origin labels live on the outer rulers. No coordinate text or axes cover the furniture.
+      markup+=label(right+10*u,top-21*u,'+X')+label(left-32*u,top-39*u,'+Y');
+    }
+    return {markup,extent:{left:110*u-bounds.minX*s,top:85*u-bounds.minY*s,right:Math.max(70,58+yLanes*23)*u+(bounds.maxX-layout.width)*s,bottom:Math.max(54,40+xLanes*23)*u+(bounds.maxY-layout.height)*s},major,minor,markerId:marker,bounds};
   }
-  return {copy,integer,esc,id,source,bounds,matches,available,overlap,validate,gaps,marksSvg,svg};
+  function svg(layout,config=layout?.snapshot,labels=true){
+    if(!layout||!config)return '';const w=layout.width,h=layout.height,u=Math.max(w,h)/900,guide=measure(layout,{unit:u,showParts:labels}),p=guide.extent,variants=new Map((config.variants||[]).map(v=>[v.key,v]));
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-p.left} ${-p.top} ${w+p.left+p.right} ${h+p.top+p.bottom}" role="img" aria-label="중앙 원점 정면 배치 도면 ${w} × ${h} mm"><rect x="0" y="0" width="${w}" height="${h}" fill="white" stroke="#334155" stroke-width="1.5" vector-effect="non-scaling-stroke"/>${layout.items.map(x=>{const v=variants.get(x.variantKey);if(!v)return '';return `<g transform="translate(${x.x} ${x.y})" color="#334155">${v.shape==='ELLIPSE'?`<ellipse cx="${x.width/2}" cy="${x.height/2}" rx="${x.width/2}" ry="${x.height/2}"`:`<rect x="0" y="0" width="${x.width}" height="${x.height}"`} fill="#f1f5f9" stroke="#334155" vector-effect="non-scaling-stroke"/>${marksSvg(v.marks,x.width,x.height)}</g>`;}).join('')}${guide.markup}</svg>`;
+  }
+  return {copy,integer,esc,id,source,bounds,matches,available,overlap,validate,gaps,marksSvg,measure,svg};
 });
