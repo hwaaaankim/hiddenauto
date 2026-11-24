@@ -206,7 +206,7 @@
         const allowed = new Set((state.question.fields || []).map((f) => f.key));
         answers[key] = S.isChoice(state.question.control)
           ? { choices: (answers[key].choices || []).filter((k) => state.allowed.includes(k)), fields: {} }
-          : { choices: [], fields: Object.fromEntries(Object.entries(answers[key].fields || {}).filter(([k]) => allowed.has(k))) };
+          : { choices: [], fields: Object.fromEntries(Object.entries(answers[key].fields || {}).filter(([k]) => allowed.has(k))), diagram: answers[key].diagram };
       }
     }
     const visible = evaluation.questions.filter((s) => s.visible && !s.question.fixed);
@@ -218,7 +218,7 @@
     flowSequence++;
     const index = schema.process.questions.findIndex((q) => q.key === key);
     for (const q of schema.process.questions.slice(index + (keepCurrent ? 1 : 0))) {
-      if (!q.fixed) { delete answers[q.key]; attempted.delete(q.key); }
+      if (!q.fixed) { S.diagram?.remember(product.process,q.key,answers[q.key]); delete answers[q.key]; attempted.delete(q.key); }
     }
     completed = completed.filter((k) => schema.process.questions.findIndex((q) => q.key === k) < index);
   }

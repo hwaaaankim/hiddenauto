@@ -364,6 +364,7 @@ public final class ProductStudioEngine {
     }
     if (issues.isEmpty()) ProductStudioConstraints.structure(process, issues);
     if (issues.isEmpty()) issues.addAll(ProductStudioArithmetic.structure(process));
+    if (issues.isEmpty()) issues.addAll(ProductDiagramEngine.structure(process));
     return issues;
   }
 
@@ -379,7 +380,17 @@ public final class ProductStudioEngine {
     return evaluatePrefix(process, submitted, process.questions().size());
   }
 
+  public static Evaluation evaluateWithDiagrams(Process process, Map<String, Answer> submitted) {
+    List<Issue> schema = structure(process);
+    if (!schema.isEmpty()) throw new IllegalArgumentException(schema.stream().map(Issue::message).distinct().collect(Collectors.joining(" / ")));
+    return evaluatePrefix(process, submitted, process.questions().size(), true);
+  }
+
   static Evaluation evaluatePrefix(Process process, Map<String, Answer> submitted, int count) {
+    return evaluatePrefix(process, submitted, count, false);
+  }
+
+  private static Evaluation evaluatePrefix(Process process, Map<String, Answer> submitted, int count, boolean verifyDiagrams) {
     Map<String, Answer> normalized = new LinkedHashMap<>();
     List<QuestionState> states = new ArrayList<>();
     List<String> allErrors = new ArrayList<>();
@@ -434,6 +445,8 @@ public final class ProductStudioEngine {
       if (visible && q.control() == Control.NUMBER) try {
         uniqueLabels(shownFields.stream().map(Field::labels).toList(), "동시에 표시되는 입력 필드");
       } catch (IllegalArgumentException ex) { errors.add("충돌: " + ex.getMessage() + " 각 가격 묶음이 분기별로 하나씩 나오도록 연결해 주세요."); }
+      if (visible && process.diagrams().containsKey(q.key())) shownFields = ProductDiagramEngine.countFields(
+          process.diagrams().get(q.key()), shownFields, normalized, hiddenFields);
       ProductStudioConstraints.Projection projection = ProductStudioConstraints.project(
           process, q, shownFields, normalized, visited, visible || q.fixed(), hidden, hiddenFields);
       errors.addAll(projection.errors());
@@ -442,6 +455,10 @@ public final class ProductStudioEngine {
       Question shown = new Question(q.key(), q.groupId(), q.labels(), q.control(), q.fixed(),
           q.visible(), q.required(), q.requireRule(), renamed, q.guide(), q.choices(),
           projection.fields(), q.assetIds(), q.numberCases(), q.preset(), q.helpDisplay());
+      Answer submittedDiagram = map(submitted).get(q.key());
+      boolean skippedDiagram = !required && blank(submittedDiagram) && (submittedDiagram == null || submittedDiagram.diagram() == null);
+      if (visible && !skippedDiagram && process.diagrams().containsKey(q.key())) errors.addAll(ProductDiagramEngine.path(
+          process.diagrams().get(q.key()), projection.fields(), normalized, hiddenFields));
       Answer clean = empty();
       if (visible || q.fixed()) {
         if (choice(q.control()) && allowed.isEmpty()) errors.add("선택 가능한 보기가 없습니다.");
@@ -474,6 +491,10 @@ public final class ProductStudioEngine {
             for (Field f : projection.fields()) if (f.useDefault()) defaults.put(f.key(), f.placeholder());
             raw = new Answer(List.of(), defaults);
           }
+          if (process.diagrams().containsKey(q.key()) && !skippedDiagram && (verifyDiagrams || raw.diagram() != null)) {
+            try { raw = ProductDiagramEngine.answer(process, q, projection.fields(), normalized, raw, hiddenFields); }
+            catch (IllegalArgumentException ex) { errors.add(ex.getMessage()); raw = empty(); }
+          }
           raw = ProductStudioConstraints.completePair(projection.sums(), raw);
           for (Field f : projection.fields()) {
             Object value = map(raw.fields()).get(f.key());
@@ -485,7 +506,7 @@ public final class ProductStudioEngine {
             if (error != null) errors.add(f.labels().customer() + ": " + error);
             else values.put(f.key(), q.control() == Control.NUMBER ? number(value) : value);
           }
-          clean = new Answer(List.of(), values);
+          clean = new Answer(List.of(), values, errors.isEmpty() ? raw.diagram() : null);
           errors.addAll(ProductStudioConstraints.sumErrors(projection.sums(), clean, required));
         }
         // Only normalized, valid values can drive following rules. Invalid and hidden values never persist.
@@ -713,6 +734,11 @@ public final class ProductStudioEngine {
           ProductStudioArithmetic.references(limit.equalTo()).forEach(t -> use.accept(t.groupKey()));
           list(limit.cases()).forEach(c -> list(c.conditions()).forEach(v -> use.accept(v.groupKey())));
         }
+        var diagram = p.diagrams().get(target.key());
+        if (diagram != null) {
+          ProductDiagramEngine.references(diagram).forEach(ref -> use.accept(ref.questionKey()));
+          diagram.variants().forEach(v -> list(v.conditions()).forEach(c -> use.accept(c.groupKey())));
+        }
         for (Choice choice : list(target.choices())) if (choice.numericValue() != null)
           ProductStudioArithmetic.references(choice.numericValue().expression()).forEach(t -> use.accept(t.groupKey()));
       }
@@ -839,6 +865,7 @@ public final class ProductStudioEngine {
         .forEach(q -> list(q.numberCases()).forEach(c -> all.addAll(list(c.conditions()))));
     list(p.inputLimits()).forEach(l -> list(l.cases()).forEach(c -> all.addAll(list(c.conditions()))));
     list(p.notices()).forEach(n -> all.addAll(list(n.conditions())));
+    p.diagrams().values().forEach(c -> c.variants().forEach(v -> all.addAll(list(v.conditions()))));
     return all;
   }
 

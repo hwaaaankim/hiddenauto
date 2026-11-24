@@ -123,7 +123,7 @@
         if (S.isChoice(q.control)) merged[q.key] = { choices: (draft[q.key].choices || []).filter((value) => state.allowed.includes(value)), fields: {} };
         else {
           const fields = new Set((q.fields || []).map((f) => f.key));
-          merged[q.key] = { choices: [], fields: Object.fromEntries(Object.entries(draft[q.key].fields || {}).filter(([fieldKey]) => fields.has(fieldKey) && state.allowed.includes(fieldKey))) };
+          merged[q.key] = { choices: [], fields: Object.fromEntries(Object.entries(draft[q.key].fields || {}).filter(([fieldKey]) => fields.has(fieldKey) && state.allowed.includes(fieldKey))), diagram: draft[q.key].diagram };
         }
       }
       return merged;
@@ -146,6 +146,7 @@
         <section class="pms-panel" data-price-section="test" tabindex="-1"><header class="pms-panel-title"><div><span class="pm-price-step">3</span><strong>현재 입력으로 가격 테스트</strong></div><button type="button" data-price-reset ${context.ready ? "" : "disabled"}>테스트 초기화</button></header><div class="pms-panel-body"><p class="pm-price-section-intro">고객처럼 답변을 선택한 뒤 계산하세요. 앞 답변을 바꾸면 뒤 질문과 입력 제한도 다시 적용됩니다.</p><div data-price-test></div><div data-price-test-errors role="alert"></div><div class="pms-actions pm-price-test-actions"><button type="button" class="primary" data-price-evaluate ${context.ready ? "" : "disabled"}>현재 입력으로 가격계산</button><span data-price-test-status role="status"></span></div><div data-price-result aria-live="polite"></div></div></section>
         <section class="pms-panel" data-price-section="diagnostics" tabindex="-1"><header class="pms-panel-title"><div><span class="pm-price-step">4</span><strong>모든 경로의 가격 연결 검사</strong></div><button type="button" data-price-diagnose ${context.ready ? "" : "disabled"}>누락·중복·계산 범위 검사</button></header><div class="pms-panel-body"><p class="pm-price-section-intro">현재 테스트한 사례 외에, 실제로 표시 가능한 입력·조건·표 경계를 함께 검사합니다.</p><details class="pm-price-inline-help"><summary>오류와 확인 안내의 차이</summary><p><b>오류:</b> 적용할 표가 없거나 같은 표가 겹치는 등 정확한 계산이 불가능한 경우입니다. 수정 후 저장할 수 있습니다.</p><p><b>확인 필요:</b> 선택 그룹의 직접 추가금이 없거나 여러 독립 항이 더해지는 경우 등입니다. 기본금+추가금처럼 의도된 계산이면 안내를 확인하고 저장할 수 있습니다. 검사만으로 신규 사업 단가를 대신 정하지 않습니다.</p><p>정수 간격 1에서는 600 이하 다음이 601 이상입니다. 소수를 허용하면 600 초과를 사용하세요. 600 이하와 600 이상은 겹치고, 600 이하와 602 이상 사이에는 601이 빠집니다.</p></details><div data-price-diagnostics role="status">아직 검사하지 않았습니다. 저장할 때도 자동으로 검사합니다.</div></div></section>
         <div class="pms-actions pm-price-save-bar"><span data-price-save-status role="status">${context.registered ? "등록된 가격계산식을 불러왔습니다." : "저장하기 전까지 계산식은 등록되지 않습니다."}</span><button type="button" data-price-copy ${!context.registered && context.ready ? "" : "disabled"}>가격계산 불러오기</button>${context.registered ? '<button type="button" data-price-delete class="danger">등록 계산식 삭제</button>' : ""}<button type="button" data-price-save class="primary" ${context.ready ? "" : "disabled"}>테스트 확인 후 가격계산식 저장</button></div></div>`;
+      if(Object.keys(process().diagrams||{}).length)S.$('[data-price-test]',root).before((()=>{const node=document.createElement('div');node.innerHTML=S.diagram.helpCard('price');return node;})());
       renderGroups(); renderTerms(); updateFormula();
       S.$('[data-price-group-search]', root).oninput = event => { groupSearch = event.target.value; filterGroups(); };
       S.$$('[data-price-group-filter]', root).forEach(button => button.onclick = () => { groupFilter = button.dataset.priceGroupFilter; filterGroups(); });
@@ -468,7 +469,7 @@
         const state = evaluation?.questions.find((x) => x.question.key === box.dataset.priceAnswer);
         if (!state) return;
         const answer = S.readAnswer(box, state.question, answers[state.question.key]);
-        if (state.question.control === "NUMBER") {
+        if (state.question.control === "NUMBER" && !answer.diagram) {
           const allowed = new Set((state.question.fields || []).map((f) => f.key));
           answer.fields = Object.fromEntries(S.$$("input[data-answer-field]", box)
             .filter((input) => allowed.has(input.dataset.answerField) && input.value !== "")

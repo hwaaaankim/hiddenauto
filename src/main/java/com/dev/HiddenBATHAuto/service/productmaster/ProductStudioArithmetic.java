@@ -213,7 +213,9 @@ public final class ProductStudioArithmetic {
         .filter(c -> c.numericValue()!=null).flatMap(c -> references(c.numericValue().expression()).stream())
         .anyMatch(t -> question.equals(t.groupKey()) && field.equals(t.fieldKey()))
         || list(process.inputLimits()).stream().flatMap(l -> references(l.equalTo()).stream())
-        .anyMatch(t -> question.equals(t.groupKey()) && field.equals(t.fieldKey()));
+        .anyMatch(t -> question.equals(t.groupKey()) && field.equals(t.fieldKey()))
+        || process.diagrams().values().stream().flatMap(c -> ProductDiagramEngine.references(c).stream())
+        .anyMatch(r -> question.equals(r.questionKey()) && field.equals(r.fieldKey()));
   }
 
   /** Conservative interval proof covers interior expression values, not just sampled endpoints. */
@@ -246,7 +248,7 @@ public final class ProductStudioArithmetic {
           }
           questions.add(ProductStudioConstraints.copy(q,fields));
         }
-        scoped=new Process(process.schemaVersion(),questions,process.rules(),process.inputLimits(),process.notices());
+        scoped=new Process(process.schemaVersion(),questions,process.rules(),process.inputLimits(),process.notices(), process.confirmationMessage(), process.diagrams());
       }
       for(Choice option:owner.choices()) {
         if(!list(term.choiceKeys()).isEmpty() && !term.choiceKeys().contains(option.key()))continue;
@@ -275,6 +277,6 @@ public final class ProductStudioArithmetic {
 
   public static Process confirmation(Process p, String message) {
     if (text(message).length() > 2000) throw new IllegalArgumentException("확인 문구는 2,000자 이하로 입력해 주세요.");
-    return new Process(p.schemaVersion(), p.questions(), p.rules(), p.inputLimits(), p.notices(), text(message).strip());
+    return new Process(p.schemaVersion(), p.questions(), p.rules(), p.inputLimits(), p.notices(), text(message).strip(), p.diagrams());
   }
 }

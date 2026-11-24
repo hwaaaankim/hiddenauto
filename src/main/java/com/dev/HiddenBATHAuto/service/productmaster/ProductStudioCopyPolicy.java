@@ -28,6 +28,12 @@ public final class ProductStudioCopyPolicy {
     for (Question q : retained.questions()) for (Choice c : list(q.choices())) if(c.numericValue()!=null)
       for (ArithmeticToken t : ProductStudioArithmetic.references(c.numericValue().expression())) if(!keys.contains(t.groupKey()))
         reasons.add("계산용 숫자 ‘" + c.labels().customer() + "’에 필요한 앞 질문 ‘" + label(source, t.groupKey()) + "’도 함께 복사해 주세요.");
+    for(var entry:retained.diagrams().entrySet()) {
+      for(var ref:ProductDiagramEngine.references(entry.getValue()))if(!keys.contains(ref.questionKey()))
+        reasons.add("도면 응답에 필요한 앞 질문 ‘"+label(source,ref.questionKey())+"’도 함께 복사해 주세요.");
+      for(var variant:entry.getValue().variants())for(var condition:list(variant.conditions()))if(!keys.contains(condition.groupKey()))
+        reasons.add("도형 표시 조건에 필요한 앞 질문도 함께 복사해 주세요.");
+    }
     int cases = 0;
     for (Question q : retained.questions()) {
       Question original = source.questions().stream().filter(x -> x.key().equals(q.key())).findFirst().orElseThrow();
@@ -66,12 +72,17 @@ public final class ProductStudioCopyPolicy {
     for (Question q : retained.questions()) for (Choice c : list(q.choices())) if(c.numericValue()!=null)
       if(ProductStudioArithmetic.references(c.numericValue().expression()).stream().anyMatch(t -> !retainedKeys.contains(t.groupKey())))
         throw new IllegalArgumentException("계산용 숫자가 참조하는 앞 질문을 함께 복사하거나 옵션 복사를 해제해 주세요: " + c.labels().customer());
+    for(var entry:retained.diagrams().entrySet()) {
+      if(ProductDiagramEngine.references(entry.getValue()).stream().anyMatch(ref -> !retainedKeys.contains(ref.questionKey()))
+          || entry.getValue().variants().stream().flatMap(v -> list(v.conditions()).stream()).anyMatch(c -> !retainedKeys.contains(c.groupKey())))
+        throw new IllegalArgumentException("도면이 참조하는 앞 질문을 함께 복사하거나 옵션 복사를 해제해 주세요.");
+    }
     if (branches) return retained;
     // A question formerly shown/required only through a branch must be usable in the linear draft.
     List<Question> questions = retained.questions().stream().map(q -> new Question(q.key(), q.groupId(),
         q.labels(), q.control(), q.fixed(), q.fixed() ? q.visible() : true, q.required(), false,
         q.question(), q.guide(), q.choices(), q.fields(), q.assetIds(), q.numberCases(), q.preset(), q.helpDisplay())).toList();
-    return new Process(retained.schemaVersion(), questions, List.of(), retained.inputLimits(), retained.notices(), retained.confirmationMessage());
+    return new Process(retained.schemaVersion(), questions, List.of(), retained.inputLimits(), retained.notices(), retained.confirmationMessage(), retained.diagrams());
   }
 
   /** Every direct numeric/choice/condition/correction reference, including nested price branches. */
@@ -111,6 +122,10 @@ public final class ProductStudioCopyPolicy {
       }
       for (InputNotice n : list(process.notices())) if (keys.contains(n.targetKey()))
         list(n.conditions()).forEach(c -> add(keys, c.groupKey()));
+      for (var entry : process.diagrams().entrySet()) if (keys.contains(entry.getKey())) {
+        for (var ref : ProductDiagramEngine.references(entry.getValue())) add(keys, ref.questionKey());
+        for (var variant : entry.getValue().variants()) for (var condition : list(variant.conditions())) add(keys, condition.groupKey());
+      }
       changed = keys.size() != count;
     } while (changed);
     return keys;
@@ -152,7 +167,7 @@ public final class ProductStudioCopyPolicy {
     if (before == null || after == null) return false;
     java.util.function.Function<Process, Object> canonicalOrder = p -> ProductPricingCompatibility.canonical(
         ProductStudioMedia.withoutProcessAssets(new Process(p.schemaVersion(), p.questions().stream()
-            .sorted(Comparator.comparing(Question::key)).toList(), p.rules(), p.inputLimits(), p.notices(), p.confirmationMessage())));
+            .sorted(Comparator.comparing(Question::key)).toList(), p.rules(), p.inputLimits(), p.notices(), p.confirmationMessage(), p.diagrams())));
     return Objects.equals(canonicalOrder.apply(before), canonicalOrder.apply(after));
   }
 

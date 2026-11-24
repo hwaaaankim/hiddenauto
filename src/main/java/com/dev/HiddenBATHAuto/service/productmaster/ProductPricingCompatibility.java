@@ -75,6 +75,8 @@ public final class ProductPricingCompatibility {
             String key = component.getName();
             if ("placeholder".equals(key) && (r5 || !(value instanceof Field field && field.useDefault()))) continue;
             Object item = component.getAccessor().invoke(value);
+            if ("diagrams".equals(key) && (item == null || ((Map<?,?>) item).isEmpty())) continue;
+            if ("diagram".equals(key) && item == null) continue;
             if (item == null && Set.of("numericValue", "equalTo").contains(component.getName())) continue;
             if (!r5 && value instanceof Field && "useDefault".equals(key) && Boolean.FALSE.equals(item)) continue;
             if (!r5 && value instanceof Choice && "excludes".equals(key) && (item == null || ((List<?>) item).isEmpty())) continue;
@@ -175,7 +177,9 @@ public final class ProductPricingCompatibility {
       InputNotice n = process.notices().get(i);
       notices.add(new InputNotice("notice" + i, keys.q(n.targetKey()), keys.f(n.targetKey(), n.fieldKey()), n.message(), n.mode(), list(n.conditions()).stream().map(keys::condition).toList()));
     }
-    return new Process(process.schemaVersion(), questions, rules, limits, notices, process.confirmationMessage());
+    Map<String, com.dev.HiddenBATHAuto.dto.productmaster.ProductDiagramDtos.Config> diagrams = new LinkedHashMap<>();
+    process.diagrams().forEach((owner,c) -> diagrams.put(keys.q(owner), ProductDiagramEngine.mapConfig(c, "diagram", keys::q, keys::f, keys::condition, owner)));
+    return new Process(process.schemaVersion(), questions, rules, limits, notices, process.confirmationMessage(), diagrams);
   }
 
   private static List<ArithmeticToken> mapExpression(List<ArithmeticToken> expression, KeyMap keys) {
@@ -247,7 +251,8 @@ public final class ProductPricingCompatibility {
     map(definition.testAnswers()).forEach((q, answer) -> {
       Map<String, Object> fields = new LinkedHashMap<>();
       map(answer.fields()).forEach((key, value) -> fields.put(field.apply(q, key), copyValue(value)));
-      answers.put(question.apply(q), new Answer(list(answer.choices()).stream().map(k -> choice.apply(q, k)).toList(), fields));
+      var layout = answer.diagram() == null ? null : ProductDiagramEngine.remapLayout(answer.diagram(), source.diagrams().get(q), target.diagrams().get(question.apply(q)));
+      answers.put(question.apply(q), new Answer(list(answer.choices()).stream().map(k -> choice.apply(q, k)).toList(), fields, layout));
     });
     return new Definition(definition.schemaVersion(), fingerprint, terms, answers);
   }

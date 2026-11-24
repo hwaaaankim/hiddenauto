@@ -1,5 +1,11 @@
 (function (S) {
   "use strict";
+  function pricingGuide(model) {
+    const content=S.groupPricingHelp(model.control);
+    return model.control === 'NUMBER' && model.diagramResponse
+      ? '<details class="pms-section"><summary>기존 숫자 가격표·입력묶음 안내 보기</summary>'+content+'</details>'
+      : content;
+  }
   S.groupPricingHelp = control => `<aside class="pm-group-pricing-guide"><strong>가격계산 연결 순서 · 그룹 저장 후 제품별 프로세스에서 설정합니다</strong>${control === 'NUMBER' ? `<p><b>가로·높이를 2차원 가격표로 사용하려면 두 필드를 같은 입력묶음으로 그룹화해야 합니다.</b> ‘가격계산 영향’만 켜면 자동으로 묶이지 않습니다.</p><ol><li>비규격 숫자입력 그룹을 저장하고 제품 구성에 연결합니다.</li><li>제품의 프로세스 → 가능한 답변 등록에서 숫자 필드를 만들고, 함께 사용할 필드를 체크한 뒤 <b>선택 필드 그룹화</b>를 누릅니다.</li><li>한 카드에 ‘가로 + 높이’가 표시되는지 확인하고 <b>이 질문 완성 → 검증 후 등록완료</b>를 누릅니다.</li><li>가격계산식 → 옵션별 일괄 설정에서 1차원/2차원 구성을 선택하고 기준값·금액을 등록합니다.</li></ol><div class="pm-pricing-examples"><p><b>거울 W·H:</b> 같은 묶음 → W·H 두 개 선택 → 2차원 가격표 1개.</p><p><b>W·D·H:</b> 세 개를 같은 묶음 → 1차원 항 3개, 또는 W·D 2차원 + H 1차원. W·H와 D로 나눠도 됩니다.</p></div><p><b>공통 그룹 하나를 여러 비규격 제품에 연결할 수 있습니다.</b> 예: 같은 ‘비규격사이즈’ 그룹을 거울은 W·H 두 입력/한 묶음/2차원 표로, 수납장은 W·H·D 세 입력/W·H와 D 두 묶음/별도 계산식으로 사용합니다. 입력 개수·묶음·기준값·금액은 제품별로 저장합니다. 그룹의 이름·입력 유형·가격영향 설정은 공통 속성입니다.</p><p><b>숫자 가격영향 그룹마다 최소 한 입력을 계산에 연결해야 최종 저장됩니다.</b> W·H 묶음 + D에서 W·H 표만 또는 D 표만 연결해도 됩니다. 사용하지 않는 입력·묶음에 항을 모두 만들 필요는 없습니다.</p><p>묶음은 함께 표시할 단위입니다. 같은 묶음 안에서도 계산 항을 나눌 수 있으며, 엑셀 가격표는 최대 2차원입니다. 가격계산 화면을 이미 열었다면 프로세스 등록 후 다시 열어 주세요.</p>` : '<p>제품별 프로세스에서 선택 옵션을 먼저 등록한 뒤 가격계산식에서 금액과 적용 조건을 연결하세요. 예: LED 추가 → 앞 사이즈 W가 600 이하이면 20,000원, 600 초과~1000 이하이면 30,000원, 1000 초과이면 40,000원.</p>'}</aside>`;
   S.groupsPage = async function (root, initialGroupId = null) {
     let selected = null,
@@ -81,6 +87,7 @@
             nonStandard: g.nonStandard,
             askQuestion: ["CATEGORY", "SERIES"].includes(g.role) || g.askQuestion,
             priceImpact: g.priceImpact,
+            diagramResponse: !!g.diagramResponse,
             includeInName: g.includeInName,
             active: g.active,
             question: g.question || "",
@@ -97,6 +104,7 @@
             nonStandard: false,
             askQuestion: true,
             priceImpact: false,
+            diagramResponse: false,
             includeInName: true,
             active: true,
             question: "",
@@ -201,7 +209,7 @@
     }
     function paintEditor() {
       const base = S.isBase(model);
-      editor.innerHTML = `<header class="pms-panel-title"><div><h2>${model.id ? "그룹 수정" : "새 그룹"} ${S.badge(base ? "필수그룹" : "옵션그룹", base ? "blue" : "")}</h2>${S.group(model.id)?.key ? S.internalValue(S.group(model.id).key) : ""}</div><div class="pms-actions">${model.id && !base ? '<button class="danger" id="pms-delete-group">삭제</button>' : ""}<button class="primary" id="pms-save-group">그룹 저장</button></div></header><div class="pms-panel-body"><div class="pms-form-grid one">${S.customerLabel(model, "", "그룹 이름 (고객용)")}</div><div class="pms-help">그룹 이름·질문·튜토리얼은 고객용으로 작성합니다. 선택 옵션과 입력 항목의 명칭만 고객·생산팀·관리팀용으로 각각 등록합니다. 내부 value는 이름을 바꾸어도 유지됩니다.</div><div class="pms-form-grid two">${base ? locked("입력 방식", "control", "하나 선택 · 필수그룹", "대분류·시리즈는 하나씩 선택합니다. 중분류는 개발자 속성이며 제품 구성에서 여러 값을 함께 선택할 수 있습니다.") : S.select("입력 방식", "control", model.control, S.controls)}${base ? locked("비규격용 그룹", "nonStandard", "규격 전용 · 필수그룹", "대분류·중분류·시리즈는 모든 제품의 고정 분류이므로 비규격용 그룹으로 변경할 수 없습니다.") : `<div class="pms-row">${S.check("비규격용 그룹", "nonStandard", model.nonStandard, "pms-switch")}</div>`}<div class="wide pms-row">${S.check("제품명 자동생성에 포함", "includeInName", model.includeInName, "pms-switch")}${base ? locked("", "active", "필수그룹 · 항상 사용", "모든 제품에 필요한 필수그룹이므로 사용을 중지할 수 없습니다.") : S.check("새 제품 구성에 사용", "active", model.active, "pms-switch")}</div>${["CATEGORY", "SERIES"].includes(model.role) ? locked("고객 질문", "askQuestion", "항상 포함", "대분류와 시리즈는 고객이 제품을 찾는 필수 질문입니다. 중분류는 고객 질문에서 제외됩니다.") : S.check("고객 질문에 포함", "askQuestion", model.askQuestion)}${model.nonStandard ? `<div class="wide pm-group-price-setting">${S.check("가격계산에 영향을 주는 그룹", "priceImpact", model.priceImpact)}${S.groupPricingHelp(model.control)}</div>` : ""}${S.field("고객에게 물어볼 질문", "question", model.question, "text", 'maxlength="300"')}${S.textarea("고객 튜토리얼·도움말", "guide", model.guide, 1000)}${S.helpDisplaySelect("helpDisplay", model.helpDisplay)}</div>${model.nonStandard ? '<div class="pms-help">비규격 그룹은 입력 방식만 저장합니다. 입력 필드·보기·조건은 생성된 비규격 제품의 프로세스에서 각각 설정합니다.</div>' : !S.isChoice(model.control) ? `<section class="pms-section"><div class="pms-row"><h2>입력 필드</h2><button id="pms-add-field">+ 필드</button></div><div id="pms-fields">${S.fieldRows(model.fields, model.control)}</div></section>` : ""}<details class="pms-section pms-attachment-section"><summary>그룹 공통 안내 이미지·파일 <span class="pms-badge" data-group-file-count>${groupFiles.length}</span></summary><div id="pms-group-files">${S.files(groupFiles, true, groupFileOptions())}</div></details></div>${model.id && !model.nonStandard && S.isChoice(model.control) ? `<div class="pms-panel-title"><div><h2>옵션 관리</h2><small>드래그로 순서 변경 · +로 여러 보기를 추가한 뒤 한 번에 저장</small></div><div class="pms-actions"><button id="pms-add-value">+ 보기</button><button class="primary" id="pms-save-values">옵션 저장</button></div></div><div class="pms-panel-body" id="pms-values"></div>` : !model.id && S.isChoice(model.control) && !model.nonStandard ? '<div class="pms-help">그룹을 저장하면 아래에서 보기를 여러 개 등록할 수 있습니다.</div>' : ""}`;
+      editor.innerHTML = `<header class="pms-panel-title"><div><h2>${model.id ? "그룹 수정" : "새 그룹"} ${S.badge(base ? "필수그룹" : "옵션그룹", base ? "blue" : "")}</h2>${S.group(model.id)?.key ? S.internalValue(S.group(model.id).key) : ""}</div><div class="pms-actions">${model.id && !base ? '<button class="danger" id="pms-delete-group">삭제</button>' : ""}<button class="primary" id="pms-save-group">그룹 저장</button></div></header><div class="pms-panel-body"><div class="pms-form-grid one">${S.customerLabel(model, "", "그룹 이름 (고객용)")}</div><div class="pms-help">그룹 이름·질문·튜토리얼은 고객용으로 작성합니다. 선택 옵션과 입력 항목의 명칭만 고객·생산팀·관리팀용으로 각각 등록합니다. 내부 value는 이름을 바꾸어도 유지됩니다.</div><div class="pms-form-grid two">${base ? locked("입력 방식", "control", "하나 선택 · 필수그룹", "대분류·시리즈는 하나씩 선택합니다. 중분류는 개발자 속성이며 제품 구성에서 여러 값을 함께 선택할 수 있습니다.") : S.select("입력 방식", "control", model.control, S.controls)}${base ? locked("비규격용 그룹", "nonStandard", "규격 전용 · 필수그룹", "대분류·중분류·시리즈는 모든 제품의 고정 분류이므로 비규격용 그룹으로 변경할 수 없습니다.") : `<div class="pms-row">${S.check("비규격용 그룹", "nonStandard", model.nonStandard, "pms-switch")}</div>`}<div class="wide pms-row">${S.check("제품명 자동생성에 포함", "includeInName", model.includeInName, "pms-switch")}${base ? locked("", "active", "필수그룹 · 항상 사용", "모든 제품에 필요한 필수그룹이므로 사용을 중지할 수 없습니다.") : S.check("새 제품 구성에 사용", "active", model.active, "pms-switch")}</div>${["CATEGORY", "SERIES"].includes(model.role) ? locked("고객 질문", "askQuestion", "항상 포함", "대분류와 시리즈는 고객이 제품을 찾는 필수 질문입니다. 중분류는 고객 질문에서 제외됩니다.") : S.check("고객 질문에 포함", "askQuestion", model.askQuestion)}${model.nonStandard ? `<div class="wide pm-group-price-setting">${S.check("가격계산에 영향을 주는 그룹", "priceImpact", model.priceImpact)}${model.control === "NUMBER" && model.priceImpact ? S.check("웹다이어그램으로 응답받기", "diagramResponse", model.diagramResponse) + S.diagram.helpCard('group') : ""}${pricingGuide(model)}</div>` : ""}${S.field("고객에게 물어볼 질문", "question", model.question, "text", 'maxlength="300"')}${S.textarea("고객 튜토리얼·도움말", "guide", model.guide, 1000)}${S.helpDisplaySelect("helpDisplay", model.helpDisplay)}</div>${model.nonStandard ? '<div class="pms-help">비규격 그룹은 입력 방식만 저장합니다. 입력 필드·보기·조건은 생성된 비규격 제품의 프로세스에서 각각 설정합니다.</div>' : !S.isChoice(model.control) ? `<section class="pms-section"><div class="pms-row"><h2>입력 필드</h2><button id="pms-add-field">+ 필드</button></div><div id="pms-fields">${S.fieldRows(model.fields, model.control)}</div></section>` : ""}<details class="pms-section pms-attachment-section"><summary>그룹 공통 안내 이미지·파일 <span class="pms-badge" data-group-file-count>${groupFiles.length}</span></summary><div id="pms-group-files">${S.files(groupFiles, true, groupFileOptions())}</div></details></div>${model.id && !model.nonStandard && S.isChoice(model.control) ? `<div class="pms-panel-title"><div><h2>옵션 관리</h2><small>드래그로 순서 변경 · +로 여러 보기를 추가한 뒤 한 번에 저장</small></div><div class="pms-actions"><button id="pms-add-value">+ 보기</button><button class="primary" id="pms-save-values">옵션 저장</button></div></div><div class="pms-panel-body" id="pms-values"></div>` : !model.id && S.isChoice(model.control) && !model.nonStandard ? '<div class="pms-help">그룹을 저장하면 아래에서 보기를 여러 개 등록할 수 있습니다.</div>' : ""}`;
       if (model.role === "SUBCATEGORY") {
         const help = document.createElement('div'); help.className = 'pms-help';
         help.textContent = '중분류는 개발자 관리 속성입니다. 기존 옵션을 제품마다 여러 개 선택할 수 있으며 고객 질문·가격계산에는 포함되지 않습니다. 옵션 추가·삭제는 허용하지 않습니다.';
@@ -222,13 +230,14 @@
       S.bind(body, model, (path, value) => {
         groupDirty = true;
         if (path.includes("labels.customer")) refreshFileScopes();
-        if (["control", "nonStandard"].includes(path)) {
+        if (["control", "nonStandard", "priceImpact"].includes(path)) {
           if (S.isBase(model)) {
             model.control = "RADIO";
             model.nonStandard = false;
             model.active = true;
           }
           if (!model.nonStandard) model.priceImpact = false;
+          if (!model.nonStandard || !model.priceImpact || model.control !== "NUMBER") model.diagramResponse = false;
           if (model.nonStandard || S.isChoice(model.control)) model.fields = [];
           else if (!model.fields.length) model.fields = [S.newField()];
           paintEditor();
@@ -283,6 +292,7 @@
             nonStandard,
             askQuestion,
             priceImpact,
+            diagramResponse,
             includeInName,
             active,
             question,
@@ -298,6 +308,7 @@
             nonStandard,
             askQuestion,
             priceImpact,
+            diagramResponse,
             includeInName,
             active,
             question,
@@ -440,7 +451,14 @@
         editor.append(panel);
         S.request(`/groups/${groupId}/price-impact`).then((state) => {
           if (model.id !== groupId || !panel.isConnected) return;
-          panel.innerHTML = `<h3>가격계산 영향 설정</h3><p class="pms-help">${S.e(state.message)}</p><label class="pms-check"><input type="checkbox" data-price-impact-toggle ${state.priceImpact ? "checked" : ""} ${state.locked ? "disabled" : ""}>가격계산에 영향을 주는 그룹</label>${S.groupPricingHelp(model.control)}<div class="pms-actions"><button type="button" data-save-price-impact ${state.locked ? "disabled" : ""}>가격영향 설정 저장</button>${state.locked ? S.badge("가격 항 사용 중 · 해제 잠김", "amber") : ""}</div>`;
+          panel.innerHTML = `<h3>가격계산 영향 설정</h3><p class="pms-help">${S.e(state.message)}</p><label class="pms-check"><input type="checkbox" data-price-impact-toggle ${state.priceImpact ? "checked" : ""} ${state.locked ? "disabled" : ""}>가격계산에 영향을 주는 그룹</label>${pricingGuide(model)}<div class="pms-actions"><button type="button" data-save-price-impact ${state.locked ? "disabled" : ""}>가격영향 설정 저장</button>${state.locked ? S.badge("가격 항 사용 중 · 해제 잠김", "amber") : ""}</div>`;
+          if (model.control === "NUMBER" && state.priceImpact) {
+            panel.insertAdjacentHTML("beforeend", `<section class="pms-section"><label class="pms-check"><input type="checkbox" data-diagram-default ${model.diagramResponse ? "checked" : ""}>웹다이어그램으로 응답받기</label>${S.diagram.helpCard("group")}<button type="button" data-save-diagram-default>응답 방식 저장</button></section>`);
+            S.$("[data-save-diagram-default]", panel).onclick = e => S.run(e.currentTarget, async () => {
+              await S.request(`/groups/${groupId}/diagram-response`, "PUT", { version: model.version, enabled: S.$("[data-diagram-default]", panel).checked });
+              await S.catalog(); if (model.id === groupId) open(groupId);
+            });
+          }
           S.$("[data-save-price-impact]", panel).onclick = (e) => S.run(e.currentTarget, async () => {
             await S.request(`/groups/${groupId}/price-impact`, "PUT", { version: state.version, priceImpact: S.$("[data-price-impact-toggle]", panel).checked });
             await S.catalog();

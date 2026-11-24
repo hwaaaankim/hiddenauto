@@ -200,6 +200,17 @@ public class ProductStudioApiController {
     return ApiResponse.ok(service.updateFaq(id, r.version(), r.faqTopicId(), p.getName()));
   }
 
+  public record DiagramValidation(Process process, String questionKey,
+      com.dev.HiddenBATHAuto.dto.productmaster.ProductDiagramDtos.Config config) {}
+
+  @PostMapping("/validate-diagram")
+  public ApiResponse<Boolean> validateDiagram(@RequestBody DiagramValidation r) {
+    if (r == null || r.process() == null || r.questionKey() == null)
+      throw new IllegalArgumentException("도면 설정과 질문이 필요합니다.");
+    com.dev.HiddenBATHAuto.service.productmaster.ProductDiagramEngine.config(r.process(), r.questionKey(), r.config());
+    return ApiResponse.ok(true);
+  }
+
   @PostMapping("/products/{id}/validate")
   public ApiResponse<Validation> validate(@PathVariable Long id, @RequestBody Process r) {
     return ApiResponse.ok(service.validateProcess(id, r));

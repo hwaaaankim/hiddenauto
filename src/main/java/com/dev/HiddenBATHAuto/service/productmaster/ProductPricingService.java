@@ -136,6 +136,11 @@ public class ProductPricingService {
     if (request.definition() == null) requireSavedParticipation(p, process, definition);
     Map<String, Answer> answers = new LinkedHashMap<>(map(request.answers()));
     answers.putAll(studio.fixedAnswers(p));
+    if (!process.diagrams().isEmpty()) {
+      var evaluated = ProductStudioEngine.evaluateWithDiagrams(process, answers);
+      if (!evaluated.complete()) return new Calculation(null, false, evaluated.errors(), List.of(), evaluated);
+      answers = new LinkedHashMap<>(evaluated.answers());
+    }
     return ProductPricingEngine.preview(process, pricingGroups(p, process), definition, answers, request.definition() != null);
   }
 
@@ -432,7 +437,15 @@ public class ProductPricingService {
       throw new IllegalStateException("소속 실 제품이 있어 제품 구성을 변경할 수 없습니다. 제품 복사 후 수정해 주세요.");
   }
 
+  public boolean groupHasDiagram(Long groupId) {
+    return products.findAll((root,query,b) -> {
+      query.distinct(true);
+      return b.and(b.isNotNull(root.get("studioProcessJson")),b.equal(root.join("components").get("group").get("id"),groupId));
+    }).stream().anyMatch(product -> {var process=process(product);return process.questions().stream()
+        .anyMatch(q -> Objects.equals(q.groupId(),groupId) && process.diagrams().containsKey(q.key()));});
+  }
   public void assertGroupPriceImpactCanDisable(Long groupId) {
+    if(groupHasDiagram(groupId))throw new IllegalStateException("이 그룹을 사용하는 제품에 웹다이어그램 응답이 있습니다. 제품 프로세스에서 도면 응답을 먼저 해제해 주세요.");
     if (groupParticipates(groupId))
       throw new IllegalStateException("이 그룹은 등록된 제품 가격계산식의 항에서 사용 중입니다. 해당 가격계산식을 삭제하거나 이 그룹의 항을 제거한 뒤 가격영향을 해제해 주세요.");
   }

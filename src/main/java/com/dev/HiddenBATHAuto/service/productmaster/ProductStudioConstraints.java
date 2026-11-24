@@ -392,7 +392,7 @@ final class ProductStudioConstraints {
       try { fields.put(hasA ? c : a, b.min().subtract(number(fields.get(hasA ? a : c)))); }
       catch (RuntimeException ignored) { /* Normal numeric validation reports malformed user input. */ }
     }
-    return new Answer(raw.choices(), fields);
+    return new Answer(raw.choices(), fields, raw.diagram());
   }
 
   static List<String> sumErrors(List<Bound> sums, Answer answer, boolean required) {

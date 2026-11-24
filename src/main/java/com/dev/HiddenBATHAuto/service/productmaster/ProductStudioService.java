@@ -695,7 +695,7 @@ public class ProductStudioService {
                 .map(c -> new LimitCase(c.key(), c.name(), list(c.conditions()).stream()
                     .map(v -> remapFixedCondition(v, oldFixed, newFixed)).toList(), c.min(), c.max())).toList(), l.equalTo())).toList(),
         list(copied.notices()).stream().map(n -> new InputNotice(n.key(), n.targetKey(), n.fieldKey(), n.message(), n.mode(),
-            list(n.conditions()).stream().map(c -> remapFixedCondition(c, oldFixed, newFixed)).toList(), n.helpDisplay())).toList(), copied.confirmationMessage());
+            list(n.conditions()).stream().map(c -> remapFixedCondition(c, oldFixed, newFixed)).toList(), n.helpDisplay())).toList(), copied.confirmationMessage(), copied.diagrams());
   }
 
   private Condition remapFixedCondition(
@@ -760,7 +760,7 @@ public class ProductStudioService {
         if (variant.groupId().equals(c.getGroup().getId())) c.setSortOrder(order++);
       Question updated = defaultProcess(List.of(replacement)).questions().get(0);
       Process after = new Process(before.schemaVersion(),before.questions().stream().map(q -> q.groupId().equals(group.getId()) ? updated : q).toList(),
-          before.rules(),before.inputLimits(),before.notices(),before.confirmationMessage());
+          before.rules(),before.inputLimits(),before.notices(),before.confirmationMessage(), before.diagrams());
       product.setStudioDefinitionJson(json.write(selected));
       product.setStudioProcessJson(json.write(after));
       if (product.getStatus()!=ProductMasterStatus.DRAFT) {
@@ -1044,7 +1044,7 @@ public class ProductStudioService {
       // Ordinary name/description/FAQ/file edits do not become blocked composition edits
       // merely because the existing product is still an unfinished draft.
       nextProcess = new Process(2, ProductStudioProcessSubset.mergeQuestions(storedProcess.questions(),
-          defaultProcess(selected).questions(), false), storedProcess.rules(), storedProcess.inputLimits(), storedProcess.notices(), storedProcess.confirmationMessage());
+          defaultProcess(selected).questions(), false), storedProcess.rules(), storedProcess.inputLimits(), storedProcess.notices(), storedProcess.confirmationMessage(), storedProcess.diagrams());
       processChanged = !json.write(storedProcess).equals(json.write(nextProcess));
     } else if (p.isNonStandard()) {
       ProductMaster proposedProduct = new ProductMaster();
@@ -1329,8 +1329,15 @@ public class ProductStudioService {
                 q.numberCases(),
                 q.preset(), q.helpDisplay()));
     }
+    for (var entry : process.diagrams().entrySet()) {
+      Question owner = normalized.stream().filter(q -> q.key().equals(entry.getKey())).findFirst()
+          .orElseThrow(() -> new IllegalArgumentException("도면 응답의 질문이 제품에 없습니다."));
+      var group = attributes.require(owner.groupId());
+      if (owner.control() != Control.NUMBER || owner.fixed() || !group.isNonStandard() || !group.isPriceImpact())
+        throw new IllegalArgumentException("웹다이어그램 응답은 고객 질문인 가격영향 비규격 숫자입력 그룹에서만 사용합니다.");
+    }
     return new Process(process.schemaVersion(), normalized, list(process.rules()),
-        list(process.inputLimits()), list(process.notices()), process.confirmationMessage());
+        list(process.inputLimits()), list(process.notices()), process.confirmationMessage(), process.diagrams());
   }
 
   public Validation validateProcess(Long id, Process process) {
@@ -1368,6 +1375,12 @@ public class ProductStudioService {
     if (!p.isNonStandard() || p.getStudioDefinitionJson() == null)
       throw new IllegalArgumentException("비규격 제품에서만 프로세스를 편집합니다.");
     requireNoActuals(p);
+    // Shared group price participation cannot be disabled concurrently with installing a diagram.
+    if(save.process()!=null && !save.process().diagrams().isEmpty()) save.process().questions().stream()
+        .filter(Objects::nonNull).filter(q -> save.process().diagrams().containsKey(q.key()))
+        .map(Question::groupId).filter(Objects::nonNull).distinct().sorted().forEach(groupId -> {
+          var group=attributes.require(groupId);entityManager.lock(group,LockModeType.PESSIMISTIC_READ);entityManager.refresh(group);
+        });
     Process normalized = normalizeProcess(p, save.process());
     boolean retainsPricedProductStatus = pricing.getObject().isMediaOnlyProcessChange(p, normalized)
         && !(save.publish() && p.getStatus() == ProductMasterStatus.DRAFT);
@@ -1476,7 +1489,7 @@ public class ProductStudioService {
         normalizeProcess(p, request.process() == null ? readProcess(p) : request.process());
     Map<String, Answer> answers = new LinkedHashMap<>(map(request.answers()));
     answers.putAll(fixedAnswers(p));
-    Evaluation evaluated = ProductStudioEngine.evaluate(process, answers);
+    Evaluation evaluated = ProductStudioEngine.evaluateWithDiagrams(process, answers);
     if (!test) assets.validateAnswers(process, evaluated.answers(), actor);
     return evaluated;
   }
@@ -1595,7 +1608,7 @@ public class ProductStudioService {
               q.preset(), q.helpDisplay()));
     }
     return new Process(process.schemaVersion(), safe, List.of(),
-        list(process.inputLimits()), list(process.notices()), process.confirmationMessage());
+        list(process.inputLimits()), list(process.notices()), process.confirmationMessage(), process.diagrams());
   }
 
   private Labels customer(Labels labels) {

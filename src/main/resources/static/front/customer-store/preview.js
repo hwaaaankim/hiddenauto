@@ -1041,7 +1041,7 @@
         const split = text.indexOf(' · ');
         return '<div><dt>' + esc(split < 0 ? '옵션' : text.slice(0, split)) +
           '</dt><dd>' + esc(split < 0 ? text : text.slice(split + 3)) + '</dd></div>';
-      }).join('') + '</dl></details>';
+      }).join('') + '</dl>' + Object.values(item.selection?.answers || {}).filter(answer => answer?.diagram).map(answer => S.diagram?.summary(answer) || '').join('') + '</details>';
   }
 
   function deliveryAddressKey(address) {

@@ -695,7 +695,7 @@
     const order = list(product.process?.questions), index = order.findIndex(q => q.key === key);
     const next = S.copy(answers);
     if (index < 0) return next;
-    for (const q of order.slice(index)) if (!q.fixed) delete next[q.key];
+    for (const q of order.slice(index)) if (!q.fixed) { S.diagram?.remember(product.process,q.key,next[q.key]); delete next[q.key]; }
     return next;
   }
   function beforeQuestion(key) {
@@ -706,13 +706,13 @@
     const visible = list(evaluation.questions).filter(s => s.visible && !s.question.fixed);
     for (const state of evaluation.questions) {
       const q = state.question;
-      if (!state.visible && !q.fixed) delete answers[q.key];
+      if (!state.visible && !q.fixed) { S.diagram?.remember(product.process,q.key,answers[q.key]); delete answers[q.key]; }
       else if (!state.errors.length) answers[q.key] = S.copy(state.answer);
       else if (answers[q.key]) {
         const fields = new Set(list(q.fields).map(f => f.key));
         answers[q.key] = S.isChoice(q.control)
           ? { choices: list(answers[q.key].choices).filter(k => state.allowed.includes(k)), fields: {} }
-          : { choices: [], fields: Object.fromEntries(Object.entries(answers[q.key].fields || {}).filter(([k]) => fields.has(k))) };
+          : { choices: [], fields: Object.fromEntries(Object.entries(answers[q.key].fields || {}).filter(([k]) => fields.has(k))), diagram: answers[q.key].diagram };
       }
     }
     completed = completed.filter(k => visible.some(s => s.question.key === k && !s.errors.length));

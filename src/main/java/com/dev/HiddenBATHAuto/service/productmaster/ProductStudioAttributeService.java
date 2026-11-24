@@ -174,7 +174,7 @@ public class ProductStudioAttributeService {
         groupAssets,
         asksQuestion(g),
         g.getSystemRole() != ProductAttributeRole.SUBCATEGORY && g.isPriceImpact(),
-        g.isNonStandard() && components.existsByGroupId(g.getId()), g.getHelpDisplay());
+        g.isNonStandard() && components.existsByGroupId(g.getId()), g.getHelpDisplay(), g.isDiagramResponse());
   }
 
   public ValueView view(ProductAttributeValue v) {
@@ -286,6 +286,9 @@ public class ProductStudioAttributeService {
     g.setAskQuestion(role != ProductAttributeRole.SUBCATEGORY && ask);
     if (request.priceImpact() && !request.nonStandard())
       throw new IllegalArgumentException("제품 단가 영향은 비규격 그룹에서만 설정할 수 있습니다.");
+    if (request.diagramResponse() && (!request.nonStandard() || !request.priceImpact() || request.control() != Control.NUMBER || !ask))
+      throw new IllegalArgumentException("웹다이어그램 응답은 고객 질문인 가격영향 비규격 숫자입력 그룹에서만 사용합니다.");
+    g.setDiagramResponse(request.diagramResponse());
     g.setPriceImpact(role != ProductAttributeRole.SUBCATEGORY && request.priceImpact());
     g.setIncludeInName(request.includeInName());
     g.setStudioFieldsJson(json.write(request.nonStandard() ? List.of() : list(request.fields())));

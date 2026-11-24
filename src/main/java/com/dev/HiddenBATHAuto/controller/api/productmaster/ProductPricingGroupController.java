@@ -26,15 +26,31 @@ public class ProductPricingGroupController {
   private final EntityManager entityManager;
 
   public record Edit(Long version, boolean priceImpact) {}
+  public record DiagramEdit(Long version, boolean enabled) {}
+
+  @PutMapping("/{id}/diagram-response")
+  @Transactional(isolation = Isolation.READ_COMMITTED)
+  public ApiResponse<GroupView> diagram(@PathVariable Long id, @RequestBody DiagramEdit edit, Principal actor) {
+    if (edit == null) throw new IllegalArgumentException("도면 응답 설정이 필요합니다.");
+    ProductAttributeGroup g = attributes.require(id);
+    entityManager.lock(g, LockModeType.PESSIMISTIC_WRITE); entityManager.refresh(g);
+    ProductStudioAttributeService.version(edit.version(), g.getRowVersion());
+    if (!g.isNonStandard() || !g.isPriceImpact() || !"NUMBER".equals(g.getStudioControl()) || !g.isAskQuestion())
+      throw new IllegalArgumentException("가격영향이 있는 고객 숫자입력 그룹에서만 설정합니다.");
+    g.setDiagramResponse(edit.enabled()); g.setUpdatedBy(actor.getName()); g.setUpdatedAt(LocalDateTime.now());
+    entityManager.flush(); return ApiResponse.ok(attributes.view(g));
+  }
   public record State(Long groupId, long version, boolean priceImpact, boolean locked, String message) {}
 
   @GetMapping("/{id}/price-impact")
   @Transactional(readOnly = true)
   public ApiResponse<State> state(@PathVariable Long id) {
     ProductAttributeGroup g = attributes.require(id);
-    boolean locked = pricing.groupParticipates(id);
+    boolean drawing = g.isDiagramResponse() || pricing.groupHasDiagram(id);
+    boolean locked = drawing || pricing.groupParticipates(id);
     return ApiResponse.ok(new State(id, g.getRowVersion(), g.isPriceImpact(), locked,
-        locked ? "등록된 가격계산 항에서 사용하는 그룹입니다. 연결된 가격 항을 모두 제거한 뒤 가격영향을 해제할 수 있습니다."
+        drawing ? "웹다이어그램 응답에서 사용하는 그룹입니다. 제품별 도면 응답과 공통 기본 설정을 해제한 뒤 가격영향을 변경해 주세요."
+            : locked ? "등록된 가격계산 항에서 사용하는 그룹입니다. 연결된 가격 항을 모두 제거한 뒤 가격영향을 해제할 수 있습니다."
             : "제품에 사용 중이어도 가격영향 설정은 별도로 변경할 수 있습니다. 가격 항에 참여하면 해제가 잠깁니다."));
   }
 
@@ -47,7 +63,10 @@ public class ProductPricingGroupController {
     entityManager.refresh(g);
     ProductStudioAttributeService.version(edit.version(), g.getRowVersion());
     if (!g.isNonStandard()) throw new IllegalArgumentException("가격영향은 비규격 그룹에서만 설정합니다.");
-    if (!edit.priceImpact()) pricing.assertGroupPriceImpactCanDisable(id);
+    if (!edit.priceImpact()) {
+      if (g.isDiagramResponse()) throw new IllegalArgumentException("웹다이어그램 응답 설정을 먼저 해제해 주세요.");
+      pricing.assertGroupPriceImpactCanDisable(id);
+    }
     g.setPriceImpact(edit.priceImpact());
     g.setUpdatedBy(actor.getName());
     g.setUpdatedAt(LocalDateTime.now());

@@ -445,7 +445,7 @@ public final class ProductPricingCoverage {
           "PRICE_PROBE_" + index++, predicate.groupKey(), predicate.fieldKey(), "price validation",
           "CONDITIONAL", List.of(predicate)));
       return new Process(process.schemaVersion(), process.questions(), process.rules(),
-          process.inputLimits(), notices, process.confirmationMessage());
+          process.inputLimits(), notices, process.confirmationMessage(), process.diagrams());
     }
 
     private void check(Map<String, Answer> answers) {

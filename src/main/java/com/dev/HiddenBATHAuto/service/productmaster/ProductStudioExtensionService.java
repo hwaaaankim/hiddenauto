@@ -206,8 +206,12 @@ public class ProductStudioExtensionService {
       m.forEach((k, val) -> x.put(k.toString(), canonicalSpec(val,json)));
       return x;
     }
-    if (v instanceof Answer a)
-      return Map.of("choices", canonicalSpec(list(a.choices()),json), "fields", canonicalSpec(map(a.fields()),json));
+    if (v instanceof Answer a) {
+      Map<String,Object> value=new TreeMap<>();
+      value.put("choices",canonicalSpec(list(a.choices()),json)); value.put("fields",canonicalSpec(map(a.fields()),json));
+      if(a.diagram()!=null)value.put("diagram",ProductDiagramEngine.canonical(a.diagram()));
+      return value;
+    }
     if (v instanceof Number n)
       return new BigDecimal(n.toString()).stripTrailingZeros().toPlainString();
     if (v instanceof List<?> l)

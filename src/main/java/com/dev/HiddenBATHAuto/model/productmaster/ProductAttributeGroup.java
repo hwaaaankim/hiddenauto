@@ -51,6 +51,9 @@ public class ProductAttributeGroup {
   @Column(name = "price_impact", nullable = false, columnDefinition = "boolean default false")
   private boolean priceImpact;
 
+  @Column(name = "diagram_response", nullable = false, columnDefinition = "boolean default false")
+  private boolean diagramResponse;
+
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;

@@ -160,7 +160,7 @@ public class StorePreviewService {
                 Map<String, Object> fields = new TreeMap<>();
                 if (q.answer().fields() != null) q.answer().fields().forEach((key, value) ->
                         fields.put(key, value instanceof BigDecimal number ? number.stripTrailingZeros() : value));
-                if (userAnswer) canonicalAnswers.put(q.question().key(), new Answer(choices, fields));
+                if (userAnswer) canonicalAnswers.put(q.question().key(), new Answer(choices, fields, q.answer().diagram()));
                 if (q.answer().choices() != null) q.question().choices().stream()
                         .filter(choice -> q.answer().choices().contains(choice.key()))
                         .map(choice -> choice.labels().customer()).forEach(label -> {
@@ -317,7 +317,7 @@ public class StorePreviewService {
             Map<String, Object> fields = new TreeMap<>();
             if (answer.fields() != null) answer.fields().forEach((field, value) -> fields.put(field, comparableValue(value)));
             var choices = answer.choices() == null ? List.<String>of() : answer.choices().stream().sorted().toList();
-            answers.put(key, new Answer(choices, fields));
+            answers.put(key, new Answer(choices, fields, com.dev.HiddenBATHAuto.service.productmaster.ProductDiagramEngine.canonical(answer.diagram())));
         });
         return new Selection(selection.productId(), selection.seriesId(), selection.options() == null ? Map.of() : selection.options(), answers);
     }

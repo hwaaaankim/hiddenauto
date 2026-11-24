@@ -175,6 +175,10 @@ final class ProductPricingValidationPlan {
             ProductStudioArithmetic.references(c.numericValue().expression()).forEach(t -> needed.add(t.groupKey()));
         for (InputLimit limit : list(process.inputLimits())) if (needed.contains(limit.targetKey()))
           ProductStudioArithmetic.references(limit.equalTo()).forEach(t -> needed.add(t.groupKey()));
+        for(var entry:process.diagrams().entrySet())if(needed.contains(entry.getKey())) {
+          ProductDiagramEngine.references(entry.getValue()).forEach(ref -> needed.add(ref.questionKey()));
+          entry.getValue().variants().forEach(v -> list(v.conditions()).forEach(c -> needed.add(c.groupKey())));
+        }
         expanded = needed.size() != before;
       } while (expanded);
       // Keep every field in a needed question. Field-level/SUM constraints and numeric
@@ -191,7 +195,7 @@ final class ProductPricingValidationPlan {
           .filter(l -> needed.contains(l.targetKey())).toList();
       // Number-case/notice text changes no price or permitted input. Their own consistency
       // was checked on the full process; retaining their predicates would multiply work.
-      Process projected = new Process(process.schemaVersion(), projectedQuestions, rules, limits, List.of(), process.confirmationMessage());
+      Process projected = new Process(process.schemaVersion(), projectedQuestions, rules, limits, List.of(), process.confirmationMessage(), process.diagrams().entrySet().stream().filter(e -> needed.contains(e.getKey())).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
       Map<String, Answer> answers = new LinkedHashMap<>();
       map(fixed).forEach((key, value) -> { if (needed.contains(key)) answers.put(key, value); });
       String name = selected.stream().filter(t -> ProductPricingEngine.role(t) == TermRole.PRICE)

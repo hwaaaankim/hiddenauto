@@ -42,7 +42,7 @@ public final class ProductStudioMedia {
             List.of(), question.numberCases(), question.preset()))
         .toList();
     return new Process(process.schemaVersion(), questions, process.rules(),
-        process.inputLimits(), process.notices(), process.confirmationMessage());
+        process.inputLimits(), process.notices(), process.confirmationMessage(), process.diagrams());
   }
 
   /** Files belonging to a field must not also appear as the whole question's illustration. */

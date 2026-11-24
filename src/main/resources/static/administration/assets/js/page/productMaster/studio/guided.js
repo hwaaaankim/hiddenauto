@@ -37,6 +37,7 @@
       stage = 0, zoom = 100, canvasObserver = null, canvasScroll = { x: 0, y: 0 };
     process.inputLimits ??= [];
     process.notices ??= [];
+    process.diagrams ??= {};
     const qs = () =>
         process.questions.filter((q) => !S.isBase(S.group(q.groupId))),
       fixed = () =>
@@ -294,7 +295,7 @@
         .map((q) => q.choices.map((c) => S.e(c.labels.management)).join("/"))
         .join(
           " · ",
-        )}</small></div><a class="pms-button" href="/admin/product-master/products/${p.id}">제품 구성</a></header>${steps(["질문·답변 완성", "연관관계 설정", "전체 검증·등록"], stage)}<div class="pms-panel-body"><p class="pms-help">${["각 질문을 열어 가능한 답변을 차례로 등록하세요. 숫자는 필드 구성 → 입력 제한 → 범위 조건 순서입니다.", "앞 답변의 조건으로 뒤 질문·선택지·숫자 묶음의 표시를 정합니다. 연결은 하나씩 작성하고, 모두 작성한 뒤 전체 경로의 빠짐·겹침·모순을 검증합니다.", "전체 입력 경로를 검사한 뒤 등록을 완료합니다. 저장된 제품으로 고객 흐름을 테스트할 수 있습니다."][stage]}</p><div class="pm-process-progress"><strong>답변 설정 ${qs().filter(ready).length} / ${qs().length}개</strong><span>답변 준비 → 입력 제한·조건 → 연결 → 검증 순서로 완성합니다.</span>${stage === 0 && qs().some((q) => !ready(q)) ? '<button type="button" data-next-question class="primary">다음 미완성 질문 설정</button>' : ""}</div><div class="pm-order-strip">${qs()
+        )}</small></div><a class="pms-button" href="/admin/product-master/products/${p.id}">제품 구성</a></header>${steps(["질문·답변 완성", "연관관계 설정", "전체 검증·등록"], stage)}<div class="pms-panel-body"><p class="pms-help">${["각 질문을 열어 가능한 답변을 차례로 등록하세요. 숫자는 필드 구성 → 입력 제한 순서로 설정합니다. 도면으로 개수를 받으려면 해당 질문의 웹다이어그램 설정으로 진행하세요.", "앞 답변의 조건으로 뒤 질문·선택지·숫자 묶음의 표시를 정합니다. 연결은 하나씩 작성하고, 모두 작성한 뒤 전체 경로의 빠짐·겹침·모순을 검증합니다.", "전체 입력 경로를 검사한 뒤 등록을 완료합니다. 저장된 제품으로 고객 흐름을 테스트할 수 있습니다."][stage]}</p>${stage === 1 && Object.keys(process.diagrams || {}).length ? S.diagram.helpCard("branch") : ""}<div class="pm-process-progress"><strong>답변 설정 ${qs().filter(ready).length} / ${qs().length}개</strong><span>답변 준비 → 입력 제한·조건 → 연결 → 검증 순서로 완성합니다.</span>${stage === 0 && qs().some((q) => !ready(q)) ? '<button type="button" data-next-question class="primary">다음 미완성 질문 설정</button>' : ""}</div><div class="pm-order-strip">${qs()
         .map(
           (q, i) =>
             `<div data-order="${S.e(q.key)}"><span class="pms-handle">⠿</span>${i + 1}. ${S.e(nm(q))}<button data-move="${i}:-1" ${i === 0 ? "disabled" : ""}>↑</button><button data-move="${i}:1" ${i === qs().length - 1 ? "disabled" : ""}>↓</button></div>`,
@@ -303,7 +304,7 @@
         qs()
           .map(
             (q, i) =>
-              `<article class="pm-flow-node"><span class="pm-flow-state">${S.badge(ready(q) ? "답변 등록됨" : "설정 필요", ready(q) ? "green" : "amber")}</span><span class="pms-badge">${i + 1} · ${S.e(S.controls[q.control])}</span><h3>${S.e(q.question || nm(q))}</h3><p>${S.group(q.groupId)?.askQuestion === false ? "고정 사양 · 질문 제외" : S.isChoice(q.control) ? q.choices.length + "개 답변" : q.fields.length + "개 입력 항목"}${q.control === "NUMBER" ? " · " + (q.numberCases || []).length + "개 범위" : ""}</p><small class="pm-question-asset-summary">질문 안내 ${(q.assetIds || []).length}개 · ${S.isChoice(q.control) ? "선택지" : "입력 필드"} 자료 ${(S.isChoice(q.control) ? q.choices : q.fields).reduce((count, item) => count + (item.assetIds || []).length, 0)}개</small><div class="pm-flow-answer-list">${(S.isChoice(q.control) ? q.choices.map((c) => c.labels.management) : q.fields.map((f) => f.labels.management + (q.control === "NUMBER" ? " · " + (f.min ?? "제한 없음") + "~" + (f.max ?? "제한 없음") + " " + (f.unit || "") : ""))).map((text, answerIndex) => `<span tabindex="0" class="pm-branch-tooltip" title="${S.e(answerDetails(q, (S.isChoice(q.control) ? q.choices : q.fields)[answerIndex]))}">${S.e(text)}</span>`).join("")}</div><div class="pm-flow-node-actions">${stage === 0 ? `<button data-edit="${S.e(q.key)}" class="primary">${readOnly ? "등록 답변·제한 보기" : "답변 등록·수정"}</button>` : ""}${canEditQuestionAssets(q) ? `<button type="button" data-edit-assets="${S.e(q.key)}">이미지·파일만 수정</button>` : assetOnlyAllowed && S.group(q.groupId)?.nonStandard === false ? commonAssetGuide(q) : ""}${stage === 1 ? `<button data-relate="${S.e(q.key)}" ${i === qs().length - 1 ? "disabled" : ""}>${readOnly ? "연결 내용 안내" : "이 답변에서 연관관계 설정"}</button>${!readOnly && i < qs().length - 1 ? `<button data-advanced-relate="${S.e(q.key)}">복합 조건·여러 동작 연결</button>` : ""}` : ""}</div>${process.rules
+              `<article class="pm-flow-node"><span class="pm-flow-state">${S.badge(ready(q) ? "답변 등록됨" : "설정 필요", ready(q) ? "green" : "amber")}</span><span class="pms-badge">${i + 1} · ${S.e(S.controls[q.control])}</span><h3>${S.e(q.question || nm(q))}</h3><p>${S.group(q.groupId)?.askQuestion === false ? "고정 사양 · 질문 제외" : S.isChoice(q.control) ? q.choices.length + "개 답변" : q.fields.length + "개 입력 항목"}${q.control === "NUMBER" ? " · " + (q.numberCases || []).length + "개 범위" : ""}</p><small class="pm-question-asset-summary">질문 안내 ${(q.assetIds || []).length}개 · ${S.isChoice(q.control) ? "선택지" : "입력 필드"} 자료 ${(S.isChoice(q.control) ? q.choices : q.fields).reduce((count, item) => count + (item.assetIds || []).length, 0)}개</small><div class="pm-flow-answer-list">${(S.isChoice(q.control) ? q.choices.map((c) => c.labels.management) : q.fields.map((f) => f.labels.management + (q.control === "NUMBER" ? " · " + (f.min ?? "제한 없음") + "~" + (f.max ?? "제한 없음") + " " + (f.unit || "") : ""))).map((text, answerIndex) => `<span tabindex="0" class="pm-branch-tooltip" title="${S.e(answerDetails(q, (S.isChoice(q.control) ? q.choices : q.fields)[answerIndex]))}">${S.e(text)}</span>`).join("")}</div><div class="pm-flow-node-actions">${stage === 0 ? `<button data-edit="${S.e(q.key)}" class="primary">${readOnly ? "등록 답변·제한 보기" : "답변 등록·수정"}</button>` : ""}${stage === 0 && q.control === "NUMBER" && S.group(q.groupId)?.priceImpact && !q.fixed && q.fields.length && (!readOnly || process.diagrams[q.key]) ? `<button type="button" data-diagram-entry="${S.e(q.key)}">도면 응답 ${readOnly ? "조회" : process.diagrams[q.key] ? "수정" : "설정"}</button>` : ""}${canEditQuestionAssets(q) ? `<button type="button" data-edit-assets="${S.e(q.key)}">이미지·파일만 수정</button>` : assetOnlyAllowed && S.group(q.groupId)?.nonStandard === false ? commonAssetGuide(q) : ""}${stage === 1 ? `<button data-relate="${S.e(q.key)}" ${i === qs().length - 1 ? "disabled" : ""}>${readOnly ? "연결 내용 안내" : "이 답변에서 연관관계 설정"}</button>${!readOnly && i < qs().length - 1 ? `<button data-advanced-relate="${S.e(q.key)}">복합 조건·여러 동작 연결</button>` : ""}` : ""}</div>${process.rules
                 .filter((r) => r.conditions.some((c) => c.groupKey === q.key))
                 .map(
                   (r) =>
@@ -320,6 +321,7 @@
       S.confirmationEditor(S.$("[data-process-confirmation]", root), process, readOnly, () => { S.dirty = true; });
       canvas();
       S.$("[data-next-question]", root)?.addEventListener("click", () => question(qs().find((q) => !ready(q))));
+      S.$$('[data-diagram-entry]',root).forEach(button=>button.onclick=()=>question(process.questions.find(q=>q.key===button.dataset.diagramEntry),'웹다이어그램 설정'));
       S.$$("[data-edit]", root).forEach(
         (b) =>
           (b.onclick = () =>
@@ -430,6 +432,7 @@
         process = S.copy(saved.process);
         process.inputLimits ??= [];
         process.notices ??= [];
+    process.diagrams ??= {};
         (saved.processAssets || []).forEach((asset) => files.set(asset.id, asset));
         committed = true;
         S.dirty = false;
@@ -482,7 +485,9 @@
           if (scope) scope.textContent = options.scopeLabel;
         });
       }
-      const questionProcess = () => ({ ...process, questions: process.questions.map((x) => x.key === q.key ? q : x), inputLimits: localLimits, notices: localNotices });
+      let localDiagram = process.diagrams[q.key] ? S.copy(process.diagrams[q.key]) : null;
+      const diagramEligible = q.control === "NUMBER" && S.group(q.groupId)?.priceImpact && !q.fixed;
+      const questionProcess = () => ({ ...process, diagrams: Object.fromEntries(Object.entries({...process.diagrams, [q.key]: localDiagram}).filter(([,v])=>v)), questions: process.questions.map((x) => x.key === q.key ? q : x), inputLimits: localLimits, notices: localNotices });
       q.numberCases ??= [];
       if (!S.isChoice(q.control) && !readOnly) for (const f of q.fields) {
         if (q.control === "NUMBER" && f.guide?.trim()) { localNotices.push({ key: S.key("M"), targetKey: q.key, fieldKey: f.key, message: f.guide, mode: "CONDITIONAL", conditions: [{groupKey:q.key,fieldKey:f.key,operator:"PRESENT",choiceKeys:[]}] }); f.guide = ""; }
@@ -492,6 +497,7 @@
       const questionSteps = () => [
         "가능한 답변 등록",
         ...(!S.isChoice(q.control) ? ["입력 제한 설정"] : []),
+        ...(diagramEligible ? ["웹다이어그램 설정"] : []),
         ...(q.control === "NUMBER" ? ["범위 조건 설정"] : []),
         ...(!S.isChoice(q.control) ? ["조건별 안내메시지"] : []),
         ...(hidden ? ["고정 사양 입력"] : []),
@@ -603,6 +609,9 @@
             S.$$("[data-path$='.namePart'],[data-path$='.guide'],[data-remove-field]", box).forEach((el) => el.closest("label")?.remove() || el.remove());
             S.bind(box, q); S.fieldEvents(box, q.fields, draw);
           }
+        } else if (title === "웹다이어그램 설정") {
+          box.innerHTML = `${S.diagram.helpCard("process")}<h3>이 제품의 도면 응답</h3><p>${localDiagram ? "설정됨 · " + localDiagram.variants.length + "개 도형 종류 · " + (localDiagram.mode === "FILL" ? "전체 영역 채우기" : "위치 지정") : "현재 일반 숫자입력 · 도면 응답 미설정"}</p><button type="button" data-configure-diagram>웹다이어그램 ${readOnly ? "조회" : "설정"}</button>`;
+          S.$('[data-configure-diagram]',box).onclick = () => S.diagram.configure(q, questionProcess(), { readOnly, productId: p.id, onApply: config => { localDiagram = config; draw(); } });
         } else if (title === "조건별 안내메시지") {
           S.renderConditionalNotices(box, q, { notices: localNotices, redraw: draw, readOnly });
         } else if (title === "범위 조건 설정") {
@@ -626,7 +635,7 @@
           S.bindMedia(box);
         } else
           box.innerHTML = S.registeredQuestion(q, fs, S.group(q.groupId), questionProcess()) + `<p>${q.numberCases.length}개 범위 조건 · ${hidden ? "고정 사양 저장" : "고객 답변"}</p>${qs().indexOf(original) < qs().length - 1 ? '<label class="pms-check"><input type="checkbox" data-continue-question checked>완성 후 다음 질문을 이어서 설정</label>' : ""}`;
-        if (readOnly) S.$$("input,select,textarea,button:not([data-notice-edit]):not([data-limit-edit]):not([data-map-edit]),.pms-handle", box).forEach((el) => { if (!el.matches("[data-pm-image]")) el.disabled = true; });
+        if (readOnly) S.$$("input,select,textarea,button:not([data-notice-edit]):not([data-limit-edit]):not([data-map-edit]):not([data-configure-diagram]),.pms-handle", box).forEach((el) => { if (!el.matches("[data-pm-image]")) el.disabled = true; });
         S.$("[data-back]", d)?.addEventListener("click", () => {
           if (title === "고정 사양 입력")
             q.preset = S.readAnswer(box, q, q.preset);
@@ -700,6 +709,8 @@
               if (!v.valid || !v.exhaustive) throw Error(err(v));
               const updated = S.copy(process);
               updated.inputLimits = S.copy(localLimits); updated.notices = S.copy(localNotices);
+              updated.diagrams ??= {};
+              if (localDiagram) updated.diagrams[q.key] = S.copy(localDiagram); else delete updated.diagrams[q.key];
               updated.questions[
                 updated.questions.findIndex((x) => x.key === q.key)
               ] = q;

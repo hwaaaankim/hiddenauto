@@ -215,7 +215,10 @@ public final class ProductStudioDtos {
       String guide,
       List<Field> fields,
       Boolean askQuestion,
-      boolean priceImpact, String helpDisplay) {
+      boolean priceImpact, String helpDisplay, boolean diagramResponse) {
+    public GroupEdit(Long id, Long version, Labels labels, String role, Control control, boolean nonStandard, boolean includeInName, boolean active, String question, String guide, List<Field> fields, Boolean askQuestion, boolean priceImpact, String helpDisplay) {
+      this(id, version, labels, role, control, nonStandard, includeInName, active, question, guide, fields, askQuestion, priceImpact, helpDisplay, false);
+    }
     public GroupEdit(
       Long id,
       Long version,
@@ -324,7 +327,10 @@ public final class ProductStudioDtos {
       List<AssetView> assets,
       boolean askQuestion,
       boolean priceImpact,
-      boolean definitionLocked, String helpDisplay) {
+      boolean definitionLocked, String helpDisplay, boolean diagramResponse) {
+    public GroupView(Long id, long version, String key, Labels labels, String role, Control control, boolean nonStandard, boolean includeInName, boolean active, String question, String guide, List<Field> fields, List<ValueView> values, List<AssetView> assets, boolean askQuestion, boolean priceImpact, boolean definitionLocked, String helpDisplay) {
+      this(id, version, key, labels, role, control, nonStandard, includeInName, active, question, guide, fields, values, assets, askQuestion, priceImpact, definitionLocked, helpDisplay, false);
+    }
     public GroupView(
       Long id,
       long version,
@@ -653,7 +659,12 @@ public final class ProductStudioDtos {
 
   public record Process(
       int schemaVersion, List<Question> questions, List<Rule> rules,
-      List<InputLimit> inputLimits, List<InputNotice> notices, String confirmationMessage) {
+      List<InputLimit> inputLimits, List<InputNotice> notices, String confirmationMessage,
+      @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY) Map<String, ProductDiagramDtos.Config> diagrams) {
+    public Process { diagrams = diagrams == null ? Map.of() : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(diagrams)); }
+    public Process(int schemaVersion, List<Question> questions, List<Rule> rules, List<InputLimit> inputLimits, List<InputNotice> notices, String confirmationMessage) {
+      this(schemaVersion, questions, rules, inputLimits, notices, confirmationMessage, Map.of());
+    }
     public Process(
       int schemaVersion, List<Question> questions, List<Rule> rules,
       List<InputLimit> inputLimits, List<InputNotice> notices) {
@@ -667,7 +678,9 @@ public final class ProductStudioDtos {
 
   public record ProcessSave(Long version, Process process, boolean publish) {}
 
-  public record Answer(List<String> choices, Map<String, Object> fields) {}
+  public record Answer(List<String> choices, Map<String, Object> fields, @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) ProductDiagramDtos.Layout diagram) {
+    public Answer(List<String> choices, Map<String, Object> fields) { this(choices, fields, null); }
+  }
 
   public record EvaluateRequest(Process process, Map<String, Answer> answers) {}
 

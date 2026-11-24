@@ -35,7 +35,7 @@ public final class ProductStudioProcessSubset {
         .toList();
     List<InputNotice> notices = list(source.notices()).stream()
         .filter(n -> keys.contains(n.targetKey()) && conditionsPresent(n.conditions(), keys)).toList();
-    return new Process(source.schemaVersion(), questions, rules, limits, notices, source.confirmationMessage());
+    return new Process(source.schemaVersion(), questions, rules, limits, notices, source.confirmationMessage(), source.diagrams().entrySet().stream().filter(e -> keys.contains(e.getKey())).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
   }
 
   public static boolean hasRemovedElements(Process source, Process retained) {
@@ -90,6 +90,10 @@ public final class ProductStudioProcessSubset {
         checkBefore(order, byKey, token.groupKey(), q.key(), "계산용 숫자 [" + c.labels().customer() + "]", issues);
     for (InputLimit limit : list(process.inputLimits())) for (ArithmeticToken token : ProductStudioArithmetic.references(limit.equalTo()))
       checkBefore(order, byKey, token.groupKey(), limit.targetKey(), "합계 일치 [" + limit.name() + "]", issues);
+    for(var entry:process.diagrams().entrySet()) {
+      for(var ref:ProductDiagramEngine.references(entry.getValue())) checkBefore(order,byKey,ref.questionKey(),entry.getKey(),"도면 치수 연결",issues);
+      for(var variant:entry.getValue().variants())for(var condition:list(variant.conditions())) checkBefore(order,byKey,condition.groupKey(),entry.getKey(),"도형 표시 조건",issues);
+    }
     return issues;
   }
 
