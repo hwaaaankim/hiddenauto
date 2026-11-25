@@ -4,7 +4,8 @@
 
 <head th:replace="~{fragments/administration/common :: autoAdminHead}"></head>
 
-<body class="twocolumn-panel">
+<body class="twocolumn-panel analytics-page">
+    <link rel="stylesheet" href="/administration/assets/css/analytics.css?v=20261125-sales-r2">
 	<div id="layout-wrapper">
 		<header th:replace="~{fragments/administration/common :: autoAdminHeader}"></header>
 		<div th:replace="~{fragments/administration/common :: autoAdminModal}"></div>
@@ -17,17 +18,18 @@
 
 					<div class="row mb-3">
 						<div class="col-12 d-flex align-items-center justify-content-between">
-							<h4 class="mb-0">애널리틱스</h4>
+							<div><h4 class="mb-1">매출·생산 분석</h4><small class="text-muted">대상과 지표를 고르고, 추이와 실제 품목을 확인하세요.</small></div>
 
-							<div class="d-flex gap-2">
+							<div class="d-flex flex-wrap gap-2">
+                                <button type="button" id="analyticsCsvBtn" title="현재 조건·정렬의 전체 표 데이터입니다. 숫자는 재사용 가능한 원값으로 저장합니다." class="btn btn-outline-secondary" disabled>CSV 데이터</button>
 								<button id="analyticsExcelBtn" class="btn btn-outline-success" disabled>
 									엑셀 출력
-									<span class="help-q" data-help="요약 시트(조건/Top5/그래프) + 원본데이터 시트로 다운로드됩니다.">?</span>
+									<span class="help-q" data-help="현재 조건·지표·정렬의 전체 결과를 내려받습니다. 요약·표 데이터·생산회수 비교·선택 그래프를 포함합니다.">?</span>
 								</button>
 								<button id="analyticsA4Btn" class="btn btn-outline-dark" disabled>
 									A4 보고서 출력
 									<span class="help-q"
-										data-help="요약(조건/Top5/그래프) → 원본데이터 순서로 A4 인쇄용 화면을 엽니다.">?</span>
+										data-help="현재 보기의 그래프 형태·지표·정렬과 비교 카드를 A4 보고서로 출력합니다.">?</span>
 								</button>
 							</div>
 						</div>
@@ -37,13 +39,13 @@
 					<div class="card mb-3">
 						<div class="card-body d-flex flex-wrap align-items-end gap-3">
 							<div>
-								<label class="form-label">From
+								<label class="form-label">발주 시작일
 									<span class="help-q" data-help="비우면 과거 전체로 조회합니다.">?</span>
 								</label>
 								<input id="fromDate" type="date" class="form-control">
 							</div>
 							<div>
-								<label class="form-label">To
+								<label class="form-label">발주 종료일
 									<span class="help-q" data-help="비우면 미래 전체로 조회합니다.">?</span>
 								</label>
 								<input id="toDate" type="date" class="form-control">
@@ -58,6 +60,18 @@
 						</div>
 					</div>
 
+                    <div class="analytics-filters mb-3">
+                        <div class="analytics-quick-dates"><span>빠른 기간</span>
+                            <button type="button" data-date-range="7D">최근 7일</button><button type="button" data-date-range="MONTH">이번 달</button>
+                            <button type="button" data-date-range="LAST_MONTH">지난달</button><button type="button" data-date-range="QUARTER">이번 분기</button><button type="button" data-date-range="YEAR">올해</button>
+                        </div>
+                        <label class="analytics-search"><span>대상 검색</span><input id="analyticsKeyword" type="search" maxlength="100" placeholder="업체별은 업체명, 제품별은 분류·시리즈·제품·색상" class="form-control"></label>
+                        <div class="analytics-kind-filters" role="group" aria-label="주문 유형">
+                            <label><input type="checkbox" data-record-kind="PAID" checked>유상 주문</label><label><input type="checkbox" data-record-kind="RETURN" checked>0원 반품용</label>
+                            <label><input type="checkbox" data-record-kind="COLLECTION" checked>회수</label><label><input type="checkbox" data-record-kind="ADJUSTMENT" checked>기타 조정</label>
+                        </div>
+                    </div>
+                    <details class="analytics-builder" open><summary>집계 대상·표 지표 설정</summary>
 					<!-- 축 구성 (✅ 좌우 높이 동일: h-100 + analytics-axis-card) -->
 					<div class="row align-items-stretch">
 						<div class="col-lg-6 d-flex">
@@ -88,7 +102,7 @@
 										</button>
 										<button class="btn btn-outline-secondary btn-sm" id="btnAddYHour" disabled>
 											시간대 추가 <span class="help-q"
-												data-help="Task 생성 시간 기준으로 시간대 필터를 적용합니다.">?</span>
+												data-help="발주일의 등록 시간 기준으로 시간대 필터를 적용합니다.">?</span>
 										</button>
 									</div>
 
@@ -101,21 +115,28 @@
 							<div class="card analytics-axis-card w-100 h-100">
 								<div class="card-header d-flex justify-content-between align-items-center">
 									<b>X축(컬럼/지표)</b>
-									<small class="text-muted">드래그로 순서 변경</small>
+									<small class="text-muted">드래그로 순서 변경 · 첫 지표가 그래프 기준</small>
 								</div>
 								<div class="card-body d-flex flex-column">
 									<div class="d-flex gap-2 mb-2">
 										<button class="btn btn-outline-success" id="btnAddMetricSales">
-											매출액 <span class="help-q" data-help="Task.totalPrice 합계 기준입니다.">?</span>
+											매출액 <span class="help-q" data-help="부가세 포함 상품 합계입니다. 배송·포장비를 제외하며 회수 건 금액은 저장 부호를 유지합니다.">?</span>
 										</button>
 										<button class="btn btn-outline-success" id="btnAddMetricTaskCount">
-											주문건수 <span class="help-q" data-help="Task(업무) 건수 기준입니다.">?</span>
+											전체 건수 <span class="help-q" data-help="개별 품목의 전체 건수입니다. 유상 주문·0원 반품용·회수·기타 조정을 포함하고 취소는 제외합니다.">?</span>
 										</button>
 										<button class="btn btn-outline-success" id="btnAddMetricQty">
-											주문수량 <span class="help-q" data-help="Order.quantity 합계 기준입니다.">?</span>
+											순수량 <span class="help-q" data-help="양수 수량에서 회수 수량을 뺀 순수량입니다. 생산 요청수량과 구별합니다.">?</span>
 										</button>
 									</div>
 
+                                    <div class="d-flex flex-wrap gap-2 mb-2">
+                                        <button type="button" class="btn btn-sm btn-light border" id="analyticsSalesPreset">매출 중심 지표</button>
+                                        <button type="button" class="btn btn-sm btn-light border" id="analyticsProductionPreset">주문·생산·회수 비교 지표</button>
+                                    </div>
+                                    <details class="mb-2"><summary class="small text-muted">주문·반품용·생산·회수 지표 더 보기</summary>
+                                        <div id="analyticsExtraMetricButtons" class="d-flex flex-wrap gap-2 mt-2"></div>
+                                    </details>
 									<div class="d-flex gap-2 mb-2">
 										<button class="btn btn-outline-dark" id="btnAddDimStandard" disabled>
 											규격 분류 추가 <span class="help-q"
@@ -127,18 +148,38 @@
 										</button>
 									</div>
 
-									<div id="xAxisBox" class="axis-box flex-fill"></div>
+									<small class="text-muted mb-2">지표를 선택하지 않으면 매출액·전체 건수·순수량을 표시합니다. 비교 지표 버튼으로 한 번에 구성할 수 있습니다.</small>
+                                    <div id="xAxisBox" class="axis-box flex-fill"></div>
 								</div>
 							</div>
 						</div>
 					</div>
 
+					</details>
+                    <div id="analyticsResultContext" class="alert alert-light border mt-3" role="status" hidden></div>
+
+                    <section class="analytics-view-controls" aria-label="보기와 정렬">
+                        <label>묶기 기준<select id="analyticsTimeGrouping"><option value="NONE">업체·제품 비교</option><option value="DAY">일별 추이</option><option value="WEEK">주별 추이</option><option value="MONTH">월별 추이</option></select></label>
+                        <label>표 정렬<select id="analyticsSortKey"><option value="">기본 정렬</option></select></label>
+                        <label>정렬 방향<select id="analyticsSortDir"><option value="desc">내림차순 ↓</option><option value="asc">오름차순 ↑</option></select></label>
+                        <label>행 수<select id="analyticsPageSize"><option value="25">25행</option><option value="50" selected>50행</option><option value="100">100행</option><option value="200">200행</option></select></label>
+                        <label class="analytics-inline-check"><input type="checkbox" id="analyticsCompact">촘촘한 표</label>
+                    </section>
+                    <div id="analyticsLoading" class="analytics-loading" role="status" hidden><span></span>조건에 맞는 발주와 합계를 조회하고 있습니다.</div>
 					<!-- 그래프 -->
 					<div class="card mt-3">
-						<div class="card-header"><b>그래프</b></div>
-						<div class="card-body">
-							<canvas id="analyticsChart" height="110"></canvas>
-						</div>
+                        <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2"><b>그래프</b><button type="button" id="analyticsPngBtn" title="현재 그래프의 형태·지표·기간을 포함한 PNG 이미지로 저장합니다." class="btn btn-sm btn-light border" disabled>현재 그래프 PNG</button></div>
+                        <div class="card-body">
+                            <div class="analytics-chart-controls">
+                                <label>형태<select id="analyticsChartType"><option value="BAR">세로 막대</option><option value="HORIZONTAL">가로 막대</option><option value="LINE">꺾은선</option></select></label>
+                                <label>기준 지표<select id="analyticsChartMetric"><option value="">표의 첫 지표</option></select></label>
+                                <label>표시 범위<select id="analyticsChartLimit"><option value="5">5개</option><option value="10" selected>10개</option><option value="20">20개</option><option value="30">30개</option><option value="50">50개</option><option value="90">90개</option><option value="0">추이 전체</option></select></label>
+                                <label>비교 순서<select id="analyticsChartSortDir"><option value="desc">큰 값부터</option><option value="asc">작은 값부터</option></select></label>
+                            </div>
+                            <details class="analytics-chart-compare"><summary>같은 단위의 지표 함께 비교 <small>최대 4개</small></summary><div id="analyticsChartCompare"></div></details>
+                            <p id="analyticsGraphNote" class="small text-muted mb-2">조회 후 그래프를 표시합니다.</p>
+                            <div id="analyticsChartViewport"><div id="analyticsChartInner"><canvas id="analyticsChart" aria-label="조회 지표 그래프"></canvas></div></div>
+                        </div>
 					</div>
 
 					<!-- 결과 테이블 -->
@@ -148,7 +189,7 @@
 							<small class="text-muted" id="analyticsTotalText">0 rows</small>
 						</div>
 						<div class="card-body p-0">
-							<div class="table-responsive">
+							<div class="table-responsive analytics-table-scroll">
 								<table class="table table-hover mb-0" id="analyticsTable">
 									<thead id="analyticsThead"></thead>
 									<tbody id="analyticsTbody"></tbody>
@@ -173,7 +214,8 @@
 	<script src="/administration/assets/libs/sortablejs/Sortable.min.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-	<script src="/administration/assets/js/analytics.js"></script>
+	<script src="/administration/assets/js/analytics.js?v=20261125-sales-r2"></script>
+    <script src="/administration/assets/js/analytics-views.js?v=20261125-sales-r2"></script>
 
 	<!-- ✅ 주소 선택 모달 -->
 	<div class="modal fade" id="addressSelectModal" tabindex="-1" aria-hidden="true">
@@ -292,6 +334,24 @@
 			</div>
 		</div>
 	</div>
+
+
+    <div class="modal fade" id="analyticsDetailsModal" tabindex="-1" aria-labelledby="analyticsDetailsTitle" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">
+            <div class="modal-header"><div><h5 id="analyticsDetailsTitle" class="modal-title">집계 품목 상세</h5><small id="analyticsDetailsSummary" class="text-muted"></small></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button></div>
+            <div class="modal-body">
+                <div class="analytics-detail-filters">
+                    <label>유형<select id="analyticsDetailKind"><option value="ALL">현재 범위 전체</option><option value="PAID">유상 주문</option><option value="RETURN">0원 반품용</option><option value="COLLECTION">회수</option><option value="PRODUCTION_REQUEST">생산 요청</option><option value="PRODUCTION_DONE">생산 완료</option><option value="PRODUCTION_PENDING">생산 대기</option><option value="ADJUSTMENT">기타 조정</option></select></label>
+                    <label>날짜별 건수<select id="analyticsDetailDay"><option value="">날짜 전체</option></select></label>
+                    <label class="analytics-detail-keyword">업체·상품·날짜 검색<input id="analyticsDetailKeyword" type="search" maxlength="100" placeholder="어느 업체의 어떤 상품인지 검색"></label>
+                    <label>정렬<select id="analyticsDetailSort"><option value="date-desc">최신 발주부터</option><option value="date-asc">오래된 발주부터</option><option value="company-asc">업체명순</option><option value="product-asc">상품명순</option><option value="quantity-desc">수량 큰 값부터</option><option value="amount-desc">금액 큰 값부터</option></select></label>
+                </div>
+                <div id="analyticsDetailsMessage" class="small text-muted mb-2" role="status"></div>
+                <div class="table-responsive"><table class="table table-hover analytics-detail-table"><thead><tr><th>발주일</th><th>업체</th><th>구분·분류</th><th>시리즈·상품</th><th>유형</th><th class="text-end">수량</th><th class="text-end">상품금액</th><th>상태</th><th>품목번호</th></tr></thead><tbody id="analyticsDetailsBody"></tbody></table></div>
+            </div>
+            <div class="modal-footer justify-content-between"><span id="analyticsDetailsPage" class="small text-muted"></span><div class="d-flex gap-2"><button type="button" id="analyticsDetailsPrev" class="btn btn-light border">이전</button><button type="button" id="analyticsDetailsNext" class="btn btn-light border">다음</button><button type="button" class="btn btn-primary" data-bs-dismiss="modal">닫기</button></div></div>
+        </div></div>
+    </div>
 
 </body>
 

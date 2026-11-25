@@ -26,7 +26,8 @@ public class ProductOptionJsonParser {
     private Map<String, Object> safeParse(String optionJson) {
         if (optionJson == null || optionJson.isBlank()) return new LinkedHashMap<>();
         try {
-            return objectMapper.readValue(optionJson, new TypeReference<Map<String, Object>>() {});
+            Map<String, Object> result = objectMapper.readValue(optionJson, new TypeReference<Map<String, Object>>() {});
+            return result == null ? new LinkedHashMap<>() : result;
         } catch (Exception e) {
             // JSON이 깨진 경우라도 분석 화면이 죽으면 안 되므로 빈 map으로 처리
             return new LinkedHashMap<>();
@@ -38,7 +39,7 @@ public class ProductOptionJsonParser {
                 .standard(true)
                 .top(str(raw.get("카테고리")))
                 .mid(str(raw.get("제품시리즈"))) // 표준 JSON에는 없을 수 있음
-                .product(str(raw.get("제품명")))
+                .product(first(raw, "제품명", "제품"))
                 .color(str(raw.get("색상")))
                 .productCode(str(raw.get("제품코드")))
                 .raw(raw)
@@ -51,11 +52,19 @@ public class ProductOptionJsonParser {
                 .standard(false)
                 .top(str(raw.get("카테고리")))
                 .mid(str(raw.get("제품시리즈")))
-                .product(str(raw.get("제품")))
+                .product(first(raw, "제품명", "제품"))
                 .color(str(raw.get("색상")))
                 .productCode(null)
                 .raw(raw)
                 .build();
+    }
+
+    private String first(Map<String, Object> raw, String... keys) {
+        for (String key : keys) {
+            String value = str(raw.get(key));
+            if (value != null) return value;
+        }
+        return null;
     }
 
     private String str(Object v) {

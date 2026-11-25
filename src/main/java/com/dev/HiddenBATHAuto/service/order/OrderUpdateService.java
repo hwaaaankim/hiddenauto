@@ -368,17 +368,8 @@ public class OrderUpdateService {
 			order.setProductCategory(category);
 		}, () -> order.setProductCategory(null));
 
-		int transferredPoints = 0;
         if (transfer) {
-            long targetId = companyId.orElseThrow();
-            Company target = representative.getCompany();
-            Company first = currentCompany < targetId ? sourceCompany : target;
-            Company second = currentCompany < targetId ? target : sourceCompany;
-            entityManager.refresh(first, LockModeType.PESSIMISTIC_WRITE);
-            entityManager.refresh(second, LockModeType.PESSIMISTIC_WRITE);
-            transferredPoints = OrderRewardPoints.earned(split ? amounts.destinationTotal() : amounts.sourceTotal());
-            sourceCompany.setPoint(Math.subtractExact(sourceCompany.getPoint(), transferredPoints));
-            target.setPoint(Math.addExact(target.getPoint(), transferredPoints));
+            // 관리자 업체 변경은 발주의 귀속과 금액만 이동하며 기존 업체 포인트는 정산하지 않는다.
             if (split) {
                 Task destination = new Task();
                 destination.setRequestedBy(representative);
@@ -430,7 +421,6 @@ public class OrderUpdateService {
                 : transfer ? "MANAGEMENT_COMPANY_TRANSFER_TASK" : "MANAGEMENT_ORDER_UPDATE";
         String label = split ? "관리자 업체 변경(오더 단건)"
                 : transfer ? "관리자 업체 변경(발주 전체)" : "관리자 주문 수정";
-        if (transfer) label += " · 기존 업체 " + (-(long) transferredPoints) + "P / 변경 업체 " + transferredPoints + "P";
         for (var entry : siblingSnapshots.entrySet()) {
             auditManagementEdit(entry.getKey(), entry.getValue(), siblingSearch.get(entry.getKey()),
                     false, updatedByUsername, operation, label, orderId);

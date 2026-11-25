@@ -25,11 +25,20 @@ public class AnalyticsQueryRequest {
     private ProductBreakdown productBreakdown;
 
     // X축(지표) - COMPANY 모드에서는 metrics, PRODUCT 모드에서는 기본 3개 포함 가능
-    private List<String> metrics; // "SALES","TASK_COUNT","QTY"
+    private List<String> metrics; // "SALES","TASK_COUNT","QTY" (TASK_COUNT 키는 호환용이며 실제 집계는 개별 Order 건수)
 
     // 정렬
     private String sortKey; // "sales","taskCount","qty","companyName","ownerName","address",...
     private String sortDir; // "asc" | "desc"
+
+    private String keyword;
+    private List<String> recordKinds; // PAID/RETURN/COLLECTION/ADJUSTMENT; null = all
+    private String timeGrouping = "NONE"; // NONE/DAY/WEEK/MONTH
+    private String chartType = "BAR"; // BAR/HORIZONTAL/LINE
+    private List<String> chartMetrics;
+    private int chartLimit = 10;
+    private String chartSortDir = "desc";
+    private boolean compactTable;
 
     // paging
     private int page = 0;

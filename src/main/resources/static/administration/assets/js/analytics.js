@@ -27,9 +27,125 @@ let sortKey = "";
 let sortDir = "desc";
 
 let chartInstance = null;
+const analyticsNumberFormat = new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 0 });
+const analyticsMetricDefinitions = {
+  "SALES": {
+    "key": "sales",
+    "label": "매출액",
+    "unit": "원",
+    "help": "저장된 부가세 포함 상품 합계금액입니다. 배송·포장비는 제외하고 회수 건도 저장된 금액 부호를 그대로 사용합니다."
+  },
+  "TASK_COUNT": {
+    "key": "taskCount",
+    "label": "전체 건수",
+    "unit": "건",
+    "help": "개별 품목(Order)의 전체 건수입니다. 유상 주문·0원 반품용·회수·기타 조정을 포함하고 취소는 제외합니다."
+  },
+  "QTY": {
+    "key": "qty",
+    "label": "순수량",
+    "unit": "개",
+    "help": "저장 수량의 합계입니다. 양수 수량에서 회수 수량을 뺀 값으로 생산 요청수량과 구별합니다."
+  },
+  "PAID_COUNT": {
+    "key": "paidOrderCount",
+    "label": "유상 주문건수",
+    "unit": "건",
+    "help": "수량과 상품 금액이 모두 양수인 개별 품목 건수입니다."
+  },
+  "PAID_QTY": {
+    "key": "paidQty",
+    "label": "유상 주문수량",
+    "unit": "개",
+    "help": "수량과 상품 금액이 모두 양수인 주문 수량입니다."
+  },
+  "PAID_SALES": {
+    "key": "paidSales",
+    "label": "유상 상품금액",
+    "unit": "원",
+    "help": "유상 주문의 부가세 포함 상품 합계금액입니다."
+  },
+  "RETURN_COUNT": {
+    "key": "returnOrderCount",
+    "label": "0원 반품용 건수",
+    "unit": "건",
+    "help": "상품 금액이 0원이고 수량이 양수인 반품 대응 제작 품목의 건수입니다."
+  },
+  "RETURN_QTY": {
+    "key": "returnQty",
+    "label": "0원 반품용 수량",
+    "unit": "개",
+    "help": "상품 금액이 0원이고 수량이 양수인 반품 대응 제작 수량입니다. 생산 요청·완료 수량에 포함합니다."
+  },
+  "PRODUCTION_REQUEST_QTY": {
+    "key": "productionRequestQty",
+    "label": "생산 요청수량",
+    "unit": "개",
+    "help": "양수 수량 전체입니다. 유상 주문과 0원 반품용을 포함하고 회수는 차감하지 않습니다."
+  },
+  "PRODUCTION_DONE_QTY": {
+    "key": "productionDoneQty",
+    "label": "생산 완료수량",
+    "unit": "개",
+    "help": "조회한 발주건 중 현재 생산완료·출고완료·배송완료 상태인 양수 수량입니다. 생산 완료일 기준 집계가 아닙니다."
+  },
+  "PRODUCTION_PENDING_QTY": {
+    "key": "productionPendingQty",
+    "label": "생산 대기수량",
+    "unit": "개",
+    "help": "생산 요청수량에서 생산 완료수량을 뺀 값입니다."
+  },
+  "COLLECTION_COUNT": {
+    "key": "collectionOrderCount",
+    "label": "회수건수",
+    "unit": "건",
+    "help": "수량이 음수인 개별 품목 건수입니다. 상품 금액이 0원이어도 반품용 건수와 중복 집계하지 않습니다."
+  },
+  "COLLECTION_QTY": {
+    "key": "collectionQty",
+    "label": "회수수량",
+    "unit": "개",
+    "help": "음수 수량의 절댓값 합계입니다. 생산 요청수량과 별도로 표시합니다."
+  },
+  "COLLECTION_SALES": {
+    "key": "collectionSales",
+    "label": "회수건 금액",
+    "unit": "원",
+    "help": "회수 건에 저장된 상품 금액을 부호 그대로 합산합니다. 회수라는 이유로 자동으로 매출에서 차감하지 않습니다."
+  },
+  "ADJUSTMENT_COUNT": {
+    "key": "adjustmentOrderCount",
+    "label": "기타 조정건수",
+    "unit": "건",
+    "help": "수량이 0이거나 양수 수량에 음수 상품 금액이 있는 품목입니다. 유상·반품용·회수와 구별합니다."
+  },
+  "ADJUSTMENT_QTY": {
+    "key": "adjustmentQty",
+    "label": "기타 조정수량",
+    "unit": "개",
+    "help": "기타 조정 품목의 양수 수량입니다. 생산 요청수량과 유상·0원 반품용 수량의 차이를 확인할 수 있습니다."
+  },
+  "ADJUSTMENT_SALES": {
+    "key": "adjustmentSales",
+    "label": "기타 조정금액",
+    "unit": "원",
+    "help": "기타 조정 품목의 저장 상품 금액 합계입니다."
+  }
+};
+const numericColumnKeys = new Set(["rank", ...Object.values(analyticsMetricDefinitions).map(metric => metric.key)]);
+function formatAnalyticsNumber(value) {
+    if (value == null || value === "") return "";
+    const number = Number(value);
+    return Number.isFinite(number) ? analyticsNumberFormat.format(number) : String(value);
+}
+
 
 // ✅ 서버가 내려주는 columns 메타(키/한글/설명)
 let currentColumns = [];
+let appliedRequest = null;
+let querySequence = 0;
+let queryController = null;
+let loadedRowCount = 0;
 
 /** ===== 기존 설정 값들 ===== */
 let currentAddressFilter = null; // {province, city, district} (문자열 name 기준)
@@ -47,6 +163,7 @@ let nonStandardLevelModal = null;
  *  DOM Ready
  * ========================= */
 document.addEventListener("DOMContentLoaded", () => {
+	initExtraMetricButtons();
 	// Sortable
 	initSortable();
 
@@ -60,7 +177,6 @@ document.addEventListener("DOMContentLoaded", () => {
 	});
 
 	document.getElementById("analyticsLoadMoreBtn").addEventListener("click", () => {
-		page += 1;
 		queryAndRender(false);
 	});
 
@@ -69,7 +185,8 @@ document.addEventListener("DOMContentLoaded", () => {
 	document.getElementById("analyticsA4Btn").addEventListener("click", exportA4);
 
 	// Default dates = today
-	const today = new Date().toISOString().slice(0, 10);
+	const now = new Date();
+	const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 	document.getElementById("fromDate").value = today;
 	document.getElementById("toDate").value = today;
 
@@ -87,6 +204,24 @@ document.addEventListener("DOMContentLoaded", () => {
 /** =========================
  *  Bindings
  * ========================= */
+function initExtraMetricButtons() {
+    const box = document.getElementById("analyticsExtraMetricButtons");
+    if (box) for (const [code, metric] of Object.entries(analyticsMetricDefinitions)) {
+        if (["SALES", "TASK_COUNT", "QTY"].includes(code)) continue;
+        const button = document.createElement("button"); button.type = "button";
+        button.className = "btn btn-sm btn-outline-success";
+        button.textContent = metric.label; button.title = metric.help; button.dataset.addMetric = code;
+        button.onclick = () => addMetric(code); box.append(button);
+    }
+    const presets = {
+        analyticsSalesPreset: ["SALES", "PAID_COUNT", "PAID_QTY", "RETURN_QTY", "COLLECTION_QTY"],
+        analyticsProductionPreset: ["PRODUCTION_REQUEST_QTY", "PRODUCTION_DONE_QTY", "PRODUCTION_PENDING_QTY", "PAID_QTY", "RETURN_QTY", "COLLECTION_QTY", "PAID_COUNT", "RETURN_COUNT", "COLLECTION_COUNT", "SALES"]
+    };
+    for (const [id, metrics] of Object.entries(presets)) document.getElementById(id)?.addEventListener("click", () => {
+        xMetrics = [...metrics]; sortKey = ""; renderAxisUI();
+    });
+}
+
 function bindAxisButtons() {
 	document.getElementById("btnAddYCompany").addEventListener("click", () => setYPrimary("COMPANY"));
 	document.getElementById("btnAddYProduct").addEventListener("click", () => setYPrimary("PRODUCT"));
@@ -112,13 +247,15 @@ function initSortable() {
 
 	if (yBox) new Sortable(yBox, { handle: ".handle", animation: 150 });
 	if (ySubBox) new Sortable(ySubBox, { handle: ".handle", animation: 150 });
-	if (xBox) new Sortable(xBox, { handle: ".handle", animation: 150 });
+	if (xBox) new Sortable(xBox, { handle: ".handle", animation: 150, onEnd: syncAxisOrder });
 }
 
 /** =========================
  *  Axis State handlers
  * ========================= */
 function setYPrimary(v) {
+	sortKey = "";
+	page = 0;
 	yPrimary = v;
 	ySubs = [];
 	xDims = [];
@@ -198,24 +335,21 @@ function renderAxisUI() {
 			() => openSubConfigModal(s),
 			s === "ADDRESS"
 				? "업체 주소(도/시/구) 기준으로 필터/표시를 추가합니다."
-				: "Task 생성 시간 기준으로 시간대 필터를 추가합니다."
+				: "발주일의 등록 시간 기준으로 시간대 필터를 추가합니다."
 		));
 	});
 
 	// X metrics
 	xMetrics.forEach(m => {
-		const label = m === "SALES" ? "매출액" : (m === "TASK_COUNT" ? "주문건수" : "주문수량");
-		const help = m === "SALES"
-			? "Task.totalPrice 합계 기준입니다."
-			: (m === "TASK_COUNT"
-				? "Task(업무) 건수 기준입니다."
-				: "Order.quantity 합계 기준입니다.");
+        const definition = analyticsMetricDefinitions[m];
+        if (!definition) return;
+        const label = definition.label, help = definition.help;
 
 		xBox.appendChild(axisItem(
 			`X:${label}`,
 			() => { removeItem(xMetrics, m); renderAxisUI(); },
 			null,
-			help
+			help, "metric", m
 		));
 	});
 
@@ -230,7 +364,7 @@ function renderAxisUI() {
 			`X:${label}`,
 			() => { removeItem(xDims, d); renderAxisUI(); },
 			() => openDimConfigModal(d),
-			help
+			help, "dimension", d
 		));
 	});
 
@@ -238,9 +372,10 @@ function renderAxisUI() {
 	refreshHelpBubbles();
 }
 
-function axisItem(text, onRemove, onConfig, helpText) {
+function axisItem(text, onRemove, onConfig, helpText, kind, value) {
 	const div = document.createElement("div");
 	div.className = "axis-item";
+	if (kind) div.dataset[kind] = value;
 
 	const handle = document.createElement("span");
 	handle.className = "handle";
@@ -591,7 +726,14 @@ async function restoreAddressSelection(filter) {
 /** =========================
  *  Request builders
  * ========================= */
+function syncAxisOrder() {
+    const box = document.getElementById("xAxisBox");
+    if (!box) return;
+    xMetrics = Array.from(box.querySelectorAll("[data-metric]")).map(node => node.dataset.metric);
+    xDims = Array.from(box.querySelectorAll("[data-dimension]")).map(node => node.dataset.dimension);
+}
 function buildRequestBody() {
+    syncAxisOrder();
 	const fromDateVal = document.getElementById("fromDate").value;
 	const toDateVal = document.getElementById("toDate").value;
 
@@ -599,7 +741,7 @@ function buildRequestBody() {
 		fromDate: fromDateVal ? fromDateVal : null,
 		toDate: toDateVal ? toDateVal : null,
 		primaryY: yPrimary,
-		metrics: xMetrics,
+		metrics: [...xMetrics],
 		sortKey,
 		sortDir,
 		page,
@@ -607,7 +749,7 @@ function buildRequestBody() {
 	};
 
 	if (yPrimary === "COMPANY") {
-		if (ySubs.includes("ADDRESS")) body.addressFilter = currentAddressFilter;
+		if (ySubs.includes("ADDRESS")) body.addressFilter = currentAddressFilter || {};
 		if (ySubs.includes("HOUR")) body.hourRanges = currentHourRanges;
 	}
 
@@ -623,49 +765,100 @@ function buildRequestBody() {
 	return body;
 }
 
-function buildRequestBodyForExport() {
-	const b = buildRequestBody();
-	b.page = 0;
-	b.size = 2147483647;
-	return b;
+function requestSignature(body) {
+    const { page: ignoredPage, size: ignoredSize, ...conditions } = body;
+    return JSON.stringify(conditions);
 }
-
-/** =========================
- *  Query & Render
- * ========================= */
+function buildRequestBodyForExport() {
+    if (!appliedRequest || !totalRows) throw new Error("먼저 조회하여 결과를 확인해 주세요.");
+    if (requestSignature(buildRequestBody()) !== requestSignature(appliedRequest))
+        throw new Error("조회 조건이 변경되었습니다. 조회를 눌러 결과를 갱신한 뒤 출력해 주세요.");
+    return { ...appliedRequest, page: 0, size: 2147483647 };
+}
+function setQueryBusy(busy) {
+    const search = document.getElementById("analyticsSearchBtn");
+    search.disabled = busy;
+    search.setAttribute("aria-busy", String(busy));
+    document.getElementById("analyticsLoadMoreBtn").disabled = busy;
+    document.getElementById("analyticsExcelBtn").disabled = busy || totalRows === 0;
+    document.getElementById("analyticsA4Btn").disabled = busy || totalRows === 0;
+}
+async function responseError(response, fallback) {
+    try { const body = await response.json(); return body.message || body.detail || fallback; }
+    catch { return fallback; }
+}
 async function queryAndRender(reset) {
-	if (!yPrimary) {
-		alert("Y축(업체별/제품별)을 먼저 선택해주세요.");
-		return;
-	}
-
-	const res = await fetch("/analytics/api/query", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify(buildRequestBody())
-	});
-
-	if (!res.ok) {
-		alert("조회 실패");
-		return;
-	}
-
-	const data = await res.json();
-	totalRows = data.totalRows || 0;
-
-	currentColumns = Array.isArray(data.columns) ? data.columns : [];
-
-	document.getElementById("analyticsTotalText").textContent = `${totalRows} rows`;
-	document.getElementById("analyticsExcelBtn").disabled = (totalRows === 0);
-	document.getElementById("analyticsA4Btn").disabled = (totalRows === 0);
-
-	renderTable(data.rows || [], reset);
-
-	const loaded = (page + 1) * size;
-	document.getElementById("analyticsLoadMoreBtn").style.display = (loaded < totalRows) ? "inline-block" : "none";
-
-	renderChart(data.chart);
-	refreshHelpBubbles();
+    if (!yPrimary) { alert("Y축(업체별/제품별)을 먼저 선택해 주세요."); return; }
+    let body = buildRequestBody();
+    if (body.fromDate && body.toDate && body.fromDate > body.toDate) {
+        alert("발주 시작일은 종료일보다 늦을 수 없습니다."); return;
+    }
+    if (!reset && (!appliedRequest || requestSignature(body) !== requestSignature(appliedRequest))) reset = true;
+    body.page = reset ? 0 : page + 1;
+    const id = ++querySequence;
+    queryController?.abort();
+    const controller = new AbortController(); queryController = controller;
+    setQueryBusy(true);
+    try {
+        const response = await fetch("/analytics/api/query", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body), signal: controller.signal
+        });
+        if (!response.ok) throw new Error(await responseError(response, "조회하지 못했습니다. 다시 시도해 주세요."));
+        const data = await response.json();
+        if (id !== querySequence) return;
+        totalRows = Number(data.totalRows) || 0;
+        currentColumns = Array.isArray(data.columns) ? data.columns : [];
+        page = body.page;
+        appliedRequest = JSON.parse(JSON.stringify(body));
+        const rows = Array.isArray(data.rows) ? data.rows : [];
+        loadedRowCount = reset ? rows.length : loadedRowCount + rows.length;
+        document.getElementById("analyticsTotalText").textContent = `${formatAnalyticsNumber(totalRows)}행`;
+        renderTable(rows, reset);
+        document.getElementById("analyticsLoadMoreBtn").style.display = loadedRowCount < totalRows ? "inline-block" : "none";
+        renderResultContext(data);
+        renderChart(data.chart);
+        refreshHelpBubbles();
+    } catch (error) {
+        if (id === querySequence && error.name !== "AbortError") alert(error.message || "조회하지 못했습니다.");
+    } finally {
+        if (id === querySequence) { queryController = null; setQueryBusy(false); }
+    }
+}
+function renderResultContext(data) {
+    const box = document.getElementById("analyticsResultContext"); if (!box) return;
+    box.replaceChildren(); box.hidden = false;
+    const meta = data.meta || {};
+    for (const content of [meta.periodText, [meta.yAxisText, meta.xDimText, meta.xAxisText].filter(Boolean).join(" · "), [meta.addressText, meta.hourText].filter(Boolean).join(" · "), meta.basisText, meta.chartBasisText]) {
+        if (!content) continue;
+        const line = document.createElement("div"); line.textContent = content; box.append(line);
+    }
+    const totals = data.totals || {};
+    const line = document.createElement("div"); line.className = "mt-2 fw-semibold";
+    line.textContent = currentColumns.filter(c => c.unit || numericColumnKeys.has(c.key) && c.key !== "rank")
+        .map(c => `${c.label} 합계 ${formatAnalyticsNumber(totals.metrics?.[c.key] ?? totals[c.key] ?? 0)}${c.unit || (c.key === "sales" ? "원" : c.key === "qty" ? "개" : "건")}`).join(" · ");
+    box.append(line);
+    if (totals.metrics) {
+        const m = totals.metrics, comparison = document.createElement("div"); comparison.className = "row g-2 mt-2";
+        const n = key => formatAnalyticsNumber(m[key] || 0);
+        for (const [title, value, note] of [
+            ["유상 주문", `${n("paidQty")}개`, `${n("paidOrderCount")}건`],
+            ["0원 반품용", `${n("returnQty")}개`, `${n("returnOrderCount")}건 · 생산수량 포함`],
+            ["생산 요청", `${n("productionRequestQty")}개`, `완료 ${n("productionDoneQty")}개 · 대기 ${n("productionPendingQty")}개`],
+            ["회수", `${n("collectionQty")}개`, `${n("collectionOrderCount")}건 · 금액 ${n("collectionSales")}원`]
+        ]) {
+            const column = document.createElement("div"); column.className = "col-6 col-xl-3";
+            const card = document.createElement("div"); card.className = "border rounded p-3 bg-white h-100";
+            const label = document.createElement("div"); label.className = "text-muted small"; label.textContent = title;
+            const amount = document.createElement("strong"); amount.className = "d-block fs-5 mt-1"; amount.textContent = value;
+            const detail = document.createElement("div"); detail.className = "small text-muted mt-1"; detail.textContent = note;
+            card.append(label, amount, detail); column.append(card); comparison.append(column);
+        }
+        box.append(comparison);
+    }
+    for (const warning of data.warnings || []) {
+        const node = document.createElement("div"); node.className = "text-danger mt-1"; node.textContent = warning; box.append(node);
+    }
 }
 
 /** =========================
@@ -699,10 +892,10 @@ function renderTable(rows, reset) {
 
 		cols.forEach(c => {
 			const th = document.createElement("th");
-			th.className = "th-sort";
+			th.className = c.key === "rank" ? "" : "th-sort";
 
 			const labelSpan = document.createElement("span");
-			labelSpan.textContent = c.label || c.key;
+			labelSpan.textContent = (c.label || c.key) + (c.unit ? ` (${c.unit})` : "");
 			th.appendChild(labelSpan);
 
 			if (c.help) {
@@ -715,11 +908,12 @@ function renderTable(rows, reset) {
 
 			const arrows = document.createElement("span");
 			arrows.className = "arrows";
-			arrows.textContent = (sortKey === c.key) ? (sortDir === "asc" ? "▲" : "▼") : "↕";
+			arrows.textContent = c.key === "rank" ? "" : (sortKey === c.key) ? (sortDir === "asc" ? "▲" : "▼") : "↕";
 			th.appendChild(arrows);
 
 			th.addEventListener("click", (e) => {
 				// help-q 클릭은 정렬 방지
+                if (c.key === "rank") return;
 				if (e.target && e.target.classList && e.target.classList.contains("help-q")) return;
 
 				if (sortKey === c.key) {
@@ -742,7 +936,10 @@ function renderTable(rows, reset) {
 		const tr = document.createElement("tr");
 		cols.forEach(c => {
 			const td = document.createElement("td");
-			td.textContent = (r[c.key] == null) ? "" : String(r[c.key]);
+			td.textContent = numericColumnKeys.has(c.key)
+                ? formatAnalyticsNumber(r[c.key])
+                : (r[c.key] == null ? "" : String(r[c.key]));
+            if (numericColumnKeys.has(c.key)) td.classList.add("text-end");
 			tr.appendChild(td);
 		});
 		tbody.appendChild(tr);
@@ -777,7 +974,11 @@ function renderChart(chart) {
 		},
 		options: {
 			responsive: true,
-			maintainAspectRatio: false
+			maintainAspectRatio: false,
+            scales: { y: { ticks: { callback: value => formatAnalyticsNumber(value) } } },
+            plugins: { tooltip: { callbacks: { label: context =>
+                `${context.dataset.label}: ${formatAnalyticsNumber(context.parsed.y)}${chart.unit || (chart.valueKey === "sales" ? "원" : chart.valueKey === "qty" ? "개" : "건")}`
+            } } }
 		}
 	});
 }
@@ -786,48 +987,34 @@ function renderChart(chart) {
  *  Export
  * ========================= */
 async function exportExcel() {
-	const res = await fetch("/analytics/api/export/excel", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify(buildRequestBodyForExport())
-	});
-
-	if (!res.ok) {
-		alert("엑셀 출력 실패");
-		return;
-	}
-
-	const blob = await res.blob();
-	const url = window.URL.createObjectURL(blob);
-
-	const a = document.createElement("a");
-	a.href = url;
-	a.download = "analytics.xlsx";
-	a.click();
-
-	window.URL.revokeObjectURL(url);
+    try {
+        const body = buildRequestBodyForExport();
+        const response = await fetch("/analytics/api/export/excel", {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+        });
+        if (!response.ok) throw new Error(await responseError(response, "엑셀 출력에 실패했습니다."));
+        const blob = await response.blob(), url = URL.createObjectURL(blob), link = document.createElement("a");
+        link.href = url; link.download = "analytics.xlsx"; link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) { alert(error.message || "엑셀 출력에 실패했습니다."); }
 }
-
-function exportA4() {
-	fetch("/analytics/api/export/a4", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify(buildRequestBodyForExport())
-	})
-		.then(res => res.text())
-		.then(html => {
-			const w = window.open("", "_blank");
-			if (!w) {
-				alert("팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요.");
-				return;
-			}
-			w.document.open();
-			w.document.write(html);
-			w.document.close();
-			w.focus();
-			w.print();
-		})
-		.catch(() => alert("A4 출력 실패"));
+async function exportA4() {
+    let report;
+    try {
+        const body = buildRequestBodyForExport();
+        report = window.open("", "_blank");
+        if (!report) throw new Error("팝업 허용 후 다시 출력해 주세요.");
+        report.document.body.textContent = "보고서를 준비하고 있습니다.";
+        const response = await fetch("/analytics/api/export/a4", {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
+        });
+        if (!response.ok) throw new Error(await responseError(response, "A4 출력에 실패했습니다."));
+        const html = await response.text();
+        report.document.open(); report.document.write(html); report.document.close();
+        const ready = report.document.fonts?.ready || Promise.resolve();
+        await ready;
+        report.focus(); report.print();
+    } catch (error) { report?.close(); alert(error.message || "A4 출력에 실패했습니다."); }
 }
 
 /** =========================

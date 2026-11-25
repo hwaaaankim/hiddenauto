@@ -12,9 +12,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.dev.HiddenBATHAuto.dto.analytics.AnalyticsQueryRequest;
+import com.dev.HiddenBATHAuto.dto.analytics.AnalyticsDetailsDtos;
 import com.dev.HiddenBATHAuto.dto.analytics.AnalyticsQueryResponse;
 import com.dev.HiddenBATHAuto.service.analytics.AnalyticsExcelExporter;
 import com.dev.HiddenBATHAuto.service.analytics.AnalyticsService;
+import com.dev.HiddenBATHAuto.service.analytics.AnalyticsCsvExporter;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.server.ResponseStatusException;
+import java.util.Map;
 
 import lombok.RequiredArgsConstructor;
 
@@ -37,6 +42,12 @@ public class AnalyticsController {
         return analyticsService.query(req);
     }
 
+    @PostMapping("/api/details")
+    @ResponseBody
+    public AnalyticsDetailsDtos.Response details(@RequestBody AnalyticsDetailsDtos.Request req) {
+        return analyticsService.details(req);
+    }
+
     @PostMapping("/api/export/excel")
     public ResponseEntity<byte[]> exportExcel(@RequestBody AnalyticsQueryRequest req) {
 
@@ -46,6 +57,8 @@ public class AnalyticsController {
                 "Analytics Export",
                 bundle.getMeta(),
                 bundle.getSummary(),
+                bundle.getTotals(),
+                bundle.getWarnings(),
                 bundle.getColumns(),
                 bundle.getChart(),
                 bundle.getRows()
@@ -56,6 +69,19 @@ public class AnalyticsController {
                 .contentType(MediaType.parseMediaType(
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(bytes);
+    }
+
+    @PostMapping("/api/export/csv")
+    public ResponseEntity<byte[]> exportCsv(@RequestBody AnalyticsQueryRequest req) {
+        var bundle=analyticsService.queryForExportBundle(req);
+        return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename=\"analytics.csv\"")
+                .contentType(MediaType.parseMediaType("text/csv;charset=UTF-8")).body(AnalyticsCsvExporter.export(bundle));
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    @ResponseBody
+    public ResponseEntity<Map<String,String>> invalidQuery(ResponseStatusException exception) {
+        return ResponseEntity.status(exception.getStatusCode()).body(Map.of("message",exception.getReason()==null?"조회 조건을 확인해 주세요.":exception.getReason()));
     }
 
     // A4 보고서: 요약+그래프+데이터 테이블

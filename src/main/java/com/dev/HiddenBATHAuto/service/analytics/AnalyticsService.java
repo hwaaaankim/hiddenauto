@@ -2,30 +2,39 @@ package com.dev.HiddenBATHAuto.service.analytics;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.DayOfWeek;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
+import java.util.TreeMap;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.dev.HiddenBATHAuto.dto.analytics.AnalyticsQueryRequest;
+import com.dev.HiddenBATHAuto.dto.analytics.AnalyticsMetric;
+import com.dev.HiddenBATHAuto.dto.analytics.AnalyticsDetailsDtos;
 import com.dev.HiddenBATHAuto.dto.analytics.AnalyticsQueryResponse;
 import com.dev.HiddenBATHAuto.dto.analytics.ProductOptionNormalized;
 import com.dev.HiddenBATHAuto.model.auth.Company;
 import com.dev.HiddenBATHAuto.model.task.Order;
 import com.dev.HiddenBATHAuto.model.task.OrderItem;
-import com.dev.HiddenBATHAuto.model.task.Task;
-import com.dev.HiddenBATHAuto.repository.analytics.AnalyticsTaskRepository;
+import com.dev.HiddenBATHAuto.model.task.OrderStatus;
+import com.dev.HiddenBATHAuto.repository.analytics.AnalyticsOrderRepository;
+import com.dev.HiddenBATHAuto.utils.KoreanAdministrativeRegionNormalizer;
 import com.dev.HiddenBATHAuto.utils.ProductOptionJsonParser;
 
 import lombok.RequiredArgsConstructor;
@@ -34,776 +43,502 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AnalyticsService {
-
-    private final AnalyticsTaskRepository analyticsTaskRepository;
+    private final AnalyticsOrderRepository analyticsOrderRepository;
     private final ProductOptionJsonParser optionJsonParser;
+    private static final List<String> DEFAULT_METRICS = List.of("SALES", "TASK_COUNT", "QTY");
+    private static final String BASIS = "발주일 기준 · 개별 품목 1개 = 주문 1건 · 부가세 포함 상품 합계 · 배송·포장비 제외 · 취소 제외 · 0원 반품용 별도 · 회수 금액은 저장값 유지";
 
-    private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    public AnalyticsQueryResponse query(AnalyticsQueryRequest request) {
+        return queryInternal(request, false);
+    }
 
-    public AnalyticsQueryResponse query(AnalyticsQueryRequest req) {
+    public AnalyticsQueryResponse queryForExportBundle(AnalyticsQueryRequest request) {
+        return queryInternal(request, true);
+    }
 
-        // =========================
-        // 1) 기간 처리 (기존 로직 유지 + 안정화)
-        // =========================
-        LocalDate fromDate = req.getFromDate();
-        LocalDate toDate = req.getToDate();
-
-        LocalDateTime from = (fromDate == null)
-                ? LocalDate.of(2000, 1, 1).atStartOfDay()
-                : fromDate.atStartOfDay();
-
-        LocalDateTime toExclusive = (toDate == null)
-                ? LocalDate.of(2999, 12, 31).plusDays(1).atStartOfDay()
-                : toDate.plusDays(1).atStartOfDay();
-
-        if (from.isAfter(toExclusive)) {
-            LocalDateTime tmp = from;
-            from = toExclusive.minusDays(1);
-            toExclusive = tmp.plusDays(1);
-        }
-
-        // =========================
-        // 2) 원천 데이터 조회
-        // =========================
-        List<Task> tasks = analyticsTaskRepository.findAllForAnalytics(from, toExclusive);
-
-        // 시간대 필터(요청 기준: Task.createdAt)
-        tasks = filterByHourRanges(tasks, req.getHourRanges());
-
-        // 주소 필터(Company 주소 기준) - COMPANY 모드일 때만
-        if (req.getPrimaryY() == AnalyticsQueryRequest.PrimaryY.COMPANY && req.getAddressFilter() != null) {
-            tasks = filterByCompanyAddress(tasks, req.getAddressFilter());
-        }
-
-        // =========================
-        // 3) rows 생성 + columns 생성
-        // =========================
-        List<Map<String, Object>> fullRows;
-        List<AnalyticsQueryResponse.ColumnMeta> columns;
-
-        if (req.getPrimaryY() == AnalyticsQueryRequest.PrimaryY.COMPANY) {
-            fullRows = buildCompanyRows(tasks, req);
-            columns = companyColumns(req);
-        } else {
-            ProductBuildResult pr = buildProductRows(tasks, req);
-            fullRows = pr.rows;
-            columns = productColumns(req);
-        }
-
-        // =========================
-        // 4) 정렬
-        // =========================
-        sortRows(fullRows, req.getSortKey(), req.getSortDir());
-
-        long total = fullRows.size();
-
-        // =========================
-        // 5) 페이징
-        // =========================
-        int fromIdx = Math.min(req.getPage() * req.getSize(), fullRows.size());
-        int toIdx = Math.min(fromIdx + req.getSize(), fullRows.size());
-        List<Map<String, Object>> pageRows = fullRows.subList(fromIdx, toIdx);
-
-        // “전체 정렬 기준 순위”
-        for (int i = 0; i < pageRows.size(); i++) {
-            pageRows.get(i).put("rank", fromIdx + i + 1);
-        }
-
-        // =========================
-        // 6) meta/summary/chart 구성
-        // =========================
-        AnalyticsQueryResponse.Meta meta = buildMeta(req);
-        AnalyticsQueryResponse.Summary summary = buildSummary(tasks, req);
-        String chartKey = resolveChartValueKey(req);
-        AnalyticsQueryResponse.ChartData chart = buildSimpleChart(fullRows, req, chartKey, 10);
-
-
+    private AnalyticsQueryResponse queryInternal(AnalyticsQueryRequest input, boolean export) {
+        AnalyticsQueryRequest req = normalize(input, export);
+        List<Atom> atoms = loadAtoms(req);
+        List<Map<String, Object>> rows = !"NONE".equals(req.getTimeGrouping()) ? timeRows(atoms, req) : req.getPrimaryY() == AnalyticsQueryRequest.PrimaryY.COMPANY
+                ? companyRows(atoms, req) : productRows(atoms, req);
+        sortRows(rows, req);
+        for (int i = 0; i < rows.size(); i++) rows.get(i).put("rank", i + 1);
+        int start = export ? 0 : (int) Math.min((long) req.getPage() * req.getSize(), rows.size());
+        int end = export ? rows.size() : Math.min(start + req.getSize(), rows.size());
+        Totals total = totals(atoms);
+        long missingCategory = atoms.stream().filter(a -> text(a.norm.getTop()).isEmpty()).count();
+        List<String> warnings = new ArrayList<>();
+        if (total.values.get("adjustmentOrderCount") > 0) warnings.add("기타 조정 품목 " + total.values.get("adjustmentOrderCount")
+                + "건이 있습니다. 수량 0 또는 양수 수량·음수 금액이므로 별도 조정으로 표시하고 저장 금액은 합계에 포함했습니다.");
+        if (req.getPrimaryY() == AnalyticsQueryRequest.PrimaryY.PRODUCT && missingCategory > 0)
+            warnings.add("분류 정보가 없는 품목 " + missingCategory + "건도 ‘분류 정보 없음’에 포함하여 집계했습니다.");
         return AnalyticsQueryResponse.builder()
-                .columns(columnsWithRankFirst(columns))
-                .rows(pageRows)
-                .totalRows(total)
-                .meta(meta)
-                .summary(summary)
-                .chart(chart)
-                .build();
+                .columns(columns(req)).rows(new ArrayList<>(rows.subList(start, end))).totalRows(rows.size())
+                .meta(meta(req)).summary(summary(atoms, req)).chart(chart(rows, req))
+                .totals(AnalyticsQueryResponse.Totals.builder().sales(total.sales).taskCount(total.count).qty(total.qty)
+                        .metrics(total.values).build())
+                .warnings(warnings).build();
     }
 
-    // export는 페이징 없이 전체 rows 반환 + meta/summary/columns/chart 포함
-    public AnalyticsQueryResponse queryForExportBundle(AnalyticsQueryRequest req) {
-        AnalyticsQueryRequest copy = copyForExport(req);
-        // query()는 pageRows만 내려주므로, export는 전체 rows를 직접 구성
-        // => query() 내부 로직을 재사용하되 size를 MAX로 잡아 전체 rows를 받는 방식 유지
-        copy.setPage(0);
-        copy.setSize(Integer.MAX_VALUE);
-
-        AnalyticsQueryResponse res = query(copy);
-
-        // res.rows는 사실상 전체가 되지만, 안전하게 totalRows 만큼 있는지 신뢰하고 그대로 사용
-        return res;
-    }
-
-    private AnalyticsQueryRequest copyForExport(AnalyticsQueryRequest req) {
-        AnalyticsQueryRequest copy = new AnalyticsQueryRequest();
-        copy.setFromDate(req.getFromDate());
-        copy.setToDate(req.getToDate());
-        copy.setPrimaryY(req.getPrimaryY());
-        copy.setAddressFilter(req.getAddressFilter());
-        copy.setHourRanges(req.getHourRanges());
-        copy.setProductBreakdown(req.getProductBreakdown());
-        copy.setMetrics(req.getMetrics());
-        copy.setSortKey(req.getSortKey());
-        copy.setSortDir(req.getSortDir());
-        copy.setPage(0);
-        copy.setSize(Integer.MAX_VALUE);
-        return copy;
-    }
-
-    // --------------------
-    // Filters
-    // --------------------
-    private List<Task> filterByHourRanges(List<Task> tasks, List<AnalyticsQueryRequest.HourRange> ranges) {
-        if (ranges == null || ranges.isEmpty()) return tasks;
-
-        return tasks.stream().filter(t -> {
-            int hour = t.getCreatedAt().getHour();
-            for (AnalyticsQueryRequest.HourRange r : ranges) {
-                if (inHourRange(hour, r.getStartHour(), r.getEndHour())) return true;
-            }
-            return false;
-        }).toList();
-    }
-
-    private boolean inHourRange(int hour, int start, int endInclusive) {
-        if (start <= endInclusive) return hour >= start && hour <= endInclusive;
-        return hour >= start || hour <= endInclusive; // wrap 지원
-    }
-
-    private List<Task> filterByCompanyAddress(List<Task> tasks, AnalyticsQueryRequest.AddressFilter f) {
-        return tasks.stream().filter(t -> {
-            Company c = (t.getRequestedBy() != null) ? t.getRequestedBy().getCompany() : null;
-            if (c == null) return false;
-
-            // ✅ Province 비교: "경기" = "경기도" 등 허용
-            if (f.getProvince() != null) {
-                String reqProv = normalizeProvinceName(f.getProvince());
-                String compProv = normalizeProvinceName(c.getDoName());
-                if (!reqProv.equals(compProv)) return false;
-            }
-
-            if (f.getCity() != null) {
-                if (c.getSiName() == null) return false;
-                if (!f.getCity().equals(c.getSiName())) return false;
-            }
-
-            if (f.getDistrict() != null) {
-                if (c.getGuName() == null) return false;
-                if (!f.getDistrict().equals(c.getGuName())) return false;
-            }
-
-            return true;
-        }).toList();
-    }
-
-    /**
-     * ✅ "경기" == "경기도", "강원" == "강원도" 등을 동일하게 맞추기 위한 정규화
-     * - 기본 전략: 끝의 "도" 제거, 공백 제거
-     * - 특별시/광역시 등은 "시/특별시/광역시/자치시/자치도" 표기를 단순화
-     * - DB/입력 어느 쪽이 약칭/정식명이어도 매칭되도록 통일
-     */
-    private String normalizeProvinceName(String s) {
-        if (s == null) return "";
-        String v = s.trim();
-        if (v.isEmpty()) return "";
-
-        v = v.replace(" ", "");
-
-        // 흔한 접미어 정리
-        // "경기도" -> "경기", "강원도" -> "강원", ...
-        if (v.endsWith("도")) v = v.substring(0, v.length() - 1);
-
-        // "서울특별시" -> "서울", "부산광역시" -> "부산", "세종특별자치시" -> "세종"
-        v = v.replace("특별자치시", "");
-        v = v.replace("특별자치도", "");
-        v = v.replace("특별시", "");
-        v = v.replace("광역시", "");
-        v = v.replace("자치시", "");
-        v = v.replace("자치도", "");
-        v = v.replace("시", ""); // 마지막까지 남은 "시" 제거(예: "서울시" 형태 대비)
-
-        return v;
-    }
-
-
- // --------------------
- // Rows builders
- // --------------------
- private List<Map<String, Object>> buildCompanyRows(List<Task> tasks, AnalyticsQueryRequest req) {
-
-     Map<Long, List<Task>> byCompany = tasks.stream()
-             .filter(t -> t.getRequestedBy() != null && t.getRequestedBy().getCompany() != null)
-             .collect(Collectors.groupingBy(t -> t.getRequestedBy().getCompany().getId()));
-
-     List<Map<String, Object>> rows = new ArrayList<>();
-
-     for (var e : byCompany.entrySet()) {
-         List<Task> companyTasks = e.getValue();
-         Company company = companyTasks.get(0).getRequestedBy().getCompany();
-
-         Map<String, Object> row = new LinkedHashMap<>();
-         row.put("rank", 0); // placeholder
-         row.put("companyName", company.getCompanyName());
-         row.put("ownerName", companyTasks.get(0).getRequestedBy().getName());
-
-         boolean includeAddressColumn = req.getAddressFilter() != null;
-         if (includeAddressColumn) {
-             row.put("address", buildCompanyAddress(company));
-         }
-
-         int sales = companyTasks.stream().mapToInt(Task::getTotalPrice).sum();
-         long taskCount = companyTasks.size();
-         int qty = companyTasks.stream()
-                 .flatMap(t -> safeOrders(t).stream())
-                 .mapToInt(Order::getQuantity)
-                 .sum();
-
-         /**
-          * ✅ 핵심 안정화:
-          * - row에는 차트/정렬을 위해 원본 값(sales/taskCount/qty)을 항상 넣습니다.
-          * - 화면/엑셀/A4에서 어떤 컬럼을 보여줄지는 columns 메타(companyColumns)에서만 제어합니다.
-          * - 이렇게 하면 metrics에 SALES가 빠져도 chart(valueKey="sales")가 0%가 되는 문제가 사라집니다.
-          */
-         row.put("sales", sales);
-         row.put("taskCount", taskCount);
-         row.put("qty", qty);
-
-         rows.add(row);
-     }
-
-     return rows;
- }
-
-    private String buildCompanyAddress(Company c) {
-        List<String> parts = new ArrayList<>();
-        if (c.getDoName() != null) parts.add(c.getDoName());
-        if (c.getSiName() != null) parts.add(c.getSiName());
-        if (c.getGuName() != null) parts.add(c.getGuName());
-        return String.join(" ", parts);
-    }
-
-    private static class ProductBuildResult {
-        List<Map<String, Object>> rows;
-    }
-
-    private ProductBuildResult buildProductRows(List<Task> tasks, AnalyticsQueryRequest req) {
-
-        List<OrderRowAtom> atoms = buildAtoms(tasks);
-
-        AnalyticsQueryRequest.ProductBreakdown pb = req.getProductBreakdown();
-        if (pb == null) {
-            pb = new AnalyticsQueryRequest.ProductBreakdown();
-            pb.setIncludeStandard(true);
-            pb.setIncludeNonStandard(true);
-            pb.setStandardLevel("CATEGORY");
-            pb.setNonStandardLevel("SORT");
+    private List<Atom> loadAtoms(AnalyticsQueryRequest req) {
+        LocalDateTime from = req.getFromDate() == null ? null : req.getFromDate().atStartOfDay();
+        LocalDateTime to = req.getToDate() == null ? null : req.getToDate().plusDays(1).atStartOfDay();
+        List<Order> source = analyticsOrderRepository.findAllForAnalytics(from, to, OrderStatus.CANCELED);
+        Map<Long, Order> unique = new LinkedHashMap<>();
+        for (Order order : source) {
+            if (order != null && order.getId() != null) unique.putIfAbsent(order.getId(), order);
         }
-
-        final boolean includeStd = pb.isIncludeStandard();
-        final boolean includeNon = pb.isIncludeNonStandard();
-
-        List<OrderRowAtom> filtered = atoms.stream().filter(a -> {
-            if (a.standard && !includeStd) return false;
-            if (!a.standard && !includeNon) return false;
-            return true;
-        }).toList();
-
-        final String stdLevel = pb.getStandardLevel();
-        final String nonLevel = pb.getNonStandardLevel();
-
-        Function<OrderRowAtom, String> groupKeyFn = a -> {
-            if (a.standard) return "STD|" + keyByStandardLevel(a.norm, stdLevel);
-            return "NON|" + keyByNonStandardLevel(a.norm, nonLevel);
-        };
-
-        Map<String, List<OrderRowAtom>> grouped = filtered.stream()
-                .collect(Collectors.groupingBy(groupKeyFn));
-
-        List<Map<String, Object>> rows = new ArrayList<>();
-
-        for (var e : grouped.entrySet()) {
-            List<OrderRowAtom> list = e.getValue();
-            boolean standard = list.get(0).standard;
-
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("rank", 0);
-            row.put("type", standard ? "규격" : "비규격");
-
-            String label = standard
-                    ? labelByStandardLevel(list.get(0).norm, pb.getStandardLevel())
-                    : labelByNonStandardLevel(list.get(0).norm, pb.getNonStandardLevel());
-
-            row.put("label", label);
-
-            int sales = list.stream().mapToInt(a -> a.sales).sum();
-            long taskCount = list.stream().mapToLong(a -> a.taskCount).sum();
-            int qty = list.stream().mapToInt(a -> a.qty).sum();
-
-            row.put("sales", sales);
-            row.put("taskCount", taskCount);
-            row.put("qty", qty);
-
-            rows.add(row);
-        }
-
-        ProductBuildResult res = new ProductBuildResult();
-        res.rows = rows;
-        return res;
-    }
-
-    private List<OrderRowAtom> buildAtoms(List<Task> tasks) {
-        List<OrderRowAtom> atoms = new ArrayList<>();
-
-        for (Task t : tasks) {
-            for (Order o : safeOrders(t)) {
-                OrderItem oi = o.getOrderItem();
-                String optionJson = (oi != null) ? oi.getOptionJson() : null;
-
-                ProductOptionNormalized norm = optionJsonParser.parse(o.isStandard(), optionJson);
-
-                atoms.add(OrderRowAtom.builder()
-                        .taskId(t.getId())
-                        .createdAt(t.getCreatedAt())
-                        .sales(t.getTotalPrice())
-                        .taskCount(1)
-                        .qty(o.getQuantity())
-                        .standard(o.isStandard())
-                        .norm(norm)
-                        .build());
+        List<Atom> atoms = new ArrayList<>();
+        for (Order order : unique.values()) {
+            LocalDateTime date = order.getCreatedAt();
+            if (date == null || order.getStatus() == OrderStatus.CANCELED
+                    || from != null && date.isBefore(from) || to != null && !date.isBefore(to)) continue;
+            if (!matchesHours(date, req.getHourRanges())) continue;
+            Company company = company(order);
+            if (!matchesAddress(company, req.getAddressFilter())) continue;
+            if (req.getPrimaryY() == AnalyticsQueryRequest.PrimaryY.PRODUCT) {
+                var breakdown = req.getProductBreakdown();
+                if (order.isStandard() ? !breakdown.isIncludeStandard() : !breakdown.isIncludeNonStandard()) continue;
             }
+            OrderItem item = order.getOrderItem();
+            ProductOptionNormalized norm = optionJsonParser.parse(order.isStandard(), item == null ? null : item.getOptionJson());
+            if (norm.getProduct() == null && item != null && !text(item.getProductName()).isEmpty()
+                    && !"제품명없음".equals(item.getProductName())) norm.setProduct(item.getProductName().trim());
+            // totalAmount is already the full line amount. Multiplying it by quantity again is incorrect.
+            // Retain free/zero-value rows; never invent VAT or a missing historical amount.
+            long sales = order.getTotalAmount();
+            Atom atom = new Atom(order, company, norm, sales);
+            if (!req.getRecordKinds().contains(recordKind(atom))) continue;
+            if (!req.getKeyword().isEmpty()) {
+                String haystack = req.getPrimaryY() == AnalyticsQueryRequest.PrimaryY.COMPANY
+                        ? (company == null ? "업체 정보 없음" : text(company.getCompanyName()) + " " + company.getId())
+                        : String.join(" ", display(norm.getTop()), display(norm.getMid()), display(norm.getProduct()), display(norm.getColor()));
+                if (!haystack.toLowerCase(Locale.ROOT).contains(req.getKeyword().toLowerCase(Locale.ROOT))) continue;
+            }
+            atoms.add(atom);
         }
 
         return atoms;
     }
 
-    private String keyByStandardLevel(ProductOptionNormalized n, String level) {
-        return switch (safe(level)) {
-            case "CATEGORY" -> safe(n.getTop());
-            case "SERIES" -> safe(n.getMid());
-            case "PRODUCT" -> safe(n.getProduct());
-            case "COLOR" -> safe(n.getColor());
-            default -> safe(n.getTop());
-        };
-    }
-
-    private String labelByStandardLevel(ProductOptionNormalized n, String level) {
-        return keyByStandardLevel(n, level);
-    }
-
-    private String keyByNonStandardLevel(ProductOptionNormalized n, String level) {
-        return switch (safe(level)) {
-            case "SORT" -> safe(n.getTop());
-            case "SERIES" -> safe(n.getMid());
-            case "PRODUCT" -> safe(n.getProduct());
-            case "COLOR" -> safe(n.getColor());
-            default -> safe(n.getTop());
-        };
-    }
-
-    private String labelByNonStandardLevel(ProductOptionNormalized n, String level) {
-        return keyByNonStandardLevel(n, level);
-    }
-
-    private String safe(String s) {
-        return (s == null || s.isBlank()) ? "-" : s;
-    }
-
-    private List<Order> safeOrders(Task t) {
-        return (t.getOrders() == null) ? List.of() : t.getOrders();
-    }
-
-    // --------------------
-    // Sorting
-    // --------------------
-    private void sortRows(List<Map<String, Object>> rows, String sortKey, String sortDir) {
-        if (sortKey == null || sortKey.isBlank()) return;
-
-        Comparator<Map<String, Object>> cmp = Comparator.comparing(m -> {
-            Object v = m.get(sortKey);
-            if (v == null) return 0d;
-            if (v instanceof Number) return ((Number) v).doubleValue();
-            return 0d;
-        });
-
-        // 숫자 아닌 텍스트 정렬은 별도로(회사명 등)
-        if (!rows.isEmpty() && !(rows.get(0).get(sortKey) instanceof Number)) {
-            cmp = Comparator.comparing(m -> String.valueOf(m.get(sortKey) == null ? "" : m.get(sortKey)));
+    private AnalyticsQueryRequest normalize(AnalyticsQueryRequest input, boolean export) {
+        if (input == null || input.getPrimaryY() == null) throw bad("업체별 또는 제품별을 먼저 선택해 주세요.");
+        if (input.getFromDate() != null && input.getToDate() != null && input.getFromDate().isAfter(input.getToDate()))
+            throw bad("발주 시작일은 종료일보다 늦을 수 없습니다.");
+        for (LocalDate date : new LocalDate[] {input.getFromDate(), input.getToDate()})
+            if (date != null && (date.getYear() < 1000 || date.getYear() > 9998)) throw bad("유효한 발주일을 입력해 주세요.");
+        if (input.getPage() < 0 || !export && (input.getSize() < 1 || input.getSize() > 500))
+            throw bad("조회 페이지와 페이지 크기를 확인해 주세요. 한 페이지는 1~500행입니다.");
+        AnalyticsQueryRequest req = new AnalyticsQueryRequest();
+        req.setFromDate(input.getFromDate()); req.setToDate(input.getToDate()); req.setPrimaryY(input.getPrimaryY());
+        req.setPage(input.getPage()); req.setSize(export ? Integer.MAX_VALUE : input.getSize());
+        List<String> metrics = input.getMetrics() == null || input.getMetrics().isEmpty() ? DEFAULT_METRICS : input.getMetrics();
+        LinkedHashSet<String> selected = new LinkedHashSet<>();
+        for (String metric : metrics) {
+            try { AnalyticsMetric.valueOf(metric); } catch (IllegalArgumentException | NullPointerException e) { throw bad("지원하지 않는 지표입니다."); }
+            selected.add(metric);
         }
-
-        if ("desc".equalsIgnoreCase(sortDir)) cmp = cmp.reversed();
-        rows.sort(cmp);
-    }
-
-    // --------------------
-    // Columns meta
-    // --------------------
-    private List<AnalyticsQueryResponse.ColumnMeta> columnsWithRankFirst(List<AnalyticsQueryResponse.ColumnMeta> cols) {
-        // rank가 헤더 첫 번째로 오도록 강제
-        List<AnalyticsQueryResponse.ColumnMeta> out = new ArrayList<>();
-        out.add(AnalyticsQueryResponse.ColumnMeta.builder()
-                .key("rank")
-                .label("순위")
-                .help("현재 정렬 기준으로 계산된 전체 순위입니다.")
-                .build());
-        for (AnalyticsQueryResponse.ColumnMeta c : cols) {
-            if ("rank".equals(c.getKey())) continue;
-            out.add(c);
-        }
-        return out;
-    }
-
-    private List<AnalyticsQueryResponse.ColumnMeta> companyColumns(AnalyticsQueryRequest req) {
-        List<AnalyticsQueryResponse.ColumnMeta> cols = new ArrayList<>();
-
-        cols.add(cm("companyName", "업체명", "업체별로 집계한 기준 업체명입니다."));
-        cols.add(cm("ownerName", "담당/대표", "업체의 대표자(요청자) 기준으로 표시됩니다."));
-
-        if (req.getAddressFilter() != null) {
-            cols.add(cm("address", "지역(도/시/구)", "업체 주소의 도/시/구를 결합한 값입니다."));
-        }
-
-        Set<String> metrics = new HashSet<>(Optional.ofNullable(req.getMetrics()).orElse(List.of()));
-        if (metrics.isEmpty()) metrics = new HashSet<>(List.of("SALES", "TASK_COUNT", "QTY"));
-
-        if (metrics.contains("TASK_COUNT")) cols.add(cm("taskCount", "주문건수", "Task(업무) 건수 기준입니다."));
-        if (metrics.contains("QTY")) cols.add(cm("qty", "주문수량", "Order.quantity 합계 기준입니다."));
-        if (metrics.contains("SALES")) cols.add(cm("sales", "매출액", "Task.totalPrice 합계 기준입니다."));
-
-        return cols;
-    }
-
-    private List<AnalyticsQueryResponse.ColumnMeta> productColumns(AnalyticsQueryRequest req) {
-        return List.of(
-                cm("type", "구분", "규격/비규격 구분입니다."),
-                cm("label", "제품 기준", "선택한 분류 레벨(카테고리/시리즈/제품/색상)로 집계된 값입니다."),
-                cm("sales", "매출액", "Task.totalPrice 합계 기준입니다."),
-                cm("taskCount", "주문건수", "Task(업무) 건수 기준입니다."),
-                cm("qty", "주문수량", "Order.quantity 합계 기준입니다.")
-        );
-    }
-
-    private AnalyticsQueryResponse.ColumnMeta cm(String key, String label, String help) {
-        return AnalyticsQueryResponse.ColumnMeta.builder()
-                .key(key)
-                .label(label)
-                .help(help)
-                .build();
-    }
-
-    // --------------------
-    // Meta / Summary / Chart
-    // --------------------
-    private AnalyticsQueryResponse.Meta buildMeta(AnalyticsQueryRequest req) {
-        String periodText;
-        if (req.getFromDate() == null && req.getToDate() == null) {
-            periodText = "필터기간: 전체";
-        } else if (req.getFromDate() != null && req.getToDate() != null) {
-            periodText = "필터기간: " + req.getFromDate().format(DTF) + " ~ " + req.getToDate().format(DTF);
-        } else if (req.getFromDate() != null) {
-            periodText = "필터기간: " + req.getFromDate().format(DTF) + " ~ (미래 전체)";
-        } else {
-            periodText = "필터기간: (과거 전체) ~ " + req.getToDate().format(DTF);
-        }
-
-        String yAxisText = "Y축: " + (req.getPrimaryY() == AnalyticsQueryRequest.PrimaryY.COMPANY ? "업체별" : "제품별");
-
-        String ySubText;
-        if (req.getPrimaryY() != AnalyticsQueryRequest.PrimaryY.COMPANY) {
-            ySubText = "Y-Sub: 없음";
-        } else {
-            List<String> subs = new ArrayList<>();
-            if (req.getAddressFilter() != null) subs.add("주소");
-            if (req.getHourRanges() != null && !req.getHourRanges().isEmpty()) subs.add("시간대");
-            ySubText = "Y-Sub: " + (subs.isEmpty() ? "없음" : String.join(", ", subs));
-        }
-
-        String xAxisText;
-        List<String> metrics = Optional.ofNullable(req.getMetrics()).orElse(List.of());
-        if (metrics.isEmpty()) {
-            xAxisText = "X축 지표: 매출액, 주문건수, 주문수량(기본)";
-        } else {
-            xAxisText = "X축 지표: " + metrics.stream().map(this::metricKr).collect(Collectors.joining(", "));
-        }
-
-        String xDimText;
-        if (req.getPrimaryY() != AnalyticsQueryRequest.PrimaryY.PRODUCT) {
-            xDimText = "제품 분류: 없음";
-        } else {
-            AnalyticsQueryRequest.ProductBreakdown pb = req.getProductBreakdown();
-            String std = (pb == null || pb.getStandardLevel() == null) ? "CATEGORY" : pb.getStandardLevel();
-            String non = (pb == null || pb.getNonStandardLevel() == null) ? "SORT" : pb.getNonStandardLevel();
-            xDimText = "제품 분류: 규격(" + std + "), 비규격(" + non + ")";
-        }
-
-        String addressText;
-        if (req.getAddressFilter() == null) {
-            addressText = "주소필터: 전체";
-        } else {
-            String p = req.getAddressFilter().getProvince();
-            String c = req.getAddressFilter().getCity();
-            String d = req.getAddressFilter().getDistrict();
-            String v = String.join(" ", Arrays.asList(nz(p), nz(c), nz(d)).stream().filter(s -> !s.isBlank()).toList());
-            addressText = "주소필터: " + (v.isBlank() ? "전체" : v);
-        }
-
-        String hourText;
-        if (req.getHourRanges() == null || req.getHourRanges().isEmpty()) {
-            hourText = "시간대: 전체";
-        } else {
-            String v = req.getHourRanges().stream()
-                    .map(r -> r.getStartHour() + "-" + r.getEndHour())
-                    .collect(Collectors.joining(", "));
-            hourText = "시간대: " + v;
-        }
-
-        String sortText;
-        if (req.getSortKey() == null || req.getSortKey().isBlank()) {
-            sortText = "정렬: 없음";
-        } else {
-            String keyKr = sortKeyKr(req.getSortKey());
-            String dirKr = "asc".equalsIgnoreCase(req.getSortDir()) ? "오름차순" : "내림차순";
-            sortText = "정렬: " + keyKr + " " + dirKr;
-        }
-
-        return AnalyticsQueryResponse.Meta.builder()
-                .periodText(periodText)
-                .yAxisText(yAxisText)
-                .ySubText(ySubText)
-                .xAxisText(xAxisText)
-                .xDimText(xDimText)
-                .addressText(addressText)
-                .hourText(hourText)
-                .sortText(sortText)
-                .build();
-    }
-
-    private String nz(String s) { return s == null ? "" : s.trim(); }
-
-    private String metricKr(String m) {
-        return switch (m) {
-            case "SALES" -> "매출액";
-            case "TASK_COUNT" -> "주문건수";
-            case "QTY" -> "주문수량";
-            default -> m;
-        };
-    }
-
-    private String sortKeyKr(String key) {
-        return switch (key) {
-            case "sales" -> "매출액";
-            case "taskCount" -> "주문건수";
-            case "qty" -> "주문수량";
-            case "companyName" -> "업체명";
-            case "ownerName" -> "담당/대표";
-            case "address" -> "지역";
-            case "label" -> "제품 기준";
-            case "type" -> "구분";
-            case "rank" -> "순위";
-            default -> key;
-        };
-    }
-
-    private AnalyticsQueryResponse.Summary buildSummary(List<Task> tasks, AnalyticsQueryRequest req) {
-        if (tasks == null || tasks.isEmpty()) return AnalyticsQueryResponse.Summary.builder().build();
-
+        req.setMetrics(List.copyOf(selected));
         if (req.getPrimaryY() == AnalyticsQueryRequest.PrimaryY.COMPANY) {
-            List<AnalyticsQueryResponse.RankItem> topCompanies = buildTopCompanies(tasks);
-            List<AnalyticsQueryResponse.RankItem> topRegions = buildTopRegions(tasks);
-
-            return AnalyticsQueryResponse.Summary.builder()
-                    .topCompanies(topCompanies)
-                    .topRegions(topRegions)
-                    .build();
+            req.setAddressFilter(input.getAddressFilter());
+            if (input.getHourRanges() != null) {
+                if (input.getHourRanges().size() > 24) throw bad("시간대는 최대 24개 구간까지 지정해 주세요.");
+                for (var hour : input.getHourRanges())
+                    if (hour == null || hour.getStartHour() < 0 || hour.getStartHour() > 23
+                            || hour.getEndHour() < 0 || hour.getEndHour() > 23) throw bad("시간대는 0~23시로 입력해 주세요.");
+                req.setHourRanges(List.copyOf(input.getHourRanges()));
+            }
         }
-
-        // PRODUCT 모드: atoms 기반으로 top(카테고리/시리즈/제품)
-        List<OrderRowAtom> atoms = buildAtoms(tasks);
-        List<AnalyticsQueryResponse.RankItem> topCategories = buildTopBy(atoms, a -> safe(a.norm.getTop()), "카테고리");
-        List<AnalyticsQueryResponse.RankItem> topSeries = buildTopBy(atoms, a -> safe(a.norm.getMid()), "시리즈");
-        List<AnalyticsQueryResponse.RankItem> topProducts = buildTopBy(atoms, a -> safe(a.norm.getProduct()), "제품");
-
-        return AnalyticsQueryResponse.Summary.builder()
-                .topCategories(topCategories)
-                .topSeries(topSeries)
-                .topProducts(topProducts)
-                .build();
-    }
-
-    private List<AnalyticsQueryResponse.RankItem> buildTopCompanies(List<Task> tasks) {
-        Map<String, List<Task>> byCompanyName = tasks.stream()
-                .filter(t -> t.getRequestedBy() != null && t.getRequestedBy().getCompany() != null)
-                .collect(Collectors.groupingBy(t -> t.getRequestedBy().getCompany().getCompanyName()));
-
-        List<AnalyticsQueryResponse.RankItem> items = byCompanyName.entrySet().stream().map(e -> {
-            int sales = e.getValue().stream().mapToInt(Task::getTotalPrice).sum();
-            long taskCount = e.getValue().size();
-            int qty = e.getValue().stream()
-                    .flatMap(t -> safeOrders(t).stream())
-                    .mapToInt(Order::getQuantity)
-                    .sum();
-            return AnalyticsQueryResponse.RankItem.builder()
-                    .name(e.getKey() == null ? "-" : e.getKey())
-                    .sales(sales).taskCount(taskCount).qty(qty)
-                    .build();
-        }).sorted(Comparator.comparingInt(AnalyticsQueryResponse.RankItem::getSales).reversed())
-          .limit(5)
-          .toList();
-
-        return withRank(items);
-    }
-
-    private List<AnalyticsQueryResponse.RankItem> buildTopRegions(List<Task> tasks) {
-        Map<String, List<Task>> byRegion = tasks.stream()
-                .filter(t -> t.getRequestedBy() != null && t.getRequestedBy().getCompany() != null)
-                .collect(Collectors.groupingBy(t -> buildCompanyAddress(t.getRequestedBy().getCompany())));
-
-        List<AnalyticsQueryResponse.RankItem> items = byRegion.entrySet().stream().map(e -> {
-            int sales = e.getValue().stream().mapToInt(Task::getTotalPrice).sum();
-            long taskCount = e.getValue().size();
-            int qty = e.getValue().stream()
-                    .flatMap(t -> safeOrders(t).stream())
-                    .mapToInt(Order::getQuantity)
-                    .sum();
-            return AnalyticsQueryResponse.RankItem.builder()
-                    .name((e.getKey() == null || e.getKey().isBlank()) ? "-" : e.getKey())
-                    .sales(sales).taskCount(taskCount).qty(qty)
-                    .build();
-        }).sorted(Comparator.comparingInt(AnalyticsQueryResponse.RankItem::getSales).reversed())
-          .limit(5)
-          .toList();
-
-        return withRank(items);
-    }
-
-    private List<AnalyticsQueryResponse.RankItem> buildTopBy(List<OrderRowAtom> atoms, Function<OrderRowAtom, String> keyFn, String title) {
-        Map<String, List<OrderRowAtom>> grouped = atoms.stream()
-                .collect(Collectors.groupingBy(keyFn));
-
-        List<AnalyticsQueryResponse.RankItem> items = grouped.entrySet().stream().map(e -> {
-            int sales = e.getValue().stream().mapToInt(a -> a.sales).sum();
-            long taskCount = e.getValue().stream().mapToLong(a -> a.taskCount).sum();
-            int qty = e.getValue().stream().mapToInt(a -> a.qty).sum();
-            return AnalyticsQueryResponse.RankItem.builder()
-                    .name((e.getKey() == null || e.getKey().isBlank()) ? "-" : e.getKey())
-                    .sales(sales).taskCount(taskCount).qty(qty)
-                    .build();
-        }).sorted(Comparator.comparingInt(AnalyticsQueryResponse.RankItem::getSales).reversed())
-          .limit(5)
-          .toList();
-
-        return withRank(items);
-    }
-
-    private List<AnalyticsQueryResponse.RankItem> withRank(List<AnalyticsQueryResponse.RankItem> items) {
-        List<AnalyticsQueryResponse.RankItem> out = new ArrayList<>();
-        for (int i = 0; i < items.size(); i++) {
-            AnalyticsQueryResponse.RankItem it = items.get(i);
-            out.add(AnalyticsQueryResponse.RankItem.builder()
-                    .rank(i + 1)
-                    .name(it.getName())
-                    .sales(it.getSales())
-                    .taskCount(it.getTaskCount())
-                    .qty(it.getQty())
-                    .build());
+        var original = input.getProductBreakdown();
+        var breakdown = new AnalyticsQueryRequest.ProductBreakdown();
+        if (original != null) {
+            breakdown.setIncludeStandard(original.isIncludeStandard());
+            breakdown.setIncludeNonStandard(original.isIncludeNonStandard());
         }
-        return out;
+        breakdown.setStandardLevel(level(original == null ? null : original.getStandardLevel(), true));
+        breakdown.setNonStandardLevel(level(original == null ? null : original.getNonStandardLevel(), false));
+        if (req.getPrimaryY() == AnalyticsQueryRequest.PrimaryY.PRODUCT
+                && !breakdown.isIncludeStandard() && !breakdown.isIncludeNonStandard())
+            throw bad("규격 또는 비규격 분류를 하나 이상 선택해 주세요.");
+        req.setProductBreakdown(breakdown);
+        req.setKeyword(text(input.getKeyword()));
+        if (req.getKeyword().length() > 100) throw bad("검색어는 100자 이하로 입력해 주세요.");
+        List<String> kinds = List.of("PAID", "RETURN", "COLLECTION", "ADJUSTMENT");
+        List<String> selectedKinds = input.getRecordKinds() == null ? kinds : new ArrayList<>(new LinkedHashSet<>(input.getRecordKinds()));
+        if (selectedKinds.isEmpty() || selectedKinds.stream().anyMatch(kind -> kind == null || !kinds.contains(kind))) throw bad("주문 유형을 하나 이상 올바르게 선택해 주세요.");
+        req.setRecordKinds(List.copyOf(selectedKinds));
+        String grouping = text(input.getTimeGrouping()).toUpperCase(Locale.ROOT);
+        if (grouping.isEmpty()) grouping = "NONE";
+        if (!List.of("NONE", "DAY", "WEEK", "MONTH").contains(grouping)) throw bad("지원하지 않는 기간별 보기입니다.");
+        req.setTimeGrouping(grouping);
+        String chartType = text(input.getChartType()).toUpperCase(Locale.ROOT);
+        if (chartType.isEmpty()) chartType = "BAR";
+        if (!List.of("BAR", "HORIZONTAL", "LINE").contains(chartType)) throw bad("지원하지 않는 그래프 형태입니다.");
+        req.setChartType(chartType);
+        List<String> chartMetrics = input.getChartMetrics() == null || input.getChartMetrics().isEmpty()
+                ? List.of(req.getMetrics().get(0)) : new ArrayList<>(new LinkedHashSet<>(input.getChartMetrics()));
+        if (chartMetrics.size() > 4) throw bad("그래프 지표는 최대 4개까지 선택해 주세요.");
+        String unit = null;
+        for (String code : chartMetrics) {
+            AnalyticsMetric metric;
+            try { metric = AnalyticsMetric.valueOf(code); } catch (Exception e) { throw bad("그래프 지표를 확인해 주세요."); }
+            if (unit != null && !unit.equals(metric.unit())) throw bad("같은 단위의 지표끼리 비교해 주세요. 원·건·개를 한 축에 섞지 않습니다.");
+            unit = metric.unit();
+        }
+        req.setChartMetrics(List.copyOf(chartMetrics));
+        if (input.getChartLimit() < 0 || input.getChartLimit() > 100) throw bad("그래프 표시 범위는 0~100개입니다. 0은 기간 추이의 전체 구간입니다.");
+        req.setChartLimit(input.getChartLimit() == 0 && "NONE".equals(grouping) ? 10 : input.getChartLimit());
+        req.setChartSortDir("asc".equalsIgnoreCase(input.getChartSortDir()) ? "asc" : "desc");
+        req.setCompactTable(input.isCompactTable());
+        Set<String> allowed = new LinkedHashSet<>();
+        for (AnalyticsMetric metric : AnalyticsMetric.values()) allowed.add(metric.key());
+        if (!"NONE".equals(req.getTimeGrouping())) allowed.add("period");
+        else allowed.addAll(req.getPrimaryY() == AnalyticsQueryRequest.PrimaryY.COMPANY
+                ? List.of("companyName", "ownerName", "address") : List.of("type", "label"));
+        String sort = text(input.getSortKey());
+        if (sort.isEmpty() || "rank".equals(sort)) sort = "NONE".equals(req.getTimeGrouping()) ? metricKey(req.getMetrics().get(0)) : "period";
+        if (!allowed.contains(sort)) throw bad("현재 행 기준에서 사용할 수 없는 정렬 항목입니다.");
+        req.setSortKey(sort);
+        req.setSortDir("period".equals(sort) && text(input.getSortKey()).isEmpty() ? "asc" : "asc".equalsIgnoreCase(input.getSortDir()) ? "asc" : "desc");
+        return req;
     }
 
-    private AnalyticsQueryResponse.ChartData buildSimpleChart(
-            List<Map<String, Object>> fullRows,
-            AnalyticsQueryRequest req,
-            String valueKey,
-            int topN
-    ) {
-        if (fullRows == null || fullRows.isEmpty()) return null;
+    private String level(String value, boolean standard) {
+        String normalized = text(value).toUpperCase(Locale.ROOT);
+        if (normalized.isEmpty()) return standard ? "CATEGORY" : "SORT";
+        if (!(standard ? List.of("CATEGORY", "SERIES", "PRODUCT", "COLOR") : List.of("SORT", "SERIES", "PRODUCT", "COLOR"))
+                .contains(normalized)) throw bad("지원하지 않는 제품 분류 단계입니다.");
+        return normalized;
+    }
 
-        // ✅ 상위 N개 (정렬은 이미 fullRows가 sortRows()를 거친 뒤라고 가정)
-        List<Map<String, Object>> top = fullRows.stream()
-                .limit(topN)
-                .toList();
+    private ResponseStatusException bad(String message) { return new ResponseStatusException(HttpStatus.BAD_REQUEST, message); }
+    private String text(String value) { return value == null ? "" : value.trim(); }
+    private String display(String value) { return text(value).isEmpty() ? "분류 정보 없음" : value.trim(); }
+    private Company company(Order order) {
+        return order.getTask() == null || order.getTask().getRequestedBy() == null ? null
+                : order.getTask().getRequestedBy().getCompany();
+    }
+    private boolean matchesHours(LocalDateTime date, List<AnalyticsQueryRequest.HourRange> hours) {
+        if (hours == null || hours.isEmpty()) return true;
+        int hour = date.getHour();
+        return hours.stream().anyMatch(range -> range.getStartHour() <= range.getEndHour()
+                ? hour >= range.getStartHour() && hour <= range.getEndHour()
+                : hour >= range.getStartHour() || hour <= range.getEndHour());
+    }
+    private boolean matchesAddress(Company company, AnalyticsQueryRequest.AddressFilter filter) {
+        if (filter == null) return true;
+        if (company == null) return text(filter.getProvince()).isEmpty() && text(filter.getCity()).isEmpty() && text(filter.getDistrict()).isEmpty();
+        return (text(filter.getProvince()).isEmpty() || KoreanAdministrativeRegionNormalizer.canonicalProvinceName(filter.getProvince())
+                        .equals(KoreanAdministrativeRegionNormalizer.canonicalProvinceName(company.getDoName())))
+                && (text(filter.getCity()).isEmpty() || text(filter.getCity()).equals(text(company.getSiName())))
+                && (text(filter.getDistrict()).isEmpty() || text(filter.getDistrict()).equals(text(company.getGuName())));
+    }
+    private String address(Company company) {
+        if (company == null) return "지역 정보 없음";
+        String result = List.of(text(company.getDoName()), text(company.getSiName()), text(company.getGuName())).stream()
+                .filter(s -> !s.isEmpty()).collect(Collectors.joining(" "));
+        return result.isEmpty() ? "지역 정보 없음" : result;
+    }
 
-        // ✅ 라벨
-        List<String> labels = top.stream()
-                .map(r -> {
-                    if (req.getPrimaryY() == AnalyticsQueryRequest.PrimaryY.COMPANY) {
-                        return String.valueOf(r.getOrDefault("companyName", "-"));
-                    }
-                    return String.valueOf(r.getOrDefault("label", "-"));
-                })
-                .toList();
-
-        // ✅ 값
-        List<Number> values = top.stream()
-                .map(r -> {
-                    Object v = r.get(valueKey);
-                    if (v instanceof Number) return (Number) v;
-                    return 0;
-                })
-                .toList();
-
-        // ✅ 최대값(템플릿에서 max 계산하지 않도록 서버에서 계산)
-        double maxValue = values.stream()
-                .filter(v -> v != null)
-                .mapToDouble(Number::doubleValue)
-                .max()
-                .orElse(0d);
-
-        // ✅ 제목: valueKey에 맞춰 자동으로
-        String metricKr = switch (valueKey) {
-            case "taskCount" -> "주문건수";
-            case "qty" -> "주문수량";
-            case "sales" -> "매출";
-            default -> valueKey;
+    private Group companyGroup(Atom atom) {
+        return new Group(new Key("COMPANY", List.of(atom.company == null ? "unknown" : String.valueOf(atom.company.getId()))),
+                atom.company == null ? "업체 정보 없음" : display(atom.company.getCompanyName()));
+    }
+    private String companyLabel(Group group, Map<String, Long> counts) {
+        return group.key.type.equals("COMPANY") && counts.getOrDefault(group.label, 0L) > 1
+                ? group.label + " (업체 #" + group.key.path.get(0) + ")" : group.label;
+    }
+    private Group productGroup(Atom atom, String level, boolean includeType) {
+        var norm = atom.norm;
+        List<String> path = switch (level) {
+            case "SERIES" -> List.of(display(norm.getTop()), display(norm.getMid()));
+            case "PRODUCT" -> List.of(display(norm.getTop()), display(norm.getMid()), display(norm.getProduct()));
+            case "COLOR" -> List.of(display(norm.getColor()));
+            default -> List.of(display(norm.getTop()));
         };
-
-        String title = (req.getPrimaryY() == AnalyticsQueryRequest.PrimaryY.COMPANY)
-                ? "상위 10개 업체 " + metricKr
-                : "상위 10개 제품 기준 " + metricKr;
-
-        return AnalyticsQueryResponse.ChartData.builder()
-                .title(title)
-                .type("bar")
-                .labels(labels)
-                .values(values)
-                .valueKey(valueKey)
-                .maxValue(maxValue) // ✅ 추가
+        String type = atom.order.isStandard() ? "규격" : "비규격";
+        String label = String.join(" / ", path);
+        return new Group(new Key(type, path), includeType ? type + " · " + label : label);
+    }
+    private Map<Group, List<Atom>> groups(List<Atom> atoms, Function<Atom, Group> group) {
+        Map<Group, List<Atom>> result = new LinkedHashMap<>();
+        for (Atom atom : atoms) result.computeIfAbsent(group.apply(atom), ignored -> new ArrayList<>()).add(atom);
+        return result;
+    }
+    private String recordKind(Atom atom) {
+        long quantity = atom.order.getQuantity();
+        if (quantity < 0) return "COLLECTION";
+        if (quantity > 0 && atom.sales == 0) return "RETURN";
+        if (quantity > 0 && atom.sales > 0) return "PAID";
+        return "ADJUSTMENT";
+    }
+    private LocalDate period(LocalDate date, String grouping) {
+        return switch (grouping) {
+            case "WEEK" -> date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            case "MONTH" -> date.withDayOfMonth(1);
+            default -> date;
+        };
+    }
+    private LocalDate nextPeriod(LocalDate date, String grouping) {
+        return switch (grouping) { case "WEEK" -> date.plusWeeks(1); case "MONTH" -> date.plusMonths(1); default -> date.plusDays(1); };
+    }
+    private List<Map<String, Object>> timeRows(List<Atom> atoms, AnalyticsQueryRequest req) {
+        Map<LocalDate, List<Atom>> grouped = new TreeMap<>();
+        for (Atom atom : atoms) grouped.computeIfAbsent(period(atom.order.getCreatedAt().toLocalDate(), req.getTimeGrouping()), key -> new ArrayList<>()).add(atom);
+        LocalDate from = req.getFromDate() == null ? (grouped.isEmpty() ? null : grouped.keySet().iterator().next()) : req.getFromDate();
+        LocalDate to = req.getToDate() == null ? (grouped.isEmpty() ? null : ((TreeMap<LocalDate,List<Atom>>)grouped).lastKey()) : req.getToDate();
+        if (from != null && to != null) {
+            LocalDate start=period(from,req.getTimeGrouping()), end=period(to,req.getTimeGrouping());
+            List<LocalDate> missing=new ArrayList<>();
+            for(LocalDate date=start;!date.isAfter(end)&&missing.size()<=5000;date=nextPeriod(date,req.getTimeGrouping())) missing.add(date);
+            if(missing.size()<=5000) for(LocalDate date:missing) grouped.putIfAbsent(date,List.of());
+        }
+        List<Map<String,Object>> rows=new ArrayList<>();
+        for(var entry:grouped.entrySet()) {
+            Map<String,Object> row=values(entry.getValue());
+            row.put("period", "MONTH".equals(req.getTimeGrouping()) ? entry.getKey().format(DateTimeFormatter.ofPattern("yyyy-MM")) : entry.getKey().toString());
+            row.put("detailScope", AnalyticsDetailsDtos.Scope.builder().mode("PERIOD").period((String)row.get("period")).build());
+            rows.add(row);
+        }
+        return rows;
+    }
+    private void add(Map<String, Long> values, String key, long amount) {
+        values.put(key, Math.addExact(values.get(key), amount));
+    }
+    private Totals totals(List<Atom> atoms) {
+        Map<String, Long> values = new LinkedHashMap<>();
+        for (AnalyticsMetric metric : AnalyticsMetric.values()) values.put(metric.key(), 0L);
+        for (Atom atom : atoms) {
+            long qty = atom.order.getQuantity(), amount = atom.sales;
+            add(values, "sales", amount); add(values, "taskCount", 1); add(values, "qty", qty);
+            if (qty < 0) {
+                add(values, "collectionOrderCount", 1); add(values, "collectionQty", -qty); add(values, "collectionSales", amount);
+            } else if (qty > 0 && amount == 0) {
+                add(values, "returnOrderCount", 1); add(values, "returnQty", qty);
+            } else if (qty > 0 && amount > 0) {
+                add(values, "paidOrderCount", 1); add(values, "paidQty", qty); add(values, "paidSales", amount);
+            } else {
+                add(values, "adjustmentOrderCount", 1); add(values, "adjustmentQty", qty); add(values, "adjustmentSales", amount);
+            }
+            if (qty > 0) {
+                add(values, "productionRequestQty", qty);
+                if (atom.order.getStatus() != null && Set.of(OrderStatus.PRODUCTION_DONE, OrderStatus.DISPATCH_DONE, OrderStatus.DELIVERY_DONE).contains(atom.order.getStatus()))
+                    add(values, "productionDoneQty", qty);
+            }
+        }
+        values.put("productionPendingQty", values.get("productionRequestQty") - values.get("productionDoneQty"));
+        return new Totals(values.get("sales"), values.get("taskCount"), values.get("qty"), values);
+    }
+    private List<Map<String, Object>> companyRows(List<Atom> atoms, AnalyticsQueryRequest req) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        Map<Group, List<Atom>> grouped = groups(atoms, this::companyGroup);
+        Map<String, Long> labels = grouped.keySet().stream().collect(Collectors.groupingBy(Group::label, Collectors.counting()));
+        for (var entry : grouped.entrySet()) {
+            Map<String, Object> row = values(entry.getValue());
+            row.put("companyName", companyLabel(entry.getKey(), labels));
+            row.put("companyId", entry.getValue().get(0).company == null ? null : entry.getValue().get(0).company.getId());
+            row.put("detailScope", AnalyticsDetailsDtos.Scope.builder().mode("COMPANY").companyId((Long)row.get("companyId")).build());
+            String owners = entry.getValue().stream().map(a -> a.order.getTask() == null || a.order.getTask().getRequestedBy() == null
+                    ? "" : text(a.order.getTask().getRequestedBy().getName())).filter(s -> !s.isEmpty()).distinct().sorted()
+                    .collect(Collectors.joining(", "));
+            row.put("ownerName", owners.isEmpty() ? "-" : owners);
+            if (req.getAddressFilter() != null) row.put("address", address(entry.getValue().get(0).company));
+            rows.add(row);
+        }
+        return rows;
+    }
+    private List<Map<String, Object>> productRows(List<Atom> atoms, AnalyticsQueryRequest req) {
+        var breakdown = req.getProductBreakdown();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (var entry : groups(atoms, a -> productGroup(a, a.order.isStandard() ? breakdown.getStandardLevel() : breakdown.getNonStandardLevel(), false)).entrySet()) {
+            Map<String, Object> row = values(entry.getValue());
+            row.put("type", entry.getKey().key.type); row.put("label", entry.getKey().label);
+            row.put("detailScope", AnalyticsDetailsDtos.Scope.builder().mode("PRODUCT").standard("규격".equals(entry.getKey().key.type)).path(entry.getKey().key.path).build());
+            rows.add(row);
+        }
+        return rows;
+    }
+    private Map<String, Object> values(List<Atom> atoms) {
+        Totals total = totals(atoms);
+        Map<String, Object> row = new LinkedHashMap<>();
+        total.values.forEach(row::put);
+        return row;
+    }
+    private long number(Object value) { return value instanceof Number n ? n.longValue() : 0; }
+    private void sortRows(List<Map<String, Object>> rows, AnalyticsQueryRequest req) {
+        String key = req.getSortKey();
+        Comparator<Map<String, Object>> comparator = AnalyticsMetric.forKey(key) != null
+                ? Comparator.comparingLong(row -> number(row.get(key)))
+                : Comparator.comparing(row -> String.valueOf(row.getOrDefault(key, "")), String.CASE_INSENSITIVE_ORDER);
+        if ("desc".equals(req.getSortDir())) comparator = comparator.reversed();
+        comparator = comparator.thenComparing(row -> String.valueOf(row.getOrDefault("companyName", row.getOrDefault("type", ""))))
+                .thenComparing(row -> String.valueOf(row.getOrDefault("label", row.getOrDefault("companyId", ""))));
+        rows.sort(comparator);
+    }
+    private List<AnalyticsQueryResponse.ColumnMeta> columns(AnalyticsQueryRequest req) {
+        List<AnalyticsQueryResponse.ColumnMeta> result = new ArrayList<>();
+        result.add(column("rank", "순위", "현재 표 정렬 기준 순위입니다."));
+        if (!"NONE".equals(req.getTimeGrouping())) {
+            result.add(column("period", switch(req.getTimeGrouping()){case "WEEK"->"주 시작일";case "MONTH"->"월";default->"발주일";},
+                    "선택한 업체/제품 대상의 기간별 합계입니다. 주별은 월요일 시작이며 입력한 발주일 범위 안의 데이터만 포함합니다."));
+        } else if (req.getPrimaryY() == AnalyticsQueryRequest.PrimaryY.COMPANY) {
+            result.add(column("companyName", "업체명", "이름이 같아도 서로 다른 업체 ID는 합치지 않습니다."));
+            result.add(column("ownerName", "요청자", "조회된 주문의 업체 소속 요청자입니다. 여러 명이면 함께 표시합니다."));
+            if (req.getAddressFilter() != null) result.add(column("address", "지역(도/시/구)", "업체의 등록 주소 기준입니다."));
+        } else {
+            result.add(column("type", "구분", "규격과 비규격을 구별합니다."));
+            result.add(column("label", "제품 기준", "선택한 분류 단계로 집계합니다. 같은 시리즈·제품명도 상위 분류가 다르면 구별합니다."));
+        }
+        for (String code : req.getMetrics()) {
+            AnalyticsMetric metric = AnalyticsMetric.valueOf(code);
+            result.add(AnalyticsQueryResponse.ColumnMeta.builder().key(metric.key()).label(metric.label())
+                    .unit(metric.unit()).help(metric.help()).build());
+        }
+        return result;
+    }
+    private AnalyticsQueryResponse.ColumnMeta column(String key, String label, String help) {
+        return AnalyticsQueryResponse.ColumnMeta.builder().key(key).label(label).help(help).build();
+    }
+    private String metricKey(String code) { return AnalyticsMetric.valueOf(code).key(); }
+    private String metricLabel(String code) { return AnalyticsMetric.valueOf(code).label(); }
+    private String sortLabel(String key) {
+        AnalyticsMetric metric = AnalyticsMetric.forKey(key);
+        if (metric != null) return metric.label();
+        return switch (key) { case "companyName" -> "업체명"; case "ownerName" -> "요청자"; case "address" -> "지역"; case "type" -> "구분"; case "period" -> "기간"; default -> "제품 기준"; };
+    }
+    private String levelLabel(String level) { return switch (level) {
+        case "SERIES" -> "시리즈"; case "PRODUCT" -> "제품"; case "COLOR" -> "색상"; default -> "대분류";
+    }; }
+    private AnalyticsQueryResponse.Meta meta(AnalyticsQueryRequest req) {
+        var filter = req.getAddressFilter();
+        String addressText = filter == null ? "전체" : List.of(text(filter.getProvince()), text(filter.getCity()), text(filter.getDistrict()))
+                .stream().filter(s -> !s.isEmpty()).collect(Collectors.joining(" "));
+        String hour = req.getHourRanges() == null || req.getHourRanges().isEmpty() ? "전체" : req.getHourRanges().stream()
+                .map(r -> r.getStartHour() + "~" + r.getEndHour() + "시").collect(Collectors.joining(", "));
+        String dimensions = "제품 분류: 없음";
+        if (req.getPrimaryY() == AnalyticsQueryRequest.PrimaryY.PRODUCT) {
+            var b = req.getProductBreakdown(); List<String> parts = new ArrayList<>();
+            if (b.isIncludeStandard()) parts.add("규격(" + levelLabel(b.getStandardLevel()) + ")");
+            if (b.isIncludeNonStandard()) parts.add("비규격(" + levelLabel(b.getNonStandardLevel()) + ")");
+            dimensions = "제품 분류: " + String.join(", ", parts);
+        }
+        return AnalyticsQueryResponse.Meta.builder()
+                .periodText("발주일: " + (req.getFromDate() == null ? "과거 전체" : req.getFromDate()) + " ~ "
+                        + (req.getToDate() == null ? "미래 전체" : req.getToDate()))
+                .yAxisText("행 기준: " + (req.getPrimaryY() == AnalyticsQueryRequest.PrimaryY.COMPANY ? "업체별" : "제품별"))
+                .ySubText("보조 조건: " + (filter == null && "전체".equals(hour) ? "없음" : (filter != null ? "주소 " : "") + (!"전체".equals(hour) ? "시간대" : "")))
+                .xAxisText("선택 지표: " + req.getMetrics().stream().map(this::metricLabel).collect(Collectors.joining(", ")))
+                .xDimText(dimensions).addressText("주소: " + (addressText.isEmpty() ? "전체" : addressText)).hourText("시간대: " + hour)
+                .sortText("표 정렬: " + sortLabel(req.getSortKey()) + ("asc".equals(req.getSortDir()) ? " 오름차순" : " 내림차순"))
+                .viewText("보기: " + switch(req.getTimeGrouping()){case "DAY"->"일별 추이";case "WEEK"->"주별 추이";case "MONTH"->"월별 추이";default->"업체/제품 비교";})
+                .filterText("검색: " + (req.getKeyword().isEmpty()?"전체":req.getKeyword()) + " / 유형: " + req.getRecordKinds().stream().map(kind->switch(kind){case "PAID"->"유상 주문";case "RETURN"->"0원 반품용";case "COLLECTION"->"회수";default->"기타 조정";}).collect(Collectors.joining(", ")))
+                .generatedAtText("조회시각: " + ZonedDateTime.now(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + " KST")
+                .compactTable(req.isCompactTable())
+                .basisText(BASIS + " / 생산 완료는 조회 발주건의 현재 상태 기준이며 완료일 기준 실적이 아닙니다.").chartBasisText("그래프: " + req.getChartMetrics().stream().map(this::metricLabel).collect(Collectors.joining(" / ")) + " · " + ("NONE".equals(req.getTimeGrouping()) ? ("asc".equals(req.getChartSortDir())?"작은 값부터":"큰 값부터") : "시간순") + " / 5개 요약은 첫 그래프 지표의 " + ("NONE".equals(req.getTimeGrouping())&&"asc".equals(req.getChartSortDir())?"작은 값부터":"큰 값부터"))
                 .build();
     }
-
-
-    private String resolveChartValueKey(AnalyticsQueryRequest req) {
-        List<String> metrics = Optional.ofNullable(req.getMetrics()).orElse(List.of());
-        if (metrics == null || metrics.isEmpty()) return "sales";
-
-        // 우선순위: SALES > TASK_COUNT > QTY
-        if (metrics.contains("SALES")) return "sales";
-        if (metrics.contains("TASK_COUNT")) return "taskCount";
-        if (metrics.contains("QTY")) return "qty";
-
-        return "sales";
+    private AnalyticsQueryResponse.Summary summary(List<Atom> atoms, AnalyticsQueryRequest req) {
+        LinkedHashSet<String> codes=new LinkedHashSet<>(req.getChartMetrics());codes.addAll(req.getMetrics());
+        List<AnalyticsQueryResponse.ColumnMeta> summaryColumns=codes.stream().map(code->{var metric=AnalyticsMetric.valueOf(code);return AnalyticsQueryResponse.ColumnMeta.builder().key(metric.key()).label(metric.label()).unit(metric.unit()).help(metric.help()).build();}).toList();
+        boolean ascending="NONE".equals(req.getTimeGrouping())&&"asc".equals(req.getChartSortDir());
+        var builder = AnalyticsQueryResponse.Summary.builder().title(ascending?"하위 5개 요약":"상위 5개 요약").metricColumns(summaryColumns);
+        if (req.getPrimaryY() == AnalyticsQueryRequest.PrimaryY.COMPANY) {
+            return builder.topCompanies(top(atoms, this::companyGroup, req))
+                    .topRegions(top(atoms, a -> new Group(new Key("REGION", List.of(address(a.company))), address(a.company)), req)).build();
+        }
+        return builder.topCategories(top(atoms, a -> productGroup(a, "CATEGORY", true), req))
+                .topSeries(top(atoms, a -> productGroup(a, "SERIES", true), req))
+                .topProducts(top(atoms, a -> productGroup(a, "PRODUCT", true), req)).build();
     }
-    // --------------------
-    // Atom
-    // --------------------
-    @lombok.Data
-    @lombok.Builder
-    private static class OrderRowAtom {
-        private Long taskId;
-        private LocalDateTime createdAt;
-
-        private int sales;
-        private int taskCount;
-        private int qty;
-
-        private boolean standard;
-        private ProductOptionNormalized norm;
+    private List<AnalyticsQueryResponse.RankItem> top(List<Atom> atoms, Function<Atom, Group> group, AnalyticsQueryRequest req) {
+        List<AnalyticsQueryResponse.RankItem> result = new ArrayList<>();
+        Map<Group, List<Atom>> grouped = groups(atoms, group);
+        Map<String, Long> labels = grouped.keySet().stream().collect(Collectors.groupingBy(Group::label, Collectors.counting()));
+        for (var entry : grouped.entrySet()) {
+            Totals total = totals(entry.getValue());
+            result.add(AnalyticsQueryResponse.RankItem.builder().name(companyLabel(entry.getKey(), labels))
+                    .sales(total.sales).taskCount(total.count).qty(total.qty).metrics(total.values).build());
+        }
+        String metric = metricKey(req.getChartMetrics().get(0));
+        Comparator<AnalyticsQueryResponse.RankItem> rankOrder=Comparator.comparingLong(item->item.getMetrics().get(metric));
+        if(!("NONE".equals(req.getTimeGrouping())&&"asc".equals(req.getChartSortDir())))rankOrder=rankOrder.reversed();
+        result.sort(rankOrder.thenComparing(AnalyticsQueryResponse.RankItem::getName));
+        List<AnalyticsQueryResponse.RankItem> limited = new ArrayList<>(result.subList(0, Math.min(5, result.size())));
+        for (int i = 0; i < limited.size(); i++) limited.get(i).setRank(i + 1);
+        return limited;
     }
+    private AnalyticsQueryResponse.ChartData chart(List<Map<String, Object>> rows, AnalyticsQueryRequest req) {
+        if(rows.isEmpty()) return null;
+        String key=metricKey(req.getChartMetrics().get(0)); boolean trend=!"NONE".equals(req.getTimeGrouping());
+        Comparator<Map<String,Object>> order=trend?Comparator.comparing(row->String.valueOf(row.get("period"))):Comparator.comparingLong(row->number(row.get(key)));
+        if(!trend&&"desc".equals(req.getChartSortDir()))order=order.reversed();
+        if(!trend)order=order.thenComparing(row->String.valueOf(row.getOrDefault("companyName",row.getOrDefault("label",""))));
+        List<Map<String,Object>> sorted=rows.stream().sorted(order).toList();
+        int limit=req.getChartLimit()==0?5000:req.getChartLimit(), start=trend?Math.max(0,sorted.size()-limit):0, end=Math.min(sorted.size(),start+limit);
+        List<Map<String,Object>> selected=sorted.subList(start,end);
+        List<String> labels=selected.stream().map(row->trend?String.valueOf(row.get("period")):req.getPrimaryY()==AnalyticsQueryRequest.PrimaryY.COMPANY?String.valueOf(row.get("companyName")):row.get("type")+" · "+row.get("label")).toList();
+        String[] colors={"#2563eb","#0d9488","#d97706","#9333ea"};
+        List<AnalyticsQueryResponse.ChartSeries> series=new ArrayList<>();
+        for(int i=0;i<req.getChartMetrics().size();i++) {
+            AnalyticsMetric metric=AnalyticsMetric.valueOf(req.getChartMetrics().get(i));
+            series.add(AnalyticsQueryResponse.ChartSeries.builder().key(metric.key()).label(metric.label()).color(colors[i])
+                    .values(selected.stream().map(row->(Number)row.get(metric.key())).toList()).build());
+        }
+        double max=series.stream().flatMap(s->s.getValues().stream()).mapToDouble(v->Math.abs(v.doubleValue())).max().orElse(0);
+        String title=series.stream().map(AnalyticsQueryResponse.ChartSeries::getLabel).collect(Collectors.joining(" / "))
+                +(trend?" · 기간 추이":" · "+("asc".equals(req.getChartSortDir())?"작은 값":"큰 값")+"부터 "+selected.size()+"개");
+        var chart=AnalyticsQueryResponse.ChartData.builder().title(title).type(req.getChartType().toLowerCase(Locale.ROOT))
+                .labels(labels).values(series.get(0).getValues()).series(series).unit(AnalyticsMetric.valueOf(req.getChartMetrics().get(0)).unit())
+                .valueKey(key).maxValue(max).totalPoints(rows.size())
+                .note(trend&&selected.size()<rows.size()?"전체 "+rows.size()+"구간 중 최근 "+selected.size()+"구간 표시":"그래프 "+selected.size()+"개 / 표 전체 "+rows.size()+"행")
+                .build();
+        chart.setSvg(AnalyticsChartRenderer.svg(chart));
+        chart.setSvgPages(AnalyticsChartRenderer.pages(chart));
+        return chart;
+    }
+    public AnalyticsDetailsDtos.Response details(AnalyticsDetailsDtos.Request input) {
+        if(input==null||input.getScope()==null)throw bad("상세 조회할 행을 선택해 주세요.");
+        if(input.getPage()<0||input.getSize()<1||input.getSize()>200)throw bad("상세 목록의 페이지와 크기를 확인해 주세요.");
+        AnalyticsQueryRequest req=normalize(input.getQuery(),false);
+        var scope=input.getScope();String mode=text(scope.getMode());
+        if(!List.of("ALL","COMPANY","PRODUCT","PERIOD").contains(mode))throw bad("상세 조회 범위를 확인해 주세요.");
+        if("COMPANY".equals(mode)&&(req.getPrimaryY()!=AnalyticsQueryRequest.PrimaryY.COMPANY||!"NONE".equals(req.getTimeGrouping())||scope.getCompanyId()!=null&&scope.getCompanyId()<1))throw bad("업체 상세 범위를 확인해 주세요.");
+        if("PRODUCT".equals(mode)&&(req.getPrimaryY()!=AnalyticsQueryRequest.PrimaryY.PRODUCT||!"NONE".equals(req.getTimeGrouping())||scope.getStandard()==null||scope.getPath()==null||scope.getPath().isEmpty()||scope.getPath().size()>3||scope.getPath().stream().anyMatch(v->v==null||v.length()>255)))throw bad("제품 상세 범위를 확인해 주세요.");
+        if("PERIOD".equals(mode)&&("NONE".equals(req.getTimeGrouping())||scope.getPeriod()==null||!scope.getPeriod().matches("[0-9]{4}-[0-9]{2}(-[0-9]{2})?")))throw bad("기간 상세 범위를 확인해 주세요.");
+        String kind=text(input.getKind());if(kind.isEmpty())kind="ALL";
+        if(!List.of("ALL","PAID","RETURN","COLLECTION","ADJUSTMENT","PRODUCTION_REQUEST","PRODUCTION_DONE","PRODUCTION_PENDING").contains(kind))throw bad("상세 조회 유형을 확인해 주세요.");
+        String keyword=text(input.getKeyword()).toLowerCase(Locale.ROOT);if(keyword.length()>100)throw bad("상세 검색어는 100자 이하입니다.");
+        String selectedDay=text(input.getDay());if(!selectedDay.isEmpty())try{LocalDate.parse(selectedDay);}catch(Exception e){throw bad("상세 조회 날짜를 확인해 주세요.");}
+        String sort=text(input.getSortKey());if(!List.of("date","company","product","quantity","amount").contains(sort))throw bad("상세 목록 정렬을 확인해 주세요.");
+        List<Atom> matching=new ArrayList<>();
+        for(Atom atom:loadAtoms(req)) {
+            if("COMPANY".equals(mode)&&!java.util.Objects.equals(scope.getCompanyId(),atom.company==null?null:atom.company.getId()))continue;
+            if("PRODUCT".equals(mode)) {
+                var b=req.getProductBreakdown();var group=productGroup(atom,atom.order.isStandard()?b.getStandardLevel():b.getNonStandardLevel(),false);
+                if(scope.getStandard()!=atom.order.isStandard()||!scope.getPath().equals(group.key.path))continue;
+            }
+            if("PERIOD".equals(mode)&&!periodLabel(atom.order.getCreatedAt().toLocalDate(),req.getTimeGrouping()).equals(scope.getPeriod()))continue;
+            boolean positive=atom.order.getQuantity()>0, done=positive&&atom.order.getStatus()!=null&&Set.of(OrderStatus.PRODUCTION_DONE,OrderStatus.DISPATCH_DONE,OrderStatus.DELIVERY_DONE).contains(atom.order.getStatus());
+            if(!switch(kind){case "ALL"->true;case "PRODUCTION_REQUEST"->positive;case "PRODUCTION_DONE"->done;case "PRODUCTION_PENDING"->positive&&!done;default->recordKind(atom).equals(kind);})continue;
+            String haystack=(atom.order.getCreatedAt().toLocalDate()+" "+(atom.company==null?"업체 정보 없음":text(atom.company.getCompanyName()))+" "+display(atom.norm.getTop())+" "+display(atom.norm.getMid())+" "+display(atom.norm.getProduct())).toLowerCase(Locale.ROOT);
+            if(!keyword.isEmpty()&&!haystack.contains(keyword))continue;
+            matching.add(atom);
+        }
+        Map<String,Long> dayCounts=matching.stream().collect(Collectors.groupingBy(a->a.order.getCreatedAt().toLocalDate().toString(),TreeMap::new,Collectors.counting()));
+        List<AnalyticsDetailsDtos.Day> days=dayCounts.entrySet().stream().sorted(Map.Entry.<String,Long>comparingByKey().reversed()).map(e->AnalyticsDetailsDtos.Day.builder().date(e.getKey()).count(e.getValue()).build()).toList();
+        if(!selectedDay.isEmpty())matching=matching.stream().filter(a->a.order.getCreatedAt().toLocalDate().toString().equals(selectedDay)).collect(Collectors.toCollection(ArrayList::new));
+        Comparator<Atom> comparator=switch(sort){case "quantity"->Comparator.comparingInt(a->a.order.getQuantity());case "amount"->Comparator.comparingLong(a->a.sales);case "company"->Comparator.comparing(a->a.company==null?"":text(a.company.getCompanyName()));case "product"->Comparator.comparing(a->display(a.norm.getProduct()));default->Comparator.comparing(a->a.order.getCreatedAt());};
+        if(!"asc".equalsIgnoreCase(input.getSortDir()))comparator=comparator.reversed();
+        matching.sort(comparator.thenComparing(a->a.order.getId()));
+        Totals total=totals(matching);int start=(int)Math.min((long)input.getPage()*input.getSize(),matching.size()),end=Math.min(start+input.getSize(),matching.size());
+        List<AnalyticsDetailsDtos.Row> rows=matching.subList(start,end).stream().map(a->AnalyticsDetailsDtos.Row.builder().orderId(a.order.getId()).date(a.order.getCreatedAt().toLocalDate().toString()).dateTime(a.order.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")))
+                .companyId(a.company==null?null:a.company.getId()).companyName(a.company==null?"업체 정보 없음":display(a.company.getCompanyName())).type(a.order.isStandard()?"규격":"비규격").category(display(a.norm.getTop())).series(display(a.norm.getMid())).product(display(a.norm.getProduct())).color(text(a.norm.getColor())).size(a.norm.getRaw().get("사이즈") instanceof String value?value:"")
+                .kind(switch(recordKind(a)){case "PAID"->"유상 주문";case "RETURN"->"0원 반품용";case "COLLECTION"->"회수";default->"기타 조정";}).kindCode(recordKind(a)).quantity(a.order.getQuantity()).amount(a.sales).status(a.order.getStatus()==null?"상태 미등록":a.order.getStatus().getLabel()).build()).toList();
+        return AnalyticsDetailsDtos.Response.builder().rows(rows).days(days).totals(total.values).totalRows(matching.size()).page(input.getPage()).size(input.getSize()).build();
+    }
+    private String periodLabel(LocalDate date,String grouping) { LocalDate start=period(date,grouping);return "MONTH".equals(grouping)?start.format(DateTimeFormatter.ofPattern("yyyy-MM")):start.toString(); }
+    private record Atom(Order order, Company company, ProductOptionNormalized norm, long sales) {}
+    private record Totals(long sales, long count, long qty, Map<String, Long> values) {}
+    private record Key(String type, List<String> path) {}
+    private record Group(Key key, String label) {}
 }
