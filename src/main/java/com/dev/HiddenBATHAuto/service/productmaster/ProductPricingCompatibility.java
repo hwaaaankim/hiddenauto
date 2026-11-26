@@ -84,6 +84,9 @@ public final class ProductPricingCompatibility {
             String key = component.getName();
             if ("placeholder".equals(key) && (r5 || !(value instanceof Field field && field.useDefault()))) continue;
             Object item = component.getAccessor().invoke(value);
+            // The pre-unit schema already meant 1mm. Keep existing pricing identities valid.
+            if (value instanceof com.dev.HiddenBATHAuto.dto.productmaster.ProductDiagramDtos.Variant
+                && "sizeStep".equals(key) && Integer.valueOf(1).equals(item)) continue;
             if ("diagrams".equals(key) && (item == null || ((Map<?,?>) item).isEmpty())) continue;
             if ("diagram".equals(key) && item == null) continue;
             if (item == null && Set.of("numericValue", "equalTo").contains(component.getName())) continue;

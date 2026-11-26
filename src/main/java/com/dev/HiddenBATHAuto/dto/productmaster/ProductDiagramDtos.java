@@ -20,7 +20,15 @@ public final class ProductDiagramDtos {
       boolean minInclusive, boolean maxInclusive, Ref source) {}
   public record Mark(String kind, @com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = StrictInteger.class) int x1, @com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = StrictInteger.class) int y1, @com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = StrictInteger.class) int x2, @com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = StrictInteger.class) int y2, String text) {}
   public record Variant(String key, String fieldKey, String name, String shape,
-      Dimension width, Dimension height, List<Mark> marks, List<Condition> conditions) {}
+      Dimension width, Dimension height, List<Mark> marks, List<Condition> conditions,
+      @com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = StrictInteger.class) Integer sizeStep) {
+    // Old configurations and saved order snapshots have no sizeStep: preserve 1mm behaviour.
+    public Variant { if (sizeStep == null) sizeStep = 1; }
+    public Variant(String key, String fieldKey, String name, String shape,
+        Dimension width, Dimension height, List<Mark> marks, List<Condition> conditions) {
+      this(key, fieldKey, name, shape, width, height, marks, conditions, 1);
+    }
+  }
   public record Config(String revision, String mode, Ref width, Ref height, List<Variant> variants,
       @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY) Map<String,String> fieldLabels) {
     public Config(String revision,String mode,Ref width,Ref height,List<Variant> variants) {this(revision,mode,width,height,variants,null);}

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>웹다이어그램 응답 · 실제 화면 사용법</title><link rel="stylesheet" href="/front/product-diagram/style.css?v=20261124-editor-r4"></head><body class="pd-help-body"><nav aria-label="사용법 목차"><a href="#start">시작 경로</a><a href="#group">그룹 설정</a><a href="#process">개수 항목</a><a href="#map">W/H 연결</a><a href="#variants">도형 등록</a><a href="#dimensions">치수 제한</a><a href="#marks">내부 기호</a><a href="#mode">완료 조건</a><a href="#save">저장 순서</a><a href="#branch">분기 3개/2개</a><a href="#price">가격 연결</a><a href="#customer">고객 사용</a><a href="#coordinates">중심·간격</a><a href="#troubleshooting">문제 해결</a></nav><div class="pd-help-controls"><p><a href="/admin/product-master/groups">그룹·옵션 열기</a> · <a href="/admin/product-master/non-standard">비규격 제품 관리 열기</a></p><small>관리자 로그인이 필요합니다. 제품ID가 필요한 주소는 설명서의 형식을 참고해 해당 제품에서 여세요.</small></div><main><h1>웹다이어그램으로 개수 응답받기 · 실제 화면 사용 설명서</h1>
+<html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>웹다이어그램 응답 · 실제 화면 사용법</title><link rel="stylesheet" href="/front/product-diagram/style.css?v=20261126-size-unit-r1"></head><body class="pd-help-body"><nav aria-label="사용법 목차"><a href="#start">시작 경로</a><a href="#group">그룹 설정</a><a href="#process">개수 항목</a><a href="#map">W/H 연결</a><a href="#variants">도형 등록</a><a href="#dimensions">치수 제한</a><a href="#marks">내부 기호</a><a href="#mode">완료 조건</a><a href="#save">저장 순서</a><a href="#branch">분기 3개/2개</a><a href="#price">가격 연결</a><a href="#customer">고객 사용</a><a href="#coordinates">중심·간격</a><a href="#troubleshooting">문제 해결</a></nav><div class="pd-help-controls"><p><a href="/admin/product-master/groups">그룹·옵션 열기</a> · <a href="/admin/product-master/non-standard">비규격 제품 관리 열기</a></p><small>관리자 로그인이 필요합니다. 제품ID가 필요한 주소는 설명서의 형식을 참고해 해당 제품에서 여세요.</small></div><main><h1>웹다이어그램으로 개수 응답받기 · 실제 화면 사용 설명서</h1>
 <p>이 기능은 비규격 숫자입력 질문의 답변을 <strong>고객이 배치한 도형 개수</strong>로 받습니다. 도면·도형을 설정한 다음 기존 질문 분기와 가격계산에 그대로 연결합니다.</p>
 <p><a id="start"></a></p>
 <h2>1. 어디서 시작하나요?</h2>
@@ -108,7 +108,7 @@
 </tr>
 </tbody></table></div>
 <ol start="6">
-<li>기존 <strong>입력 제한 설정</strong>에서 필요한 최소·최대 개수와 합계 제한을 정합니다. 도면에서 나오는 개수는 음수와 소수를 사용할 수 없고 간격은 1개입니다. 숫자 기본값으로 배치를 대신 확정하지 않습니다.</li>
+<li>기존 <strong>입력 제한 설정</strong>에서 필요한 최소·최대 개수와 합계 제한을 정합니다. 이곳의 최소·최대는 문 크기가 아니라 해당 항목의 전체 배치 수량입니다. 예: 0~4이면 해당 도형을 합쳐 최대 4개 배치합니다. 수량 간격은 1개 고정이며 음수와 소수는 사용할 수 없습니다. 문 크기는 도형 등록·수정에서 설정합니다. 숫자 기본값으로 배치를 대신 확정하지 않습니다.</li>
 <li>다음 단계의 <strong>웹다이어그램 설정 → 웹다이어그램 설정</strong> 버튼을 누릅니다.</li>
 </ol>
 <p>숫자 항목을 이미 만든 질문에는 메인 질문 카드에 <strong>도면 응답 설정</strong> 또는 <strong>도면 응답 수정</strong> 버튼도 표시됩니다. 이 버튼을 누르면 해당 설정 단계로 바로 이동합니다. 구성이 잠긴 조회 화면에서는 등록된 도면 설정에 <strong>도면 응답 조회</strong>가 표시되고 수정·저장은 할 수 없습니다.</p>
@@ -155,7 +155,7 @@
 <p>고객에게 외곽 회전·좌우반전은 제공하지 않습니다. 좌경첩·우경첩은 각각 등록합니다. 원형·타원형은 단순 위치 지정 방식에서 사용합니다.</p>
 <p><a id="dimensions"></a></p>
 <h3>6-4. 가로·높이</h3>
-<p>좌경첩 예시는 다음처럼 설정합니다.</p>
+<p><strong>도형 크기 조정 단위 (mm)</strong>는 기본값 1이며 등록·수정에서 변경할 수 있습니다. 10으로 정하면 범위 축은 10mm 배수로만 변경합니다. 예를 들어 255 이상~605 이하이면 260·270·…·600mm를 허용합니다. 드래그는 시작 크기에서 10mm 미만 움직이면 그대로 유지되고, 10mm마다 한 단계 변합니다. 직접 입력에도 같은 단위를 적용합니다.</p><p>단위는 범위 방식의 가로·높이에 공통 적용됩니다. 고정 치수·앞 질문 연결값은 지정된 값을 그대로 사용합니다. 도형 위치, 도형 수량, 내부 기호의 좌표에는 이 단위를 적용하지 않습니다. 범위 안에 단위의 배수가 하나도 없으면 저장 전에 안내합니다.</p><p>좌경첩 예시는 다음처럼 설정합니다.</p>
 <div class="pd-help-table"><table>
 <thead>
 <tr>
@@ -179,9 +179,9 @@
 </tr>
 </tbody></table></div>
 <p><strong>고정값</strong>은 항상 같은 치수이고, <strong>범위</strong>는 그 안에서 고객이 조절하며, <strong>앞 질문의 입력값</strong>은 고객 답변에 따라 달라지되 고객이 이 도형에서 별도로 조절하지 못합니다.</p>
-<p><code>600 초과 서랍</code>은 가로 하한을 <strong>600 / 초과</strong>로 지정합니다. 1mm 단위이므로 601부터 허용됩니다. 상한은 해당 제품에서 실제 허용할 값을 정합니다.</p>
+<p><code>600 초과 서랍</code>은 가로 하한을 <strong>600 / 초과</strong>로 지정합니다. 단위가 1이면 601부터, 단위가 10이면 610부터 허용됩니다. 상한은 해당 제품에서 실제 허용할 값을 정합니다.</p>
 <p>원형·타원형의 가로·세로는 각각 지름입니다. 두 값을 같은 고정값 또는 같은 앞 필드에 연결하면 정원이 되고, 서로 다르게 설정하면 타원이 됩니다. 두 축에 독립적인 범위를 주면 고객도 각 지름을 독립 조절합니다.</p>
-<p><a id="marks"></a></p>
+<p><strong>남은 공간에 맞추기·꽉 채우기:</strong> 남은 영역도 치수 범위와 조정 단위를 만족해야 합니다. 예를 들어 가로 1005mm를 10mm 단위의 범위 도형만으로 꽉 채우는 구성은 완료할 수 없습니다. 필요한 제품은 단위 1을 사용하거나 전체 크기·도형 구성을 맞춰 주세요.</p><p><strong>기존 데이터:</strong> 단위를 설정하지 않은 기존 도형은 1mm로 동작합니다. 이미 확정된 도면은 저장 당시 설정으로 조회하며 새 단위로 반올림하지 않습니다. 단위를 변경한 이후의 새 답변은 배치를 다시 확인해야 합니다.</p><p><a id="marks"></a></p>
 <h3>6-5. 내부 기호·저장</h3>
 <ol>
 <li><strong>미리보기 가로/높이</strong>로 도형 비율을 확인합니다. 앞 질문 연결값은 아직 고객 답변이 없으므로 예시 숫자로 보여줍니다.</li>
@@ -193,7 +193,7 @@
 </ol>
 <ul>
 <li><strong>선택 / 내부 기호 목록:</strong> 선·타원을 쉽게 선택합니다. 마우스 드래그, 우측 중심 X/Y, 방향키로 옮깁니다.</li>
-<li><strong>내부 기호의 좌표:</strong> 소수 좌표 편집을 허용합니다. 제품에 배치하는 문·서랍의 실제 치수와 위치는 기존대로 1mm 단위입니다.</li>
+<li><strong>내부 기호의 좌표:</strong> 소수 좌표 편집을 허용합니다. 제품에 배치하는 문·서랍의 위치는 1mm 단위이며, 범위 치수는 도형별 크기 조정 단위를 따릅니다.</li>
 <li><strong>크기:</strong> 조절점을 드래그하거나 우측 가로·높이를 입력합니다. 숫자 입력 후 Enter로 적용할 수 있습니다. 직접 입력에는 자석을 강제로 적용하지 않습니다.</li>
 <li><strong>선 끝점:</strong> 파란 양끝 점을 드래그해 길이와 방향을 바꿉니다. 우측 시작·끝 X/Y도 입력할 수 있습니다.</li>
 <li><strong>선 회전:</strong> 둥근 회전점을 드래그하거나 각도·선 길이를 입력합니다. −15°/＋15°/＋90° 버튼도 사용할 수 있습니다. 내부 기호 선을 편집하는 기능이며 고객 문의 회전·반전은 허용하지 않습니다.</li>

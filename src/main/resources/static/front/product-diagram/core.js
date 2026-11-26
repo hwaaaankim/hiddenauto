@@ -9,11 +9,43 @@
     if (v == null || v === '' || !integer(Number(v)) || Number(v)<1 || Number(v)>1000000) throw Error('앞 질문의 가로·높이는 1~1,000,000mm 정수로 입력해 주세요.');
     return Number(v);
   }
-  function bounds(d, answers) {
-    if (d?.mode === 'FIXED') return [d.value,d.value];
+  function sizeStep(v) {
+    const n=v?.sizeStep??1;
+    if(!integer(n)||n<1||n>1000000)throw Error('도형 크기 조정 단위는 1~1,000,000mm의 정수로 입력해 주세요.');
+    return n;
+  }
+  function bounds(d, answers, step=1) {
+    if (d?.mode === 'FIXED') {
+      if(!integer(d.value)||d.value<1||d.value>1000000)throw Error('고정 치수는 1~1,000,000mm의 정수로 입력해 주세요.');
+      return [d.value,d.value];
+    }
     if (d?.mode === 'REFERENCE') {const n=source(d.source,answers);return [n,n];}
-    if (d?.mode === 'RANGE') return [d.min+(d.minInclusive?0:1),d.max-(d.maxInclusive?0:1)];
+    if (d?.mode === 'RANGE') {
+      sizeStep({sizeStep:step});
+      if(!integer(d.min)||!integer(d.max)||d.min<0||d.max>1000000)throw Error('도형의 최소·최대 치수를 정수 mm로 입력해 주세요.');
+      const low=d.min+(d.minInclusive?0:1),high=d.max-(d.maxInclusive?0:1);
+      if(low<1||low>high)throw Error('도형 치수 범위가 비어 있거나 허용 크기를 벗어났습니다.');
+      const lo=Math.ceil(low/step)*step,hi=Math.floor(high/step)*step;
+      if(lo>hi)throw Error('도형 치수 범위 안에 크기 조정 단위의 배수가 없습니다. 최소·최대 또는 조정 단위를 확인해 주세요.');
+      return [lo,hi];
+    }
     throw Error('치수 방식을 설정해 주세요.');
+  }
+  // Quantize the total movement from the drag's starting geometry, before any pixel/grid rounding.
+  function resize(v, answers, old, requested) {
+    const step=sizeStep(v),next={x:old.x,y:old.y,width:old.width,height:old.height};
+    for(const axis of ['width','height']) {
+      const d=v[axis],pos=axis==='width'?'x':'y',[lo,hi]=bounds(d,answers,step);
+      if(d.mode!=='RANGE'){next[axis]=lo;continue;}
+      const delta=requested[axis]-old[axis];
+      const ticks=Math.floor((Math.abs(delta)+1e-8)/step)*Math.sign(delta);
+      let value=old[axis]+ticks*step;
+      // An old draft may no longer lie on the new unit after a setting change.
+      if(value%step!==0)value=Math.round(value/step)*step;
+      next[axis]=Math.max(lo,Math.min(hi,value));
+      if(Math.abs(requested[pos]-old[pos])>1e-7)next[pos]=old[pos]+old[axis]-next[axis];
+    }
+    return next;
   }
   function matches(c, answers) {
     const a=answers?.[c.groupKey]; if (!a) return false;
@@ -48,7 +80,7 @@
       if(!/^[A-Za-z0-9_-]{1,80}$/.test(x.id)||ids.has(x.id))errors.push('도형 식별값이 중복되거나 올바르지 않습니다.');ids.add(x.id);
       if(![x.x,x.y,x.width,x.height].every(integer)||x.width<1||x.height<1||Math.abs(x.x)>1000000||Math.abs(x.y)>1000000)errors.push(`${v.name}: 정수 치수·위치 좌표(±1,000,000mm)를 확인해 주세요.`);
       if(config.mode==='FILL'&&(x.x<0||x.y<0||x.x+x.width>w||x.y+x.height>h))errors.push(`${v.name}: 도형이 도면 밖으로 나갑니다.`);
-      try {for(const axis of ['width','height']){const [lo,hi]=bounds(v[axis],answers);if(x[axis]<lo||x[axis]>hi)errors.push(`${v.name}: ${axis==='width'?'가로':'높이'} 허용범위 ${lo}~${hi}mm를 확인해 주세요.`);}}catch(e){errors.push(e.message);}
+      try {const step=sizeStep(v);for(const axis of ['width','height']){const d=v[axis],[lo,hi]=bounds(d,answers,step);if(x[axis]<lo||x[axis]>hi||d.mode==='RANGE'&&x[axis]%step!==0)errors.push(`${v.name}: ${axis==='width'?'가로':'높이'} 허용범위 ${lo}~${hi}mm${d.mode==='RANGE'?' · '+step+'mm 배수':''}를 확인해 주세요.`);}}catch(e){errors.push(e.message);}
       for(let j=0;j<i;j++){const ov=variants.get(layout.items[j].variantKey);if(ov&&overlap(x,v.shape,layout.items[j],ov.shape))errors.push(`${i+1}번 ${v.name}: ${j+1}번 도형과 겹칩니다.`);}
       if(config.mode==='FILL'&&v.shape!=='RECT')errors.push('꽉 채우기는 사각형만 사용할 수 있습니다.');
       area+=x.width*x.height;counts[v.fieldKey]=(counts[v.fieldKey]||0)+1;
@@ -104,5 +136,5 @@
     if(!layout||!config)return '';const w=layout.width,h=layout.height,u=Math.max(w,h)/900,guide=measure(layout,{unit:u,showParts:labels}),p=guide.extent,variants=new Map((config.variants||[]).map(v=>[v.key,v]));
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-p.left} ${-p.top} ${w+p.left+p.right} ${h+p.top+p.bottom}" role="img" aria-label="중앙 원점 정면 배치 도면 ${w} × ${h} mm"><rect x="0" y="0" width="${w}" height="${h}" fill="white" stroke="#334155" stroke-width="1.5" vector-effect="non-scaling-stroke"/>${layout.items.map(x=>{const v=variants.get(x.variantKey);if(!v)return '';return `<g transform="translate(${x.x} ${x.y})" color="#334155">${v.shape==='ELLIPSE'?`<ellipse cx="${x.width/2}" cy="${x.height/2}" rx="${x.width/2}" ry="${x.height/2}"`:`<rect x="0" y="0" width="${x.width}" height="${x.height}"`} fill="#f1f5f9" stroke="#334155" vector-effect="non-scaling-stroke"/>${marksSvg(v.marks,x.width,x.height)}</g>`;}).join('')}${guide.markup}</svg>`;
   }
-  return {copy,integer,esc,id,source,bounds,matches,available,overlap,validate,gaps,markFont,marksSvg,measure,svg};
+  return {copy,integer,esc,id,source,sizeStep,bounds,resize,matches,available,overlap,validate,gaps,markFont,marksSvg,measure,svg};
 });

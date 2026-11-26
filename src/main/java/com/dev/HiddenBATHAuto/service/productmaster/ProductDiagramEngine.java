@@ -42,7 +42,8 @@ public final class ProductDiagramEngine {
       require(v.name() != null && !v.name().isBlank() && v.name().length() <= 120, "도형 이름은 1~120자로 입력해 주세요.");
       require(Set.of("RECT", "ELLIPSE").contains(v.shape()), "사각형 또는 원형·타원형을 선택해 주세요.");
       require(!"FILL".equals(c.mode()) || "RECT".equals(v.shape()), "꽉 채우기에서는 사각형만 사용할 수 있습니다.");
-      dimension(p, owner, v.width()); dimension(p, owner, v.height());
+      require(v.sizeStep() >= 1 && v.sizeStep() <= MAX_SIZE, "도형 크기 조정 단위는 1~1,000,000mm의 정수로 입력해 주세요.");
+      dimension(p, owner, v.width(), v.sizeStep()); dimension(p, owner, v.height(), v.sizeStep());
       require(list(v.conditions()).size() <= 20, "도형 표시 조건은 최대 20개입니다.");
       for (Condition condition : list(v.conditions())) {
         require(condition != null, "도형 표시 조건을 확인해 주세요.");
@@ -69,7 +70,7 @@ public final class ProductDiagramEngine {
     require(connected.containsAll(fields), "모든 개수 항목에 도형을 한 개 이상 등록해 주세요.");
     for (Field f : q.fields()) require(!f.allowNegative() && !f.useDefault() && (f.step()==null || f.step().compareTo(BigDecimal.ONE)==0)
         && (f.min()==null || f.min().signum()>=0 && f.min().stripTrailingZeros().scale()<=0)
-        && (f.max()==null || f.max().stripTrailingZeros().scale()<=0), "도면 개수 항목은 음수·소수·자동 기본값을 사용할 수 없습니다. 간격은 1개로 설정해 주세요.");
+        && (f.max()==null || f.max().stripTrailingZeros().scale()<=0), "도면 수량은 배치한 도형을 1개씩 셉니다. 수량 간격은 1개로 고정하고 음수·소수·자동 기본값은 사용하지 마세요. 문 크기의 단위·최소·최대는 도형 등록·수정의 ‘가로·높이’에서 설정합니다.");
   }
   private static Question before(Process p, String owner, String source) {
     for (Question q : p.questions()) { if (q.key().equals(owner)) break; if (q.key().equals(source)) return q; }
@@ -80,19 +81,22 @@ public final class ProductDiagramEngine {
     Question q=before(p,owner,r.questionKey());
     require(q.control()==Control.NUMBER && q.fields().stream().anyMatch(f -> f.key().equals(r.fieldKey())), "참조할 숫자입력 필드를 찾을 수 없습니다.");
   }
-  private static void dimension(Process p,String owner,Dimension d) {
+  private static void dimension(Process p,String owner,Dimension d,int step) {
     require(d!=null && d.mode()!=null, "도형 가로·높이의 치수 방식을 선택해 주세요.");
     switch(d.mode()) {
       case "FIXED" -> size(d.value());
       case "REFERENCE" -> reference(p,owner,d.source());
       case "RANGE" -> { require(d.min()!=null && d.max()!=null,"치수 범위의 최소·최대값을 입력해 주세요.");
-        require(d.min()>=0 && d.max()<=MAX_SIZE && min(d)<=max(d) && min(d)>0,"치수 범위가 비어 있거나 허용 크기를 벗어났습니다."); }
+        require(d.min()>=0 && d.max()<=MAX_SIZE && min(d)<=max(d) && min(d)>0,"치수 범위가 비어 있거나 허용 크기를 벗어났습니다.");
+        require(min(d,step)<=max(d,step),"도형 치수 범위 안에 크기 조정 단위의 배수가 없습니다. 최소·최대 또는 조정 단위를 확인해 주세요."); }
       default -> throw new IllegalArgumentException("도형 치수 방식이 올바르지 않습니다.");
     }
   }
   private static void size(Integer n) { require(n!=null && n>0 && n<=MAX_SIZE,"치수는 1~1,000,000mm의 정수로 입력해 주세요."); }
   public static int min(Dimension d) { return d.min() + (d.minInclusive()?0:1); }
   public static int max(Dimension d) { return d.max() - (d.maxInclusive()?0:1); }
+  public static int min(Dimension d,int step) { return ((min(d)+step-1)/step)*step; }
+  public static int max(Dimension d,int step) { return (max(d)/step)*step; }
   private static int value(Ref r,Map<String,Answer> answers) {
     Answer a=answers.get(r.questionKey()); Object n=a==null || a.fields()==null?null:a.fields().get(r.fieldKey());
     require(n!=null,"도면 크기에 필요한 앞 질문의 숫자 답변이 없습니다. 분기와 입력값을 확인해 주세요.");
@@ -102,9 +106,9 @@ public final class ProductDiagramEngine {
   public static boolean available(Variant v,Map<String,Answer> answers) {
     return list(v.conditions()).stream().allMatch(c -> answers.containsKey(c.groupKey()) && ProductStudioEngine.matches(c, answers.get(c.groupKey())));
   }
-  private static boolean fits(Dimension d,int n,Map<String,Answer> answers) {
+  private static boolean fits(Dimension d,int n,Map<String,Answer> answers,int step) {
     if(n<=0 || n>MAX_SIZE) return false;
-    return switch(d.mode()) { case "FIXED" -> n==d.value(); case "REFERENCE" -> n==value(d.source(),answers); case "RANGE" -> n>=min(d)&&n<=max(d); default -> false; };
+    return switch(d.mode()) { case "FIXED" -> n==d.value(); case "REFERENCE" -> n==value(d.source(),answers); case "RANGE" -> n>=min(d,step)&&n<=max(d,step)&&n%step==0; default -> false; };
   }
   public static List<Field> countFields(Config c,List<Field> fields,Map<String,Answer> preceding,Set<String> hiddenFields) {
     int w,h;try{w=value(c.width(),preceding);h=value(c.height(),preceding);}catch(IllegalArgumentException ex){return fields;}
@@ -112,8 +116,8 @@ public final class ProductDiagramEngine {
     for(Field f:fields){int upper=0;
       for(Variant v:c.variants())if(v.fieldKey().equals(f.key()) && available(v,preceding)
           && list(v.conditions()).stream().noneMatch(k -> hiddenFields.contains(k.groupKey()+":"+k.fieldKey())))try{
-        int a="RANGE".equals(v.width().mode())?min(v.width()):"FIXED".equals(v.width().mode())?v.width().value():value(v.width().source(),preceding);
-        int b="RANGE".equals(v.height().mode())?min(v.height()):"FIXED".equals(v.height().mode())?v.height().value():value(v.height().source(),preceding);
+        int a="RANGE".equals(v.width().mode())?min(v.width(),v.sizeStep()):"FIXED".equals(v.width().mode())?v.width().value():value(v.width().source(),preceding);
+        int b="RANGE".equals(v.height().mode())?min(v.height(),v.sizeStep()):"FIXED".equals(v.height().mode())?v.height().value():value(v.height().source(),preceding);
         if("POSITION".equals(c.mode()))upper=MAX_ITEMS;else if(a<=w&&b<=h){double area=(double)a*b*("ELLIPSE".equals(v.shape())?Math.PI/4:1);upper=Math.max(upper,(int)Math.min(MAX_ITEMS,Math.floor((double)w*h/area+1e-9)));}
       }catch(IllegalArgumentException ignored){/* path() reports the missing source. */}
       BigDecimal max=BigDecimal.valueOf(upper);if(f.max()!=null)max=max.min(f.max());
@@ -135,8 +139,8 @@ public final class ProductDiagramEngine {
       if(active.isEmpty())return List.of("현재 경로에서 생성할 도형이 없습니다. 도형 표시 조건과 입력묶음 분기를 확인해 주세요.");
       boolean possible=false;
       for(Variant v:active) {
-        int vw="RANGE".equals(v.width().mode())?min(v.width()):"FIXED".equals(v.width().mode())?v.width().value():value(v.width().source(),preceding);
-        int vh="RANGE".equals(v.height().mode())?min(v.height()):"FIXED".equals(v.height().mode())?v.height().value():value(v.height().source(),preceding);
+        int vw="RANGE".equals(v.width().mode())?min(v.width(),v.sizeStep()):"FIXED".equals(v.width().mode())?v.width().value():value(v.width().source(),preceding);
+        int vh="RANGE".equals(v.height().mode())?min(v.height(),v.sizeStep()):"FIXED".equals(v.height().mode())?v.height().value():value(v.height().source(),preceding);
         if("POSITION".equals(c.mode()) || vw<=w && vh<=h)possible=true;
       }
       if(!possible)return List.of("허용된 도형의 최소 치수가 도면보다 큽니다. 도형 치수·앞 사이즈 범위를 확인해 주세요.");
@@ -159,7 +163,7 @@ public final class ProductDiagramEngine {
       Placement x=l.items().get(i); require(x!=null,"빈 배치 도형이 포함되어 있습니다.");key(x.id());
       require(ids.add(x.id()),"배치 도형 식별값이 중복됩니다."); Variant v=variants.get(x.variantKey());
       require(v!=null && allowed.contains(v.fieldKey()) && available(v,preceding) && list(v.conditions()).stream().noneMatch(k -> hiddenFields.contains(k.groupKey()+":"+k.fieldKey())),"현재 분기에서 사용할 수 없는 도형이 배치되어 있습니다.");
-      require(fits(v.width(),x.width(),preceding) && fits(v.height(),x.height(),preceding),v.name()+": 허용 치수 범위를 확인해 주세요.");
+      require(fits(v.width(),x.width(),preceding,v.sizeStep()) && fits(v.height(),x.height(),preceding,v.sizeStep()),v.name()+": 허용 치수 범위와 크기 조정 단위 ("+v.sizeStep()+"mm 배수)를 확인해 주세요. 고정값·앞 답변 연결 치수는 지정된 값을 사용합니다.");
       require(Math.abs((long)x.x())<=MAX_SIZE && Math.abs((long)x.y())<=MAX_SIZE,v.name()+": 위치 좌표는 ±1,000,000mm 안에 입력해 주세요.");
       if("FILL".equals(c.mode())) require(x.x()>=0 && x.y()>=0 && (long)x.x()+x.width()<=w && (long)x.y()+x.height()<=h,v.name()+": 도형이 도면 밖으로 나갑니다.");
       for(int j=0;j<i;j++) require(!overlaps(x,v.shape(),l.items().get(j),variants.get(l.items().get(j).variantKey()).shape()),v.name()+": 다른 도형과 겹칩니다.");
@@ -173,7 +177,7 @@ public final class ProductDiagramEngine {
       java.util.function.BiFunction<String,String,String> field,java.util.function.Function<Condition,Condition> condition,String owner) {
     java.util.function.Function<Ref,Ref> ref = r -> r==null?null:new Ref(question.apply(r.questionKey()),field.apply(r.questionKey(),r.fieldKey()));
     java.util.function.Function<Dimension,Dimension> dimension = d -> new Dimension(d.mode(),d.value(),d.min(),d.max(),d.minInclusive(),d.maxInclusive(),ref.apply(d.source()));
-    List<Variant> variants=new ArrayList<>();for(int i=0;i<c.variants().size();i++){var v=c.variants().get(i);variants.add(new Variant("V"+i,field.apply(owner,v.fieldKey()),v.name(),v.shape(),dimension.apply(v.width()),dimension.apply(v.height()),v.marks(),list(v.conditions()).stream().map(condition).toList()));}
+    List<Variant> variants=new ArrayList<>();for(int i=0;i<c.variants().size();i++){var v=c.variants().get(i);variants.add(new Variant("V"+i,field.apply(owner,v.fieldKey()),v.name(),v.shape(),dimension.apply(v.width()),dimension.apply(v.height()),v.marks(),list(v.conditions()).stream().map(condition).toList(),v.sizeStep()));}
     Map<String,String> labels=new LinkedHashMap<>();if(c.fieldLabels()!=null)c.fieldLabels().forEach((k,v)->labels.put(field.apply(owner,k),v));
     return new Config(revision,c.mode(),ref.apply(c.width()),ref.apply(c.height()),variants,labels);
   }
