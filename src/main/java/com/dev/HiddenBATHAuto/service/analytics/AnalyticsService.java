@@ -45,8 +45,8 @@ import lombok.RequiredArgsConstructor;
 public class AnalyticsService {
     private final AnalyticsOrderRepository analyticsOrderRepository;
     private final ProductOptionJsonParser optionJsonParser;
-    private static final List<String> DEFAULT_METRICS = List.of("SALES", "TASK_COUNT", "QTY");
-    private static final String BASIS = "발주일 기준 · 개별 품목 1개 = 주문 1건 · 부가세 포함 상품 합계 · 배송·포장비 제외 · 취소 제외 · 0원 반품용 별도 · 회수 금액은 저장값 유지";
+    private static final List<String> DEFAULT_METRICS = List.of("SALES", "SUPPLY_AMOUNT", "VAT_AMOUNT", "TASK_COUNT", "QTY");
+    private static final String BASIS = "발주일 기준 · 개별 품목 1개 = 주문 1건 · 공급가액 + 부가세 = 상품 합계 · 배송·포장비 제외 · 취소 제외 · 0원 반품용 별도 · 회수 금액은 저장값 유지";
 
     public AnalyticsQueryResponse query(AnalyticsQueryRequest request) {
         return queryInternal(request, false);
@@ -107,7 +107,8 @@ public class AnalyticsService {
             // totalAmount is already the full line amount. Multiplying it by quantity again is incorrect.
             // Retain free/zero-value rows; never invent VAT or a missing historical amount.
             long sales = order.getTotalAmount();
-            Atom atom = new Atom(order, company, norm, sales);
+            long supplyAmount = sales == 0 ? 0L : order.getSupplyPrice();
+            Atom atom = new Atom(order, company, norm, sales, supplyAmount, Math.subtractExact(sales, supplyAmount));
             if (!req.getRecordKinds().contains(recordKind(atom))) continue;
             if (!req.getKeyword().isEmpty()) {
                 String haystack = req.getPrimaryY() == AnalyticsQueryRequest.PrimaryY.COMPANY
@@ -310,7 +311,8 @@ public class AnalyticsService {
         for (AnalyticsMetric metric : AnalyticsMetric.values()) values.put(metric.key(), 0L);
         for (Atom atom : atoms) {
             long qty = atom.order.getQuantity(), amount = atom.sales;
-            add(values, "sales", amount); add(values, "taskCount", 1); add(values, "qty", qty);
+            add(values, "sales", amount); add(values, "supplyAmount", atom.supplyAmount); add(values, "vatAmount", atom.vatAmount);
+            add(values, "taskCount", 1); add(values, "qty", qty);
             if (qty < 0) {
                 add(values, "collectionOrderCount", 1); add(values, "collectionQty", -qty); add(values, "collectionSales", amount);
             } else if (qty > 0 && amount == 0) {
@@ -509,7 +511,7 @@ public class AnalyticsService {
         if(!List.of("ALL","PAID","RETURN","COLLECTION","ADJUSTMENT","PRODUCTION_REQUEST","PRODUCTION_DONE","PRODUCTION_PENDING").contains(kind))throw bad("상세 조회 유형을 확인해 주세요.");
         String keyword=text(input.getKeyword()).toLowerCase(Locale.ROOT);if(keyword.length()>100)throw bad("상세 검색어는 100자 이하입니다.");
         String selectedDay=text(input.getDay());if(!selectedDay.isEmpty())try{LocalDate.parse(selectedDay);}catch(Exception e){throw bad("상세 조회 날짜를 확인해 주세요.");}
-        String sort=text(input.getSortKey());if(!List.of("date","company","product","quantity","amount").contains(sort))throw bad("상세 목록 정렬을 확인해 주세요.");
+        String sort=text(input.getSortKey());if(!List.of("date","company","product","quantity","supplyAmount","vatAmount","amount").contains(sort))throw bad("상세 목록 정렬을 확인해 주세요.");
         List<Atom> matching=new ArrayList<>();
         for(Atom atom:loadAtoms(req)) {
             if("COMPANY".equals(mode)&&!java.util.Objects.equals(scope.getCompanyId(),atom.company==null?null:atom.company.getId()))continue;
@@ -527,17 +529,17 @@ public class AnalyticsService {
         Map<String,Long> dayCounts=matching.stream().collect(Collectors.groupingBy(a->a.order.getCreatedAt().toLocalDate().toString(),TreeMap::new,Collectors.counting()));
         List<AnalyticsDetailsDtos.Day> days=dayCounts.entrySet().stream().sorted(Map.Entry.<String,Long>comparingByKey().reversed()).map(e->AnalyticsDetailsDtos.Day.builder().date(e.getKey()).count(e.getValue()).build()).toList();
         if(!selectedDay.isEmpty())matching=matching.stream().filter(a->a.order.getCreatedAt().toLocalDate().toString().equals(selectedDay)).collect(Collectors.toCollection(ArrayList::new));
-        Comparator<Atom> comparator=switch(sort){case "quantity"->Comparator.comparingInt(a->a.order.getQuantity());case "amount"->Comparator.comparingLong(a->a.sales);case "company"->Comparator.comparing(a->a.company==null?"":text(a.company.getCompanyName()));case "product"->Comparator.comparing(a->display(a.norm.getProduct()));default->Comparator.comparing(a->a.order.getCreatedAt());};
+        Comparator<Atom> comparator=switch(sort){case "quantity"->Comparator.comparingInt(a->a.order.getQuantity());case "amount"->Comparator.comparingLong(a->a.sales);case "supplyAmount"->Comparator.comparingLong(a->a.supplyAmount);case "vatAmount"->Comparator.comparingLong(a->a.vatAmount);case "company"->Comparator.comparing(a->a.company==null?"":text(a.company.getCompanyName()));case "product"->Comparator.comparing(a->display(a.norm.getProduct()));default->Comparator.comparing(a->a.order.getCreatedAt());};
         if(!"asc".equalsIgnoreCase(input.getSortDir()))comparator=comparator.reversed();
         matching.sort(comparator.thenComparing(a->a.order.getId()));
         Totals total=totals(matching);int start=(int)Math.min((long)input.getPage()*input.getSize(),matching.size()),end=Math.min(start+input.getSize(),matching.size());
         List<AnalyticsDetailsDtos.Row> rows=matching.subList(start,end).stream().map(a->AnalyticsDetailsDtos.Row.builder().orderId(a.order.getId()).date(a.order.getCreatedAt().toLocalDate().toString()).dateTime(a.order.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")))
                 .companyId(a.company==null?null:a.company.getId()).companyName(a.company==null?"업체 정보 없음":display(a.company.getCompanyName())).type(a.order.isStandard()?"규격":"비규격").category(display(a.norm.getTop())).series(display(a.norm.getMid())).product(display(a.norm.getProduct())).color(text(a.norm.getColor())).size(a.norm.getRaw().get("사이즈") instanceof String value?value:"")
-                .kind(switch(recordKind(a)){case "PAID"->"유상 주문";case "RETURN"->"0원 반품용";case "COLLECTION"->"회수";default->"기타 조정";}).kindCode(recordKind(a)).quantity(a.order.getQuantity()).amount(a.sales).status(a.order.getStatus()==null?"상태 미등록":a.order.getStatus().getLabel()).build()).toList();
+                .kind(switch(recordKind(a)){case "PAID"->"유상 주문";case "RETURN"->"0원 반품용";case "COLLECTION"->"회수";default->"기타 조정";}).kindCode(recordKind(a)).quantity(a.order.getQuantity()).supplyAmount(a.supplyAmount).vatAmount(a.vatAmount).amount(a.sales).status(a.order.getStatus()==null?"상태 미등록":a.order.getStatus().getLabel()).build()).toList();
         return AnalyticsDetailsDtos.Response.builder().rows(rows).days(days).totals(total.values).totalRows(matching.size()).page(input.getPage()).size(input.getSize()).build();
     }
     private String periodLabel(LocalDate date,String grouping) { LocalDate start=period(date,grouping);return "MONTH".equals(grouping)?start.format(DateTimeFormatter.ofPattern("yyyy-MM")):start.toString(); }
-    private record Atom(Order order, Company company, ProductOptionNormalized norm, long sales) {}
+    private record Atom(Order order, Company company, ProductOptionNormalized norm, long sales, long supplyAmount, long vatAmount) {}
     private record Totals(long sales, long count, long qty, Map<String, Long> values) {}
     private record Key(String type, List<String> path) {}
     private record Group(Key key, String label) {}

@@ -2,7 +2,9 @@ package com.dev.HiddenBATHAuto.dto.analytics;
 
 /** Shared definitions for analytics table, graph and report/export columns. */
 public enum AnalyticsMetric {
-    SALES("sales", "매출액", "원", "저장된 부가세 포함 상품 합계금액입니다. 배송·포장비는 제외하고 회수 건도 저장된 금액 부호를 그대로 사용합니다."),
+    SALES("sales", "매출 합계", "원", "저장된 부가세 포함 상품 합계금액입니다. 공급가액과 부가세의 합이며 배송·포장비를 제외하고 회수 건도 저장 부호를 유지합니다."),
+    SUPPLY_AMOUNT("supplyAmount", "공급가액", "원", "품목에 저장된 공급가액의 합계입니다. 상품 합계가 0원인 품목은 공급가액도 0원으로 표시하고 배송·포장비를 제외합니다."),
+    VAT_AMOUNT("vatAmount", "부가세", "원", "품목의 상품 합계에서 공급가액을 뺀 금액의 합계입니다. 세율로 역산하지 않으며 상품 합계가 0원이면 부가세도 0원입니다."),
     TASK_COUNT("taskCount", "전체 건수", "건", "개별 품목(Order)의 전체 건수입니다. 유상 주문·0원 반품용·회수·기타 조정을 포함하고 취소는 제외합니다."),
     QTY("qty", "순수량", "개", "저장 수량의 합계입니다. 양수 수량에서 회수 수량을 뺀 값으로 생산 요청수량과 구별합니다."),
     PAID_COUNT("paidOrderCount", "유상 주문건수", "건", "수량과 상품 금액이 모두 양수인 개별 품목 건수입니다."),

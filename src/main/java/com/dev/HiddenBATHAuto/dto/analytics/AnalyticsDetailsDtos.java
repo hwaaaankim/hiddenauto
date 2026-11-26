@@ -41,6 +41,8 @@ public final class AnalyticsDetailsDtos {
   private String kind;
   private String kindCode;
   private long quantity;
+  private long supplyAmount;
+  private long vatAmount;
   private long amount;
   private String status;
  }

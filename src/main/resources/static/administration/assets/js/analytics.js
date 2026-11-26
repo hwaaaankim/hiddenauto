@@ -31,7 +31,7 @@ const analyticsNumberFormat = new Intl.NumberFormat("ko-KR", { maximumFractionDi
 const analyticsMetricDefinitions = {
   "SALES": {
     "key": "sales",
-    "label": "매출액",
+    "label": "매출 합계",
     "unit": "원",
     "help": "저장된 부가세 포함 상품 합계금액입니다. 배송·포장비는 제외하고 회수 건도 저장된 금액 부호를 그대로 사용합니다."
   },
@@ -132,6 +132,10 @@ const analyticsMetricDefinitions = {
     "help": "기타 조정 품목의 저장 상품 금액 합계입니다."
   }
 };
+analyticsMetricDefinitions.SUPPLY_AMOUNT = { key: "supplyAmount", label: "공급가액", unit: "원", help: "저장된 공급가액의 합계입니다. 상품 합계가 0원이면 공급가액도 0원이며 배송·포장비는 제외합니다." };
+analyticsMetricDefinitions.VAT_AMOUNT = { key: "vatAmount", label: "부가세", unit: "원", help: "상품 합계에서 공급가액을 뺀 금액입니다. 세율로 역산하지 않으며 상품 합계가 0원이면 부가세도 0원입니다." };
+function analyticsIsNumericColumn(column) { return !!column.unit || numericColumnKeys.has(column.key); }
+function analyticsColumnClass(column) { return column.key === "rank" ? "analytics-rank-cell" : analyticsIsNumericColumn(column) ? "analytics-number-cell" : "analytics-text-cell"; }
 const numericColumnKeys = new Set(["rank", ...Object.values(analyticsMetricDefinitions).map(metric => metric.key)]);
 function formatAnalyticsNumber(value) {
     if (value == null || value === "") return "";
@@ -158,6 +162,9 @@ let nonStandardLevel = "SORT";
 let addressModal = null;
 let standardLevelModal = null;
 let nonStandardLevelModal = null;
+let analyticsHourModal = null;
+let analyticsAddressSequence = 0;
+let analyticsAddressController = null;
 
 /** =========================
  *  DOM Ready
@@ -193,6 +200,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	// Modals init
 	initAddressModal();
 	initLevelModals();
+	initAnalyticsHourModal();
 
 	// Help tooltip/popup for "?"
 	initHelpBubbles();
@@ -214,12 +222,24 @@ function initExtraMetricButtons() {
         button.onclick = () => addMetric(code); box.append(button);
     }
     const presets = {
-        analyticsSalesPreset: ["SALES", "PAID_COUNT", "PAID_QTY", "RETURN_QTY", "COLLECTION_QTY"],
-        analyticsProductionPreset: ["PRODUCTION_REQUEST_QTY", "PRODUCTION_DONE_QTY", "PRODUCTION_PENDING_QTY", "PAID_QTY", "RETURN_QTY", "COLLECTION_QTY", "PAID_COUNT", "RETURN_COUNT", "COLLECTION_COUNT", "SALES"]
+        analyticsSalesPreset: ["SUPPLY_AMOUNT", "VAT_AMOUNT", "SALES", "PAID_COUNT", "PAID_QTY", "RETURN_QTY", "COLLECTION_QTY"],
+        analyticsProductionPreset: ["PRODUCTION_REQUEST_QTY", "PRODUCTION_DONE_QTY", "PRODUCTION_PENDING_QTY", "PAID_QTY", "RETURN_QTY", "COLLECTION_QTY", "PAID_COUNT", "RETURN_COUNT", "COLLECTION_COUNT", "SUPPLY_AMOUNT", "VAT_AMOUNT", "SALES"]
     };
     for (const [id, metrics] of Object.entries(presets)) document.getElementById(id)?.addEventListener("click", () => {
         xMetrics = [...metrics]; sortKey = ""; renderAxisUI();
+        if(id === "analyticsSalesPreset") configureRevenueChart();
     });
+}
+
+function configureRevenueChart() {
+    const primary = document.getElementById("analyticsChartMetric"); if (!primary) return;
+    primary.value = "SALES"; if (typeof analyticsRefreshCompare === "function") analyticsRefreshCompare();
+    for (const input of document.querySelectorAll("[data-chart-compare]")) input.checked = ["SUPPLY_AMOUNT", "VAT_AMOUNT"].includes(input.dataset.chartCompare);
+}
+function addRevenueMetrics() {
+    const first = xMetrics.length === 0;
+    for (const code of ["SUPPLY_AMOUNT", "VAT_AMOUNT", "SALES"]) if (!xMetrics.includes(code)) xMetrics.push(code);
+    renderAxisUI(); if (first) configureRevenueChart();
 }
 
 function bindAxisButtons() {
@@ -229,7 +249,7 @@ function bindAxisButtons() {
 	document.getElementById("btnAddYAddress").addEventListener("click", () => addYSub("ADDRESS"));
 	document.getElementById("btnAddYHour").addEventListener("click", () => addYSub("HOUR"));
 
-	document.getElementById("btnAddMetricSales").addEventListener("click", () => addMetric("SALES"));
+	document.getElementById("btnAddMetricSales").addEventListener("click", addRevenueMetrics);
 	document.getElementById("btnAddMetricTaskCount").addEventListener("click", () => addMetric("TASK_COUNT"));
 	document.getElementById("btnAddMetricQty").addEventListener("click", () => addMetric("QTY"));
 
@@ -419,16 +439,11 @@ function axisItem(text, onRemove, onConfig, helpText, kind, value) {
  * ========================= */
 function openSubConfigModal(type) {
 	if (type === "HOUR") {
-		const input = prompt("시간대 범위를 입력하세요. 예) 0-8,10-16", "0-23");
-		if (!input) return;
-
-		const parsed = parseHourRanges(input);
-		if (!parsed.ok) {
-			alert(parsed.message);
-			return;
-		}
-		currentHourRanges = parsed.ranges;
-		alert("시간대 설정이 저장되었습니다.");
+		const input = document.getElementById("analyticsHourInput");
+		if (!input || !analyticsHourModal) return;
+		input.value = currentHourRanges.length ? currentHourRanges.map(r => r.startHour + "-" + r.endHour).join(",") : "0-23";
+		document.getElementById("analyticsHourError").hidden = true;
+		input.removeAttribute("aria-invalid"); analyticsHourModal.show();
 		return;
 	}
 
@@ -436,6 +451,18 @@ function openSubConfigModal(type) {
 	if (type === "ADDRESS") {
 		openAddressModal();
 	}
+}
+
+function initAnalyticsHourModal() {
+    const modal = document.getElementById("analyticsHourModal"); if (!modal) return;
+    analyticsHourModal = new bootstrap.Modal(modal);
+    modal.addEventListener("shown.bs.modal", () => document.getElementById("analyticsHourInput").focus());
+    document.getElementById("analyticsHourForm").addEventListener("submit", event => {
+        event.preventDefault(); const input = document.getElementById("analyticsHourInput"), parsed = parseHourRanges(input.value);
+        const error = document.getElementById("analyticsHourError");
+        if (!parsed.ok) { error.textContent = parsed.message; error.hidden = false; input.setAttribute("aria-invalid", "true"); input.focus(); return; }
+        currentHourRanges = parsed.ranges; input.removeAttribute("aria-invalid"); error.hidden = true; analyticsHourModal.hide();
+    });
 }
 
 function openDimConfigModal(type) {
@@ -476,7 +503,6 @@ function initLevelModals() {
 		stdApply.addEventListener("click", () => {
 			const sel = document.getElementById("standardLevelSelect");
 			standardLevel = sel ? sel.value : standardLevel;
-			alert("규격 분류 레벨 저장됨: " + standardLevel);
 			if (standardLevelModal) standardLevelModal.hide();
 		});
 	}
@@ -486,7 +512,6 @@ function initLevelModals() {
 		nonApply.addEventListener("click", () => {
 			const sel = document.getElementById("nonStandardLevelSelect");
 			nonStandardLevel = sel ? sel.value : nonStandardLevel;
-			alert("비규격 분류 레벨 저장됨: " + nonStandardLevel);
 			if (nonStandardLevelModal) nonStandardLevelModal.hide();
 		});
 	}
@@ -496,163 +521,96 @@ function initLevelModals() {
  *  Address Modal (3-level selects)
  * ========================= */
 function initAddressModal() {
-	const modalEl = document.getElementById("addressSelectModal");
-	if (!modalEl) return;
+    const modalEl = document.getElementById("addressSelectModal"); if (!modalEl) return;
+    addressModal = new bootstrap.Modal(modalEl);
+    document.getElementById("addrProvinceSelect").addEventListener("change", event => onProvinceChanged(event.target.value));
+    document.getElementById("addrCitySelect").addEventListener("change", event => onCityChanged(event.target.value));
+    document.getElementById("addrClearBtn").addEventListener("click", () => { currentAddressFilter = null; openAddressModal(); });
+    document.getElementById("addrApplyBtn").addEventListener("click", applyAddressSelection);
+    modalEl.addEventListener("hidden.bs.modal", () => {
+        ++analyticsAddressSequence; analyticsAddressController?.abort(); analyticsAddressController = null;
+        window.AnalyticsFeedback?.clear("address");
+    });
+}
 
-	addressModal = new bootstrap.Modal(modalEl);
-
-	const provinceSel = document.getElementById("addrProvinceSelect");
-	const citySel = document.getElementById("addrCitySelect");
-	const districtSel = document.getElementById("addrDistrictSelect");
-
-	if (!provinceSel || !citySel || !districtSel) return;
-
-	provinceSel.addEventListener("change", async () => {
-		const provinceId = provinceSel.value || "";
-		await onProvinceChanged(provinceId);
-	});
-
-	citySel.addEventListener("change", async () => {
-		const cityId = citySel.value || "";
-		await onCityChanged(cityId);
-	});
-
-	const clearBtn = document.getElementById("addrClearBtn");
-	if (clearBtn) {
-		clearBtn.addEventListener("click", async () => {
-			currentAddressFilter = null;
-			await resetAddressSelects();
-			alert("주소 필터가 초기화되었습니다.");
-		});
-	}
-
-	const applyBtn = document.getElementById("addrApplyBtn");
-	if (applyBtn) {
-		applyBtn.addEventListener("click", () => {
-			applyAddressSelection();
-		});
-	}
+async function analyticsAddressRequest(title, action, retry) {
+    const id = ++analyticsAddressSequence; analyticsAddressController?.abort();
+    const controller = new AbortController(); analyticsAddressController = controller;
+    const apply = document.getElementById("addrApplyBtn"), clear = document.getElementById("addrClearBtn");
+    apply.disabled = true; clear.disabled = true;
+    const feedback = window.AnalyticsFeedback?.start("address", { host: "analyticsAddressLoading", title,
+        message: "선택한 지역에 연결된 목록을 조회하고 있습니다.", onCancel: () => controller.abort(), onRetry: retry });
+    const context = { id, signal: controller.signal, feedback };
+    let success = false;
+    try {
+        await action(context);
+        if (id !== analyticsAddressSequence || controller.signal.aborted) return;
+        success = true; feedback?.finish("success", "지역 목록을 불러왔습니다. 선택 후 적용을 눌러 주세요.");
+    } catch (error) {
+        if (id === analyticsAddressSequence) {
+            if (error.name === "AbortError") feedback?.finish("canceled", "지역 목록 조회 대기를 중단했습니다.");
+            else { feedback?.finish("error", error.message || "지역 목록을 불러오지 못했습니다."); if (!feedback) alert(error.message || "지역 목록을 불러오지 못했습니다."); }
+        }
+    } finally {
+        if (id === analyticsAddressSequence) {
+            if (controller.signal.aborted) feedback?.finish("canceled", "지역 목록 조회 대기를 중단했습니다.");
+            analyticsAddressController = null; apply.disabled = !success; clear.disabled = false;
+        }
+    }
 }
 
 async function openAddressModal() {
-	if (!addressModal) {
-		alert("주소 모달 초기화 실패(bootstrap 로딩/HTML id 확인 필요)");
-		return;
-	}
-
-	await resetAddressSelects();
-	await loadProvinces();
-
-	if (currentAddressFilter && currentAddressFilter.province) {
-		await restoreAddressSelection(currentAddressFilter);
-	}
-
-	addressModal.show();
+    if (!addressModal) return;
+    addressModal.show();
+    return analyticsAddressRequest("시·도 목록을 불러오고 있습니다", async context => {
+        resetAddressSelects(); document.getElementById("addrProvinceSelect").disabled = true;
+        await loadProvinces(context);
+        if (currentAddressFilter?.province) await restoreAddressSelection(currentAddressFilter, context);
+    }, openAddressModal);
 }
 
-async function resetAddressSelects() {
-	setSelectOptions(document.getElementById("addrProvinceSelect"), [{ value: "", label: "전체" }], "");
-	setSelectOptions(document.getElementById("addrCitySelect"), [{ value: "", label: "전체" }], "");
-	setSelectOptions(document.getElementById("addrDistrictSelect"), [{ value: "", label: "전체" }], "");
-
-	const citySel = document.getElementById("addrCitySelect");
-	const districtSel = document.getElementById("addrDistrictSelect");
-	const cityHint = document.getElementById("addrCityHint");
-
-	if (citySel) citySel.disabled = true;
-	if (districtSel) districtSel.disabled = true;
-	if (cityHint) cityHint.style.display = "none";
+function resetAddressSelects() {
+    for (const id of ["addrProvinceSelect", "addrCitySelect", "addrDistrictSelect"]) setSelectOptions(document.getElementById(id), [{ value: "", label: "전체" }], "");
+    document.getElementById("addrCitySelect").disabled = true; document.getElementById("addrDistrictSelect").disabled = true;
+    document.getElementById("addrCityHint").style.display = "none";
 }
 
-async function loadProvinces() {
-	const provinceSel = document.getElementById("addrProvinceSelect");
-	if (!provinceSel) return;
-
-	const res = await fetch("/api/v1/provinces");
-	if (!res.ok) {
-		alert("Province 목록 조회 실패");
-		return;
-	}
-
-	const provinces = await res.json(); // [{id,name},...]
-	const options = [{ value: "", label: "전체" }].concat(
-		(provinces || []).map(p => ({ value: String(p.id), label: p.name }))
-	);
-
-	setSelectOptions(provinceSel, options, provinceSel.value || "");
+async function analyticsReadRegions(url, context) {
+    const response = await fetch(url, { signal: context.signal });
+    if (!response.ok) throw new Error(await responseError(response, "지역 목록을 조회하지 못했습니다. 다시 시도해 주세요."));
+    const rows = await response.json();
+    if (context.id !== analyticsAddressSequence || context.signal.aborted) throw new DOMException("Stale region request", "AbortError");
+    if (!Array.isArray(rows)) throw new Error("지역 목록의 응답 형식을 확인할 수 없습니다. 다시 시도해 주세요.");
+    return rows;
 }
 
-async function onProvinceChanged(provinceId) {
-	const citySel = document.getElementById("addrCitySelect");
-	const districtSel = document.getElementById("addrDistrictSelect");
-	const cityHint = document.getElementById("addrCityHint");
-
-	if (!citySel || !districtSel || !cityHint) return;
-
-	// 초기화
-	setSelectOptions(citySel, [{ value: "", label: "전체" }], "");
-	setSelectOptions(districtSel, [{ value: "", label: "전체" }], "");
-	citySel.disabled = true;
-	districtSel.disabled = true;
-	cityHint.style.display = "none";
-
-	if (!provinceId) return;
-
-	// 1) Province -> City
-	const resCity = await fetch(`/api/v1/province/${provinceId}/cities`);
-	if (!resCity.ok) {
-		alert("City 목록 조회 실패");
-		return;
-	}
-	const cities = await resCity.json();
-
-	if (cities && cities.length > 0) {
-		const cityOptions = [{ value: "", label: "전체" }].concat(
-			cities.map(c => ({ value: String(c.id), label: c.name }))
-		);
-		setSelectOptions(citySel, cityOptions, "");
-		citySel.disabled = false;
-		return;
-	}
-
-	// 2) City가 없으면 Province 직결 District
-	cityHint.style.display = "block";
-
-	const resDist = await fetch(`/api/v1/province/${provinceId}/districts`);
-	if (!resDist.ok) {
-		alert("District 목록 조회 실패");
-		return;
-	}
-	const districts = await resDist.json();
-
-	const distOptions = [{ value: "", label: "전체" }].concat(
-		(districts || []).map(d => ({ value: String(d.id), label: d.name }))
-	);
-	setSelectOptions(districtSel, distOptions, "");
-	districtSel.disabled = false;
+async function loadProvinces(context) {
+    const rows = await analyticsReadRegions("/api/v1/provinces", context), select = document.getElementById("addrProvinceSelect");
+    setSelectOptions(select, [{ value: "", label: "전체" }, ...rows.map(row => ({ value: String(row.id), label: row.name }))], "");
+    select.disabled = false;
 }
 
-async function onCityChanged(cityId) {
-	const districtSel = document.getElementById("addrDistrictSelect");
-	if (!districtSel) return;
+async function onProvinceChanged(provinceId, context) {
+    if (!context) return analyticsAddressRequest("시·군·구 목록을 불러오고 있습니다", current => onProvinceChanged(provinceId, current), () => onProvinceChanged(provinceId));
+    const city = document.getElementById("addrCitySelect"), district = document.getElementById("addrDistrictSelect"), hint = document.getElementById("addrCityHint");
+    setSelectOptions(city, [{ value: "", label: "전체" }], ""); setSelectOptions(district, [{ value: "", label: "전체" }], "");
+    city.disabled = true; district.disabled = true; hint.style.display = "none";
+    if (!provinceId) return;
+    const rows = await analyticsReadRegions(`/api/v1/province/${encodeURIComponent(provinceId)}/cities`, context);
+    if (rows.length) { setSelectOptions(city, [{ value: "", label: "전체" }, ...rows.map(row => ({ value: String(row.id), label: row.name }))], ""); city.disabled = false; return; }
+    hint.style.display = "block";
+    context.feedback?.update("시·군·구 목록을 불러오고 있습니다", "이 지역은 시 선택 없이 시·군·구를 선택합니다.");
+    const districts = await analyticsReadRegions(`/api/v1/province/${encodeURIComponent(provinceId)}/districts`, context);
+    setSelectOptions(district, [{ value: "", label: "전체" }, ...districts.map(row => ({ value: String(row.id), label: row.name }))], ""); district.disabled = false;
+}
 
-	setSelectOptions(districtSel, [{ value: "", label: "전체" }], "");
-	districtSel.disabled = true;
-
-	if (!cityId) return;
-
-	const res = await fetch(`/api/v1/city/${cityId}/districts`);
-	if (!res.ok) {
-		alert("District 목록 조회 실패");
-		return;
-	}
-	const districts = await res.json();
-
-	const distOptions = [{ value: "", label: "전체" }].concat(
-		(districts || []).map(d => ({ value: String(d.id), label: d.name }))
-	);
-	setSelectOptions(districtSel, distOptions, "");
-	districtSel.disabled = false;
+async function onCityChanged(cityId, context) {
+    if (!context) return analyticsAddressRequest("시·군·구 목록을 불러오고 있습니다", current => onCityChanged(cityId, current), () => onCityChanged(cityId));
+    const select = document.getElementById("addrDistrictSelect");
+    setSelectOptions(select, [{ value: "", label: "전체" }], ""); select.disabled = true;
+    if (!cityId) return;
+    const rows = await analyticsReadRegions(`/api/v1/city/${encodeURIComponent(cityId)}/districts`, context);
+    setSelectOptions(select, [{ value: "", label: "전체" }, ...rows.map(row => ({ value: String(row.id), label: row.name }))], ""); select.disabled = false;
 }
 
 function setSelectOptions(selectEl, options, selectedValue) {
@@ -668,6 +626,7 @@ function setSelectOptions(selectEl, options, selectedValue) {
 }
 
 function applyAddressSelection() {
+    if (analyticsAddressController || document.getElementById("addrApplyBtn")?.disabled) return;
 	const provinceSel = document.getElementById("addrProvinceSelect");
 	const citySel = document.getElementById("addrCitySelect");
 	const districtSel = document.getElementById("addrDistrictSelect");
@@ -688,11 +647,10 @@ function applyAddressSelection() {
 		district: districtName || null
 	};
 
-	alert("주소 필터가 저장되었습니다.");
 	if (addressModal) addressModal.hide();
 }
 
-async function restoreAddressSelection(filter) {
+async function restoreAddressSelection(filter, context) {
 	const provinceSel = document.getElementById("addrProvinceSelect");
 	const citySel = document.getElementById("addrCitySelect");
 	const districtSel = document.getElementById("addrDistrictSelect");
@@ -703,7 +661,7 @@ async function restoreAddressSelection(filter) {
 		const provOpt = Array.from(provinceSel.options).find(o => o.text === filter.province);
 		if (provOpt) {
 			provinceSel.value = provOpt.value;
-			await onProvinceChanged(provOpt.value);
+			await onProvinceChanged(provOpt.value, context);
 		}
 	}
 
@@ -711,7 +669,7 @@ async function restoreAddressSelection(filter) {
 		const cityOpt = Array.from(citySel.options).find(o => o.text === filter.city);
 		if (cityOpt) {
 			citySel.value = cityOpt.value;
-			await onCityChanged(cityOpt.value);
+			await onCityChanged(cityOpt.value, context);
 		}
 	}
 
@@ -799,14 +757,25 @@ async function queryAndRender(reset) {
     queryController?.abort();
     const controller = new AbortController(); queryController = controller;
     setQueryBusy(true);
+    const feedback = window.AnalyticsFeedback?.start("query", {
+        host: "analyticsLoading", dock: true,
+        title: reset ? "발주와 합계를 조회하고 있습니다" : "다음 결과를 불러오고 있습니다",
+        message: `${body.fromDate || "과거 전체"} ~ ${body.toDate || "미래 전체"} · 선택한 대상과 지표로 집계 중입니다.`,
+        buttons: [reset ? "analyticsSearchBtn" : "analyticsLoadMoreBtn"],
+        onCancel: () => controller.abort(), onRetry: () => queryAndRender(reset)
+    });
+    document.getElementById("analyticsTable")?.setAttribute("aria-busy", "true");
     try {
         const response = await fetch("/analytics/api/query", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body), signal: controller.signal
         });
         if (!response.ok) throw new Error(await responseError(response, "조회하지 못했습니다. 다시 시도해 주세요."));
+        if (id !== querySequence || controller.signal.aborted) return;
+        feedback?.update("집계 응답을 읽고 있습니다", "표와 그래프에 사용할 결과를 준비하고 있습니다.");
         const data = await response.json();
-        if (id !== querySequence) return;
+        if (id !== querySequence || controller.signal.aborted) return;
+        feedback?.update("표와 그래프를 표시하고 있습니다", "합계와 조회 결과를 화면에 반영하고 있습니다.");
         totalRows = Number(data.totalRows) || 0;
         currentColumns = Array.isArray(data.columns) ? data.columns : [];
         page = body.page;
@@ -819,131 +788,96 @@ async function queryAndRender(reset) {
         renderResultContext(data);
         renderChart(data.chart);
         refreshHelpBubbles();
+        feedback?.finish("success", `${formatAnalyticsNumber(totalRows)}행 중 ${formatAnalyticsNumber(loadedRowCount)}행을 표시했습니다.`);
     } catch (error) {
-        if (id === querySequence && error.name !== "AbortError") alert(error.message || "조회하지 못했습니다.");
+        if (id === querySequence) {
+            if (error.name === "AbortError") feedback?.finish("canceled", "조회 대기를 중단했습니다. 이전 조회 결과는 유지됩니다.");
+            else {
+                feedback?.finish("error", error.message || "조회하지 못했습니다. 다시 시도해 주세요.");
+                if (!feedback) alert(error.message || "조회하지 못했습니다.");
+            }
+        }
     } finally {
-        if (id === querySequence) { queryController = null; setQueryBusy(false); }
+        if (id === querySequence) {
+            if (controller.signal.aborted) feedback?.finish("canceled", "조회 대기를 중단했습니다. 이전 조회 결과는 유지됩니다.");
+            queryController = null; setQueryBusy(false); document.getElementById("analyticsTable")?.setAttribute("aria-busy", "false");
+        }
     }
 }
 function renderResultContext(data) {
     const box = document.getElementById("analyticsResultContext"); if (!box) return;
     box.replaceChildren(); box.hidden = false;
-    const meta = data.meta || {};
-    for (const content of [meta.periodText, [meta.yAxisText, meta.xDimText, meta.xAxisText].filter(Boolean).join(" · "), [meta.addressText, meta.hourText].filter(Boolean).join(" · "), meta.basisText, meta.chartBasisText]) {
-        if (!content) continue;
-        const line = document.createElement("div"); line.textContent = content; box.append(line);
+    const meta = data.meta || {}, heading = document.createElement("div"), title = document.createElement("h2"), updated = document.createElement("span");
+    heading.className = "analytics-summary-heading"; title.textContent = "조회 요약"; updated.textContent = meta.generatedAtText || "";
+    heading.append(title, updated); box.append(heading);
+    const period = document.createElement("div"), periodText = document.createElement("strong"), view = document.createElement("span");
+    period.className = "analytics-summary-period"; periodText.textContent = meta.periodText || "선택한 기간"; view.textContent = meta.viewText || "";
+    period.append(periodText, view); box.append(period);
+    const conditions = document.createElement("details"), caption = document.createElement("summary");
+    conditions.className = "analytics-summary-conditions"; caption.textContent = "집계 기준·검색 조건 확인"; conditions.append(caption);
+    for (const content of [[meta.yAxisText,meta.xDimText,meta.xAxisText].filter(Boolean).join(" · "),meta.filterText,[meta.addressText,meta.hourText].filter(Boolean).join(" · "),meta.basisText,meta.chartBasisText]) {
+        if (!content) continue; const line = document.createElement("div"); line.textContent = content; conditions.append(line);
     }
-    const totals = data.totals || {};
-    const line = document.createElement("div"); line.className = "mt-2 fw-semibold";
-    line.textContent = currentColumns.filter(c => c.unit || numericColumnKeys.has(c.key) && c.key !== "rank")
-        .map(c => `${c.label} 합계 ${formatAnalyticsNumber(totals.metrics?.[c.key] ?? totals[c.key] ?? 0)}${c.unit || (c.key === "sales" ? "원" : c.key === "qty" ? "개" : "건")}`).join(" · ");
-    box.append(line);
+    box.append(conditions);
+    const totals = data.totals || {}, revenue = document.createElement("div");revenue.className="analytics-revenue-summary";
+    for(const [key,label]of[["supplyAmount","공급가액"],["vatAmount","부가세"],["sales","매출 합계"]]){
+        const item=document.createElement("div"),name=document.createElement("span"),value=document.createElement("strong");
+        name.textContent=label;const amount=totals.metrics?.[key]??totals[key];value.textContent=amount==null?"—":formatAnalyticsNumber(amount)+"원";
+        item.dataset.revenueKey=key;item.append(name,value);revenue.append(item);
+    }
+    box.append(revenue);
+    const metricList = document.createElement("div"); metricList.className = "analytics-summary-metrics";
+    for (const column of currentColumns.filter(c => !["supplyAmount","vatAmount","sales","rank"].includes(c.key) && (c.unit || numericColumnKeys.has(c.key)))) {
+        const item=document.createElement("div"),label=document.createElement("span"),value=document.createElement("strong");
+        label.textContent=column.label;value.textContent=formatAnalyticsNumber(totals.metrics?.[column.key] ?? totals[column.key] ?? 0)+(column.unit || (column.key==="sales"?"원":column.key==="qty"?"개":"건"));
+        item.append(label,value);metricList.append(item);
+    }
+    box.append(metricList);
     if (totals.metrics) {
-        const m = totals.metrics, comparison = document.createElement("div"); comparison.className = "row g-2 mt-2";
+        const m = totals.metrics, comparison = document.createElement("div"); comparison.className = "row g-2 mt-2 analytics-comparison-cards";
         const n = key => formatAnalyticsNumber(m[key] || 0);
-        for (const [title, value, note] of [
-            ["유상 주문", `${n("paidQty")}개`, `${n("paidOrderCount")}건`],
-            ["0원 반품용", `${n("returnQty")}개`, `${n("returnOrderCount")}건 · 생산수량 포함`],
-            ["생산 요청", `${n("productionRequestQty")}개`, `완료 ${n("productionDoneQty")}개 · 대기 ${n("productionPendingQty")}개`],
-            ["회수", `${n("collectionQty")}개`, `${n("collectionOrderCount")}건 · 금액 ${n("collectionSales")}원`]
+        for (const [label, value, note] of [
+            ["유상 주문",`${n("paidQty")}개`,`${n("paidOrderCount")}건`],
+            ["0원 반품용",`${n("returnQty")}개`,`${n("returnOrderCount")}건 · 생산수량 포함`],
+            ["생산 요청",`${n("productionRequestQty")}개`,`완료 ${n("productionDoneQty")}개 · 대기 ${n("productionPendingQty")}개`],
+            ["회수",`${n("collectionQty")}개`,`${n("collectionOrderCount")}건 · 금액 ${n("collectionSales")}원`]
         ]) {
-            const column = document.createElement("div"); column.className = "col-6 col-xl-3";
-            const card = document.createElement("div"); card.className = "border rounded p-3 bg-white h-100";
-            const label = document.createElement("div"); label.className = "text-muted small"; label.textContent = title;
-            const amount = document.createElement("strong"); amount.className = "d-block fs-5 mt-1"; amount.textContent = value;
-            const detail = document.createElement("div"); detail.className = "small text-muted mt-1"; detail.textContent = note;
-            card.append(label, amount, detail); column.append(card); comparison.append(column);
+            const column=document.createElement("div"),card=document.createElement("div"),name=document.createElement("div"),amount=document.createElement("strong"),detail=document.createElement("div");
+            column.className="col-6 col-xl-3";card.className="analytics-comparison-card h-100";
+            name.className="analytics-comparison-label";name.textContent=label;amount.className="analytics-comparison-value";amount.textContent=value;
+            detail.className="analytics-comparison-note";detail.textContent=note;
+            card.append(name,amount,detail);column.append(card);comparison.append(column);
         }
         box.append(comparison);
     }
-    for (const warning of data.warnings || []) {
-        const node = document.createElement("div"); node.className = "text-danger mt-1"; node.textContent = warning; box.append(node);
-    }
+    for (const warning of data.warnings || []) { const line=document.createElement("div");line.className="analytics-summary-warning";line.textContent=warning;box.append(line); }
 }
 
 /** =========================
  *  Table
  * ========================= */
 function renderTable(rows, reset) {
-	const thead = document.getElementById("analyticsThead");
-	const tbody = document.getElementById("analyticsTbody");
-
-	if (!thead || !tbody) return;
-
-	if (reset) {
-		thead.innerHTML = "";
-		tbody.innerHTML = "";
-	}
-
-	if (!rows || rows.length === 0) {
-		if (reset) {
-			tbody.innerHTML = `<tr><td class="text-center p-4" colspan="30">데이터가 없습니다.</td></tr>`;
-		}
-		return;
-	}
-
-	// ✅ columns 메타 기준으로 헤더 구성 (한글 + ? 도움말)
-	const cols = (currentColumns && currentColumns.length > 0)
-		? currentColumns
-		: Object.keys(rows[0]).map(k => ({ key: k, label: k, help: "" }));
-
-	if (reset) {
-		const tr = document.createElement("tr");
-
-		cols.forEach(c => {
-			const th = document.createElement("th");
-			th.className = c.key === "rank" ? "" : "th-sort";
-
-			const labelSpan = document.createElement("span");
-			labelSpan.textContent = (c.label || c.key) + (c.unit ? ` (${c.unit})` : "");
-			th.appendChild(labelSpan);
-
-			if (c.help) {
-				const q = document.createElement("span");
-				q.className = "help-q th-help";
-				q.setAttribute("data-help", c.help);
-				q.textContent = "?";
-				th.appendChild(q);
-			}
-
-			const arrows = document.createElement("span");
-			arrows.className = "arrows";
-			arrows.textContent = c.key === "rank" ? "" : (sortKey === c.key) ? (sortDir === "asc" ? "▲" : "▼") : "↕";
-			th.appendChild(arrows);
-
-			th.addEventListener("click", (e) => {
-				// help-q 클릭은 정렬 방지
-                if (c.key === "rank") return;
-				if (e.target && e.target.classList && e.target.classList.contains("help-q")) return;
-
-				if (sortKey === c.key) {
-					sortDir = (sortDir === "asc") ? "desc" : "asc";
-				} else {
-					sortKey = c.key;
-					sortDir = "desc";
-				}
-				page = 0;
-				queryAndRender(true);
-			});
-
-			tr.appendChild(th);
-		});
-
-		thead.appendChild(tr);
-	}
-
-	rows.forEach(r => {
-		const tr = document.createElement("tr");
-		cols.forEach(c => {
-			const td = document.createElement("td");
-			td.textContent = numericColumnKeys.has(c.key)
-                ? formatAnalyticsNumber(r[c.key])
-                : (r[c.key] == null ? "" : String(r[c.key]));
-            if (numericColumnKeys.has(c.key)) td.classList.add("text-end");
-			tr.appendChild(td);
-		});
-		tbody.appendChild(tr);
-	});
+    const thead=document.getElementById("analyticsThead"),tbody=document.getElementById("analyticsTbody");if(!thead||!tbody)return;
+    const cols=currentColumns?.length?currentColumns:Object.keys(rows?.[0]||{}).filter(key=>key!=="detailScope").map(key=>({key,label:key,help:""}));
+    if(reset){
+        thead.replaceChildren();tbody.replaceChildren();const tr=document.createElement("tr");
+        for(const column of cols){
+            const th=document.createElement("th"),label=document.createElement("span"),actions=document.createElement("span");
+            th.scope="col";th.dataset.columnKey=column.key;th.className=analyticsColumnClass(column)+(analyticsIsNumericColumn(column)?" text-end":"")+(column.key==="rank"?"":" th-sort");
+            label.className="analytics-column-label";label.textContent=(column.label||column.key)+(column.unit?` (${column.unit})`:"");
+            actions.className="analytics-column-actions";
+            if(column.help){const q=document.createElement("span");q.className="help-q th-help";q.dataset.help=column.help;q.textContent="?";q.tabIndex=0;q.setAttribute("role","button");q.setAttribute("aria-label",(column.label||column.key)+" 도움말");q.onkeydown=event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();event.stopPropagation();q.click();}};actions.append(q);}
+            if(column.key!=="rank"){
+                const arrow=document.createElement("span");arrow.className="arrows";arrow.setAttribute("aria-hidden","true");arrow.textContent=sortKey===column.key?(sortDir==="asc"?"▲":"▼"):"↕";actions.append(arrow);th.tabIndex=0;
+                th.onkeydown=event=>{if(event.target===th&&(event.key==="Enter"||event.key===" ")){event.preventDefault();th.click();}};
+                th.onclick=event=>{if(event.target.closest?.(".help-q"))return;if(sortKey===column.key)sortDir=sortDir==="asc"?"desc":"asc";else{sortKey=column.key;sortDir="desc";}page=0;queryAndRender(true);};
+            }
+            th.append(label,actions);tr.append(th);
+        }
+        thead.append(tr);
+    }
+    if(!rows?.length){if(reset){const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=cols.length||1;td.className="analytics-empty-cell text-center p-4";td.textContent="데이터가 없습니다.";tr.append(td);tbody.append(tr);}return;}
+    for(const row of rows){const tr=document.createElement("tr");for(const column of cols){const td=document.createElement("td");td.className=analyticsColumnClass(column);td.dataset.columnKey=column.key;td.textContent=analyticsIsNumericColumn(column)?formatAnalyticsNumber(row[column.key]):row[column.key]==null?"":String(row[column.key]);if(analyticsIsNumericColumn(column))td.classList.add("text-end");tr.append(td);}tbody.append(tr);}
 }
 
 /** =========================
@@ -987,34 +921,47 @@ function renderChart(chart) {
  *  Export
  * ========================= */
 async function exportExcel() {
+    let feedback;
     try {
         const body = buildRequestBodyForExport();
+        if (window.AnalyticsFeedback?.isExporting()) return;
+        feedback = window.AnalyticsFeedback?.startExport("엑셀 파일을 생성하고 있습니다", "analyticsExcelBtn", exportExcel);
         const response = await fetch("/analytics/api/export/excel", {
             method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
         });
         if (!response.ok) throw new Error(await responseError(response, "엑셀 출력에 실패했습니다."));
+        feedback?.update("엑셀 파일을 내려받을 준비를 하고 있습니다", "생성된 파일 데이터를 읽고 있습니다.");
         const blob = await response.blob(), url = URL.createObjectURL(blob), link = document.createElement("a");
         link.href = url; link.download = "analytics.xlsx"; link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (error) { alert(error.message || "엑셀 출력에 실패했습니다."); }
+        feedback?.finish("success", "엑셀 파일을 생성하여 다운로드를 요청했습니다.");
+    } catch (error) { feedback?.finish("error", error.message || "엑셀 출력에 실패했습니다."); if (!feedback) alert(error.message || "엑셀 출력에 실패했습니다."); }
 }
 async function exportA4() {
-    let report;
+    let report, feedback;
     try {
         const body = buildRequestBodyForExport();
+        if (window.AnalyticsFeedback?.isExporting()) return;
         report = window.open("", "_blank");
         if (!report) throw new Error("팝업 허용 후 다시 출력해 주세요.");
-        report.document.body.textContent = "보고서를 준비하고 있습니다.";
+        feedback = window.AnalyticsFeedback?.startExport("A4 보고서를 생성하고 있습니다", "analyticsA4Btn", exportA4);
+        report.document.body.textContent = "보고서를 생성하고 있습니다. 원래 분석 화면에서 진행상황을 확인할 수 있습니다.";
+        window.AnalyticsFeedback?.attachExportReport(report);
         const response = await fetch("/analytics/api/export/a4", {
             method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body)
         });
         if (!response.ok) throw new Error(await responseError(response, "A4 출력에 실패했습니다."));
+        feedback?.update("보고서 내용을 읽고 있습니다", "집계 결과와 선택 그래프를 보고서에 넣고 있습니다.");
         const html = await response.text();
+        if (report.closed) throw new Error("보고서 창이 닫혔습니다. 다시 출력을 눌러 주세요.");
         report.document.open(); report.document.write(html); report.document.close();
+        feedback?.update("인쇄 화면을 준비하고 있습니다", "보고서 글꼴과 페이지 준비가 끝나면 인쇄 창이 열립니다.");
         const ready = report.document.fonts?.ready || Promise.resolve();
         await ready;
+        if (report.closed) throw new Error("보고서 창이 닫혔습니다. 다시 출력을 눌러 주세요.");
         report.focus(); report.print();
-    } catch (error) { report?.close(); alert(error.message || "A4 출력에 실패했습니다."); }
+        feedback?.finish("success", "보고서를 준비하여 인쇄 창을 열었습니다.");
+    } catch (error) { report?.close(); feedback?.finish("error", error.message || "A4 출력에 실패했습니다."); if (!feedback) alert(error.message || "A4 출력에 실패했습니다."); }
 }
 
 /** =========================
@@ -1129,11 +1076,12 @@ function parseHourRanges(input) {
 
 	const parts = raw.split(",").map(x => x.trim()).filter(Boolean);
 	if (parts.length === 0) return { ok: false, message: "시간대 입력이 올바르지 않습니다.", ranges: [] };
+    if (parts.length > 24) return { ok: false, message: "시간대는 최대 24개 구간까지 지정해 주세요.", ranges: [] };
 
 	const ranges = [];
 	for (const p of parts) {
 		const [a, b] = p.split("-").map(v => v.trim());
-		if (a == null || b == null || a === "" || b === "") {
+		if (!/^\d{1,2}\s*-\s*\d{1,2}$/.test(p) || a == null || b == null || a === "" || b === "") {
 			return { ok: false, message: `형식 오류: "${p}" (예: 0-8,10-16)`, ranges: [] };
 		}
 		const startHour = parseInt(a, 10);

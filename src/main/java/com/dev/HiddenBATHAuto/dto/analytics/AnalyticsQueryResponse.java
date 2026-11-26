@@ -1,7 +1,10 @@
 package com.dev.HiddenBATHAuto.dto.analytics;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import lombok.Builder;
 import lombok.Data;
@@ -21,6 +24,23 @@ public class AnalyticsQueryResponse {
     private List<String> warnings;
 
     private ChartData chart;                   // 그래프(옵션)
+
+    /** Repeat identifying columns when a printed table needs several readable bands. */
+    @JsonIgnore
+    public List<List<ColumnMeta>> getReportColumnGroups() {
+        var source = columns == null ? List.<ColumnMeta>of() : columns;
+        if (source.size() <= 8) return List.of(source);
+        var identifiers = source.stream().filter(c -> c.getUnit() == null).toList();
+        var metrics = source.stream().filter(c -> c.getUnit() != null).toList();
+        int perGroup = Math.max(1, Math.min(4, 8 - identifiers.size()));
+        var result = new ArrayList<List<ColumnMeta>>();
+        for (int start = 0; start < metrics.size(); start += perGroup) {
+            var group = new ArrayList<>(identifiers);
+            group.addAll(metrics.subList(start, Math.min(start + perGroup, metrics.size())));
+            result.add(group);
+        }
+        return result.isEmpty() ? List.of(source) : result;
+    }
 
     @Data
     @Builder
@@ -60,6 +80,17 @@ public class AnalyticsQueryResponse {
         private List<RankItem> topCategories;  // 카테고리 Top 5 (PRODUCT 모드일 때 - norm.top)
         private List<RankItem> topSeries;      // 시리즈 Top 5 (PRODUCT 모드일 때 - norm.mid)
         private List<RankItem> topProducts;    // 제품 Top 5 (PRODUCT 모드일 때 - norm.product)
+
+        @JsonIgnore
+        public List<List<ColumnMeta>> getReportMetricGroups() {
+            var source = metricColumns == null ? List.<ColumnMeta>of() : metricColumns;
+            if (source.size() <= 4) return List.of(source);
+            var result = new ArrayList<List<ColumnMeta>>();
+            for (int start = 0; start < source.size(); start += 4) {
+                result.add(source.subList(start, Math.min(start + 4, source.size())));
+            }
+            return result;
+        }
     }
 
     @Data

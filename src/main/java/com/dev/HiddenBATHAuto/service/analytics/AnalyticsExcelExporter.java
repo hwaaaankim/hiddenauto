@@ -54,6 +54,7 @@ public class AnalyticsExcelExporter {
              ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
 
             CellStyle headerStyle = buildHeaderStyle(wb);
+            CellStyle numericHeaderStyle = numericHeader(wb, headerStyle);
             CellStyle bodyStyle = buildBodyStyle(wb);
 
             // =========================
@@ -68,6 +69,14 @@ public class AnalyticsExcelExporter {
             List<AnalyticsQueryResponse.ColumnMeta> metrics = columns.stream()
                     .filter(c -> c.getUnit() != null).toList();
             if (totals != null) {
+                r = writeLine(summarySheet, r, "상품 매출: 공급가액 + 부가세 = 합계 (배송·포장비 제외)");
+                for (var metric : List.of(AnalyticsMetric.SUPPLY_AMOUNT, AnalyticsMetric.VAT_AMOUNT, AnalyticsMetric.SALES)) {
+                    Row line = summarySheet.createRow(r++);
+                    line.createCell(0).setCellValue(metric.label() + " (원)");
+                    Cell amount = line.createCell(1);
+                    amount.setCellValue(totals.getMetrics().getOrDefault(metric.key(), 0L));
+                    amount.setCellStyle(bodyStyle);
+                }
                 r = writeLine(summarySheet, r, "조회 대상 전체 합계");
                 for (var metric : metrics) {
                     Row line = summarySheet.createRow(r++);
@@ -121,7 +130,7 @@ public class AnalyticsExcelExporter {
                 for (int i = 0; i < cols.size(); i++) {
                     Cell c = headerRow.createCell(i);
                     c.setCellValue(cols.get(i).getLabel() + (cols.get(i).getUnit() == null ? "" : " (" + cols.get(i).getUnit() + ")"));
-                    c.setCellStyle(headerStyle);
+                    c.setCellStyle(cols.get(i).getUnit() != null || "rank".equals(cols.get(i).getKey()) ? numericHeaderStyle : headerStyle);
                 }
 
                 int rowIdx = 1;
@@ -167,9 +176,9 @@ public class AnalyticsExcelExporter {
         sheet.createRow(3).createCell(0).setCellValue(data.getNote());
         List<AnalyticsQueryResponse.ChartSeries> series=data.getSeries();
         if(series==null||series.isEmpty())series=List.of(AnalyticsQueryResponse.ChartSeries.builder().label(data.getTitle()).color("#2563eb").values(data.getValues()).build());
-        int header=33;
+        int header=33;CellStyle numberHeader=numericHeader(workbook,headerStyle);
         Row titles=sheet.createRow(header);titles.createCell(0).setCellValue("항목 / 기간");titles.getCell(0).setCellStyle(headerStyle);
-        for(int j=0;j<series.size();j++){Cell c=titles.createCell(j+1);c.setCellValue(series.get(j).getLabel()+" ("+data.getUnit()+")");c.setCellStyle(headerStyle);}
+        for(int j=0;j<series.size();j++){Cell c=titles.createCell(j+1);c.setCellValue(series.get(j).getLabel()+" ("+data.getUnit()+")");c.setCellStyle(numberHeader);}
         for(int i=0;i<data.getLabels().size();i++){Row row=sheet.createRow(header+1+i);row.createCell(0).setCellValue(data.getLabels().get(i));for(int j=0;j<series.size();j++){Cell c=row.createCell(j+1);c.setCellValue(series.get(j).getValues().get(i).doubleValue());c.setCellStyle(bodyStyle);}}
         var drawing=sheet.createDrawingPatriarch();var anchor=drawing.createAnchor(0,0,0,0,0,5,12,31);var chart=drawing.createChart(anchor);
         chart.setTitleText(data.getTitle());chart.setTitleOverlay(false);chart.getOrAddLegend().setPosition(LegendPosition.BOTTOM);
@@ -194,14 +203,16 @@ public class AnalyticsExcelExporter {
                                       AnalyticsQueryResponse.Totals totals, CellStyle headerStyle, CellStyle bodyStyle) {
         Sheet sheet = workbook.createSheet("주문생산회수비교");
         List<AnalyticsQueryResponse.ColumnMeta> identities = selectedColumns.stream().filter(c -> c.getUnit() == null).toList();
-        List<AnalyticsMetric> metrics = List.of(AnalyticsMetric.SALES, AnalyticsMetric.PAID_COUNT, AnalyticsMetric.PAID_QTY,
+        List<AnalyticsMetric> metrics = List.of(AnalyticsMetric.SUPPLY_AMOUNT, AnalyticsMetric.VAT_AMOUNT, AnalyticsMetric.SALES,
+                AnalyticsMetric.TASK_COUNT, AnalyticsMetric.QTY, AnalyticsMetric.PAID_COUNT, AnalyticsMetric.PAID_QTY, AnalyticsMetric.PAID_SALES,
                 AnalyticsMetric.RETURN_COUNT, AnalyticsMetric.RETURN_QTY, AnalyticsMetric.PRODUCTION_REQUEST_QTY,
                 AnalyticsMetric.PRODUCTION_DONE_QTY, AnalyticsMetric.PRODUCTION_PENDING_QTY,
                 AnalyticsMetric.COLLECTION_COUNT, AnalyticsMetric.COLLECTION_QTY, AnalyticsMetric.COLLECTION_SALES,
                 AnalyticsMetric.ADJUSTMENT_COUNT, AnalyticsMetric.ADJUSTMENT_QTY, AnalyticsMetric.ADJUSTMENT_SALES);
         Row header = sheet.createRow(0); int column = 0;
-        for (var identity : identities) { Cell cell=header.createCell(column++); cell.setCellValue(identity.getLabel()); cell.setCellStyle(headerStyle); }
-        for (var metric : metrics) { Cell cell=header.createCell(column++); cell.setCellValue(metric.label()+" ("+metric.unit()+")");cell.setCellStyle(headerStyle); }
+        for (var identity : identities) { Cell cell=header.createCell(column++); cell.setCellValue(identity.getLabel()); cell.setCellStyle("rank".equals(identity.getKey())?numericHeader(workbook,headerStyle):headerStyle); }
+        CellStyle numberHeader=numericHeader(workbook,headerStyle);
+        for (var metric : metrics) { Cell cell=header.createCell(column++); cell.setCellValue(metric.label()+" ("+metric.unit()+")");cell.setCellStyle(numberHeader); }
         int rowNumber=1;
         if (rows != null) for (var values : rows) {
             Row row=sheet.createRow(rowNumber++); column=0;
@@ -226,7 +237,7 @@ public class AnalyticsExcelExporter {
 
         CellStyle headerStyle = wb.createCellStyle();
         headerStyle.setFont(headerFont);
-        headerStyle.setAlignment(HorizontalAlignment.CENTER);
+        headerStyle.setAlignment(HorizontalAlignment.LEFT);
         headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
         headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
         headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
@@ -240,6 +251,7 @@ public class AnalyticsExcelExporter {
     private CellStyle buildBodyStyle(Workbook wb) {
         CellStyle bodyStyle = wb.createCellStyle();
         bodyStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+        bodyStyle.setAlignment(HorizontalAlignment.GENERAL);
         bodyStyle.setBorderBottom(BorderStyle.THIN);
         bodyStyle.setBorderTop(BorderStyle.THIN);
         bodyStyle.setBorderLeft(BorderStyle.THIN);
@@ -247,6 +259,10 @@ public class AnalyticsExcelExporter {
         bodyStyle.setWrapText(true);
         bodyStyle.setDataFormat(wb.createDataFormat().getFormat("#,##0;[Red]-#,##0;0"));
         return bodyStyle;
+    }
+
+    private CellStyle numericHeader(Workbook workbook, CellStyle base) {
+        CellStyle style=workbook.createCellStyle();style.cloneStyleFrom(base);style.setAlignment(HorizontalAlignment.RIGHT);return style;
     }
 
     private int writeTitle(Sheet sheet, int r, String title, Workbook wb) {
@@ -323,10 +339,11 @@ public class AnalyticsExcelExporter {
         List<String> labels = new ArrayList<>(List.of("순위", "항목"));
         metrics.forEach(metric -> labels.add(metric.getLabel() + " (" + metric.getUnit() + ")"));
         String[] headers = labels.toArray(String[]::new);
+        CellStyle numberHeader=numericHeader(sheet.getWorkbook(),headerStyle);
         for (int i = 0; i < headers.length; i++) {
             Cell c = hr.createCell(i);
             c.setCellValue(headers[i]);
-            c.setCellStyle(headerStyle);
+            c.setCellStyle(i==1?headerStyle:numberHeader);
         }
 
         if (items == null || items.isEmpty()) {
@@ -374,7 +391,7 @@ public class AnalyticsExcelExporter {
 
         Cell h1 = hr.createCell(1);
         h1.setCellValue("첫 그래프 지표: " + (chart.getSeries()!=null&&!chart.getSeries().isEmpty()?chart.getSeries().get(0).getLabel():chart.getValueKey()));
-        h1.setCellStyle(headerStyle);
+        h1.setCellStyle(numericHeader(wb,headerStyle));
 
         for (int i = 0; i < chart.getLabels().size(); i++) {
             Row row = sheet.createRow(r++);

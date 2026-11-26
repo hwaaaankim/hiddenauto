@@ -150,6 +150,11 @@
         .comparison-grid b { display:block;font-size:16px;margin:5px 0; }
         .comparison-grid small { display:block;font-size:10px;color:#555; }
         thead { display:table-header-group; } tfoot { display:table-row-group; } tr { break-inside:avoid; }
+        .numeric { text-align:right; font-variant-numeric:tabular-nums; }
+        .report-column-group { margin-bottom:16px; }
+        .revenue-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px; }
+        .revenue-grid>div { border:1px solid #d8e1ed;border-radius:6px;padding:10px; }
+        .revenue-grid strong { display:block;text-align:right;font-size:16px;margin-top:5px;font-variant-numeric:tabular-nums; }
         .compact-report td,.compact-report th{padding:4px;font-size:9.5px}
 		.note {
 			font-size: 10px;
@@ -157,7 +162,7 @@
 			margin-top: 6px;
 		}
 	</style>
-    <style th:text="${'@page { size: A4 ' + (bundle != null and (bundle.columns.size() > 8 or bundle.summary.metricColumns.size() > 6) ? 'landscape' : 'portrait') + '; margin:12mm; }'}"></style>
+    <style th:text="${'@page { size: A4 ' + (bundle != null and (bundle.columns.size() >= 8 or bundle.summary.metricColumns.size() > 3) ? 'landscape' : 'portrait') + '; margin:12mm; }'}"></style>
 </head>
 
 <body th:class="${bundle != null && bundle.meta.compactTable ? 'compact-report' : ''}">
@@ -210,125 +215,135 @@
         <p class="note">0원 반품용도 양수 수량이면 생산 요청수량에 포함합니다. 회수는 절댓값 수량으로 별도 표시하며 회수건 금액은 저장 부호를 유지합니다.</p>
     </div>
 
+    <div class="box" th:if="${bundle != null and bundle.totals != null}">
+        <div class="box-title">상품 매출: 공급가액 + 부가세 = 합계</div>
+        <div class="revenue-grid">
+            <div>공급가액<strong th:text="${bundle.totals.metrics.containsKey('supplyAmount') ? #numbers.formatInteger(bundle.totals.metrics['supplyAmount'],1,'COMMA') + '원' : '—'}"></strong></div>
+            <div>부가세<strong th:text="${bundle.totals.metrics.containsKey('vatAmount') ? #numbers.formatInteger(bundle.totals.metrics['vatAmount'],1,'COMMA') + '원' : '—'}"></strong></div>
+            <div>매출 합계<strong th:text="${#numbers.formatInteger(bundle.totals.sales,1,'COMMA') + '원'}"></strong></div>
+        </div>
+        <p class="note">배송·포장비 제외. 상품 합계가 0원인 반품·회수는 세 금액 모두 0원입니다. 금액이 있는 회수는 저장 부호를 유지합니다.</p>
+    </div>
+
 	<!-- ✅ 요약 -->
 	<div class="section-title" th:text="${bundle.summary.title}">5개 요약</div>
 
-	<div class="two-col" th:class="${bundle != null and (bundle.columns.size() > 8 or bundle.summary.metricColumns.size() > 6) ? '' : 'two-col'}" th:if="${bundle != null && bundle.summary != null}">
-		<div class="box" th:if="${bundle.summary.topCompanies != null && !#lists.isEmpty(bundle.summary.topCompanies)}">
-			<div class="box-title">업체별</div>
+	<div class="two-col" th:class="${bundle != null and (bundle.columns.size() >= 8 or bundle.summary.metricColumns.size() > 2) ? '' : 'two-col'}" th:if="${bundle != null && bundle.summary != null}">
+		<div class="box" th:each="metricGroup, groupStat : ${bundle.summary.reportMetricGroups}" th:if="${bundle.summary.topCompanies != null && !#lists.isEmpty(bundle.summary.topCompanies)}">
+			<div class="box-title">업체별<span th:if="${groupStat.size > 1}" th:text="${' · 지표 ' + groupStat.count + '/' + groupStat.size}"></span></div>
 			<table class="rank-table">
 				<thead>
 					<tr>
-						<th style="width:10%">순위</th>
+						<th class="numeric" style="width:10%">순위</th>
 						<th>업체</th>
-                        <th th:each="c : ${bundle.summary.metricColumns}"
-                            th:if="${c.unit != null}"
+                        <th th:each="c : ${metricGroup}"
+                            th:if="${c.unit != null}" class="numeric"
                             th:text="${c.label + (c.unit == null ? '' : ' (' + c.unit + ')')}"></th>
 					</tr>
 				</thead>
 				<tbody>
 					<tr th:each="it : ${bundle.summary.topCompanies}">
-						<td th:text="${it.rank}">1</td>
+						<td class="numeric" th:text="${it.rank}">1</td>
 						<td th:text="${it.name}">-</td>
-                        <td th:each="c : ${bundle.summary.metricColumns}"
-                            th:if="${c.unit != null}"
+                        <td th:each="c : ${metricGroup}"
+                            th:if="${c.unit != null}" class="numeric"
                             th:text="${#numbers.formatInteger(it.metrics[c.key], 1, 'COMMA')}">0</td>
 					</tr>
 				</tbody>
 			</table>
 		</div>
 
-		<div class="box" th:if="${bundle.summary.topRegions != null && !#lists.isEmpty(bundle.summary.topRegions)}">
-			<div class="box-title">지역별</div>
+		<div class="box" th:each="metricGroup, groupStat : ${bundle.summary.reportMetricGroups}" th:if="${bundle.summary.topRegions != null && !#lists.isEmpty(bundle.summary.topRegions)}">
+			<div class="box-title">지역별<span th:if="${groupStat.size > 1}" th:text="${' · 지표 ' + groupStat.count + '/' + groupStat.size}"></span></div>
 			<table class="rank-table">
 				<thead>
 					<tr>
-						<th style="width:10%">순위</th>
+						<th class="numeric" style="width:10%">순위</th>
 						<th>지역</th>
-                        <th th:each="c : ${bundle.summary.metricColumns}"
-                            th:if="${c.unit != null}"
+                        <th th:each="c : ${metricGroup}"
+                            th:if="${c.unit != null}" class="numeric"
                             th:text="${c.label + (c.unit == null ? '' : ' (' + c.unit + ')')}"></th>
 					</tr>
 				</thead>
 				<tbody>
 					<tr th:each="it : ${bundle.summary.topRegions}">
-						<td th:text="${it.rank}">1</td>
+						<td class="numeric" th:text="${it.rank}">1</td>
 						<td th:text="${it.name}">-</td>
-                        <td th:each="c : ${bundle.summary.metricColumns}"
-                            th:if="${c.unit != null}"
+                        <td th:each="c : ${metricGroup}"
+                            th:if="${c.unit != null}" class="numeric"
                             th:text="${#numbers.formatInteger(it.metrics[c.key], 1, 'COMMA')}">0</td>
 					</tr>
 				</tbody>
 			</table>
 		</div>
 
-		<div class="box"
+		<div class="box" th:each="metricGroup, groupStat : ${bundle.summary.reportMetricGroups}"
 			th:if="${bundle.summary.topCategories != null && !#lists.isEmpty(bundle.summary.topCategories)}">
-			<div class="box-title">대분류별</div>
+			<div class="box-title">대분류별<span th:if="${groupStat.size > 1}" th:text="${' · 지표 ' + groupStat.count + '/' + groupStat.size}"></span></div>
 			<table class="rank-table">
 				<thead>
 					<tr>
-						<th style="width:10%">순위</th>
+						<th class="numeric" style="width:10%">순위</th>
 						<th>카테고리</th>
-                        <th th:each="c : ${bundle.summary.metricColumns}"
-                            th:if="${c.unit != null}"
+                        <th th:each="c : ${metricGroup}"
+                            th:if="${c.unit != null}" class="numeric"
                             th:text="${c.label + (c.unit == null ? '' : ' (' + c.unit + ')')}"></th>
 					</tr>
 				</thead>
 				<tbody>
 					<tr th:each="it : ${bundle.summary.topCategories}">
-						<td th:text="${it.rank}">1</td>
+						<td class="numeric" th:text="${it.rank}">1</td>
 						<td th:text="${it.name}">-</td>
-                        <td th:each="c : ${bundle.summary.metricColumns}"
-                            th:if="${c.unit != null}"
+                        <td th:each="c : ${metricGroup}"
+                            th:if="${c.unit != null}" class="numeric"
                             th:text="${#numbers.formatInteger(it.metrics[c.key], 1, 'COMMA')}">0</td>
 					</tr>
 				</tbody>
 			</table>
 		</div>
 
-		<div class="box" th:if="${bundle.summary.topSeries != null && !#lists.isEmpty(bundle.summary.topSeries)}">
-			<div class="box-title">시리즈별</div>
+		<div class="box" th:each="metricGroup, groupStat : ${bundle.summary.reportMetricGroups}" th:if="${bundle.summary.topSeries != null && !#lists.isEmpty(bundle.summary.topSeries)}">
+			<div class="box-title">시리즈별<span th:if="${groupStat.size > 1}" th:text="${' · 지표 ' + groupStat.count + '/' + groupStat.size}"></span></div>
 			<table class="rank-table">
 				<thead>
 					<tr>
-						<th style="width:10%">순위</th>
+						<th class="numeric" style="width:10%">순위</th>
 						<th>시리즈</th>
-                        <th th:each="c : ${bundle.summary.metricColumns}"
-                            th:if="${c.unit != null}"
+                        <th th:each="c : ${metricGroup}"
+                            th:if="${c.unit != null}" class="numeric"
                             th:text="${c.label + (c.unit == null ? '' : ' (' + c.unit + ')')}"></th>
 					</tr>
 				</thead>
 				<tbody>
 					<tr th:each="it : ${bundle.summary.topSeries}">
-						<td th:text="${it.rank}">1</td>
+						<td class="numeric" th:text="${it.rank}">1</td>
 						<td th:text="${it.name}">-</td>
-                        <td th:each="c : ${bundle.summary.metricColumns}"
-                            th:if="${c.unit != null}"
+                        <td th:each="c : ${metricGroup}"
+                            th:if="${c.unit != null}" class="numeric"
                             th:text="${#numbers.formatInteger(it.metrics[c.key], 1, 'COMMA')}">0</td>
 					</tr>
 				</tbody>
 			</table>
 		</div>
 
-		<div class="box" th:if="${bundle.summary.topProducts != null && !#lists.isEmpty(bundle.summary.topProducts)}">
-			<div class="box-title">제품별</div>
+		<div class="box" th:each="metricGroup, groupStat : ${bundle.summary.reportMetricGroups}" th:if="${bundle.summary.topProducts != null && !#lists.isEmpty(bundle.summary.topProducts)}">
+			<div class="box-title">제품별<span th:if="${groupStat.size > 1}" th:text="${' · 지표 ' + groupStat.count + '/' + groupStat.size}"></span></div>
 			<table class="rank-table">
 				<thead>
 					<tr>
-						<th style="width:10%">순위</th>
+						<th class="numeric" style="width:10%">순위</th>
 						<th>제품</th>
-                        <th th:each="c : ${bundle.summary.metricColumns}"
-                            th:if="${c.unit != null}"
+                        <th th:each="c : ${metricGroup}"
+                            th:if="${c.unit != null}" class="numeric"
                             th:text="${c.label + (c.unit == null ? '' : ' (' + c.unit + ')')}"></th>
 					</tr>
 				</thead>
 				<tbody>
 					<tr th:each="it : ${bundle.summary.topProducts}">
-						<td th:text="${it.rank}">1</td>
+						<td class="numeric" th:text="${it.rank}">1</td>
 						<td th:text="${it.name}">-</td>
-                        <td th:each="c : ${bundle.summary.metricColumns}"
-                            th:if="${c.unit != null}"
+                        <td th:each="c : ${metricGroup}"
+                            th:if="${c.unit != null}" class="numeric"
                             th:text="${#numbers.formatInteger(it.metrics[c.key], 1, 'COMMA')}">0</td>
 					</tr>
 				</tbody>
@@ -364,8 +379,8 @@
     <div th:if="${bundle != null && bundle.chart != null && bundle.chart.svg != null}">
         <div class="chart-wrap" th:each="svg : ${bundle.chart.svgPages}" th:utext="${svg}" style="break-inside:avoid;margin-bottom:10px"></div>
         <p class="note" th:text="${bundle.chart.note}"></p>
-        <table class="rank-table"><thead><tr><th>그래프 항목 / 기간</th><th th:each="series : ${bundle.chart.series}" th:text="${series.label + ' (' + bundle.chart.unit + ')'}"></th></tr></thead>
-            <tbody><tr th:each="label, stat : ${bundle.chart.labels}"><td th:text="${label}"></td><td th:each="series : ${bundle.chart.series}" th:text="${#numbers.formatInteger(series.values[stat.index],1,'COMMA')}"></td></tr></tbody>
+        <table class="rank-table"><thead><tr><th>그래프 항목 / 기간</th><th class="numeric" th:each="series : ${bundle.chart.series}" th:text="${series.label + ' (' + bundle.chart.unit + ')'}"></th></tr></thead>
+            <tbody><tr th:each="label, stat : ${bundle.chart.labels}"><td th:text="${label}"></td><td class="numeric" th:each="series : ${bundle.chart.series}" th:text="${#numbers.formatInteger(series.values[stat.index],1,'COMMA')}"></td></tr></tbody>
         </table>
     </div>
 	<div class="note">※ 아래는 현재 보기의 집계 결과입니다.</div>
@@ -377,20 +392,25 @@
 		데이터가 없습니다.
 	</div>
 
-	<table th:if="${bundle != null && bundle.rows != null && !#lists.isEmpty(bundle.rows)}">
+	<div th:if="${bundle != null && bundle.rows != null && !#lists.isEmpty(bundle.rows)}">
+    <div class="report-column-group" th:each="reportColumns, groupStat : ${bundle.reportColumnGroups}">
+        <div class="box-title" th:if="${groupStat.size > 1}" th:text="${'조회 결과 · 열 묶음 ' + groupStat.count + '/' + groupStat.size}"></div>
+    <table>
 		<thead>
 			<tr>
-				<th th:each="c : ${bundle.columns}" th:text="${c.label + (c.unit == null ? '' : ' (' + c.unit + ')')}">-</th>
+				<th th:each="c : ${reportColumns}" th:class="${c.unit != null or c.key == 'rank' ? 'numeric' : ''}" th:text="${c.label + (c.unit == null ? '' : ' (' + c.unit + ')')}">-</th>
 			</tr>
 		</thead>
 		<tbody>
 			<tr th:each="r : ${bundle.rows}">
-				<td th:each="c : ${bundle.columns}" th:text="${r.get(c.key) instanceof T(java.lang.Number) ? #numbers.formatInteger(r.get(c.key), 1, 'COMMA') : r.get(c.key)}"></td>
+				<td th:each="c : ${reportColumns}" th:class="${c.unit != null or c.key == 'rank' ? 'numeric' : ''}" th:text="${r.get(c.key) instanceof T(java.lang.Number) ? #numbers.formatInteger(r.get(c.key), 1, 'COMMA') : r.get(c.key)}"></td>
 			</tr>
 		</tbody>
-        <tfoot th:if="${bundle.totals != null}"><tr><th th:each="c, stat : ${bundle.columns}"
+        <tfoot th:if="${bundle.totals != null}"><tr><th th:each="c, stat : ${reportColumns}" th:class="${c.unit != null or c.key == 'rank' ? 'numeric' : ''}"
             th:text="${c.unit != null ? #numbers.formatInteger(bundle.totals.metrics[c.key], 1, 'COMMA') : (stat.index == 0 ? '합계' : '')}"></th></tr></tfoot>
 	</table>
+    </div>
+    </div>
 </body>
 
 </html>
