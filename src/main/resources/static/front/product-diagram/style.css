@@ -24,3 +24,9 @@
 .pd-editor #line-handles circle { pointer-events:all;cursor:crosshair;fill:#fff;stroke:#2563eb;stroke-width:2; }
 .pd-editor #line-handles .pd-rotation-handle { fill:#dbeafe;cursor:grab; }
 .pd-editor .pd-line-inspector { margin-top:14px;padding-top:12px;border-top:1px solid #dbe4ef; }
+
+/* Validation uses manufacturing dimensions; visible outlines do not change geometry. */
+.pd-diagnostics{margin:12px 0;padding:12px;border:1px solid #a7cbb4;border-radius:8px;background:#f4fbf6;font-size:12px;line-height:1.65;overflow-wrap:anywhere}
+.pd-diagnostics.has-errors{border-color:#e5b78b;background:#fff9f0}.pd-diagnostics>strong{display:block;font-size:13px}.pd-diagnostics p{margin:5px 0}.pd-diagnostics ul{padding-left:18px;margin:8px 0}.pd-diagnostics li+li{margin-top:7px}
+.pd-debug{margin-top:10px;border-top:1px solid #d5dce5;padding-top:8px}.pd-debug summary{cursor:pointer;font-weight:600}.pd-debug pre{max-height:240px;overflow:auto;white-space:pre-wrap;word-break:break-all;font-size:11px;line-height:1.5;background:#f1f5f9;padding:8px;color:#334155}
+.pd-gap-list{display:grid;gap:5px;margin-top:8px}.pd-gap-list button{text-align:left;font-size:11px;white-space:normal}.pd-answer-state{display:block;margin:8px 0;color:#173c68}.pd-editor #validation{padding-top:0}.pd-editor #validation .pd-diagnostics{margin:0}.pd-editor #status{max-height:90px;overflow:auto;flex-shrink:0}

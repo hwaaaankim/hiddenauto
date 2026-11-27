@@ -817,7 +817,7 @@
     answers[q.key] = answers[q.key] || S.copy(state.answer);
     node.querySelector('.hb-question-body').innerHTML = `${S.help(q, list(q.assetIds).map(id => assets.get(id)).filter(Boolean), "질문 참고자료")}<div id="hb-input" data-control="${e(q.control)}">${S.inputAnswer(q, answers[q.key], false, assets, true)}</div><div id="hb-guides"></div><div id="hb-question-errors" class="hb-question-errors" role="alert">${attemptedKey === q.key ? state.errors.map(e).join('<br>') : ''}</div><button type="button" class="hb-next" id="hb-answer-next">선택 완료 · 다음으로</button>`;
     const box = node.querySelector('#hb-input');
-    S.bindEqualInputs(box, q, product.process, answers);
+    S.bindEqualInputs(box, q, product.process, answers, answers[q.key] || state.answer, state.errors, answers);
     box.querySelectorAll('input[aria-required],textarea[aria-required]').forEach(input => { input.required = !!state.required && input.getAttribute('aria-required') === 'true'; });
     // Choice and dimension counts are based on the registered question, not label guesses.
     const grid = box.querySelector('.pm-answer-choices');

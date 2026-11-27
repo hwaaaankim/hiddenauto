@@ -150,10 +150,10 @@ public final class ProductDiagramEngine {
   /** Actual layout is authoritative. Submitted counts and submitted definition snapshots are ignored. */
   public static Answer answer(Process p,Question q,List<Field> shown,Map<String,Answer> preceding,Answer raw,Set<String> hiddenFields) {
     Config c=p.diagrams().get(q.key());
-    Layout l=raw.diagram(); require(l!=null,"답변하기를 눌러 도면 배치를 완료해 주세요.");
+    Layout l=raw.diagram(); require(l!=null,"확정된 도면 배치 정보가 전달되지 않았습니다. 그림이 임시로 표시되더라도 배치 데이터가 없는 답변은 가격계산에 사용할 수 없습니다. 배치 수정에서 적용 후에도 반복되면 상세 검사 정보를 관리자에게 전달해 주세요.");
     require(l.schemaVersion()==1 && c.revision().equals(l.revision()),"도면 설정이 변경되었습니다. 배치를 다시 확인해 주세요.");
     int w=value(c.width(),preceding), h=value(c.height(),preceding);
-    require(l.width()==w && l.height()==h,"앞 질문의 가로·높이가 변경되었습니다. 도면을 다시 확인하고 답변을 적용해 주세요.");
+    require(l.width()==w && l.height()==h,"앞 질문의 도면 크기가 변경되었습니다. 현재 필요한 크기 "+w+" × "+h+"mm / 배치 당시 "+l.width()+" × "+l.height()+"mm입니다. 새 크기에 맞춰 도형을 조정해 주세요.");
     require(l.items()!=null && l.items().size()<=MAX_ITEMS,"배치 도형은 최대 500개입니다.");
     Set<String> allowed=shown.stream().map(Field::key).collect(Collectors.toSet()), ids=new HashSet<>();
     Map<String,Object> counts=new LinkedHashMap<>();shown.forEach(f -> counts.put(f.key(),BigDecimal.ZERO));
@@ -163,15 +163,45 @@ public final class ProductDiagramEngine {
       Placement x=l.items().get(i); require(x!=null,"빈 배치 도형이 포함되어 있습니다.");key(x.id());
       require(ids.add(x.id()),"배치 도형 식별값이 중복됩니다."); Variant v=variants.get(x.variantKey());
       require(v!=null && allowed.contains(v.fieldKey()) && available(v,preceding) && list(v.conditions()).stream().noneMatch(k -> hiddenFields.contains(k.groupKey()+":"+k.fieldKey())),"현재 분기에서 사용할 수 없는 도형이 배치되어 있습니다.");
-      require(fits(v.width(),x.width(),preceding,v.sizeStep()) && fits(v.height(),x.height(),preceding,v.sizeStep()),v.name()+": 허용 치수 범위와 크기 조정 단위 ("+v.sizeStep()+"mm 배수)를 확인해 주세요. 고정값·앞 답변 연결 치수는 지정된 값을 사용합니다.");
+      checkDimension((i+1)+"번 "+v.name()+" · 가로",v.width(),x.width(),preceding,v.sizeStep());
+      checkDimension((i+1)+"번 "+v.name()+" · 높이",v.height(),x.height(),preceding,v.sizeStep());
       require(Math.abs((long)x.x())<=MAX_SIZE && Math.abs((long)x.y())<=MAX_SIZE,v.name()+": 위치 좌표는 ±1,000,000mm 안에 입력해 주세요.");
-      if("FILL".equals(c.mode())) require(x.x()>=0 && x.y()>=0 && (long)x.x()+x.width()<=w && (long)x.y()+x.height()<=h,v.name()+": 도형이 도면 밖으로 나갑니다.");
-      for(int j=0;j<i;j++) require(!overlaps(x,v.shape(),l.items().get(j),variants.get(l.items().get(j).variantKey()).shape()),v.name()+": 다른 도형과 겹칩니다.");
+      if("FILL".equals(c.mode())) require(x.x()>=0 && x.y()>=0 && (long)x.x()+x.width()<=w && (long)x.y()+x.height()<=h,
+          (i+1)+"번 "+v.name()+": 도면 밖으로 나갑니다. 초과 치수: 왼쪽 "+Math.max(0L,-(long)x.x())+" / 오른쪽 "+Math.max(0L,(long)x.x()+x.width()-w)+" / 위 "+Math.max(0L,-(long)x.y())+" / 아래 "+Math.max(0L,(long)x.y()+x.height()-h)+"mm. 위치·크기를 도면 안으로 조정해 주세요.");
+      for(int j=0;j<i;j++) {var other=l.items().get(j);var ov=variants.get(other.variantKey());
+        if(overlaps(x,v.shape(),other,ov.shape())) throw new IllegalArgumentException((i+1)+"번 "+v.name()+"과 "+(j+1)+"번 "+ov.name()+"이 겹칩니다. "+("RECT".equals(v.shape())&&"RECT".equals(ov.shape())?"겹친 영역":"겹침 확인 범위")+" "+(Math.min((long)x.x()+x.width(),(long)other.x()+other.width())-Math.max(x.x(),other.x()))+" × "+(Math.min((long)x.y()+x.height(),(long)other.y()+other.height())-Math.max(x.y(),other.y()))+"mm. 두 도형의 변이 맞닿도록 위치·크기를 조정해 주세요.");
+      }
       area+=(long)x.width()*x.height(); counts.put(v.fieldKey(),((BigDecimal)counts.get(v.fieldKey())).add(BigDecimal.ONE));
     }
-    if("FILL".equals(c.mode())) require(area==(long)w*h,"도면에 빈 공간이 남아 있습니다. 전체 영역을 채워 주세요.");
+    if("FILL".equals(c.mode()) && area!=(long)w*h) {
+      List<Gap> gaps=emptyRegions(w,h,l.items());
+      String positions=gaps.stream().limit(3).map(g -> g.width()+" × "+g.height()+"mm (왼쪽 "+g.x()+"mm · 위 "+g.y()+"mm부터)").collect(Collectors.joining(" / "));
+      throw new IllegalArgumentException("빈 공간 "+gaps.size()+"곳 · 합계 "+String.format(java.util.Locale.KOREA,"%,d",(long)w*h-area)+"mm²가 남아 있습니다. "+positions+". 도면의 주황색 표시를 확인하고 도형을 이동하거나 허용 치수 안에서 늘려 주세요.");
+    }
     List<Placement> items=l.items().stream().sorted(Comparator.comparing(Placement::id)).toList();
     return new Answer(List.of(),counts,new Layout(1,c.revision(),w,h,items,c));
+  }
+  private static void checkDimension(String name,Dimension d,int n,Map<String,Answer> answers,int step) {
+    if(fits(d,n,answers,step)) return;
+    String expected=switch(d.mode()) {
+      case "RANGE" -> "허용 "+min(d,step)+"~"+max(d,step)+"mm · 크기 조정 단위 "+step+"mm 배수";
+      case "REFERENCE" -> "앞 답변 연결값 "+value(d.source(),answers)+"mm와 동일";
+      case "FIXED" -> "고정값 "+d.value()+"mm와 동일";
+      default -> "올바른 치수 방식";
+    };
+    throw new IllegalArgumentException(name+": 현재 "+n+"mm는 허용되지 않습니다. "+expected+"로 맞춰 주세요.");
+  }
+  private record Gap(int x,int y,int width,int height) {}
+  private static List<Gap> emptyRegions(int width,int height,List<Placement> items) {
+    List<Gap> regions=new ArrayList<>();regions.add(new Gap(0,0,width,height));
+    for(Placement p:items){List<Gap> next=new ArrayList<>();for(Gap r:regions){
+      int x=Math.max(r.x(),p.x()),y=Math.max(r.y(),p.y()),right=Math.min(r.x()+r.width(),p.x()+p.width()),bottom=Math.min(r.y()+r.height(),p.y()+p.height());
+      if(x>=right||y>=bottom){next.add(r);continue;}
+      if(y>r.y())next.add(new Gap(r.x(),r.y(),r.width(),y-r.y()));
+      if(bottom<r.y()+r.height())next.add(new Gap(r.x(),bottom,r.width(),r.y()+r.height()-bottom));
+      if(x>r.x())next.add(new Gap(r.x(),y,x-r.x(),bottom-y));
+      if(right<r.x()+r.width())next.add(new Gap(right,y,r.x()+r.width()-right,bottom-y));
+    }regions=next;}return regions;
   }
   public static Config mapConfig(Config c,String revision,java.util.function.Function<String,String> question,
       java.util.function.BiFunction<String,String,String> field,java.util.function.Function<Condition,Condition> condition,String owner) {

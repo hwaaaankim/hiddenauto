@@ -53,7 +53,11 @@
         if (token.kind === 'FIELD' && token.groupKey === group.groupKey) referenced.add(token.fieldKey);
     return { group, fields, used: fields.filter(f => referenced.has(f.key)) };
   });
-  S.pricingInputBindingMessage = row => `${row.group.label}: 이 그룹 또는 현재 표시된 숫자 입력묶음에 연결된 가격계산이 없습니다. 다른 숫자 그룹·다른 입력묶음의 항에 조건별 가격표를 여러 개 등록해도 이 입력이 자동 연결되지는 않습니다. 이 그룹의 입력묶음에 별도 항을 등록하거나, 프로세스에서 공통 숫자 입력 하나를 사용하는 구성으로 맞춰 주세요.`;
+  S.pricingInputBindingMessage = (row, currentProcess) => {
+    const names=(row.fields||[]).map(f=>f.labels?.customer||f.key).join(' / '),linked=(row.used||[]).map(f=>f.labels?.customer||f.key).join(' / ');
+    const diagram=!!currentProcess?.diagrams?.[row.group.groupKey];
+    return `${row.group.label}: ${diagram?'도면 배치 확정과 가격 연결은 별도입니다. ':''}가격영향이 켜진 입력 (${names||'현재 숫자 입력'})에 현재 분기에서 사용할 가격 항이 없습니다. 연결된 입력: ${linked||'없음'}. 이 그룹의 입력묶음에서 가격 항을 등록하거나 기존 항의 숫자 조건·가격표 기준에 연결해 주세요.${diagram?' 도면을 다시 확정해도 이 가격 설정은 바뀌지 않습니다. 수량별 추가금이 있는지, 기본 가격에 포함되는지에 맞춰 계산 방식을 정한 뒤 가격식을 검증·저장해 주세요.':''}`;
+  };
   S.pricingChoiceUsage = (groupKey, terms) => {
     const direct = (terms || []).filter(t => t.groupKey === groupKey || t.optionTarget?.groupKey === groupKey).length;
     const conditions = (terms || []).flatMap(t => [t, ...(t.branches || [])]).filter(t => (t.conditions || []).some(c => c.groupKey === groupKey)).length;
@@ -495,7 +499,13 @@
       S.$("[data-price-test-status]", root).textContent = evaluation.complete ? "현재 프로세스 입력 검증 완료" : "필수 답변과 입력 제한을 확인해 주세요.";
       S.$$("[data-price-answer]", box).forEach((inputBox) => {
         const q = evaluation.questions.find((s) => s.question.key === inputBox.dataset.priceAnswer).question;
-        S.bindEqualInputs(inputBox, q, process(), () => { collectAnswers(); return answers; });
+        const state = evaluation.questions.find((s) => s.question.key === q.key);
+        S.bindEqualInputs(inputBox, q, process(), () => { collectAnswers(); return answers; }, answers[q.key] || state.answer, state.errors, answers, answer => {
+          // A pending process response can replace inputBox while its diagram modal is open.
+          // Commit to the current model, then bind a fresh view before collecting DOM values.
+          cancelTest(); answers[q.key] = S.copy(answer); renderTest();
+          S.$$("[data-price-answer]", root).find(node => node.dataset.priceAnswer === q.key)?.dispatchEvent(new Event("input", { bubbles: true }));
+        });
         const update = () => {
           clearTimeout(testTimer); result = null; clearResult("입력값을 변경했습니다. 가격계산을 다시 눌러 주세요.");
           // Preserve every field on screen before applying a changed upstream choice.
@@ -532,7 +542,7 @@
           && row.fields.some(f => state.allowed.includes(f.key))
           && !row.used.some(f => state.allowed.includes(f.key));
       });
-      result = unpriced.length ? { ...next, complete: false, total: null, errors: [...(next.errors || []), ...unpriced.map(S.pricingInputBindingMessage)] } : next;
+      result = unpriced.length ? { ...next, complete: false, total: null, errors: [...(next.errors || []), ...unpriced.map(row => S.pricingInputBindingMessage(row, process()))] } : next;
       if (next.evaluation) { evaluation = next.evaluation; answers = mergeTestAnswers(evaluation, draft); renderTest(); }
       definition.testAnswers = S.copy(answers);
       S.$("[data-price-result]", root).innerHTML = `<section class="pm-price-total ${result.complete ? "is-complete" : ""}"><span>${result.complete ? "테스트 최종가격" : waitingForInput(result) ? "다음 답변을 기다리고 있습니다." : "계산을 완료할 수 없습니다."}</span><strong>${result.complete ? money(result.total) : waitingForInput(result) ? "입력 대기" : "입력·기준표 확인 필요"}</strong></section>${(result.errors || []).length ? `<div class="pms-alert">${result.errors.map((text) => `<p>${e(text)}</p>`).join("")}</div>` : ""}${unpriced.map(row => `<button type="button" data-diagnostic-group="${e(row.group.groupKey)}">${e(row.group.label)}에 가격 항 등록</button>`).join("")}${breakdown(result.terms)}`;
@@ -549,7 +559,7 @@
         S.$$('[data-single-answer]', area).forEach(box => {
           const state = localEvaluation.questions.find(s => s.question.key === box.dataset.singleAnswer), q = state.question;
           const answer = S.readAnswer(box, q, localAnswers[q.key]);
-          if (q.control === 'NUMBER') answer.fields = Object.fromEntries(S.$$('input[data-answer-field]', box).filter(i => i.value !== '').map(i => [i.dataset.answerField, i.value]));
+          if (q.control === 'NUMBER' && !answer.diagram) answer.fields = Object.fromEntries(S.$$('input[data-answer-field]', box).filter(i => i.value !== '').map(i => [i.dataset.answerField, i.value]));
           localAnswers[q.key] = answer;
         });
       }
@@ -562,7 +572,10 @@
         S.$('[data-test-use]', dialog).disabled = !calculation?.complete;
         S.$$('[data-single-answer]', area).forEach(box => {
           const q = localEvaluation.questions.find(s => s.question.key === box.dataset.singleAnswer).question;
-          S.bindEqualInputs(box, q, process(), () => { collect(); return localAnswers; });
+          const state = localEvaluation.questions.find(s => s.question.key === q.key);
+          S.bindEqualInputs(box, q, process(), () => { collect(); return localAnswers; }, localAnswers[q.key] || state.answer, state.errors, localAnswers, answer => {
+            localSequence++; localAnswers[q.key] = S.copy(answer); calculation = null; render();
+          });
           const invalidate = () => { localSequence++; calculation = null; S.$('[data-test-use]', dialog).disabled = true; S.$('[data-single-result]', area).textContent = '입력이 변경되었습니다. 다시 계산해 주세요.'; };
           box.addEventListener('input', invalidate); box.addEventListener('change', invalidate);
           S.answerFileEvents(box, q, S.copy(localAnswers[q.key] || {}), assetMap, { testOnly: true, onChange: a => { localAnswers[q.key] = S.copy(a); invalidate(); }, onError: error => S.toast(error.message), isCurrent: () => dialog.open && box.isConnected });

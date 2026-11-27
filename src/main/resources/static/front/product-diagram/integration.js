@@ -9,7 +9,7 @@
     const listener=event=>{if(event.origin!==location.origin||event.source!==iframe.contentWindow||event.data?.app!=='hiddenbath-diagram'||event.data.channel!==channel)return;
       const msg=event.data;if(msg.type==='ready'){ready=true;clearTimeout(timer);iframe.contentWindow.postMessage({app:'hiddenbath-diagram',channel,type:'init',options},location.origin);}
       if(msg.type==='cancel')dialog.close();
-      if(msg.type==='apply'){try{onApply(msg);dialog.close();}catch(ex){S.toast(ex.message);}}
+      if(msg.type==='apply'){try{onApply(msg);dialog.close();}catch(ex){iframe.contentWindow.postMessage({app:'hiddenbath-diagram',channel,type:'apply-rejected',message:ex.message},location.origin);S.toast(ex.message);}}
       if(msg.type==='error')S.toast(msg.message);
     };
     window.addEventListener('message',listener);dialog.addEventListener('close',()=>{clearTimeout(timer);window.removeEventListener('message',listener);},{once:true});
@@ -24,13 +24,32 @@
   // Views use the saved snapshot directly: no current product settings or guessed dimensions.
   const oldMedia=S.answerMedia;S.answerMedia=function(q,a,...rest){return (oldMedia?.call(this,q,a,...rest)||'')+summary(a);};
   const oldRead=S.readAnswer;S.readAnswer=function(root,q,...rest){if(root?._pdAnswer!==undefined)return copy(root._pdAnswer);return oldRead.call(this,root,q,...rest);};
-  const oldBind=S.bindEqualInputs;S.bindEqualInputs=function(root,q,process,answers){
+  const oldBind=S.bindEqualInputs;S.bindEqualInputs=function(root,q,process,answers,initialAnswer,validationErrors=[],initialAnswers,onAnswerChange){
     const c=process?.diagrams?.[q.key];if(!c)return oldBind?.call(this,root,q,process,answers);
     const currentAnswers=()=>typeof answers==='function'?answers():answers;
-    root._pdAnswer=copy(currentAnswers()[q.key]||{choices:[],fields:{}});remember(process,q.key,root._pdAnswer);
+    // A collecting callback reads every newly rendered input. Seed the complete answer first;
+    // otherwise the generic numeric reader discards the layout before this editor is bound.
+    root._pdAnswer=copy(initialAnswer!==undefined?initialAnswer:currentAnswers()?.[q.key]||{choices:[],fields:{}});
+    root._pdSourceAnswers=copy(initialAnswers||(typeof answers==='function'?{}:answers)||{});
+    root._pdValidationErrors=[...(validationErrors||[])];remember(process,q.key,root._pdAnswer);
     const draft=drafts.get(process)?.get(q.key);
-    const render=()=>{const a=root._pdAnswer;root.innerHTML=`<div class="pd-answer">${helpCard(a.diagram?'answered':draft?'draft':'answer')}<small>${c.mode==='FILL'?'사각형으로 전체 영역을 빈틈없이 채워 주세요.':'원하는 위치에 도형을 배치해 주세요.'} ${c.mode==='FILL'?'도면 밖으로 나갈 수 없습니다.':'도면 밖 위치도 지정할 수 있습니다.'} 도형끼리는 겹칠 수 없습니다.</small>${a.diagram?summary(a):draft?'<small>앞 답변 변경 전 배치를 임시 보관했습니다. 배치 수정에서 확인·적용해야 답변으로 인정됩니다.</small>'+summary({diagram:draft}):''}<div class="pd-actions"><button type="button" data-pd-answer class="primary">${a.diagram||draft?'배치 수정':'답변하기'}</button></div><div>${(q.fields||[]).map(f=>`<div class="pd-count"><span>${e(f.labels?.customer)}</span><strong>${a.diagram?(a.fields?.[f.key]||0)+'개':'미확정'}</strong></div>`).join('')}</div></div>`;
-      $('[data-pd-answer]',root).onclick=()=>{try{const latest=currentAnswers();D.source(c.width,latest);D.source(c.height,latest);frame({title:q.question||q.labels?.customer,config:c,answers:latest,layout:root._pdAnswer.diagram||draft,fields:q.fields.map(f=>f.key),countRules:q.fields,labels:labels(q)},msg=>{const result=D.validate(c,msg.answer.diagram,latest,q.fields.map(f=>f.key));if(result.errors.length)throw Error(result.errors.join(' / '));root._pdAnswer=msg.answer;remember(process,q.key,msg.answer);render();root.dispatchEvent(new Event('input',{bubbles:true}));});}catch(ex){S.toast(ex.message);}};
+    const render=()=>{
+      const a=root._pdAnswer,stored=a.diagram||draft;
+      const report=D.validate(c,stored,root._pdSourceAnswers,q.fields.map(f=>f.key),false,q.fields);
+      if(!a.diagram&&draft){const message='이전 배치는 임시로 보관되어 있습니다. 현재 답변에는 확정 정보가 없습니다. 앞 질문·설정 변경 내용을 확인한 뒤 배치 수정에서 적용해 주세요.';report.errors.push(message);report.issues.push({code:'MISSING_CONFIRMATION',message});}
+      const pending=(root._pdValidationErrors||[]).length||report.errors.length,confirmed=!!a.diagram&&!pending;
+      const showReport=stored||(root._pdValidationErrors||[]).length;
+      root.innerHTML=`<div class="pd-answer">${helpCard(confirmed?'answered':stored?'draft':'answer')}<strong class="pd-answer-state">${confirmed?'확정된 배치가 답변에 반영되었습니다':a.diagram?'배치가 보존되어 있습니다 · 검사 내용 확인 필요':draft?'임시 배치 · 재확인 필요':'도면 답변 대기'}</strong><small>${c.mode==='FILL'?'사각형으로 전체 영역을 빈틈없이 채워 주세요.':'원하는 위치에 도형을 배치해 주세요.'} ${c.mode==='FILL'?'도면 밖으로 나갈 수 없습니다.':'도면 밖 위치도 지정할 수 있습니다.'} 도형끼리는 겹칠 수 없습니다.</small>${stored?summary({diagram:stored}):''}<div class="pd-actions"><button type="button" data-pd-answer class="primary">${stored?'배치 수정':'답변하기'}</button></div><div>${(q.fields||[]).map(f=>`<div class="pd-count"><span>${e(f.labels?.customer)}</span><strong>${a.diagram?(report.counts[f.key]??a.fields?.[f.key]??0)+'개'+(pending?' · 확인 필요':''):'미확정'}</strong></div>`).join('')}</div>${showReport?D.diagnosticsHtml(report,{serverErrors:root._pdValidationErrors,confirmed}):''}</div>`;
+      root.querySelector('[data-pd-copy-debug]')?.addEventListener('click',async()=>{const text=root.querySelector('.pd-debug pre')?.textContent||'';try{await navigator.clipboard.writeText(text);S.toast('검사 정보를 복사했습니다.');}catch{root.querySelector('.pd-debug').open=true;S.toast('상세 검사 정보의 내용을 선택해 복사해 주세요.');}});
+      root.querySelectorAll('[data-pd-gap]').forEach(button=>{button.textContent=button.textContent.replace(' · 확대','');button.onclick=()=>root.querySelector('[data-pd-answer]').click();});
+      $('[data-pd-answer]',root).onclick=()=>{try{
+        const latest=copy(currentAnswers()||{});root._pdSourceAnswers=latest;D.source(c.width,latest);D.source(c.height,latest);
+        frame({title:q.question||q.labels?.customer,config:c,answers:latest,layout:root._pdAnswer.diagram||draft,fields:q.fields.map(f=>f.key),countRules:q.fields,labels:labels(q)},msg=>{
+          const now=copy(currentAnswers()||{}),result=D.validate(c,msg.answer.diagram,now,q.fields.map(f=>f.key),false,q.fields);root._pdSourceAnswers=now;
+          if(result.errors.length){root._pdValidationErrors=result.errors;render();throw Error(result.errors.join(' / '));}
+          root._pdAnswer={...copy(msg.answer),fields:result.counts};root._pdValidationErrors=[];remember(process,q.key,root._pdAnswer);render();if(onAnswerChange)onAnswerChange(copy(root._pdAnswer));else root.dispatchEvent(new Event('input',{bubbles:true}));
+        });
+      }catch(ex){root._pdValidationErrors=[ex.message];render();S.toast(ex.message);}};
     };render();
   };
   const helpCard=(key,extra)=>window.PDGuidance?.card(key,extra)||'';

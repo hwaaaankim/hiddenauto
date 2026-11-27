@@ -491,15 +491,16 @@ public final class ProductStudioEngine {
             for (Field f : projection.fields()) if (f.useDefault()) defaults.put(f.key(), f.placeholder());
             raw = new Answer(List.of(), defaults);
           }
+          boolean diagramRejected = false;
           if (process.diagrams().containsKey(q.key()) && !skippedDiagram && (verifyDiagrams || raw.diagram() != null)) {
             try { raw = ProductDiagramEngine.answer(process, q, projection.fields(), normalized, raw, hiddenFields); }
-            catch (IllegalArgumentException ex) { errors.add(ex.getMessage()); raw = empty(); }
+            catch (IllegalArgumentException ex) { errors.add(ex.getMessage()); raw = empty(); diagramRejected = true; }
           }
           raw = ProductStudioConstraints.completePair(projection.sums(), raw);
           for (Field f : projection.fields()) {
             Object value = map(raw.fields()).get(f.key());
             if (absent(value)) {
-              if (required && f.required()) errors.add(f.labels().customer() + ": 입력해 주세요.");
+              if (required && f.required() && !diagramRejected) errors.add(f.labels().customer() + ": 입력해 주세요.");
               continue;
             }
             String error = valueError(q.control(), f, value);
@@ -507,7 +508,7 @@ public final class ProductStudioEngine {
             else values.put(f.key(), q.control() == Control.NUMBER ? number(value) : value);
           }
           clean = new Answer(List.of(), values, errors.isEmpty() ? raw.diagram() : null);
-          errors.addAll(ProductStudioConstraints.sumErrors(projection.sums(), clean, required));
+          if (!diagramRejected) errors.addAll(ProductStudioConstraints.sumErrors(projection.sums(), clean, required));
         }
         // Only normalized, valid values can drive following rules. Invalid and hidden values never persist.
         if (errors.isEmpty()) { normalized.put(q.key(), clean); visited.add(q.key()); }

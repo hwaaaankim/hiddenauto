@@ -542,7 +542,7 @@
         };
         body.innerHTML = `<p>${visited.length + 1} / ${states.length}</p><h3>${esc(q.question || q.labels.management)}</h3>${q.guide?.trim() ? `<div class="pms-help pm-preserve-lines">${esc(q.guide)}</div>` : ""}${S.media((q.assetIds || []).map((id) => assets.get(id)), q.labels.customer + " 안내 이미지")}<div data-answer>${S.inputAnswer(q, state.answer, false, assets)}</div>${S.inputLimitSummary(p.process, q)}<div data-answer-notices></div><div data-error></div><div class="pms-actions"><button data-back ${visited.length ? "" : "disabled"}>이전</button><button data-next class="primary">다음</button></div>`;
         const box = S.$("[data-answer]", body);
-        S.bindEqualInputs(box, q, p.process, answers);
+        S.bindEqualInputs(box, q, p.process, answers, answers[q.key] || state.answer, state.errors, answers);
         S.bindMedia(body);
         const notices = (fresh, answer) => {
           S.$("[data-answer-notices]", body).innerHTML = S.answerGuides(q, answer, fresh).map((text) => `<div class="pms-help pm-preserve-lines">${esc(text)}</div>`).join("");

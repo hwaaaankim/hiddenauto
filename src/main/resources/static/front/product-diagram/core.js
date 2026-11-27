@@ -67,26 +67,43 @@
     let lo=0,hi=1;while(projected(hi)>1)hi*=2;for(let i=0;i<100;i++){const m=(lo+hi)/2;if(projected(m)>1)lo=m;else hi=m;}
     const x=dx/(1+hi*bx*bx/(ax*ax)),y=dy/(1+hi*by*by/(ay*ay));return (x-dx)**2/(bx*bx)+(y-dy)**2/(by*by)<1-1e-12;
   }
-  function validate(config,layout,answers,fields,allowGaps=false) {
-    const errors=[], variants=new Map((config?.variants||[]).map(v=>[v.key,v])),counts=Object.fromEntries((fields||[...new Set((config?.variants||[]).map(v=>v.fieldKey))]).map(k=>[k,0]));
-    if(!layout || layout.schemaVersion!==1)return {errors:['도면 배치를 완료해 주세요.'],counts};
-    if(layout.revision!==config.revision)errors.push('도형 설정이 변경되었습니다. 배치를 다시 확인해 주세요.');
-    let w,h;try {w=source(config.width,answers);h=source(config.height,answers);}catch(e){return {errors:[e.message],counts};}
-    if(layout.width!==w||layout.height!==h)errors.push('앞 질문의 가로·높이가 바뀌었습니다. 도면을 다시 확인해 주세요.');
-    if(!Array.isArray(layout.items)||layout.items.length>500)return {errors:['배치 도형은 최대 500개입니다.'],counts};
-    const ids=new Set(); let area=0;
+  const numberText=n=>Number.isFinite(n)?n.toLocaleString('ko-KR',{maximumFractionDigits:6}):String(n);
+  const regionText=r=>`${numberText(r.width)} × ${numberText(r.height)}mm (왼쪽 ${numberText(r.x)}mm · 위 ${numberText(r.y)}mm부터)`;
+  function validate(config,layout,answers,fields,allowGaps=false,countRules=[]) {
+    const errors=[],issues=[],variants=new Map((Array.isArray(config?.variants)?config.variants:[]).map(v=>[v.key,v])),counts=Object.fromEntries((fields||[...new Set((config?.variants||[]).map(v=>v.fieldKey))]).map(k=>[k,0]));
+    const add=(code,message,detail={})=>{errors.push(message);issues.push({code,message,...detail});};
+    const report=()=>({errors:[...new Set(errors)],issues,counts,area,total,coverage,debug:{schemaVersion:layout?.schemaVersion,configRevision:config?.revision,layoutRevision:layout?.revision,expectedBoard:{width:w,height:h},submittedBoard:layout?{width:layout.width,height:layout.height}:null,mode:config?.mode,counts,issues,coverage:coverage?{missingArea:coverage.missingArea,gapCount:coverage.gaps.length,coveredArea:coverage.coveredArea}:null,items:Array.isArray(layout?.items)?layout.items.slice(0,500):[],units:'mm / mm²; screen zoom does not change validation'}});
+    let w=null,h=null,area=0,total=null,coverage=null;
+    if(!layout){add('MISSING_LAYOUT','확정된 도면 배치 정보가 없습니다. 배치한 그림이 임시로 보이더라도 가격계산에 사용할 확정 답변은 아직 전달되지 않은 상태입니다.');return report();}
+    if(layout.schemaVersion!==1)add('SCHEMA_VERSION','도면 데이터 형식을 읽을 수 없습니다. 배치 수정에서 도면을 다시 확인해 주세요.',{actual:layout.schemaVersion,expected:1});
+    if(layout.revision!==config?.revision)add('CONFIG_CHANGED','도형 설정이 변경되었습니다. 현재 설정의 치수·단위·도형 종류로 배치를 다시 확인해야 합니다.',{actual:layout.revision,expected:config?.revision});
+    // Counts describe placed active shapes even when an upstream board size is temporarily missing.
+    if(Array.isArray(layout.items)&&layout.items.length<=500)for(const item of layout.items){const v=variants.get(item?.variantKey);if(v&&available(v,answers,fields))counts[v.fieldKey]=(counts[v.fieldKey]||0)+1;}
+    try{w=source(config.width,answers);h=source(config.height,answers);total=w*h;}catch(ex){add('SOURCE_MISSING',ex.message+' 도면 크기로 연결한 앞 질문을 먼저 확인해 주세요.');return report();}
+    if(layout.width!==w||layout.height!==h)add('BOARD_CHANGED',`앞 질문의 도면 크기가 변경되었습니다. 현재 필요한 크기 ${w} × ${h}mm / 배치 당시 ${layout.width} × ${layout.height}mm입니다. 배치 수정에서 새 크기에 맞춰 확인해 주세요.`,{expected:{width:w,height:h},actual:{width:layout.width,height:layout.height}});
+    if(!Array.isArray(layout.items)||layout.items.length>500){add('ITEM_LIMIT',`배치 도형은 최대 500개입니다. 전달된 개수: ${Array.isArray(layout.items)?layout.items.length:'배치 목록 없음'}`);return report();}
+    const ids=new Set();let validGeometry=true;
     layout.items.forEach((x,i)=>{
-      const v=variants.get(x.variantKey);if(!v || !available(v,answers,fields)){errors.push(`${i+1}번 도형은 현재 분기에서 사용할 수 없습니다.`);return;}
-      if(!/^[A-Za-z0-9_-]{1,80}$/.test(x.id)||ids.has(x.id))errors.push('도형 식별값이 중복되거나 올바르지 않습니다.');ids.add(x.id);
-      if(![x.x,x.y,x.width,x.height].every(integer)||x.width<1||x.height<1||Math.abs(x.x)>1000000||Math.abs(x.y)>1000000)errors.push(`${v.name}: 정수 치수·위치 좌표(±1,000,000mm)를 확인해 주세요.`);
-      if(config.mode==='FILL'&&(x.x<0||x.y<0||x.x+x.width>w||x.y+x.height>h))errors.push(`${v.name}: 도형이 도면 밖으로 나갑니다.`);
-      try {const step=sizeStep(v);for(const axis of ['width','height']){const d=v[axis],[lo,hi]=bounds(d,answers,step);if(x[axis]<lo||x[axis]>hi||d.mode==='RANGE'&&x[axis]%step!==0)errors.push(`${v.name}: ${axis==='width'?'가로':'높이'} 허용범위 ${lo}~${hi}mm${d.mode==='RANGE'?' · '+step+'mm 배수':''}를 확인해 주세요.`);}}catch(e){errors.push(e.message);}
-      for(let j=0;j<i;j++){const ov=variants.get(layout.items[j].variantKey);if(ov&&overlap(x,v.shape,layout.items[j],ov.shape))errors.push(`${i+1}번 ${v.name}: ${j+1}번 도형과 겹칩니다.`);}
-      if(config.mode==='FILL'&&v.shape!=='RECT')errors.push('꽉 채우기는 사각형만 사용할 수 있습니다.');
-      area+=x.width*x.height;counts[v.fieldKey]=(counts[v.fieldKey]||0)+1;
+      if(!x){add('EMPTY_ITEM',`${i+1}번 도형의 배치 정보가 비어 있습니다.`);validGeometry=false;return;}
+      const v=variants.get(x.variantKey),name=`${i+1}번 ${v?.name||'도형'}`,itemIds=[x.id];
+      if(!v||!available(v,answers,fields)){validGeometry=false;add('VARIANT_UNAVAILABLE',`${name}: 현재 앞 답변·분기에서 허용하지 않는 도형입니다. 이 도형을 삭제하고 현재 허용되는 종류를 다시 배치해 주세요.`,{itemIds});return;}
+      if(!/^[A-Za-z0-9_-]{1,80}$/.test(x.id)||ids.has(x.id))add('ITEM_ID',`${name}: 배치 식별값이 중복되거나 올바르지 않습니다. 해당 도형을 삭제 후 다시 추가해 주세요.`,{itemIds});ids.add(x.id);
+      const valid=[x.x,x.y,x.width,x.height].every(integer)&&x.width>=1&&x.height>=1&&x.width<=1000000&&x.height<=1000000&&Math.abs(x.x)<=1000000&&Math.abs(x.y)<=1000000;
+      if(!valid){add('INTEGER_GEOMETRY',`${name}: 위치·치수는 정수 mm여야 합니다. 현재 왼쪽 ${x.x}, 위 ${x.y}, 가로 ${x.width}, 높이 ${x.height}mm입니다.`,{itemIds,actual:{x:x.x,y:x.y,width:x.width,height:x.height}});validGeometry=false;return;}
+      if(config.mode==='FILL'&&(x.x<0||x.y<0||x.x+x.width>w||x.y+x.height>h)){const outside={left:Math.max(0,-x.x),top:Math.max(0,-x.y),right:Math.max(0,x.x+x.width-w),bottom:Math.max(0,x.y+x.height-h)};add('OUTSIDE_BOARD',`${name}: 도면 밖으로 나갑니다. ${[['left','왼쪽'],['right','오른쪽'],['top','위'],['bottom','아래']].filter(([k])=>outside[k]>0).map(([k,label])=>label+' '+outside[k]+'mm 초과').join(' / ')}. 위치 또는 크기를 안쪽으로 조정해 주세요.`,{itemIds,outside});}
+      try{const step=sizeStep(v);for(const axis of ['width','height']){const d=v[axis],[lo,hi]=bounds(d,answers,step),label=axis==='width'?'가로':'높이';if(x[axis]<lo||x[axis]>hi||d.mode==='RANGE'&&x[axis]%step!==0)add('DIMENSION',`${name}: ${label} ${x[axis]}mm는 허용되지 않습니다. ${d.mode==='RANGE'?`허용 ${lo}~${hi}mm · ${step}mm 배수로 입력해 주세요.`:`${d.mode==='REFERENCE'?'앞 답변 연결값':'고정값'} ${lo}mm와 같아야 합니다.`}`,{itemIds,axis,actual:x[axis],expected:{min:lo,max:hi,step:d.mode==='RANGE'?step:null,mode:d.mode}});}}catch(ex){add('DIMENSION_CONFIG',`${name}: ${ex.message}`,{itemIds});}
+      for(let j=0;j<i;j++){const other=layout.items[j],ov=variants.get(other?.variantKey);if(ov&&other&&other.width>0&&other.height>0&&[other.x,other.y,other.width,other.height].every(integer)&&overlap(x,v.shape,other,ov.shape)){const r={x:Math.max(x.x,other.x),y:Math.max(x.y,other.y),width:Math.min(x.x+x.width,other.x+other.width)-Math.max(x.x,other.x),height:Math.min(x.y+x.height,other.y+other.height)-Math.max(x.y,other.y)};add('OVERLAP',`${name}과 ${j+1}번 ${ov.name}이 겹칩니다. ${v.shape==='RECT'&&ov.shape==='RECT'?'겹친 영역':'겹침 확인 범위'} ${regionText(r)}. 두 도형의 변이 맞닿도록 위치·크기를 조정해 주세요.`,{itemIds:[x.id,other.id],region:r});}}
+      if(config.mode==='FILL'&&v.shape!=='RECT')add('FILL_SHAPE',`${name}: 전체 영역 꽉 채우기는 사각형만 사용할 수 있습니다.`,{itemIds});
+      area+=x.width*x.height;
     });
-    if(!allowGaps&&config.mode==='FILL'&&area!==w*h)errors.push(`빈 공간이 남아 있습니다. 채움 ${Math.min(100,100*area/(w*h)).toFixed(1)}%`);
-    return {errors:[...new Set(errors)],counts,area,total:w*h};
+    for(const f of countRules){const n=counts[f.key]||0,name=f.labels?.customer||config.fieldLabels?.[f.key]||'항목';if(f.max!=null&&n>Number(f.max))add('COUNT_MAX',`${name}: 현재 ${n}개 / 최대 ${f.max}개입니다. ${n-Number(f.max)}개를 줄여 주세요.`,{fieldKey:f.key,actual:n,max:Number(f.max)});if(!allowGaps&&f.min!=null&&n<Number(f.min))add('COUNT_MIN',`${name}: 현재 ${n}개 / 최소 ${f.min}개입니다. ${Number(f.min)-n}개를 더 배치해 주세요.`,{fieldKey:f.key,actual:n,min:Number(f.min)});}
+    if(!allowGaps&&config.mode==='FILL'&&validGeometry){const regions=gaps({...layout,width:w,height:h}),missingArea=regions.reduce((sum,r)=>sum+r.width*r.height,0);coverage={gaps:regions,missingArea,coveredArea:total-missingArea,fillPercent:100*(total-missingArea)/total};if(missingArea>0)add('EMPTY_SPACE',`빈 공간 ${regions.length}곳 · 합계 ${numberText(missingArea)}mm²가 남아 있습니다. ${regions.slice(0,3).map((r,i)=>`${i+1}번 ${regionText(r)}`).join(' / ')}${regions.length>3?' 외 '+(regions.length-3)+'곳':''}. 주황색 표시를 확인하고 도형을 이동하거나 허용 치수 안에서 늘려 주세요.`,{missingArea,gapCount:regions.length,regions:regions.slice(0,50)});}
+    return report();
+  }
+  function diagnosticsHtml(report,{serverErrors=[],confirmed=false}={}){
+    const errors=[...new Set([...report.errors,...serverErrors])],coverage=report.coverage;
+    const json=JSON.stringify({...report.debug,answerConfirmed:confirmed,serverErrors},null,2);
+    return `<section class="pd-diagnostics ${errors.length?'has-errors':'is-valid'}" aria-label="도면 상세 검증"><strong>${errors.length?'도면 확인이 필요합니다':'도면 배치 검사를 통과했습니다'}</strong>${coverage?`<p>전체 ${numberText(report.total)}mm² · 채운 면적 ${numberText(coverage.coveredArea)}mm² · 빈 면적 ${numberText(coverage.missingArea)}mm²</p>`:''}${errors.length?`<ul>${errors.slice(0,12).map(message=>`<li>${esc(message)}</li>`).join('')}</ul>${errors.length>12?`<small>추가 ${errors.length-12}건은 상세 검사 정보에서 확인하세요.</small>`:''}`:''}${coverage?.gaps.length?`<div class="pd-gap-list"><b>빈 공간 위치 · 도면 왼쪽 위 기준</b>${coverage.gaps.slice(0,20).map((r,i)=>`<button type="button" data-pd-gap="${i}">${i+1}. ${esc(regionText(r))} · 확대</button>`).join('')}</div>`:''}<details class="pd-debug"><summary>상세 검사 정보 · 관리자 문의용</summary><p>화면 확대율과 관계없이 실제 mm 단위로 검사합니다. 아래 내용을 복사해 전달하실 수 있습니다.</p><button type="button" data-pd-copy-debug>검사 정보 복사</button><pre>${esc(json)}</pre></details></section>`;
   }
   function gaps(layout){
     let regions=[{x:0,y:0,width:layout.width,height:layout.height}];
@@ -136,5 +153,5 @@
     if(!layout||!config)return '';const w=layout.width,h=layout.height,u=Math.max(w,h)/900,guide=measure(layout,{unit:u,showParts:labels}),p=guide.extent,variants=new Map((config.variants||[]).map(v=>[v.key,v]));
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-p.left} ${-p.top} ${w+p.left+p.right} ${h+p.top+p.bottom}" role="img" aria-label="중앙 원점 정면 배치 도면 ${w} × ${h} mm"><rect x="0" y="0" width="${w}" height="${h}" fill="white" stroke="#334155" stroke-width="1.5" vector-effect="non-scaling-stroke"/>${layout.items.map(x=>{const v=variants.get(x.variantKey);if(!v)return '';return `<g transform="translate(${x.x} ${x.y})" color="#334155">${v.shape==='ELLIPSE'?`<ellipse cx="${x.width/2}" cy="${x.height/2}" rx="${x.width/2}" ry="${x.height/2}"`:`<rect x="0" y="0" width="${x.width}" height="${x.height}"`} fill="#f1f5f9" stroke="#334155" vector-effect="non-scaling-stroke"/>${marksSvg(v.marks,x.width,x.height)}</g>`;}).join('')}${guide.markup}</svg>`;
   }
-  return {copy,integer,esc,id,source,sizeStep,bounds,resize,matches,available,overlap,validate,gaps,markFont,marksSvg,measure,svg};
+  return {copy,integer,esc,id,source,sizeStep,bounds,resize,numberText,regionText,diagnosticsHtml,matches,available,overlap,validate,gaps,markFont,marksSvg,measure,svg};
 });

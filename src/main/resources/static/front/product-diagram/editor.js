@@ -2,7 +2,7 @@
   'use strict';
   const $=s=>document.querySelector(s), container=$('#graph'), frameToken=new URLSearchParams(location.search).get('channel');
   const post=(type,data={})=>parent.postMessage({app:'hiddenbath-diagram',channel:frameToken,type,...data},location.origin);
-  let opts,config,answers,fields,layout,graph,board,selected=null,history=[],cursor=-1,loading=false,tool=null,emptyRegions=[],measurementCache=null,exactMove=false;
+  let opts,config,answers,fields,layout,graph,board,selected=null,history=[],cursor=-1,loading=false,tool=null,emptyRegions=[],measurementCache=null,exactMove=false,lastReport=null;
   const clean=n=>Math.abs(n)<1e-8?0:Math.round(n*1e6)/1e6;
   const fmt=n=>typeof n==='number'?String(clean(n)):String(n??'—');
   const editable=()=>!opts?.readOnly;
@@ -24,7 +24,9 @@
   function sendCancel(){if(history.length>1&&!opts?.readOnly&&!confirm('편집 내용을 적용하지 않고 닫으시겠습니까?'))return;post('cancel');}
   $('#cancel').onclick=sendCancel;
   window.addEventListener('message',event=>{
-    if(event.origin!==location.origin||event.source!==parent||event.data?.app!=='hiddenbath-diagram'||event.data.channel!==frameToken||event.data.type!=='init'||opts)return;
+    if(event.origin!==location.origin||event.source!==parent||event.data?.app!=='hiddenbath-diagram'||event.data.channel!==frameToken)return;
+    if(event.data.type==='apply-rejected'){notice('확정 적용 실패'+': '+event.data.message);return;}
+    if(event.data.type!=='init'||opts)return;
     try{init(event.data.options);}catch(e){notice(e.message);post('error',{message:e.message});}
   });
   post('ready');
@@ -94,7 +96,7 @@
     window.addEventListener('blur',()=>{cancelDrawing();graph.fireEvent(new mxEventObject(mxEvent.ESCAPE));graph.graphHandler?.reset();graph.isMouseDown=false;drawGuides();});
     graph.view.addListener(mxEvent.SCALE_AND_TRANSLATE,drawGuides);graph.view.addListener(mxEvent.SCALE,drawGuides);
     container.addEventListener('wheel',event=>{if(event.shiftKey||event.altKey)return;event.preventDefault();const delta=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?container.clientHeight:1);zoomAt(Math.exp(Math.max(-.16,Math.min(.16,-delta*.001))),event.clientX,event.clientY);},{passive:false});
-    for(const id of ['show-grid','show-rulers','show-dimensions'])$('#'+id).onchange=drawGuides;
+    for(const id of ['show-grid','show-rulers','show-dimensions','show-validation'])$('#'+id).onchange=drawGuides;
     draw();remember();palette();fit();
     new ResizeObserver(()=>{if(graph)drawGuides();}).observe(container);
     $('#select-tool').onclick=()=>chooseTool(null);$('#toolbar-delete').onclick=remove;$('#toolbar-duplicate').onclick=duplicate;
@@ -103,7 +105,7 @@
     $('#print').onclick=()=>{const win=window.open('','_blank');if(!win)return notice('출력 창을 열 수 없습니다. 팝업 설정을 확인해 주세요.');win.document.write('<!doctype html><html lang="ko"><meta charset="UTF-8"><title>확정 도면</title><body>'+D.svg(state(),config)+table()+'</body></html>');win.document.close();win.focus();win.print();};
     $('#apply').onclick=()=>{
       if(opts.template){const marks=state().marks;if(marks.some(m=>[m.x1,m.y1,m.x2,m.y2].some(n=>!D.integer(n)||n<0||n>1000)))return notice('기호는 바탕 도형 안에 놓아 주세요.');if(marks.length>100)return notice('내부 기호는 최대 100개입니다.');const cleaned=marks.map(({_editorId,...m})=>m);post('apply',{marks:cleaned});return;}
-      const value=state(),result=check(value);if(result.errors.length)return notice(result.errors.join(' / '));
+      const value=state(),result=check(value);if(result.errors.length){status();$('#validation').scrollIntoView({block:'nearest'});notice(result.errors.join(' / '));return;}
       post('apply',{answer:{choices:[],fields:result.counts,diagram:{...value,snapshot:config}}});
     };
     document.addEventListener('keydown',event=>{if(/INPUT|TEXTAREA|SELECT/.test(event.target.tagName))return;
@@ -145,7 +147,7 @@
     container.addEventListener('pointercancel',()=>{cancelDrawing();notice('그리기를 취소했습니다.');drawLineHandles();});
     container.addEventListener('pointerup',event=>{if(!gesture)return;consume(event);const g=gesture;if(g.type==='draw'&&g.a.x===g.b.x&&g.a.y===g.b.y)g.b=snappedPoint(event);cancelDrawing();if(g.type!=='draw'){commitLine(g.key,g.a,g.b);drawLineHandles();return;}const mark={kind:g.kind,_editorId:D.id(),x1:Math.round(g.a.x/layout.width*1000),y1:Math.round(g.a.y/layout.height*1000),x2:Math.round(g.b.x/layout.width*1000),y2:Math.round(g.b.y/layout.height*1000),text:null};if(mark.kind==='TEXT'){mark.text=prompt('표시할 문자 (80자 이하)','')?.slice(0,80);if(!mark.text)return;mark.x2=Math.min(1000,mark.x1+300);mark.y2=Math.min(1000,mark.y1+100);}if(mark.x1===mark.x2&&mark.y1===mark.y2)return;if(mark.kind!=='LINE'&&(mark.x1===mark.x2||mark.y1===mark.y2))return notice('가로·세로가 있는 영역을 드래그해 주세요.');const next=state();if(next.marks.length>=100)return notice('내부 기호는 최대 100개입니다.');next.marks.push(mark);applyState(next,[mark._editorId]);remember();chooseTool(null);drawLineHandles();notice('기호를 선택했습니다. 이동·조절점·선 끝점·회전점으로 편집하세요.');},true);
   }
-  function check(value,allowGaps=false){const result=D.validate(config,value,answers,fields,allowGaps);for(const f of opts.countRules||[]){const n=result.counts[f.key]||0;if(f.max!=null&&n>Number(f.max))result.errors.push((f.labels?.customer||'항목')+': 최대 '+f.max+'개까지 배치할 수 있습니다.');if(!allowGaps&&f.min!=null&&n<Number(f.min))result.errors.push((f.labels?.customer||'항목')+': 최소 '+f.min+'개를 배치해 주세요.');}return result;}
+  function check(value,allowGaps=false){return D.validate(config,value,answers,fields,allowGaps,opts.countRules||[]);}
   function variant(cell){return config.variants.find(v=>v.key===cell?.pdItem?.variantKey);}
   function state(){
     if(opts.template)return {marks:graph.getChildVertices(board).map(cell=>{const g=cell.geometry,m=cell.pdMark;return {...m,_editorId:cell.pdId,x1:Math.round((m.x1<=m.x2?g.x:g.x+g.width)/layout.width*1000),y1:Math.round((m.y1<=m.y2?g.y:g.y+g.height)/layout.height*1000),x2:Math.round((m.x1<=m.x2?g.x+g.width:g.x)/layout.width*1000),y2:Math.round((m.y1<=m.y2?g.y+g.height:g.y)/layout.height*1000)};})};
@@ -188,7 +190,12 @@
   function drawGuides(){if(!graph||!board)return;const s=graph.view.scale,t=graph.view.translate,ox=(t.x-layout.width/2)*s,oy=(t.y-layout.height/2)*s,w=layout.width*s,h=layout.height*s;
     $('#zoom').textContent=Math.round(s*100)+'%';let minor=10,major=100;while(minor*s<6)minor*=5;while(major*s<35)major*=10;container.style.backgroundSize=`${major*s}px ${major*s}px,${major*s}px ${major*s}px,${minor*s}px ${minor*s}px,${minor*s}px ${minor*s}px`;container.style.backgroundPosition=`${ox}px ${oy}px`;container.classList.toggle('pd-no-grid',!$('#show-grid').checked);
     const drawing=stateForMeasurements(),measureOptions={scale:s,ox,oy,showParts:$('#show-dimensions').checked,showRuler:$('#show-rulers').checked},key=JSON.stringify([layout.width,layout.height,measureOptions,drawing.items.map(i=>[i.x,i.y,i.width,i.height])]);if(measurementCache?.key!==key)measurementCache={key,value:D.measure(drawing,measureOptions)};const m=measurementCache.value;let out=m.markup;
-    out+=emptyRegions.slice(0,50).map(r=>`<rect x="${ox+r.x*s}" y="${oy+r.y*s}" width="${r.width*s}" height="${r.height*s}" fill="#fbbf24" fill-opacity=".13" stroke="#d97706" stroke-opacity=".35" stroke-dasharray="3 3"/>`).join('');
+    if($('#show-validation').checked){
+      out+=emptyRegions.slice(0,100).map((r,i)=>{const rw=Math.max(3,r.width*s),rh=Math.max(3,r.height*s),x=ox+(r.x+r.width/2)*s-rw/2,y=oy+(r.y+r.height/2)*s-rh/2;return `<g data-pd-gap-region="${i}" data-gap-width="${r.width}" data-gap-height="${r.height}"><title>${i+1}번 빈 공간: ${D.esc(D.regionText(r))}</title><rect x="${x}" y="${y}" width="${rw}" height="${rh}" fill="#fbbf24" fill-opacity=".35" stroke="#b45309" stroke-width="2" stroke-dasharray="4 2"/>${rw>85&&rh>20?`<text x="${x+rw/2}" y="${y+rh/2}" text-anchor="middle" font-size="12" fill="#92400e" stroke="white" stroke-width="3" paint-order="stroke">빈 공간 ${r.width} × ${r.height}mm</text>`:''}</g>`;}).join('');
+      const badIds=new Set((lastReport?.issues||[]).flatMap(issue=>issue.itemIds||[]));
+      for(const item of drawing.items)if(badIds.has(item.id))out+=`<rect data-pd-invalid-item="${D.esc(item.id)}" x="${ox+item.x*s}" y="${oy+item.y*s}" width="${item.width*s}" height="${item.height*s}" fill="#ef4444" fill-opacity=".1" stroke="#dc2626" stroke-width="3"/>`;
+      for(const issue of lastReport?.issues||[])if(issue.code==='OVERLAP'&&issue.region){const r=issue.region;out+=`<rect data-pd-overlap x="${ox+r.x*s}" y="${oy+r.y*s}" width="${Math.max(3,r.width*s)}" height="${Math.max(3,r.height*s)}" fill="#ef4444" fill-opacity=".4" stroke="#b91c1c" stroke-width="2"/>`;}
+    }
     const line=(x1,y1,x2,y2,color='#c1ccd9',dash=false,arrow=false)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="1" ${dash?'stroke-dasharray="4 4"':''} ${arrow?`marker-start="url(#${m.markerId})" marker-end="url(#${m.markerId})"`:''}/>`;
     const text=(x,y,value,color='#60758c')=>`<text x="${x}" y="${y}" fill="${color}" font-size="11" text-anchor="middle" stroke="white" stroke-width="3" paint-order="stroke">${D.esc(value)}</text>`;
     // Every coordinate/dimension label stays outside the complete board, including gap labels.
@@ -239,11 +246,19 @@
     for(const r of regions.filter(r=>r.x<=g.x+g.width/2&&r.x+r.width>=g.x+g.width/2&&r.y<=g.y+g.height/2&&r.y+r.height>=g.y+g.height/2)){
       const next=D.copy(previous),i=next.items.find(x=>x.id===sid);Object.assign(i,r);if(!check(next,true).errors.length){applyState(next);remember();return notice('허용 치수 안에서 남은 영역에 맞췄습니다.');}}
     notice(v.name+': 남은 영역이 허용 치수·크기 조정 단위 ('+D.sizeStep(v)+'mm 배수)를 만족하지 않습니다.');}
-  function status(){if(opts.template){$('#status').textContent='내부 기호 '+graph.getChildVertices(board).length+'개 · 고객 치수에 비례해 표시됩니다. 기호 적용 후 이전 창에서 도형저장을 눌러 주세요.';buttons();renderObjects();updateStepGuide();return;}
-    const result=opts.readOnly?{errors:[],counts:state().items.reduce((a,i)=>{const v=config.variants.find(v=>v.key===i.variantKey);if(v)a[v.fieldKey]=(a[v.fieldKey]||0)+1;return a;},{})}:check(state());$('#counts').innerHTML='<h3>배치 개수</h3>'+fields.map(k=>`<div class="pd-count"><span>${D.esc(opts.labels?.[k]||config.variants.find(v=>v.fieldKey===k)?.fieldLabel||config.variants.find(v=>v.fieldKey===k)?.name||'항목')}</span><strong>${result.counts[k]||0}개</strong></div>`).join('');
-    $('#status').textContent=result.errors.length?result.errors.join(' / '):opts.readOnly?'저장된 확정 도면 · 조회 전용':'배치 검사를 통과했습니다. 확정을 누르면 개수를 질문에 반영합니다.';$('#status').classList.toggle('pd-error',!!result.errors.length);
-    emptyRegions=!opts.readOnly&&config.mode==='FILL'?D.gaps(state()).sort((a,b)=>b.width*b.height-a.width*a.height):[];
-    if(emptyRegions.length)$('#status').textContent+=' · 남은 영역 '+emptyRegions.length+'곳: '+emptyRegions.slice(0,3).map(r=>r.width+' × '+r.height+' mm').join(' / ');
-    buttons();drawGuides();updateStepGuide();renderObjects();document.querySelectorAll('[data-variant]').forEach(b=>b.disabled=!editable());}
+  function focusGap(index){const r=emptyRegions[index];if(!r)return;const scale=Math.min(10,Math.max(graph.view.scale,40/Math.max(1,Math.min(r.width,r.height))));graph.view.scaleAndTranslate(scale,layout.width/2-r.x-r.width/2+container.clientWidth/(2*scale),layout.height/2-r.y-r.height/2+container.clientHeight/(2*scale));container.scrollLeft=0;container.scrollTop=0;drawGuides();notice(`${index+1}번 빈 공간 · ${D.regionText(r)}. 주황색 표시는 작은 틈도 보이도록 최소 3픽셀로 강조하며 실제 검사는 mm 치수로 합니다.`);}
+  function status(){
+    if(opts.template){$('#validation').hidden=true;$('#status').textContent='내부 기호 '+graph.getChildVertices(board).length+'개 · 고객 치수에 비례해 표시됩니다. 기호 적용 후 이전 창에서 도형저장을 눌러 주세요.';buttons();renderObjects();updateStepGuide();return;}
+    const result=opts.readOnly?{errors:[],counts:state().items.reduce((a,i)=>{const v=config.variants.find(v=>v.key===i.variantKey);if(v)a[v.fieldKey]=(a[v.fieldKey]||0)+1;return a;},{})}:check(state());lastReport=result;
+    $('#counts').innerHTML='<h3>배치 개수</h3>'+fields.map(k=>`<div class="pd-count"><span>${D.esc(opts.labels?.[k]||config.variants.find(v=>v.fieldKey===k)?.name||'항목')}</span><strong>${result.counts[k]||0}개</strong></div>`).join('');
+    $('#status').textContent=result.errors.length?result.errors[0]+(result.errors.length>1?` (외 ${result.errors.length-1}건 · 오른쪽 상세 검증 확인)`:''):opts.readOnly?'저장된 확정 도면 · 조회 전용':'배치 검사를 통과했습니다. 확정을 누르면 개수를 질문에 반영합니다.';$('#status').classList.toggle('pd-error',!!result.errors.length);
+    emptyRegions=!opts.readOnly&&config.mode==='FILL'?(result.coverage?.gaps||[]):[];
+    const panel=$('#validation');panel.hidden=!!opts.readOnly;
+    if(!opts.readOnly){const open=!!panel.querySelector('.pd-debug[open]');panel.innerHTML=D.diagnosticsHtml(result);if(open)panel.querySelector('.pd-debug').open=true;
+      panel.querySelectorAll('[data-pd-gap]').forEach(button=>button.onclick=()=>focusGap(Number(button.dataset.pdGap)));
+      panel.querySelector('[data-pd-copy-debug]').onclick=async()=>{try{await navigator.clipboard.writeText(panel.querySelector('pre').textContent);notice('검사 정보를 복사했습니다.');}catch{panel.querySelector('.pd-debug').open=true;notice('상세 검사 정보의 내용을 선택해 복사해 주세요.');}};
+    }
+    buttons();drawGuides();updateStepGuide();renderObjects();document.querySelectorAll('[data-variant]').forEach(b=>b.disabled=!editable());
+  }
   function table(){if(opts.template)return '';return '<table border="1" cellpadding="8"><tr><th>번호</th><th>종류</th><th>가로×높이 mm</th><th>중앙 원점 중심 X / Y mm</th></tr>'+state().items.map((i,n)=>`<tr><td>${n+1}</td><td>${D.esc(config.variants.find(v=>v.key===i.variantKey)?.name)}</td><td>${i.width} × ${i.height}</td><td>${i.x+i.width/2-layout.width/2} / ${layout.height/2-i.y-i.height/2}</td></tr>`).join('')+'</table>';}
 })(ProductDiagram);
