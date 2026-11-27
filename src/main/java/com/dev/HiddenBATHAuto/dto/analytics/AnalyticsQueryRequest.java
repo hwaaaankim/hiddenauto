@@ -33,6 +33,8 @@ public class AnalyticsQueryRequest {
 
     private String keyword;
     private List<String> recordKinds; // PAID/RETURN/COLLECTION/ADJUSTMENT; null = all
+    private String deliveryView = "NONE"; // NONE / METHOD / COMPOSITION
+    private String deliveryMethod = "ALL"; // ALL / UNASSIGNED / delivery method ID
     private String timeGrouping = "NONE"; // NONE/DAY/WEEK/MONTH
     private String chartType = "BAR"; // BAR/HORIZONTAL/LINE
     private List<String> chartMetrics;

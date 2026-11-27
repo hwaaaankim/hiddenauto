@@ -4,25 +4,30 @@ let analyticsDetailsPage=0, analyticsDetailsTotal=0, analyticsDetailsSequence=0,
 const analyticsKindForMetric=key=>key.startsWith("return")?"RETURN":key.startsWith("collection")?"COLLECTION":key.startsWith("paid")?"PAID":key.startsWith("adjustment")?"ADJUSTMENT":({productionRequestQty:"PRODUCTION_REQUEST",productionDoneQty:"PRODUCTION_DONE",productionPendingQty:"PRODUCTION_PENDING"}[key]||"ALL");
 const analyticsViewElement=id=>document.getElementById(id);
 function analyticsChartCodes() {
-    const primary=analyticsViewElement("analyticsChartMetric")?.value||xMetrics[0]||"SALES";
+    const available=xMetrics.length?xMetrics:["SUPPLY_AMOUNT","VAT_AMOUNT","SALES","TASK_COUNT","QTY"];
+    const choice=analyticsViewElement("analyticsChartMetric")?.value;
+    const primary=available.includes(choice)?choice:available[0];
     return [primary,...Array.from(document.querySelectorAll("[data-chart-compare]:checked")).map(input=>input.dataset.chartCompare)];
 }
 function analyticsRefreshCompare() {
-    const box=analyticsViewElement("analyticsChartCompare");if(!box)return;
+    const box=analyticsViewElement("analyticsChartCompare"),select=analyticsViewElement("analyticsChartMetric");if(!box||!select)return;
     const selected=new Set(Array.from(box.querySelectorAll("input:checked")).map(input=>input.dataset.chartCompare));
-    const primary=analyticsViewElement("analyticsChartMetric")?.value||xMetrics[0]||"SALES",unit=analyticsMetricDefinitions[primary].unit;
-    box.replaceChildren();
-    for(const [code,metric]of Object.entries(analyticsMetricDefinitions)) {
-        if(code===primary||metric.unit!==unit)continue;
+    const available=xMetrics.length?xMetrics:["SUPPLY_AMOUNT","VAT_AMOUNT","SALES","TASK_COUNT","QTY"];
+    const primary=available.includes(select.value)?select.value:available[0];
+    select.replaceChildren(new Option("표의 첫 지표",""));
+    for(const code of available){const metric=analyticsMetricDefinitions[code];select.append(new Option(metric.label+" ("+metric.unit+")",code));}select.value=primary;
+    box.replaceChildren();const composition=analyticsViewElement("analyticsDeliveryView")?.value==="COMPOSITION";
+    for(const code of available) {
+        if(code===primary)continue;const metric=analyticsMetricDefinitions[code];
         const label=document.createElement("label"),input=document.createElement("input"),text=document.createElement("span");
-        input.type="checkbox";input.dataset.chartCompare=code;input.checked=selected.has(code);text.textContent=metric.label;
-        input.onchange=()=>{if(analyticsChartCodes().length>4){input.checked=false;alert("그래프 지표는 같은 단위로 최대 4개까지 선택해 주세요.");return;}analyticsRefreshIfLoaded();};
+        input.type="checkbox";input.dataset.chartCompare=code;input.checked=!composition&&selected.has(code);input.disabled=composition;text.textContent=metric.label+" ("+metric.unit+")";
+        input.onchange=()=>{if(analyticsChartCodes().length>4){input.checked=false;alert("그래프 지표는 최대 4개까지 선택해 주세요.");return;}analyticsRefreshIfLoaded();};
         label.append(input,text);box.append(label);
     }
 }
 function analyticsRefreshIfLoaded(){if(appliedRequest)queryAndRender(true);}
 const analyticsBaseAxis=renderAxisUI;
-renderAxisUI=function(){analyticsBaseAxis();analyticsRefreshCompare();};
+renderAxisUI=function(){analyticsBaseAxis();analyticsRefreshCompare();analyticsSyncDelivery();};
 const analyticsBaseSync=syncAxisOrder;
 syncAxisOrder=function(){const first=xMetrics[0];analyticsBaseSync();if(first!==xMetrics[0])analyticsRefreshCompare();};
 const analyticsBaseRequest=buildRequestBody;
@@ -31,11 +36,16 @@ buildRequestBody=function(){
     const selected=xMetrics.length?xMetrics:["SUPPLY_AMOUNT","VAT_AMOUNT","SALES","TASK_COUNT","QTY"];
     const visible=new Set(selected.map(code=>analyticsMetricDefinitions[code].key));
     for(const key of grouping!=="NONE"?["period"]:yPrimary==="COMPANY"?["companyName","ownerName",...(ySubs.includes("ADDRESS")?["address"]:[])]:["type","label"])visible.add(key);
+    if(analyticsViewElement("analyticsDeliveryView")?.value!=="NONE")visible.add("deliveryName");
+    if(analyticsViewElement("analyticsDeliveryView")?.value==="METHOD")for(const key of ["companyName","ownerName","address","type","label"])visible.delete(key);
     if(!visible.has(sortKey))sortKey="";
     const first=selected[0],defaultMetric=["SUPPLY_AMOUNT","VAT_AMOUNT","SALES"].includes(first)&&["SUPPLY_AMOUNT","VAT_AMOUNT","SALES"].every(code=>selected.includes(code))?"SALES":first;
     if(!sortKey) {sortKey=grouping==="NONE"?analyticsMetricDefinitions[defaultMetric].key:"period";sortDir=grouping==="NONE"?"desc":"asc";}
     body.sortKey=sortKey;body.sortDir=sortDir;
     body.keyword=analyticsViewElement("analyticsKeyword")?.value.trim()||"";
+    body.deliveryView=analyticsViewElement("analyticsDeliveryView")?.value||"NONE";
+    body.deliveryMethod=analyticsViewElement("analyticsDeliveryMethod")?.value||"ALL";
+    if(body.deliveryView!=="NONE"&&body.productBreakdown){body.productBreakdown.standardLevel="CATEGORY";body.productBreakdown.nonStandardLevel="SORT";}
     body.recordKinds=Array.from(document.querySelectorAll("[data-record-kind]:checked")).map(input=>input.dataset.recordKind);
     body.timeGrouping=grouping;body.chartType=analyticsViewElement("analyticsChartType")?.value||"BAR";
     body.chartMetrics=analyticsChartCodes();body.chartLimit=Number(analyticsViewElement("analyticsChartLimit")?.value||"0");
@@ -52,7 +62,7 @@ queryAndRender=async function(reset){
 };
 const analyticsBaseBusy=setQueryBusy;
 setQueryBusy=function(busy){
-    analyticsBaseBusy(busy);const loading=analyticsViewElement("analyticsLoading");if(loading&&!window.AnalyticsFeedback)loading.hidden=!busy;
+    analyticsBaseBusy(busy);const graphLoading=analyticsViewElement("analyticsChartLoading");if(graphLoading)graphLoading.hidden=!busy;analyticsViewElement("analyticsGraphPanel")?.setAttribute("aria-busy",String(busy));const loading=analyticsViewElement("analyticsLoading");if(loading&&!window.AnalyticsFeedback)loading.hidden=!busy;
     for(const id of ["analyticsCsvBtn","analyticsPngBtn"]){const node=analyticsViewElement(id);if(node)node.disabled=busy||!totalRows||(id==="analyticsPngBtn"&&!chartInstance);}
     window.AnalyticsFeedback?.setQueryBusy(busy,totalRows,!!chartInstance||!!window.AnalyticsWorkspace?.hasChartData());
 };
@@ -69,11 +79,11 @@ renderTable=function(rows,reset){
             if(!column.unit||!scope)return;
             const cell=tr.children[colIndex],button=document.createElement("button");button.type="button";button.className="analytics-value-button";
             button.textContent=cell.textContent;button.title=column.label+"에 포함된 실제 품목 보기";
-            button.onclick=()=>analyticsOpenDetails(scope,analyticsKindForMetric(column.key),String(row.companyName||row.label||row.period||"선택 행")+" · "+column.label);
+            button.onclick=()=>analyticsOpenDetails(scope,analyticsKindForMetric(column.key),String(row.companyName||row.label||row.deliveryName||row.period||"선택 행")+" · "+column.label);
             cell.replaceChildren(button);
         });
         const td=document.createElement("td"),button=document.createElement("button");td.className="analytics-action-cell";button.type="button";button.className="btn btn-sm btn-light border analytics-detail-button";button.textContent="상세보기";button.disabled=!scope;
-        button.onclick=()=>analyticsOpenDetails(scope,"ALL",String(row.companyName||row.label||row.period||"선택 행"));td.append(button);tr.append(td);
+        button.onclick=()=>analyticsOpenDetails(scope,"ALL",String(row.companyName||row.label||row.deliveryName||row.period||"선택 행"));td.append(button);tr.append(td);
     });
     for(const th of head.querySelectorAll("th"))th.removeAttribute("aria-sort");
     const sortIndex=currentColumns.findIndex(column=>column.key===sortKey);if(sortIndex>=0&&head.firstElementChild)head.firstElementChild.children[sortIndex].setAttribute("aria-sort",sortDir==="asc"?"ascending":"descending");
@@ -122,12 +132,8 @@ renderChart=function(chart){
     const canvas=analyticsViewElement("analyticsChart");if(!canvas)return;
     chartInstance?.destroy();chartInstance=null;
     if(!chart?.labels?.length){analyticsViewElement("analyticsGraphNote").textContent="현재 조건에 맞는 그래프 데이터가 없습니다.";return;}
-    const horizontal=chart.type==="horizontal",line=chart.type==="line";
-    const series=chart.series?.length?chart.series:[{label:chart.title,values:chart.values,color:"#2563eb"}];
-    analyticsViewElement("analyticsChartInner").style.height=(horizontal?Math.max(320,chart.labels.length*32+115):380)+"px";
-    const whiteBackground={id:"analyticsWhiteBackground",beforeDraw(instance){const context=instance.ctx;context.save();context.globalCompositeOperation="destination-over";context.fillStyle="#fff";context.fillRect(0,0,instance.width,instance.height);context.restore();}};
-    chartInstance=new Chart(canvas,{type:line?"line":"bar",data:{labels:chart.labels,datasets:series.map(s=>({label:s.label,data:s.values,borderColor:s.color,backgroundColor:s.color||"#2563eb",borderWidth:line?2:0,borderRadius:line?0:4,pointRadius:chart.labels.length>60?0:3,pointHitRadius:8,tension:0,fill:false}))},plugins:[whiteBackground],options:{indexAxis:horizontal?"y":"x",responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:"index",intersect:false},scales:{[horizontal?"x":"y"]:{beginAtZero:true,grid:{color:"#e2e8f0"},ticks:{precision:0,callback:value=>formatAnalyticsNumber(value)}},[horizontal?"y":"x"]:{grid:{display:false},ticks:{autoSkip:!horizontal,maxTicksLimit:horizontal?undefined:12}}},plugins:{title:{display:true,text:chart.title||"분석 그래프",color:"#334155",font:{size:15,weight:"600"},padding:{bottom:6}},subtitle:{display:true,text:[(appliedRequest?(appliedRequest.fromDate||"과거 전체")+" ~ "+(appliedRequest.toDate||"미래 전체")+" · ":"")+"단위: "+(chart.unit||""),chart.note||""].filter(Boolean),color:"#64748b",font:{size:11},padding:{bottom:8}},legend:{position:"top",labels:{boxWidth:12,padding:18}},tooltip:{callbacks:{label:context=>`${context.dataset.label}: ${formatAnalyticsNumber(horizontal?context.parsed.x:context.parsed.y)}${chart.unit||""}`}}}}});
-    analyticsViewElement("analyticsGraphNote").textContent=(chart.note||chart.title||"")+" · 단위: "+(chart.unit||"");
+    chartInstance=window.AnalyticsCharts.render(canvas,chart,analyticsViewElement("analyticsChartInner"));
+    analyticsViewElement("analyticsGraphNote").textContent=(chart.note||chart.title||"")+" · 단위별 독립 축: "+(chart.unit||"");
 };
 function analyticsSaveBlob(blob,filename){const url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=filename;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 async function analyticsExportCsv(){
@@ -184,7 +190,7 @@ async function analyticsLoadDetails(pageNumber=0){
             for(const [key,value]of[["date",row.dateTime],["company",row.companyName],["category",row.type+" · "+row.category],["product",row.series+" / "+row.product],["kind",row.kind],["quantity",formatAnalyticsNumber(row.quantity)],["supplyAmount",formatAnalyticsNumber(row.supplyAmount)],["vatAmount",formatAnalyticsNumber(row.vatAmount)],["amount",formatAnalyticsNumber(row.amount)],["status",row.status],["id",String(row.orderId)]]){
                 const td=document.createElement("td");if(key==="kind"){const badge=document.createElement("span");badge.className="analytics-kind-badge analytics-kind-"+row.kindCode;badge.textContent=value;td.append(badge);}else td.textContent=value;
                 if(key==="company"&&row.companyId!=null)td.title="업체번호 "+row.companyId;
-                if(key==="product"&&(row.color||row.size)){const detail=document.createElement("small");detail.className="d-block text-muted mt-1";detail.textContent=[row.color,row.size].filter(Boolean).join(" · ");td.append(detail);}
+                if(key==="product"&&(row.color||row.size||row.deliveryMethod)){const detail=document.createElement("small");detail.className="d-block text-muted mt-1";detail.textContent=[row.color,row.size,row.deliveryMethod].filter(Boolean).join(" · ");td.append(detail);}
                 if(["quantity","supplyAmount","vatAmount","amount","id"].includes(key)){td.className="text-end analytics-detail-number";td.dataset.columnKey=key;if(Number(row[key])<0)td.classList.add("analytics-negative");}tr.append(td);
             }body.append(tr);
         }
@@ -231,4 +237,25 @@ document.addEventListener("DOMContentLoaded",()=>{
     for(const id of ["analyticsDetailKind","analyticsDetailDay","analyticsDetailSort"])analyticsViewElement(id).onchange=()=>analyticsLoadDetails(0);
     analyticsViewElement("analyticsDetailKeyword").oninput=()=>{clearTimeout(analyticsDetailsDebounce);analyticsDetailsDebounce=setTimeout(()=>analyticsLoadDetails(0),300);};
     analyticsViewElement("analyticsDetailsPrev").onclick=()=>analyticsLoadDetails(Math.max(0,analyticsDetailsPage-1));analyticsViewElement("analyticsDetailsNext").onclick=()=>analyticsLoadDetails(analyticsDetailsPage+1);
+});
+
+function analyticsSyncDelivery() {
+    const view=analyticsViewElement("analyticsDeliveryView");if(!view)return;view.disabled=!yPrimary;
+    const active=view.value!=="NONE";
+    for(const id of ["analyticsTimeGrouping","btnAddDimStandard","btnAddDimNonStandard","standardLevelSelect","nonStandardLevelSelect"]){const node=analyticsViewElement(id);if(node)node.disabled=active||(id.startsWith("btnAddDim")&&yPrimary!=="PRODUCT");}
+    for(const node of document.querySelectorAll("#xAxisBox [data-dimension] button, [data-dimension] button"))node.disabled=active;
+    analyticsViewElement("analyticsDeliveryHelp").textContent=active?"배송수단 비교에서는 기간 추이와 시리즈·제품·색상 축을 함께 사용하지 않습니다. 제품별은 대분류 기준이며 구성 그래프는 한 지표를 배송수단 색상별로 비교합니다.":"업체별 또는 제품별을 선택한 뒤 배송수단 보기로 전환할 수 있습니다.";
+}
+document.addEventListener("DOMContentLoaded",()=>{
+    analyticsViewElement("analyticsDeliveryView").onchange=()=>{
+        if(analyticsViewElement("analyticsDeliveryView").value!=="NONE"){
+            analyticsViewElement("analyticsTimeGrouping").value="NONE";analyticsViewElement("analyticsChartSortDir").disabled=false;
+            analyticsViewElement("analyticsChartLimit").querySelector('[value="0"]').disabled=true;if(analyticsViewElement("analyticsChartLimit").value==="0")analyticsViewElement("analyticsChartLimit").value="10";
+            standardLevel="CATEGORY";nonStandardLevel="SORT";
+        }sortKey="";renderAxisUI();analyticsRefreshCompare();analyticsRefreshIfLoaded();
+    };
+    analyticsViewElement("analyticsDeliveryMethod").onchange=analyticsRefreshIfLoaded;
+    fetch("/analytics/api/delivery-methods").then(async r=>{if(!r.ok)throw new Error("배송수단 목록 조회 실패");for(const d of await r.json())analyticsViewElement("analyticsDeliveryMethod").append(new Option(d.label,d.value));})
+        .catch(()=>{analyticsViewElement("analyticsDeliveryHelp").textContent="배송수단 목록을 불러오지 못했습니다. 전체·미지정 조회는 가능하며 새로고침 후 다시 확인해 주세요.";});
+    analyticsSyncDelivery();
 });

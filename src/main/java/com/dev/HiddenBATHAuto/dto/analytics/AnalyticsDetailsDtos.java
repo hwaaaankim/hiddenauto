@@ -14,6 +14,7 @@ public final class AnalyticsDetailsDtos {
   private Boolean standard;
   private List<String> path;
   private String period;
+  private String deliveryMethod;
  }
  @Data public static class Request {
   private AnalyticsQueryRequest query;
@@ -45,6 +46,7 @@ public final class AnalyticsDetailsDtos {
   private long vatAmount;
   private long amount;
   private String status;
+  private String deliveryMethod;
  }
  @Data @Builder public static class Day {
   private String date;

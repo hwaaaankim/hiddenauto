@@ -14,31 +14,7 @@
     }
 
 
-    const SUBJECT_MAP = {
-        '상부장': [
-            '도어 파손', '도어 스크레치', '도어 휘어짐', '도어 변색', '도어 단차 불량',
-            '도어 마감 불량', '손잡이 불량', '바디 변색', '바디 스크래치', '바디 파손',
-            '개폐 불량', '경첩 불량', 'LED 점등 불량', '오출고', '기타 사유'
-        ],
-        '슬라이드장': [
-            '도어 파손', '도어 스크레치', '도어 변색', '도어 간격 불량', '바디 변색',
-            '바디 스크레치', '바디 파손', '개폐불량', '댐퍼불량', '손잡이 불량',
-            'LED 점등 불량', '오출고', '기타 사유'
-        ],
-        '플랩장': [
-            '도어 파손', '도어 스크레치', '도어 변색', '도어 단차 불량', '유압 불량',
-            '바디 변색', '바디 스크래치', '바디 파손', '개폐 불량', '경첩 불량',
-            'LED 점등 불량', '오출고', '기타 사유'
-        ],
-        '하부장': [
-            '도어 단차 불량', '서랍 개폐불량', '도어 마감 불량', '오출고', '기타 사유'
-        ],
-        '거울': [
-            '테두리 도장 불량', '유리 스크레치', '유리 파손', '유리 변색',
-            'LED 점등 불량', '오출고', '기타 사유'
-        ]
-    };
-
+    const SUBJECT_MAP = window.HiddenBathAsReasons || {};
     const SUPPORTED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'heic', 'heif'];
     const SUPPORTED_VIDEO_EXTENSIONS = ['mp4', 'mov', 'avi', 'm4v', 'wmv', 'webm', 'mkv'];
 
@@ -55,6 +31,11 @@
             return;
         }
 
+        if (!Object.keys(SUBJECT_MAP).length) {
+            if (ctx.submit) ctx.submit.disabled = true;
+            showToast(ctx, 'AS 신청 사유 목록을 불러오지 못했습니다. 페이지를 새로고침한 뒤 다시 신청해 주세요.', 'error');
+            return;
+        }
         bindPhoneFormatter(ctx.onsiteContact);
         bindPhoneFormatter(ctx.applicantPhone);
         bindCommonEvents(ctx);

@@ -17,11 +17,31 @@ public final class AnalyticsChartRenderer {
     private static void text(StringBuilder svg,double x,double y,String text,String anchor,int size) {
         svg.append("<text x=\"").append(num(x)).append("\" y=\"").append(num(y)).append("\" text-anchor=\"").append(anchor).append("\" font-size=\"").append(size).append("\">").append(esc(text)).append("</text>");
     }
-    public static String svg(AnalyticsQueryResponse.ChartData chart) { return render(chart,0,chart.getLabels().size()); }
+    public static List<AnalyticsQueryResponse.ChartData> unitCharts(AnalyticsQueryResponse.ChartData chart) {
+        if(chart.getSeries()==null||chart.getSeries().isEmpty())return List.of(chart);
+        var units=chart.getSeries().stream().map(s->s.getUnit()==null?chart.getUnit():s.getUnit()).distinct().toList();
+        if(units.size()==1)return List.of(chart);
+        List<AnalyticsQueryResponse.ChartData> result=new ArrayList<>();
+        for(String unit:units) {
+            var series=chart.getSeries().stream().filter(s->java.util.Objects.equals(unit,s.getUnit()==null?chart.getUnit():s.getUnit())).toList();
+            result.add(AnalyticsQueryResponse.ChartData.builder().title(chart.getTitle()+" · "+unit+" 축").type(chart.getType()).labels(chart.getLabels()).series(series)
+                .values(series.get(0).getValues()).unit(unit).valueKey(series.get(0).getKey()).totalPoints(chart.getTotalPoints()).stacked(chart.isStacked())
+                .note("다른 단위는 별도 축으로 비교합니다. 항목과 순서는 화면과 같습니다. "+(chart.getNote()==null?"":chart.getNote())).build());
+        }return result;
+    }
+    public static String svg(AnalyticsQueryResponse.ChartData chart) {
+        var charts=unitCharts(chart);if(charts.size()==1)return render(chart,0,chart.getLabels().size());
+        StringBuilder svg=new StringBuilder();double offset=0;
+        for(var panel:charts){String part=render(panel,0,panel.getLabels().size());double height="horizontal".equals(panel.getType())?Math.max(340,125+panel.getLabels().size()*36):440;
+            svg.append(part.replace("style=\"width:100%;height:auto;background:white\"", "").replace("<svg xmlns=", "<svg x=\"0\" y=\""+num(offset)+"\" width=\"1200\" height=\""+num(height)+"\" xmlns="));offset+=height;}
+        return "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1200 "+num(offset)+"\" style=\"width:100%;height:auto\">"+svg+"</svg>";
+    }
     public static List<String> pages(AnalyticsQueryResponse.ChartData chart) {
         List<String> pages=new ArrayList<>();
-        int chunk="horizontal".equals(chart.getType())?16:chart.getLabels().size();
-        for(int start=0;start<chart.getLabels().size();start+=Math.max(1,chunk)) pages.add(render(chart,start,Math.min(start+chunk,chart.getLabels().size())));
+        for(var panel:unitCharts(chart)) {
+            int chunk="horizontal".equals(panel.getType())?16:panel.getLabels().size();
+            for(int start=0;start<panel.getLabels().size();start+=Math.max(1,chunk)) pages.add(render(panel,start,Math.min(start+chunk,panel.getLabels().size())));
+        }
         return pages;
     }
     private static String render(AnalyticsQueryResponse.ChartData chart,int start,int end) {
@@ -29,7 +49,7 @@ public final class AnalyticsChartRenderer {
         if(series==null||series.isEmpty())series=List.of(AnalyticsQueryResponse.ChartSeries.builder().label(chart.getTitle()).color("#2563eb").values(chart.getValues()).build());
         boolean horizontal="horizontal".equals(chart.getType()), line="line".equals(chart.getType());
         int n=end-start;double width=1200,height=horizontal?Math.max(340,125+n*36):440;
-        double left=horizontal?290:102,right=36,top=90,bottom=horizontal?55:88,plotW=width-left-right,plotH=height-top-bottom;
+        double left=horizontal?290:102,right=36,top=90+Math.max(0,(series.size()-1)/4)*18,bottom=horizontal?55:88,plotW=width-left-right,plotH=height-top-bottom;
         double min=0,max=0;
         for(var s:series)for(Number value:s.getValues()){min=Math.min(min,value.doubleValue());max=Math.max(max,value.doubleValue());}
         if(max==min)max=min+1;
@@ -39,8 +59,8 @@ public final class AnalyticsChartRenderer {
         double range=max-min;int ticks=(int)Math.round(range/step);
         StringBuilder svg=new StringBuilder("<svg xmlns=\"http://www.w3.org/2000/svg\" role=\"img\" viewBox=\"0 0 1200 "+num(height)+"\" style=\"width:100%;height:auto;background:white\"><title>"+esc(chart.getTitle())+"</title><rect width=\"100%\" height=\"100%\" fill=\"white\"/><g fill=\"#334155\" font-family=\"Noto Sans CJK KR, Malgun Gothic, Arial, sans-serif\">");
         text(svg,24,27,chart.getTitle(),"start",18);
-        for(int k=0;k<series.size();k++){var s=series.get(k);String color=s.getColor()!=null&&s.getColor().matches("#[0-9a-fA-F]{6}")?s.getColor():"#2563eb";double x=24+k*280;
-            svg.append("<rect x=\"").append(x).append("\" y=\"44\" width=\"14\" height=\"10\" rx=\"2\" fill=\"").append(color).append("\"/>");text(svg,x+21,54,s.getLabel(),"start",12);}
+        for(int k=0;k<series.size();k++){var s=series.get(k);String color=s.getColor()!=null&&s.getColor().matches("#[0-9a-fA-F]{6}")?s.getColor():"#2563eb";double x=24+(k%4)*290;
+            svg.append("<rect x=\"").append(x).append("\" y=\""+(44+(k/4)*18)+"\" width=\"14\" height=\"10\" rx=\"2\" fill=\"").append(color).append("\"/>");text(svg,x+21,54+(k/4)*18,s.getLabel(),"start",12);}
         text(svg,width-right,75,"단위: "+chart.getUnit()+(start>0||end<chart.getLabels().size()?" · "+(start+1)+"~"+end+" / "+chart.getLabels().size():""),"end",12);
         for(int tick=0;tick<=ticks;tick++){double value=min+step*tick,x=left+plotW*(value-min)/range,y=top+plotH*(max-value)/range;
             if(horizontal){svg.append("<line x1=\"").append(num(x)).append("\" x2=\"").append(num(x)).append("\" y1=\"").append(top).append("\" y2=\"").append(num(top+plotH)).append("\" stroke=\"#e2e8f0\"/>");text(svg,x,top+plotH+23,label(value),"middle",11);}

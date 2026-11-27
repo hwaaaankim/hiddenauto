@@ -67,6 +67,10 @@ public class AnalyticsQueryResponse {
         private String filterText;
         private String generatedAtText;
         private boolean compactTable;
+        @com.fasterxml.jackson.annotation.JsonProperty("yAxisText") public String getYAxisText(){return yAxisText;}
+        @com.fasterxml.jackson.annotation.JsonProperty("ySubText") public String getYSubText(){return ySubText;}
+        @com.fasterxml.jackson.annotation.JsonProperty("xAxisText") public String getXAxisText(){return xAxisText;}
+        @com.fasterxml.jackson.annotation.JsonProperty("xDimText") public String getXDimText(){return xDimText;}
         private String sortText;       // 예: "정렬: 매출액 내림차순"
     }
 
@@ -120,6 +124,7 @@ public class AnalyticsQueryResponse {
         private String key;
         private String label;
         private String color;
+        private String unit;
         private List<Number> values;
     }
 
@@ -136,6 +141,7 @@ public class AnalyticsQueryResponse {
         private int totalPoints;
         private String note;
         private String unit;
+        private boolean stacked;
         private String valueKey;
 
         private double maxValue; // ✅ 추가 (0이면 막대 0%)

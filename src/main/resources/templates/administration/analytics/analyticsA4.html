@@ -379,7 +379,7 @@
     <div th:if="${bundle != null && bundle.chart != null && bundle.chart.svg != null}">
         <div class="chart-wrap" th:each="svg : ${bundle.chart.svgPages}" th:utext="${svg}" style="break-inside:avoid;margin-bottom:10px"></div>
         <p class="note" th:text="${bundle.chart.note}"></p>
-        <table class="rank-table"><thead><tr><th>그래프 항목 / 기간</th><th class="numeric" th:each="series : ${bundle.chart.series}" th:text="${series.label + ' (' + bundle.chart.unit + ')'}"></th></tr></thead>
+        <table class="rank-table"><thead><tr><th>그래프 항목 / 기간</th><th class="numeric" th:each="series : ${bundle.chart.series}" th:text="${series.label + ' (' + series.unit + ')'}"></th></tr></thead>
             <tbody><tr th:each="label, stat : ${bundle.chart.labels}"><td th:text="${label}"></td><td class="numeric" th:each="series : ${bundle.chart.series}" th:text="${#numbers.formatInteger(series.values[stat.index],1,'COMMA')}"></td></tr></tbody>
         </table>
     </div>

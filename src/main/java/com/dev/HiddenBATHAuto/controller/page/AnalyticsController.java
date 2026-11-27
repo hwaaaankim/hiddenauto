@@ -36,6 +36,10 @@ public class AnalyticsController {
         return "administration/analytics/analytics";
     }
 
+    @GetMapping("/api/delivery-methods")
+    @ResponseBody
+    public java.util.List<Map<String,String>> deliveryMethods() { return analyticsService.deliveryOptions(); }
+
     @PostMapping("/api/query")
     @ResponseBody
     public AnalyticsQueryResponse query(@RequestBody AnalyticsQueryRequest req) {

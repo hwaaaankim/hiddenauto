@@ -13,8 +13,11 @@ import com.dev.HiddenBATHAuto.model.task.OrderStatus;
 
 public interface AnalyticsOrderRepository extends JpaRepository<Order, Long> {
 
+    @Query("select d from DeliveryMethod d order by d.id")
+    List<com.dev.HiddenBATHAuto.model.caculate.DeliveryMethod> deliveryOptions();
+
     // A single order belongs to exactly one analytics row. Never fetch Task.orders here.
-    @EntityGraph(attributePaths = {"task", "task.requestedBy", "task.requestedBy.company", "orderItem"})
+    @EntityGraph(attributePaths = {"task", "task.requestedBy", "task.requestedBy.company", "orderItem", "deliveryMethod"})
     @Query("""
             select o from Order o
             where (:from is null or o.createdAt >= :from)

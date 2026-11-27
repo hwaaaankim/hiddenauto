@@ -166,7 +166,7 @@ public class AnalyticsExcelExporter {
         }
     }
 
-    private void writeSelectedChart(Workbook workbook, AnalyticsQueryResponse.ChartData data,
+    public void writeSelectedChart(Workbook workbook, AnalyticsQueryResponse.ChartData data,
                                     AnalyticsQueryResponse.Meta meta, CellStyle headerStyle, CellStyle bodyStyle) {
         if(data==null||data.getLabels()==null||data.getLabels().isEmpty())return;
         XSSFSheet sheet=(XSSFSheet)workbook.createSheet("선택그래프");
@@ -176,12 +176,15 @@ public class AnalyticsExcelExporter {
         sheet.createRow(3).createCell(0).setCellValue(data.getNote());
         List<AnalyticsQueryResponse.ChartSeries> series=data.getSeries();
         if(series==null||series.isEmpty())series=List.of(AnalyticsQueryResponse.ChartSeries.builder().label(data.getTitle()).color("#2563eb").values(data.getValues()).build());
-        int header=33;CellStyle numberHeader=numericHeader(workbook,headerStyle);
+        var panels=AnalyticsChartRenderer.unitCharts(data);
+        int header=7+panels.size()*28;CellStyle numberHeader=numericHeader(workbook,headerStyle);
         Row titles=sheet.createRow(header);titles.createCell(0).setCellValue("항목 / 기간");titles.getCell(0).setCellStyle(headerStyle);
-        for(int j=0;j<series.size();j++){Cell c=titles.createCell(j+1);c.setCellValue(series.get(j).getLabel()+" ("+data.getUnit()+")");c.setCellStyle(numberHeader);}
+        for(int j=0;j<series.size();j++){Cell c=titles.createCell(j+1);c.setCellValue(series.get(j).getLabel()+" ("+(series.get(j).getUnit()==null?data.getUnit():series.get(j).getUnit())+")");c.setCellStyle(numberHeader);}
         for(int i=0;i<data.getLabels().size();i++){Row row=sheet.createRow(header+1+i);row.createCell(0).setCellValue(data.getLabels().get(i));for(int j=0;j<series.size();j++){Cell c=row.createCell(j+1);c.setCellValue(series.get(j).getValues().get(i).doubleValue());c.setCellStyle(bodyStyle);}}
-        var drawing=sheet.createDrawingPatriarch();var anchor=drawing.createAnchor(0,0,0,0,0,5,12,31);var chart=drawing.createChart(anchor);
-        chart.setTitleText(data.getTitle());chart.setTitleOverlay(false);chart.getOrAddLegend().setPosition(LegendPosition.BOTTOM);
+        var drawing=sheet.createDrawingPatriarch();
+        for(int panelIndex=0;panelIndex<panels.size();panelIndex++){
+        var panel=panels.get(panelIndex);var anchor=drawing.createAnchor(0,0,0,0,0,5+panelIndex*28,12,31+panelIndex*28);var chart=drawing.createChart(anchor);
+        chart.setTitleText(panel.getTitle()+" ("+panel.getUnit()+")");chart.setTitleOverlay(false);chart.getOrAddLegend().setPosition(LegendPosition.BOTTOM);
         boolean horizontal="horizontal".equals(data.getType()),line="line".equals(data.getType());
         var categories=chart.createCategoryAxis(horizontal?AxisPosition.LEFT:AxisPosition.BOTTOM);
         var values=chart.createValueAxis(horizontal?AxisPosition.BOTTOM:AxisPosition.LEFT);values.setNumberFormat("#,##0");
@@ -190,12 +193,13 @@ public class AnalyticsExcelExporter {
         if(plot instanceof XDDFBarChartData bars){bars.setBarDirection(horizontal?BarDirection.BAR:BarDirection.COL);bars.setBarGrouping(BarGrouping.CLUSTERED);bars.setVaryColors(false);}
         var labels=XDDFDataSourcesFactory.fromStringCellRange(sheet,new CellRangeAddress(header+1,header+data.getLabels().size(),0,0));
         for(int j=0;j<series.size();j++){
-            var source=series.get(j);var numbers=XDDFDataSourcesFactory.fromNumericCellRange(sheet,new CellRangeAddress(header+1,header+data.getLabels().size(),j+1,j+1));
+            var source=series.get(j);if(panel.getSeries()!=null&&!panel.getSeries().contains(source))continue;var numbers=XDDFDataSourcesFactory.fromNumericCellRange(sheet,new CellRangeAddress(header+1,header+data.getLabels().size(),j+1,j+1));
             var item=plot.addSeries(labels,numbers);item.setTitle(source.getLabel());String color=source.getColor()==null?"2563eb":source.getColor().replace("#","");
             var fill=new XDDFSolidFillProperties(XDDFColor.from(Integer.parseInt(color.substring(0,2),16),Integer.parseInt(color.substring(2,4),16),Integer.parseInt(color.substring(4,6),16)));
             var shape=new XDDFShapeProperties();shape.setFillProperties(fill);var outline=new XDDFLineProperties();outline.setFillProperties(fill);outline.setWidth(2.0);shape.setLineProperties(outline);item.setShapeProperties(shape);
         }
-        chart.plot(plot);for(int i=0;i<12;i++)sheet.setColumnWidth(i,i==0?30*256:15*256);sheet.createFreezePane(1,header+1);
+        chart.plot(plot);}
+        for(int i=0;i<12;i++)sheet.setColumnWidth(i,i==0?30*256:15*256);sheet.createFreezePane(1,header+1);
     }
 
     private void writeComparisonSheet(Workbook workbook, List<Map<String, Object>> rows,
@@ -390,7 +394,7 @@ public class AnalyticsExcelExporter {
         h0.setCellStyle(headerStyle);
 
         Cell h1 = hr.createCell(1);
-        h1.setCellValue("첫 그래프 지표: " + (chart.getSeries()!=null&&!chart.getSeries().isEmpty()?chart.getSeries().get(0).getLabel():chart.getValueKey()));
+        h1.setCellValue("첫 그래프 지표: " + (chart.getSeries()!=null&&!chart.getSeries().isEmpty()?chart.getSeries().get(0).getLabel()+" ("+chart.getSeries().get(0).getUnit()+")":chart.getValueKey()));
         h1.setCellStyle(numericHeader(wb,headerStyle));
 
         for (int i = 0; i < chart.getLabels().size(); i++) {

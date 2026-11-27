@@ -776,6 +776,8 @@ async function queryAndRender(reset) {
         const data = await response.json();
         if (id !== querySequence || controller.signal.aborted) return;
         feedback?.update("표와 그래프를 표시하고 있습니다", "합계와 조회 결과를 화면에 반영하고 있습니다.");
+        await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+        if (id !== querySequence || controller.signal.aborted) return;
         totalRows = Number(data.totalRows) || 0;
         currentColumns = Array.isArray(data.columns) ? data.columns : [];
         page = body.page;

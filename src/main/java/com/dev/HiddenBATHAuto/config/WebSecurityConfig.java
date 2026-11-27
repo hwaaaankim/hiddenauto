@@ -120,7 +120,7 @@ public class WebSecurityConfig {
      */
     private final String[] adminsUrls = {
             "/admin/**",
-            "/analytics"
+            "/analytics", "/analytics/**", "/as-analytics", "/as-analytics/**"
     };
 
     private final String[] managementUrls = {
